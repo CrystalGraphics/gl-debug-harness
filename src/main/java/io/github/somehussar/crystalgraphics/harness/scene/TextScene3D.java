@@ -1,6 +1,10 @@
 package io.github.somehussar.crystalgraphics.harness.scene;
 
+import com.crystalgui.core.render.CgUiRuntime;
+import com.crystalgui.ui.UIContainer;
+import com.crystalgui.ui.test.CgUiTest;
 import io.github.somehussar.crystalgraphics.api.PoseStack;
+import io.github.somehussar.crystalgraphics.api.font.CgFontFamily;
 import io.github.somehussar.crystalgraphics.text.render.CgTextRenderer;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -74,7 +78,10 @@ public class TextScene3D implements InteractiveSceneLifecycle {
     private WorldTextRenderHelper helper;
     private WorldTextRenderHelper arHelper;
     private WorldTextRenderHelper jpHelper;
-    
+
+    // ── Real Cgui UI (rendered when paused) ──
+    private UIContainer testUi;
+    private final Matrix4f orthoProjection = new Matrix4f();
 
     @Override
     public void init(HarnessContext ctx) {
@@ -100,12 +107,13 @@ public class TextScene3D implements InteractiveSceneLifecycle {
                 config.getAtlasSize(), config.isMtsdf());
         helper.init();
 
+        //jp  "さあ 剽悍な双眸を エーカム そうさ 先頭に e"
         jpHelper = new WorldTextRenderHelper(HarnessFontUtil.JAPANESE_FONT, fontSizePx,
-                "さあ 剽悍な双眸を エーカム そうさ 先頭に e", layoutWidth, layoutHeight,
+                "HELLO HELLO HELLO HELLO HELLO HELLO e", layoutWidth, layoutHeight,
                 config.getAtlasSize(), config.isMtsdf());
         jpHelper.init();
-
-        arHelper = new WorldTextRenderHelper(HarnessFontUtil.ARABIC_FONT, fontSizePx, "بيانات الاستفسار e", layoutWidth,
+//HI بيانات الاستفسار e
+        arHelper = new WorldTextRenderHelper(HarnessFontUtil.ARABIC_FONT, fontSizePx, "HI HI HI HI HI HI HI", layoutWidth,
                 layoutHeight,
                 config.getAtlasSize(), config.isMtsdf());
         arHelper.init();
@@ -118,6 +126,15 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         if (ctx.getRuntimeServices() != null) {
             scheduleValidationScreenshots();
         }
+
+        // Initialize CgUiRuntime with text support from the first helper's renderer/font
+        if (!CgUiRuntime.isInitialized()) {
+            CgTextRenderer textRenderer = helper.getTextRenderer();
+            CgFontFamily fontFamily = helper.getFontFamily();
+            CgUiRuntime.initialize(textRenderer, fontFamily);
+          
+        }
+
 
         LOGGER.info("[Harness] World text scene (interactive) initialized.");
     }
@@ -190,11 +207,23 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         // can cause incomplete restoration. Use the shared reset helper to guarantee
         // floor, HUD, and pause overlay render correctly in subsequent passes.
         GlStateResetHelper.resetAfterScene();
+
+        // ── Real Cgui test UI (rendered when paused) ──
+        if (ctx.getRuntimeServices() != null && ctx.getRuntimeServices().isPaused() && testUi != null) {
+            testUi.computeLayout(screenWidth, screenHeight);
+            orthoProjection.setOrtho(0, screenWidth, screenHeight, 0, -1, 1);
+            testUi.getPaintContext().setTextFrame(frame.getFrameNumber());
+            testUi.render(orthoProjection);
+        }
     }
 
     @Override
     public void dispose() {
         CgTextRenderer.diagnosticLogging = false;
+        if (testUi != null) {
+            testUi.dispose();
+            testUi = null;
+        }
         if (helper != null) {
             helper.dispose();
         }
