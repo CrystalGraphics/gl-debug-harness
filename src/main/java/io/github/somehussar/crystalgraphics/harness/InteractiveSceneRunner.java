@@ -238,9 +238,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     }
 
     public void init() {
-        worldPassCoordinator.init();
-        overlayPipeline.init();
         scene.init(ctx);
+        overlayPipeline.init(ctx);
+        worldPassCoordinator.init();
     }
     /**
      * Returns the debug tools for LLM-driven camera control and screenshot capture.

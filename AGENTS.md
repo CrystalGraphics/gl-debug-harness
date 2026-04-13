@@ -194,7 +194,7 @@ Pipeline order:
 |------------------------|----------------------------------------------------------------------------------|---|---|
 | `triangle-2d`          | `triangle-2d/triangle.png`                                                       | MANAGED | Basic colored triangle on backbuffer |
 | `text-2d`              | `text-2d/text-scene.png` + `atlas/atlas-dump-<size>px.png`                       | MANAGED | Full text rendered via CgTextRenderer + FBO |
-| `text-3d`              | `text-3d/{name}-normal.png`, `{name}-paused.png`, `{name}-topdown.png`           | INTERACTIVE | Interactive 3D world-space text with camera controls. Implemented by `TextScene3D`. |
+| `text-3d`              | `text-3d/{name}-normal.png`, `{name}-paused.png`, `{name}-topdown.png`           | INTERACTIVE | Interactive 3D world-space text with camera controls. When paused (Escape), renders a real CrystalGUI `UIContainer` via the V3.1 draw-list pipeline. Implemented by `TextScene3D`. |
 | `camera-3d` | `camera-3d/{name}-front-view.png`, etc. (4 angles)                     | INTERACTIVE | 3D camera validation with cube + floor |
 | `atlas-dump`           | `atlas-dump/atlas/atlas-dump-24px.png` + `atlas/atlas-dump-32px.png`             | MANAGED | Glyph atlas dump via CgTextRenderer production pipeline |
 
@@ -644,7 +644,7 @@ io.github.somehussar.crystalgraphics.harness/
 │   ├── AtlasDumpScene.java          # Atlas dump (managed)
 │   ├── TextScene2D.java               # Full text rendering (managed)
 │   ├── TextScene3D.java # Interactive world-text with camera (interactive)
-│   ├── Camera3DValidationScene.java # Camera validation: 4-angle cube captures
+│   └── CameraScene3D.java           # Camera validation: 4-angle cube captures
 ├── scheduler/
 │   └── TaskScheduler.java           # Time-based callback scheduling
 ├── tool/

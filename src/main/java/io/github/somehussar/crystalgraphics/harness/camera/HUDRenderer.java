@@ -151,7 +151,7 @@ public final class HUDRenderer {
      * font loading, glyph registry, text renderer, orthographic projection
      * context, and layout builder.</p>
      */
-    public void init() {
+    public void init(HarnessContext ctx) {
         if (initialized) {
             return;
         }

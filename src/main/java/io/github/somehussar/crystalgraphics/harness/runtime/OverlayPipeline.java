@@ -86,8 +86,8 @@ public final class OverlayPipeline {
      * <p>Must be called once with a valid GL context before any rendering.
      * Delegates to each renderer's init method in dependency order.</p>
      */
-    public void init() {
-        hudRenderer.init();
+    public void init(HarnessContext ctx) {
+        hudRenderer.init(ctx);
         pauseRenderer.init();
         LOGGER.info("[OverlayPipeline] All overlay renderers initialized.");
     }
