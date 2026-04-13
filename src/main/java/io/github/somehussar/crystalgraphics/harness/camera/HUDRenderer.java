@@ -5,7 +5,9 @@ import io.github.somehussar.crystalgraphics.api.PoseStack;
 import io.github.somehussar.crystalgraphics.api.font.CgFont;
 import io.github.somehussar.crystalgraphics.api.font.CgFontStyle;
 import io.github.somehussar.crystalgraphics.api.font.CgTextLayoutBuilder;
+import io.github.somehussar.crystalgraphics.gl.render.CgDynamicTextureRenderLayer;
 import io.github.somehussar.crystalgraphics.text.cache.CgFontRegistry;
+import io.github.somehussar.crystalgraphics.text.render.CgTextLayers;
 import io.github.somehussar.crystalgraphics.text.render.CgTextRenderContext;
 import io.github.somehussar.crystalgraphics.text.render.CgTextRenderer;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -62,6 +64,7 @@ public final class HUDRenderer {
     private CgFont demoFont;
     private CgFontRegistry registry;
     private CgTextRenderer renderer;
+    private CgDynamicTextureRenderLayer textLayer;
     private CgTextRenderContext orthoContext;
     private CgTextLayoutBuilder layoutBuilder;
     private PoseStack poseStack;
@@ -167,6 +170,7 @@ public final class HUDRenderer {
 
         registry = new CgFontRegistry();
         renderer = CgTextRenderer.create(caps, registry);
+        textLayer = CgTextLayers.msdf(CgTextRenderer.MSDF_SHADER);
 
         // Start with a default orthographic projection (updated on first render via updateScaleIfNeeded)
         orthoContext = CgTextRenderContext.orthographic(HarnessContext.DEFAULT_WIDTH, HarnessContext.DEFAULT_HEIGHT);
@@ -223,8 +227,10 @@ public final class HUDRenderer {
         // CgTextRenderer.draw() handles its own GL state save/restore internally
         // via CgStateBoundary, but in the standalone harness the GLStateMirror
         // may be in UNKNOWN state, so we also do explicit cleanup after draw.
-        renderer.draw(layout, font, currentQuadOffset, currentQuadOffset,
+        textLayer.begin(orthoContext.getProjection());
+        renderer.draw(textLayer, layout, font, currentQuadOffset, currentQuadOffset,
                 TEXT_COLOR, frameCounter, orthoContext, poseStack);
+        textLayer.end();
 
         int wheel = Mouse.getDWheel();
         if (wheel > 0) {
@@ -250,7 +256,9 @@ public final class HUDRenderer {
                     demoFont, logicalWidth, 0);
 
             orthoContext.clearHistory();
+            textLayer.begin(orthoContext.getProjection());
             renderer.draw(
+                    textLayer,
                     demoLayout,
                     demoFont,
                     DEMO_TEXT_X,
@@ -259,6 +267,7 @@ public final class HUDRenderer {
                     frameCounter,
                     orthoContext,
                     ps);
+            textLayer.end();
 
             lineY += demoLayout.getTotalHeight() * demoScale + DEMO_TEXT_ROW_GAP;
         }
@@ -306,6 +315,10 @@ public final class HUDRenderer {
     public void delete() {
         if (!initialized) {
             return;
+        }
+        if (textLayer != null) {
+            textLayer.delete();
+            textLayer = null;
         }
         if (renderer != null) {
             renderer.delete();
