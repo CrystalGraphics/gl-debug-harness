@@ -60,17 +60,27 @@ dependencies {
     runtimeOnly("org.lwjgl.lwjgl:lwjgl-platform:2.9.4-nightly-20150209:natives-osx")
 
     // ── Hard dependency: CrystalGraphics (rendering API, font system) ──
-    implementation(project(":CrystalGraphics"))
+    // When standalone (root IS CrystalGraphics), use ":" since the root project
+    // is CrystalGraphics itself. When embedded in a parent mod, use ":CrystalGraphics".
+    if (rootIsParentMod) {
+        implementation(project(":CrystalGraphics"))
+    } else {
+        implementation(project(":"))
+    }
 
     // ── JNI bindings: freetype-msdfgen-harfbuzz (com.crystalgraphics.msdfgen.*) ──
     // Harness sources import directly from the bindings (FreeTypeMSDFIntegration,
     // MSDFShape, etc.). CrystalGraphics only shadow-JARs them for Minecraft
     // distribution — they aren't exposed as a transitive compile dependency.
-    // We use the Maven coordinate here because the bindings live inside the
-    // CrystalGraphics included build and aren't reachable via findProject().
-    // The composite build substitution in submodules.gradle.kts routes this
+    // When standalone, the bindings are a direct sibling subproject.
+    // When embedded in a parent mod, we use the Maven coordinate and rely on
+    // composite build substitution in submodules.gradle.kts to route this
     // artifact to the local :freetype-msdfgen-harfbuzz-bindings project.
-    implementation("com.crystalgraphics:freetype-msdfgen-harfbuzz-bindings:1.0.0-SNAPSHOT")
+    if (rootIsParentMod) {
+        implementation("com.crystalgraphics:freetype-msdfgen-harfbuzz-bindings:1.0.0-SNAPSHOT")
+    } else {
+        implementation(project(":freetype-msdfgen-harfbuzz-bindings"))
+    }
 
     // ── Soft dependency: parent mod's root project (mod classes) ────────
     // Included when a parent mod exists (any root that isn't CrystalGraphics).
@@ -174,6 +184,10 @@ tasks.register<JavaExec>("runHarness") {
     // uses raw class output (not the shadowed dev JAR) to avoid relocated-type mismatches.
     if (rootIsParentMod) {
         dependsOn(":compileJava", ":processResources", ":patchedMcClasses", ":processPatchedMcResources")
+    } else {
+        // Standalone CrystalGraphics: still need patchedMcClasses for MC class stubs
+        // (e.g. IResourceManagerReloadListener referenced by CgShaderManagerImpl)
+        dependsOn(":patchedMcClasses", ":processPatchedMcResources")
     }
 
     mainClass.set("io.github.somehussar.crystalgraphics.harness.FontDebugHarnessMain")
@@ -204,9 +218,15 @@ tasks.register<JavaExec>("runHarness") {
             // Exclude any JAR from the root project's libs directory
             !file.absolutePath.startsWith(rootDevJarDir.get().asFile.absolutePath)
         }
-        filteredClasspath + files(rootMainClasses, rootMainResources, rootPatchedMcClasses, rootPatchedMcResources)
+        // patchedMc FIRST so MC stubs load before any CrystalGraphics static init
+        files(rootPatchedMcClasses, rootPatchedMcResources) + filteredClasspath + files(rootMainClasses, rootMainResources)
     } else {
-        sourceSets["main"].runtimeClasspath
+        // Standalone CrystalGraphics: patchedMc classes/resources FIRST so MC stubs
+        // (e.g. IResourceManagerReloadListener) are loaded before any CrystalGraphics
+        // code that eagerly references them during static initialization.
+        val cgPatchedMcClasses = project(":").layout.buildDirectory.dir("classes/java/patchedMc")
+        val cgPatchedMcResources = project(":").layout.buildDirectory.dir("resources/patchedMc")
+        files(cgPatchedMcClasses, cgPatchedMcResources) + sourceSets["main"].runtimeClasspath
     }
 
     // Collect all native library directories
@@ -255,11 +275,13 @@ tasks.register<JavaExec>("runHarness") {
     // Shader hotswap: point to source resources so edits are picked up on R-key reload.
     // When a parent mod exists, use its resources directory (may contain shader overrides).
     // Otherwise, fall back to CrystalGraphics resources for shader source files.
+    // When standalone (rootIsParentMod=false): root IS CrystalGraphics → project(":")
+    // When embedded (rootIsParentMod=true): CrystalGraphics is a composite subproject
+    val cgProject = if (rootIsParentMod) project(":CrystalGraphics") else project(":")
     val shaderOverrideDir = if (rootIsParentMod) {
         project(":").file("src/main/resources")
     } else {
-        // CrystalGraphics resources as fallback for shader hotswap
-        project(":CrystalGraphics").file("src/main/resources")
+        cgProject.file("src/main/resources")
     }
     systemProperty("crystalgraphics.shader.resourceOverrideDir", shaderOverrideDir.absolutePath)
 
