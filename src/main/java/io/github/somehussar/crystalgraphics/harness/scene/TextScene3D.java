@@ -1,10 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene;
 
-import com.crystalgui.core.render.CgUiRuntime;
-import com.crystalgui.ui.UIContainer;
-import com.crystalgui.ui.test.CgUiTest;
+
 import io.github.somehussar.crystalgraphics.api.PoseStack;
-import io.github.somehussar.crystalgraphics.api.font.CgFontFamily;
 import io.github.somehussar.crystalgraphics.text.render.CgTextRenderer;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -80,7 +77,6 @@ public class TextScene3D implements InteractiveSceneLifecycle {
     private WorldTextRenderHelper jpHelper;
 
     // ── Real Cgui UI (rendered when paused) ──
-    private UIContainer testUi;
     private final Matrix4f orthoProjection = new Matrix4f();
 
     @Override
@@ -127,15 +123,6 @@ public class TextScene3D implements InteractiveSceneLifecycle {
             scheduleValidationScreenshots();
         }
 
-        // Initialize CgUiRuntime with text support from the first helper's renderer/font
-        if (!CgUiRuntime.isInitialized()) {
-            CgTextRenderer textRenderer = helper.getTextRenderer();
-            CgFontFamily fontFamily = helper.getFontFamily();
-            CgUiRuntime.initialize(textRenderer, fontFamily);
-          
-        }
-
-
         LOGGER.info("[Harness] World text scene (interactive) initialized.");
     }
 
@@ -164,7 +151,7 @@ public class TextScene3D implements InteractiveSceneLifecycle {
    
         choreographer.onShutdown(() -> {
             LOGGER.info("[InteractiveWorldTextScene] All screenshots captured.");
-//                running = false;
+                running = false;
         });
         choreographer.scheduleAll();
     }
@@ -208,22 +195,12 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         // floor, HUD, and pause overlay render correctly in subsequent passes.
         GlStateResetHelper.resetAfterScene();
 
-        // ── Real Cgui test UI (rendered when paused) ──
-        if (ctx.getRuntimeServices() != null && ctx.getRuntimeServices().isPaused() && testUi != null) {
-            testUi.computeLayout(screenWidth, screenHeight);
-            orthoProjection.setOrtho(0, screenWidth, screenHeight, 0, -1, 1);
-            testUi.getPaintContext().setTextFrame(frame.getFrameNumber());
-            testUi.render(orthoProjection);
-        }
+
     }
 
     @Override
     public void dispose() {
         CgTextRenderer.diagnosticLogging = false;
-        if (testUi != null) {
-            testUi.dispose();
-            testUi = null;
-        }
         if (helper != null) {
             helper.dispose();
         }
