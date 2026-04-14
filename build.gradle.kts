@@ -277,7 +277,13 @@ tasks.register<JavaExec>("runHarness") {
     // Otherwise, fall back to CrystalGraphics resources for shader source files.
     // When standalone (rootIsParentMod=false): root IS CrystalGraphics → project(":")
     // When embedded (rootIsParentMod=true): CrystalGraphics is a composite subproject
-    val cgProject = if (rootIsParentMod) project(":CrystalGraphics") else project(":")
+    val cgProject = if (rootIsParentMod) {
+        // Composite build: CrystalGraphics is available via includedBuild("CrystalGraphics")
+        // We reference it by looking up the included build project
+        findProject(":CrystalGraphics") ?: project(":")  // Fallback to root if not found
+    } else {
+        project(":")  // Standalone: root IS CrystalGraphics
+    }
     val shaderOverrideDir = if (rootIsParentMod) {
         project(":").file("src/main/resources")
     } else {
