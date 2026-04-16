@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.runtime;
 
+import io.github.somehussar.crystalgraphics.harness.debug.UiInputForwarder;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -36,11 +37,13 @@ public final class InputPauseHandler {
     private static final Logger LOGGER = Logger.getLogger(InputPauseHandler.class.getName());
 
     private boolean paused = false;
+    private UiInputForwarder uiForwarder;
 
-    /**
-     * Creates a new InputPauseHandler in the unpaused state.
-     */
     public InputPauseHandler() {
+    }
+
+    public void setUiForwarder(UiInputForwarder forwarder) {
+        this.uiForwarder = forwarder;
     }
 
     /**
@@ -57,24 +60,33 @@ public final class InputPauseHandler {
      */
     public void pollPauseToggle() {
         while (Keyboard.next()) {
-            if (!Keyboard.getEventKeyState()) {
-                // Only act on key-down events, ignore key-up
-                continue;
-            }
             int key = Keyboard.getEventKey();
-            if (key == Keyboard.KEY_ESCAPE || key == Keyboard.KEY_T) {
+            char ch = Keyboard.getEventCharacter();
+            boolean pressed = Keyboard.getEventKeyState();
+
+            if (pressed && (key == Keyboard.KEY_ESCAPE || key == Keyboard.KEY_T)) {
                 paused = !paused;
                 if (paused) {
                     Mouse.setGrabbed(false);
                     LOGGER.info("[InputPauseHandler] PAUSED \u2014 cursor released");
                 } else {
                     Mouse.setGrabbed(true);
-                    // Drain accumulated mouse delta to prevent a camera jump on resume
                     Mouse.getDX();
                     Mouse.getDY();
                     LOGGER.info("[InputPauseHandler] RESUMED \u2014 cursor locked");
                 }
+                continue;
             }
+
+            // When paused, forward non-pause keys to the CrystalGUI container
+            if (paused && uiForwarder != null) {
+                uiForwarder.forwardKeyEvent(key, ch, pressed);
+            }
+        }
+
+        // When paused, also drain mouse events into the UI
+        if (paused && uiForwarder != null) {
+            uiForwarder.drainMouseEvents();
         }
     }
 

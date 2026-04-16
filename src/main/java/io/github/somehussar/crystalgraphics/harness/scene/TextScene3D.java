@@ -1,8 +1,15 @@
 package io.github.somehussar.crystalgraphics.harness.scene;
 
 import com.crystalgui.core.render.CgUiRuntime;
+import com.crystalgui.core.geometry.UiRect;
+import com.crystalgui.ui.UIElement;
+import com.crystalgui.ui.elements.UiButton;
+import com.crystalgui.ui.elements.UiTextbox;
 import com.crystalgui.ui.UIContainer;
 import com.crystalgui.ui.test.CgUiTest;
+import io.github.somehussar.crystalgraphics.harness.debug.UiEventInjector;
+import io.github.somehussar.crystalgraphics.harness.debug.UiInputForwarder;
+import io.github.somehussar.crystalgraphics.harness.debug.UiValidationState;
 import io.github.somehussar.crystalgraphics.api.PoseStack;
 import io.github.somehussar.crystalgraphics.api.font.CgFontFamily;
 import io.github.somehussar.crystalgraphics.text.render.CgTextRenderer;
@@ -81,6 +88,8 @@ public class TextScene3D implements InteractiveSceneLifecycle {
 
     // ── Real Cgui UI (rendered when paused) ──
     private UIContainer testUi;
+    private UiEventInjector uiInjector;
+    private UiValidationState validationState;
     private final Matrix4f orthoProjection = new Matrix4f();
 
     @Override
@@ -135,6 +144,28 @@ public class TextScene3D implements InteractiveSceneLifecycle {
           
         }
         testUi = CgUiTest.create();
+        uiInjector = new UiEventInjector(testUi);
+        validationState = new UiValidationState(testUi);
+
+        wireButtonValidation("btn-confirm");
+        wireButtonValidation("btn-apply");
+        wireButtonValidation("btn-cancel");
+        wireTextboxValidation("textbox-input");
+
+        // Wire live LWJGL input forwarding to the UI when paused
+        if (ctx.getRuntimeServices() != null) {
+            UiInputForwarder forwarder = new UiInputForwarder();
+            forwarder.setContainer(testUi);
+            ctx.getRuntimeServices().setUiInputForwarder(forwarder);
+        }
+
+        UiEventInjector.enableDebugLogging();
+
+        // Schedule scripted UI event injection for validation
+        if (ctx.getRuntimeServices() != null) {
+            scheduleUiEventValidation();
+        }
+
         LOGGER.info("[Harness] World text scene (interactive) initialized.");
     }
 
@@ -163,9 +194,147 @@ public class TextScene3D implements InteractiveSceneLifecycle {
    
         choreographer.onShutdown(() -> {
             LOGGER.info("[InteractiveWorldTextScene] All screenshots captured.");
-//                running = false;
+             //   running = false;
         });
         choreographer.scheduleAll();
+    }
+
+    private void wireButtonValidation(String buttonId) {
+        UIElement el = testUi.getRoot().findById(buttonId);
+        if (el instanceof UiButton) {
+            final String id = buttonId;
+            ((UiButton) el).clicked.connect(() -> validationState.recordButtonClick(id));
+        }
+    }
+
+    private void wireTextboxValidation(String textboxId) {
+        UIElement el = testUi.getRoot().findById(textboxId);
+        if (el instanceof UiTextbox) {
+            final String id = textboxId;
+            UiTextbox tb = (UiTextbox) el;
+            tb.submitted.connect(() -> validationState.recordTextboxSubmit(id));
+            tb.textChanged.connect(value -> validationState.recordTextChanged());
+        }
+    }
+
+    /**
+     * Schedules scripted UI interaction events using layout-derived coordinates
+     * for deterministic validation of the CrystalGUI event/input/focus system.
+     */
+    private void scheduleUiEventValidation() {
+        final TaskScheduler scheduler = ctx.getTaskScheduler();
+
+        scheduler.schedule(MTSDF_PREWARM_SECONDS + 0.2, "ui-pause-for-test", () -> {
+            ctx.getRuntimeServices().setPaused(true);
+            testUi.computeLayout(
+                    ctx.getViewport().getWidth(),
+                    ctx.getViewport().getHeight());
+            LOGGER.info("[TextScene3D] Paused for UI event validation");
+        });
+
+        scheduler.schedule(MTSDF_PREWARM_SECONDS + 0.4, "ui-hover-btn-confirm", () -> {
+            float[] center = getElementCenter("btn-confirm");
+            if (center != null) {
+                uiInjector.mouseMove(center[0], center[1]);
+                validationState.assertHovered("btn-confirm");
+                LOGGER.info("[TextScene3D] Injected: hover over btn-confirm at (" + center[0] + ", " + center[1] + ")");
+            }
+        });
+
+        scheduler.schedule(MTSDF_PREWARM_SECONDS + 0.6, "ui-click-btn-confirm", () -> {
+            float[] center = getElementCenter("btn-confirm");
+            if (center != null) {
+                uiInjector.mouseClick(center[0], center[1], 0);
+                validationState.assertFocused("btn-confirm");
+                validationState.assertClickedContains("btn-confirm");
+                LOGGER.info("[TextScene3D] Injected: click on btn-confirm at (" + center[0] + ", " + center[1] + ")");
+            }
+        });
+
+        scheduler.schedule(MTSDF_PREWARM_SECONDS + 0.8, "ui-tab-to-btn-apply", () -> {
+            uiInjector.tabFocus(false);
+            validationState.recordFocusTransition(validationState.getFocusedElementId());
+            validationState.assertFocused("btn-apply");
+            LOGGER.info("[TextScene3D] Injected: tab focus -> expected btn-apply");
+        });
+
+        scheduler.schedule(MTSDF_PREWARM_SECONDS + 1.0, "ui-shift-tab-back", () -> {
+            uiInjector.tabFocus(true);
+            validationState.recordFocusTransition(validationState.getFocusedElementId());
+            validationState.assertFocused("btn-confirm");
+            LOGGER.info("[TextScene3D] Injected: shift+tab -> expected btn-confirm");
+        });
+
+        scheduler.schedule(MTSDF_PREWARM_SECONDS + 1.2, "ui-click-btn-cancel", () -> {
+            float[] center = getElementCenter("btn-cancel");
+            if (center != null) {
+                uiInjector.mouseClick(center[0], center[1], 0);
+                validationState.assertFocused("btn-cancel");
+                validationState.assertClickedContains("btn-cancel");
+                LOGGER.info("[TextScene3D] Injected: click on btn-cancel at (" + center[0] + ", " + center[1] + ")");
+            }
+        });
+
+        scheduler.schedule(MTSDF_PREWARM_SECONDS + 1.4, "ui-click-textbox", () -> {
+            float[] center = getElementCenter("textbox-input");
+            if (center != null) {
+                uiInjector.mouseClick(center[0], center[1], 0);
+                validationState.assertFocused("textbox-input");
+                LOGGER.info("[TextScene3D] Injected: click on textbox-input -> focus acquired");
+            }
+        });
+
+        scheduler.schedule(MTSDF_PREWARM_SECONDS + 1.6, "ui-type-into-textbox", () -> {
+            uiInjector.typeString("Hi");
+            validationState.assertTextboxContent("textbox-input", "Hi");
+            validationState.assertTextboxCaretPosition("textbox-input", 2);
+            uiInjector.backspace();
+            validationState.assertTextboxContent("textbox-input", "H");
+            validationState.assertTextboxCaretPosition("textbox-input", 1);
+            LOGGER.info("[TextScene3D] Injected: typed 'Hi' then backspace -> text='H', caret=1");
+        });
+
+        // Extended textbox validation: multi-char, submit signal, textChanged count, tab-away
+        scheduler.schedule(MTSDF_PREWARM_SECONDS + 1.8, "ui-textbox-extended", () -> {
+            // Type more characters to exercise multi-char editing
+            uiInjector.typeString("ello");
+            validationState.assertTextboxContent("textbox-input", "Hello");
+            validationState.assertTextboxCaretPosition("textbox-input", 5);
+
+            // Press Enter to fire submitted signal
+            uiInjector.keyDown(com.crystalgui.core.event.CgUiKeyCodes.KEY_ENTER, 0);
+            validationState.assertTextboxSubmitted("textbox-input");
+
+            // Verify textChanged fired for each character typed (H, Hi, H, He, Hel, Hell, Hello = 7)
+            validationState.assertTextChangedCountAtLeast(7);
+
+            LOGGER.info("[TextScene3D] Injected: extended textbox validation -> text='Hello', submitted, textChanged>=7");
+        });
+
+        scheduler.schedule(MTSDF_PREWARM_SECONDS + 2.0, "ui-tab-away-from-textbox", () -> {
+            // Textbox should currently be focused
+            validationState.assertFocused("textbox-input");
+            // Tab away: should move focus to next focusable element (btn-confirm)
+            uiInjector.tabFocus(false);
+            validationState.recordFocusTransition(validationState.getFocusedElementId());
+            validationState.assertFocused("btn-confirm");
+            LOGGER.info("[TextScene3D] Injected: tab away from textbox -> focus moved to btn-confirm");
+        });
+
+        scheduler.schedule(MTSDF_PREWARM_SECONDS + 2.2, "ui-validation-summary", () -> {
+            validationState.logSummary();
+            validationState.throwIfFailed();
+        });
+    }
+
+    private float[] getElementCenter(String id) {
+        UIElement el = testUi.getRoot().findById(id);
+        if (el == null) {
+            LOGGER.warning("[TextScene3D] Element not found by id: " + id);
+            return null;
+        }
+        UiRect box = el.getLayoutState().getLayoutBox();
+        return new float[]{ box.getX() + box.getWidth() / 2f, box.getY() + box.getHeight() / 2f };
     }
 
     @Override

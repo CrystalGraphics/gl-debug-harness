@@ -227,10 +227,10 @@ public final class HUDRenderer {
         // CgTextRenderer.draw() handles its own GL state save/restore internally
         // via CgStateBoundary, but in the standalone harness the GLStateMirror
         // may be in UNKNOWN state, so we also do explicit cleanup after draw.
-        textLayer.begin(orthoContext.getProjection());
-        renderer.draw(textLayer, layout, font, currentQuadOffset, currentQuadOffset,
-                TEXT_COLOR, frameCounter, orthoContext, poseStack);
-        textLayer.end();
+//        textLayer.begin(orthoContext.getProjection());
+//        renderer.draw(textLayer, layout, font, currentQuadOffset, currentQuadOffset,
+//                TEXT_COLOR, frameCounter, orthoContext, poseStack);
+//        textLayer.end();
 
         int wheel = Mouse.getDWheel();
         if (wheel > 0) {
