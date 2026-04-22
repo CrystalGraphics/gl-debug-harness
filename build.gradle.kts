@@ -117,10 +117,19 @@ dependencies {
 
 
     testImplementation("junit:junit:4.13.2")
+
+    // ── Minecraft patched classes (compile-time only) ───────────────────
+    // CrystalGraphics references MC types (ResourceLocation, IResourceManagerReloadListener)
+    // in its API surface. The harness needs these on the compile classpath so javac can
+    // resolve transitive type references. At runtime, the runHarness task assembles
+    // patchedMc classes explicitly (and FIRST) on the classpath — see classpath assembly below.
+    compileOnly(files(rootProject.layout.buildDirectory.dir("classes/java/patchedMc")))
 }
 
+// Ensure patchedMcClasses are built before harness compilation
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
+    dependsOn(":patchedMcClasses")
 }
 
 // ── Extract LWJGL natives from platform JARs ─────────────────────────

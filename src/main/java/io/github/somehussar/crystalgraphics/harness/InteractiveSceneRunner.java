@@ -207,6 +207,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             RenderPassState.beginWorldPass();
 
             worldPassCoordinator.executeWorldPass(ctx, camera, scene.uses3DCamera());
+            
+            // Text context
+            ctx.getTextContext().update(ctx);
 
             // 9. Scene pass: set baseline state, then let the scene render freely
             RenderPassState.beginScenePass();
@@ -232,6 +235,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         scene.dispose();
         worldPassCoordinator.delete();
         overlayCaptureOrchestrator.deletePipeline();
+        ctx.getTextContext().delete();
 
         LOGGER.info("[InteractiveSceneRunner] Cleanup complete. shouldShutdown="
                 + scene.shouldShutdownOnComplete());

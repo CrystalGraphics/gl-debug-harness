@@ -10,7 +10,7 @@
 ./gradlew :gl-debug-harness:runHarness --args="--list"
 
 # Run a specific scene
-./gradlew :gl-debug-harness:runHarness --args="--mode=triangle-2D"
+./gradlew :gl-debug-harness:runHarness --args="--mode=triangle-2d"
 
 # Run atlas dump
 ./gradlew :gl-debug-harness:runHarness --args="--mode=atlas-dump"
@@ -20,6 +20,9 @@
 
 # Run a 3D scene
 ./gradlew :gl-debug-harness:runHarness --args="--mode=text-3d"
+
+# Run a 3D scene
+./gradlew :gl-debug-harness:runHarness --args="--mode=image"
 
 # Run a 3D scene with custom output name
 ./gradlew :gl-debug-harness:runHarness --args="--mode=text-3d --output-name=my-test"

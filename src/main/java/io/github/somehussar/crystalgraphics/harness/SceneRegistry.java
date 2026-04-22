@@ -2,6 +2,7 @@ package io.github.somehussar.crystalgraphics.harness;
 
 import io.github.somehussar.crystalgraphics.harness.config.SceneDescriptor;
 import io.github.somehussar.crystalgraphics.harness.scene.*;
+import io.github.somehussar.crystalgraphics.harness.scene.test.ImageScene;
 import io.github.somehussar.crystalgraphics.harness.tool.CapabilityReport;
 import io.github.somehussar.crystalgraphics.harness.tool.GlStateDumper;
 
@@ -70,6 +71,16 @@ public final class SceneRegistry {
     public static SceneRegistry createDefault() {
         SceneRegistry reg = new SceneRegistry();
 
+        reg.register(
+            SceneDescriptor.builder("image")
+                .description("Image")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsDepthBuffer(true)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new ImageScene()
+        );
         // ── Rendering scenes ──
         reg.register(
             SceneDescriptor.builder("triangle-2d")

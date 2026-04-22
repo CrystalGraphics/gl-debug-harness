@@ -91,6 +91,8 @@ public final class HarnessContext {
     // ── Shared subsystem references (set by InteractiveSceneRunner for interactive scenes) ──
     private Camera3D camera3D;
     private TaskScheduler taskScheduler;
+    
+    private TextContext textContext;
 
     private HarnessContext(String glVersion, String glVendor, String glRenderer,
                            int screenWidth, int screenHeight) {
@@ -98,6 +100,7 @@ public final class HarnessContext {
         this.glVendor = glVendor;
         this.glRenderer = glRenderer;
         this.viewport = new ViewportState(screenWidth, screenHeight);
+        this.textContext = new TextContext();
     }
 
     /**
@@ -220,6 +223,10 @@ public final class HarnessContext {
      */
     public void setRuntimeServices(RuntimeServices services) {
         this.runtimeServices = services;
+    }
+    
+    public TextContext getTextContext(){
+        return textContext;
     }
 
     // ── Screen dimensions — delegate to ViewportState ──
