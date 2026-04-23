@@ -19,51 +19,56 @@ import java.nio.IntBuffer;
 public class LightScene implements InteractiveSceneLifecycle {
     int vaoId, vboId, eboId, cubeIndexCount;
 
-    Matrix4f model = new Matrix4f(), projection = new Matrix4f();
-
     private static final String DIR = "assets/harness/shader/";
     CgShader shader = CgShaderFactory.load(DIR + "pos3_uv2_normal3_col4ub.vert", DIR + "pos3_uv2_normal3_col4ub.frag");
+
+    Matrix4f model = new Matrix4f(), projection = new Matrix4f();
 
     public void initCube() {
         float[] cube = {
                 /*FRONT*/
-                -0.5f, -0.5f, 0.5f,   /*UV*/0, 0,  /*NORMAL*/0, 0, 1,  /*COL*/col(0xff000000),
-                0.5f, -0.5f, 0.5f,    /*UV*/1, 0,  /*NORMAL*/0, 0, 1,  /*COL*/col(0xffff0000),
-                0.5f, 0.5f, 0.5f,     /*UV*/1, 1,  /*NORMAL*/0, 0, 1,  /*COL*/col(0xffffff00),
-                -0.5f, 0.5f, 0.5f,    /*UV*/0, 1,  /*NORMAL*/0, 0, 1,  /*COL*/col(0xff00ff00),
+                -0.5f, -0.5f, 0.5f,   /*UV*/ 0, 0,   /*NORMAL*/ 0, 0, 1,   /*COL*/ col(0xffff0000),
+                0.5f, -0.5f, 0.5f,    /*UV*/ 1, 0,   /*NORMAL*/ 0, 0, 1,   /*COL*/ col(0xff0000ff),
+                0.5f, 0.5f, 0.5f,     /*UV*/ 1, 1,   /*NORMAL*/ 0, 0, 1,   /*COL*/ col(0xff00ffff),
+                -0.5f, 0.5f, 0.5f,    /*UV*/ 0, 1,   /*NORMAL*/ 0, 0, 1,   /*COL*/ col(0xffff00ff),
+
                 /*RIGHT*/
-                0.5f, -0.5f, 0.5f,    /*UV*/0, 0,  /*NORMAL*/1, 0, 0,  /*COL*/col(0xff000000),
-                0.5f, -0.5f, -0.5f,   /*UV*/1, 0,  /*NORMAL*/1, 0, 0,  /*COL*/col(0xffff0000),
-                0.5f, 0.5f, -0.5f,    /*UV*/1, 1,  /*NORMAL*/1, 0, 0,  /*COL*/col(0xffffff00),
-                0.5f, 0.5f, 0.5f,     /*UV*/0, 1,  /*NORMAL*/1, 0, 0,  /*COL*/col(0xff00ff00),
+                0.5f, -0.5f, 0.5f,    /*UV*/ 0, 0,   /*NORMAL*/ 1, 0, 0,   /*COL*/ col(0xffff0000),
+                0.5f, -0.5f, -0.5f,   /*UV*/ 1, 0,   /*NORMAL*/ 1, 0, 0,   /*COL*/ col(0xff0000ff),
+                0.5f, 0.5f, -0.5f,    /*UV*/ 1, 1,   /*NORMAL*/ 1, 0, 0,   /*COL*/ col(0xff00ffff),
+                0.5f, 0.5f, 0.5f,     /*UV*/ 0, 1,   /*NORMAL*/ 1, 0, 0,   /*COL*/ col(0xffff00ff),
+
                 /*BACK*/
-                0.5f, -0.5f, -0.5f,   /*UV*/0, 0,  /*NORMAL*/0, 0, -1, /*COL*/col(0xff000000),
-                -0.5f, -0.5f, -0.5f,  /*UV*/1, 0,  /*NORMAL*/0, 0, -1, /*COL*/col(0xffff0000),
-                -0.5f, 0.5f, -0.5f,   /*UV*/1, 1,  /*NORMAL*/0, 0, -1, /*COL*/col(0xffffff00),
-                0.5f, 0.5f, -0.5f,    /*UV*/0, 1,  /*NORMAL*/0, 0, -1, /*COL*/col(0xff00ff00),
+                0.5f, -0.5f, -0.5f,   /*UV*/ 0, 0,   /*NORMAL*/ 0, 0, -1,   /*COL*/ col(0xffff0000),
+                -0.5f, -0.5f, -0.5f,  /*UV*/ 1, 0,   /*NORMAL*/ 0, 0, -1,   /*COL*/ col(0xff0000ff),
+                -0.5f, 0.5f, -0.5f,   /*UV*/ 1, 1,   /*NORMAL*/ 0, 0, -1,   /*COL*/ col(0xff00ffff),
+                0.5f, 0.5f, -0.5f,    /*UV*/ 0, 1,   /*NORMAL*/ 0, 0, -1,   /*COL*/ col(0xffff00ff),
+
                 /*LEFT*/
-                -0.5f, -0.5f, -0.5f,  /*UV*/0, 0,  /*NORMAL*/-1, 0, 0, /*COL*/col(0xff000000),
-                -0.5f, -0.5f, 0.5f,   /*UV*/1, 0,  /*NORMAL*/-1, 0, 0, /*COL*/col(0xffff0000),
-                -0.5f, 0.5f, 0.5f,    /*UV*/1, 1,  /*NORMAL*/-1, 0, 0, /*COL*/col(0xffffff00),
-                -0.5f, 0.5f, -0.5f,   /*UV*/0, 1,  /*NORMAL*/-1, 0, 0, /*COL*/col(0xff00ff00),
+                -0.5f, -0.5f, -0.5f,  /*UV*/ 0, 0,   /*NORMAL*/ -1, 0, 0,   /*COL*/ col(0xffff0000),
+                -0.5f, -0.5f, 0.5f,   /*UV*/ 1, 0,   /*NORMAL*/ -1, 0, 0,   /*COL*/ col(0xff0000ff),
+                -0.5f, 0.5f, 0.5f,    /*UV*/ 1, 1,   /*NORMAL*/ -1, 0, 0,   /*COL*/ col(0xff00ffff),
+                -0.5f, 0.5f, -0.5f,   /*UV*/ 0, 1,   /*NORMAL*/ -1, 0, 0,   /*COL*/ col(0xffff00ff),
+
                 /*TOP*/
-                -0.5f, 0.5f, 0.5f,    /*UV*/0, 0,  /*NORMAL*/0, 1, 0,  /*COL*/col(0xff000000),
-                0.5f, 0.5f, 0.5f,     /*UV*/1, 0,  /*NORMAL*/0, 1, 0,  /*COL*/col(0xffff0000),
-                0.5f, 0.5f, -0.5f,    /*UV*/1, 1,  /*NORMAL*/0, 1, 0,  /*COL*/col(0xffffff00),
-                -0.5f, 0.5f, -0.5f,   /*UV*/0, 1,  /*NORMAL*/0, 1, 0,  /*COL*/col(0xff00ff00),
+                -0.5f, 0.5f, 0.5f,    /*UV*/ 0, 0,   /*NORMAL*/ 0, 1, 0,    /*COL*/ col(0xffff0000),
+                0.5f, 0.5f, 0.5f,     /*UV*/ 1, 0,   /*NORMAL*/ 0, 1, 0,    /*COL*/ col(0xff0000ff),
+                0.5f, 0.5f, -0.5f,    /*UV*/ 1, 1,   /*NORMAL*/ 0, 1, 0,    /*COL*/ col(0xff00ffff),
+                -0.5f, 0.5f, -0.5f,   /*UV*/ 0, 1,   /*NORMAL*/ 0, 1, 0,    /*COL*/ col(0xffff00ff),
+
                 /*BOTTOM*/
-                -0.5f, -0.5f, 0.5f,   /*UV*/0, 0,  /*NORMAL*/0, -1, 0, /*COL*/col(0xff000000),
-                0.5f, -0.5f, 0.5f,    /*UV*/1, 0,  /*NORMAL*/0, -1, 0, /*COL*/col(0xffff0000),
-                0.5f, -0.5f, -0.5f,   /*UV*/1, 1,  /*NORMAL*/0, -1, 0, /*COL*/col(0xffffff00),
-                -0.5f, -0.5f, -0.5f,  /*UV*/0, 1,  /*NORMAL*/0, -1, 0, /*COL*/col(0xff00ff00),
+                -0.5f, -0.5f, 0.5f,   /*UV*/ 0, 0,   /*NORMAL*/ 0, -1, 0,   /*COL*/ col(0xffff0000),
+                0.5f, -0.5f, 0.5f,    /*UV*/ 1, 0,   /*NORMAL*/ 0, -1, 0,   /*COL*/ col(0xff0000ff),
+                0.5f, -0.5f, -0.5f,   /*UV*/ 1, 1,   /*NORMAL*/ 0, -1, 0,   /*COL*/ col(0xff00ffff),
+                -0.5f, -0.5f, -0.5f,  /*UV*/ 0, 1,   /*NORMAL*/ 0, -1, 0,   /*COL*/ col(0xffff00ff),
         };
 
         int[] indices = {
-                /*FRONT*/ 0, 1, 2, 2, 3, 0,
-                /*RIGHT*/ 4, 5, 6, 6, 7, 4,
-                /*BACK*/ 8, 9, 10, 10, 11, 8,
-                /*LEFT*/ 12, 13, 14, 14, 15, 12,
-                /*TOP*/ 16, 17, 18, 18, 19, 16,
+                /*FRONT*/  0, 1, 2, 2, 3, 0,
+                /*RIGHT*/  4, 5, 6, 6, 7, 4,
+                /*BACK*/   8, 9, 10, 10, 11, 8,
+                /*LEFT*/   12, 13, 14, 14, 15, 12,
+                /*TOP*/    16, 17, 18, 18, 19, 16,
                 /*BOTTOM*/ 20, 21, 22, 22, 23, 20
         };
         cubeIndexCount = indices.length;
@@ -71,34 +76,20 @@ public class LightScene implements InteractiveSceneLifecycle {
 
         FloatBuffer buff = BufferUtils.createFloatBuffer(cube.length);
         buff.put(cube).flip();
+
+        IntBuffer iBuff = BufferUtils.createIntBuffer(indices.length);
+        iBuff.put(indices).flip();
+
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vboId);
         GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buff, GL15.GL_STATIC_DRAW);
 
-
-        IntBuffer iBuff = BufferUtils.createIntBuffer(cubeIndexCount);
-        iBuff.put(indices).flip();
         GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, eboId);
         GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, iBuff, GL15.GL_STATIC_DRAW);
     }
 
-    public float col(int argb) {
-        int r = (argb >> 16) & 0xFF;
-        int g = (argb >> 8) & 0xFF;
-        int b = (argb) & 0xFF;
-        int a = (argb >> 24) & 0xFF;
-
-        int packed;
-        boolean littleEndian = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
-
-        if (littleEndian) packed = (a << 24) | (b << 16) | (g << 8) | r;
-        else packed = (r << 24) | (g << 16) | (b << 8) | a;
-
-        return Float.intBitsToFloat(packed);
-    }
-
     @Override
     public void init(HarnessContext ctx) {
-        projection.perspective((float) Math.toRadians(60f), ctx.getViewport().getAspectRatio(), 0.001f, 1000);
+        projection.perspective((float) Math.toRadians(60), ctx.getViewport().getAspectRatio(), 0.001f, 1000f);
 
         vaoId = GL30.glGenVertexArrays();
         GL30.glBindVertexArray(vaoId);
@@ -113,7 +104,7 @@ public class LightScene implements InteractiveSceneLifecycle {
         GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, stride, 0);          // a_pos
         GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, stride, 12);         // a_uv
         GL20.glVertexAttribPointer(2, 3, GL11.GL_FLOAT, false, stride, 20);         // a_normal
-        GL20.glVertexAttribPointer(3, 4, GL11.GL_UNSIGNED_BYTE, true, stride, 32);  // a_color
+        GL20.glVertexAttribPointer(3, 4, GL11.GL_UNSIGNED_BYTE, true, stride, 32);  // a_col
 
         GL20.glEnableVertexAttribArray(0);
         GL20.glEnableVertexAttribArray(1);
@@ -121,13 +112,9 @@ public class LightScene implements InteractiveSceneLifecycle {
         GL20.glEnableVertexAttribArray(3);
     }
 
-    public void onResize(int width, int height) {
-        projection.setPerspective((float) Math.toRadians(60f), (float) width / (float) height, 0.001f, 1000);
-    }
-
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        model.setTranslation(0, 0.6f, -2.f);
+        model.setTranslation(0, 0, 0);
 
         GL30.glBindVertexArray(vaoId);
         shader.applyBindings(b -> {
@@ -136,6 +123,11 @@ public class LightScene implements InteractiveSceneLifecycle {
             b.mat4("u_projection", projection);
         }).bind();
         GL11.glDrawElements(GL11.GL_TRIANGLES, cubeIndexCount, GL11.GL_UNSIGNED_INT, 0);
+    }
+
+    @Override
+    public void onResize(int width, int height) {
+        projection.setPerspective((float) Math.toRadians(60f), (float) width / (float) height, 0.001f, 1000f);
     }
 
     @Override
@@ -151,6 +143,21 @@ public class LightScene implements InteractiveSceneLifecycle {
     @Override
     public boolean shouldShutdownOnComplete() {
         return false;
+    }
+
+    public float col(int argb) {
+        int r = ((argb >> 16) & 0xff);
+        int g = ((argb >> 8) & 0xff);
+        int b = (argb & 0xff);
+        int a = ((argb >> 24) & 0xff);
+
+        int packed;
+        boolean littleEndian = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
+
+        if (littleEndian) packed = a << 24 | b << 16 | g << 8 | r;
+        else packed = r << 24 | g << 16 | b << 8 | a;
+
+        return Float.intBitsToFloat(packed);
     }
 
     @Override
