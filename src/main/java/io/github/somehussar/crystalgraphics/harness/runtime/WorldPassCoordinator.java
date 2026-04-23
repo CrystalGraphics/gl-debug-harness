@@ -123,20 +123,14 @@ public final class WorldPassCoordinator {
      * @param camera the 3D camera (provides the view matrix)
      */
     private void renderFloor(HarnessContext ctx, Camera3D camera) {
-        ViewportState vp = ctx.getViewport();
-        Matrix4f projection = HarnessProjectionUtil.perspective(
-                vp.getWidth(), vp.getHeight());
-
+        Matrix4f projection = ctx.getProjection();
         Matrix4f viewMatrix = camera.getViewMatrix();
 
         // MVP = projection * view (no model transform for floor — it sits at world origin)
         Matrix4f mvp = new Matrix4f();
         projection.mul(viewMatrix, mvp);
-
-        float[] mvpArray = new float[16];
-        mvp.get(mvpArray);
-
-        floorRenderer.render(mvpArray);
+        
+        floorRenderer.render(mvp);
     }
 
     /**

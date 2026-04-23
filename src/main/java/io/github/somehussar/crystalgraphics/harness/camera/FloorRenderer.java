@@ -2,6 +2,7 @@ package io.github.somehussar.crystalgraphics.harness.camera;
 
 import io.github.somehussar.crystalgraphics.harness.config.WorldSettings;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessShaderUtil;
+import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
@@ -152,13 +153,15 @@ public class FloorRenderer {
      *
      * @param mvpMatrix the combined model-view-projection matrix stored in a float[16] column-major
      */
-    public void render(float[] mvpMatrix) {
+    public void render(Matrix4f mvpMatrix) {
         if (!initialized) {
             throw new IllegalStateException("FloorRenderer.init() must be called before render()");
         }
 
         FloatBuffer mvpBuf = BufferUtils.createFloatBuffer(16);
-        mvpBuf.put(mvpMatrix).flip();
+        mvpMatrix.get(mvpBuf);
+        // No need to flip
+        // mvpBuf.flip();
 
         GL20.glUseProgram(program);
         GL20.glUniformMatrix4(mvpLocation, false, mvpBuf);

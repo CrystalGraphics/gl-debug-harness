@@ -4,6 +4,7 @@ import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.capture.ArtifactService;
 import io.github.somehussar.crystalgraphics.harness.scheduler.TaskScheduler;
 
+import org.joml.Matrix4f;
 import org.lwjgl.LWJGLException;
 import org.lwjgl.opengl.ContextAttribs;
 import org.lwjgl.opengl.Display;
@@ -89,6 +90,7 @@ public final class HarnessContext {
     private WorldSettings worldSettings;
 
     // ── Shared subsystem references (set by InteractiveSceneRunner for interactive scenes) ──
+    private Matrix4f projection;
     private Camera3D camera3D;
     private TaskScheduler taskScheduler;
     
@@ -329,6 +331,15 @@ public final class HarnessContext {
 
     // ── Shared subsystem references ──
 
+    /**
+     * Returns the shared projection matrix, or null if not in interactive mode.
+     */
+    public Matrix4f getProjection() { return projection; }
+
+    /**
+     * Sets the shared projection matrix reference.
+     */
+    public void setProjection(Matrix4f projection) { this.projection = projection; }
     /**
      * Returns the shared 3D camera, or null if not in interactive mode.
      */

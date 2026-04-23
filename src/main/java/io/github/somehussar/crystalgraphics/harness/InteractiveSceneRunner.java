@@ -19,6 +19,7 @@ import io.github.somehussar.crystalgraphics.harness.runtime.OverlayPipeline;
 import io.github.somehussar.crystalgraphics.harness.runtime.ResizeHandler;
 import io.github.somehussar.crystalgraphics.harness.runtime.WorldPassCoordinator;
 import io.github.somehussar.crystalgraphics.harness.scheduler.TaskScheduler;
+import io.github.somehussar.crystalgraphics.harness.util.HarnessProjectionUtil;
 import io.github.somehussar.crystalgraphics.harness.util.RenderPassState;
 import io.github.somehussar.crystalgraphics.mc.shader.CgShaderReloadHook;
 import org.lwjgl.input.Keyboard;
@@ -118,6 +119,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * returning false, or the Display close is requested.</p>
      */
     public void run() {
+        int currentWidth = ctx.getScreenWidth();
+        int currentHeight = ctx.getScreenHeight();
+        
         // ── Create core subsystems ──
         camera = new Camera3D();
         HUDRenderer hudRenderer = new HUDRenderer();
@@ -141,7 +145,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         overlayCaptureOrchestrator = new OverlayCaptureOrchestrator(ctx, overlayPipeline);
 
         // Populate context with shared subsystem references so scenes
-        // can access them via ctx.getCamera3D(), ctx.getRuntimeServices(), etc.
+        // can access them via ctx.getCamera3D(), ctx.getRuntimeServices(), etc.\
+        ctx.setProjection(HarnessProjectionUtil.perspective(currentWidth, currentHeight));
         ctx.setCamera3D(camera);
         ctx.setTaskScheduler(scheduler);
         ctx.setRuntimeServices(new RuntimeServices(this));
@@ -154,8 +159,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         artifactService = new ArtifactService(outputSettings, viewport, this);
         ctx.setArtifactService(artifactService);
 
-        int currentWidth = ctx.getScreenWidth();
-        int currentHeight = ctx.getScreenHeight();
 
         debugTools = new HarnessDebugTools(camera, artifactService);
 
@@ -181,6 +184,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             if (resizeHandler.checkAndPropagate()) {
                 ViewportState vp = ctx.getViewport();
                 scene.onResize(vp.getWidth(), vp.getHeight());
+                ctx.setProjection(HarnessProjectionUtil.perspective(vp.getWidth(), vp.getHeight()));
             }
 
             if (Keyboard.isKeyDown(Keyboard.KEY_R)) CgShaderReloadHook.reload();
