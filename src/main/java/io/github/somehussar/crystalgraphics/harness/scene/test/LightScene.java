@@ -5,6 +5,7 @@ import io.github.somehussar.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
+import io.github.somehussar.crystalgraphics.harness.object.WorldAxisRenderer;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
@@ -23,6 +24,8 @@ public class LightScene implements InteractiveSceneLifecycle {
     CgShader shader = CgShaderFactory.load(DIR + "pos3_uv2_normal3_col4ub.vert", DIR + "pos3_uv2_normal3_col4ub.frag");
 
     Matrix4f model = new Matrix4f(), projection = new Matrix4f();
+
+    WorldAxisRenderer axis = new WorldAxisRenderer();
 
     public void initCube() {
         float[] cube = {
@@ -89,6 +92,7 @@ public class LightScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
+        axis.init(ctx); //3D XYZ axis
         projection.perspective((float) Math.toRadians(60), ctx.getViewport().getAspectRatio(), 0.001f, 1000f);
 
         vaoId = GL30.glGenVertexArrays();
@@ -123,6 +127,8 @@ public class LightScene implements InteractiveSceneLifecycle {
             b.mat4("u_projection", projection);
         }).bind();
         GL11.glDrawElements(GL11.GL_TRIANGLES, cubeIndexCount, GL11.GL_UNSIGNED_INT, 0);
+
+        axis.render(ctx);
     }
 
     @Override
@@ -166,5 +172,6 @@ public class LightScene implements InteractiveSceneLifecycle {
         GL15.glDeleteBuffers(vboId);
         GL15.glDeleteBuffers(eboId);
         shader.delete();
+        axis.dispose();
     }
 }
