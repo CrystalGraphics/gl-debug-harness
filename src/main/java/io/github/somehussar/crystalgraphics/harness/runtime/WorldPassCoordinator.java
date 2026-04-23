@@ -3,10 +3,8 @@ package io.github.somehussar.crystalgraphics.harness.runtime;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.camera.FloorRenderer;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
-import io.github.somehussar.crystalgraphics.harness.config.ViewportState;
+import io.github.somehussar.crystalgraphics.harness.config.WorldConfig;
 import io.github.somehussar.crystalgraphics.harness.config.WorldSettings;
-import io.github.somehussar.crystalgraphics.harness.util.HarnessProjectionUtil;
-
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 
@@ -107,7 +105,7 @@ public final class WorldPassCoordinator {
 
         // Render floor plane before scene content so 3D objects composite
         // over the floor rather than over the raw sky clear color.
-        if (uses3DCamera) {
+        if (uses3DCamera && WorldConfig.RENDER_FLOOR) {
             renderFloor(ctx, camera);
         }
     }

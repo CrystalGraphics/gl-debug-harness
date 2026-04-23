@@ -22,14 +22,16 @@ public final class WorldConfig {
     private static final WorldConfig INSTANCE = new WorldConfig();
 
     // Sky color: aqua (RGB ~0.0, 0.7, 1.0)
-    private float skyR =  0.66f;
-    private float skyG =  0.83f;
-    private float skyB =  0.92f;
+    private float skyR =  0.1f;
+    private float skyG =  0.1f;
+    private float skyB =  0.1f;
 
     // Floor color: gray (RGB 0.5, 0.5, 0.5)
     private float floorR = 0.5f;
     private float floorG = 0.5f;
     private float floorB = 0.5f;  
+    
+    public static final boolean RENDER_FLOOR = false;
 
     // Floor half-size extent on X and Z axes (large enough to reach horizon)
     private float floorHalfSize = 500.0f;
