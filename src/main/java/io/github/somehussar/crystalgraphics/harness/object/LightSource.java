@@ -60,8 +60,8 @@ public class LightSource {
         }).bind();
         modelQuad.render(ctx);
 
-        TextContext text = ctx.getTextContext();
-        text.draw(String.format("Angle: %.2f", angle), 0, 100, 0xffffffff, frame);
-        text.draw(String.format("Time:  %.2f/%ss", cycleInSec, cycleDurationSec), 0, 120, 0xffffffff, frame);
+        // TextContext text = ctx.getTextContext();
+        // text.draw(String.format("Angle: %.2f", angle), 0, 100, 0xffffffff, frame);
+        // text.draw(String.format("Time:  %.2f/%ss", cycleInSec, cycleDurationSec), 0, 120, 0xffffffff, frame);
     }
 }
