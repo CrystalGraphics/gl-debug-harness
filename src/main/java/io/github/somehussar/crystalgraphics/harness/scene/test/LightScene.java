@@ -27,6 +27,7 @@ public class LightScene implements InteractiveSceneLifecycle {
     Matrix4f model = new Matrix4f(), projection = new Matrix4f();
 
     WorldAxisRenderer axis = new WorldAxisRenderer();
+    LightSource lightSource = new LightSource();
 
     public void initCube() {
         float[] cube = {
@@ -94,6 +95,12 @@ public class LightScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         axis.init(ctx); //3D XYZ axis
+
+        // Sun
+        lightSource.init(ctx);
+        lightSource.rotationStart(5, 0, 0).rotationAxis(0, 0, 1);
+        lightSource.pose.setScale(5);
+
         projection.perspective((float) Math.toRadians(60), ctx.getViewport().getAspectRatio(), 0.001f, 1000f);
 
         vaoId = GL30.glGenVertexArrays();
@@ -116,24 +123,19 @@ public class LightScene implements InteractiveSceneLifecycle {
         GL20.glEnableVertexAttribArray(2);
         GL20.glEnableVertexAttribArray(3);
     }
-
-    LightSource lightSource = new LightSource().rotationStart(20, 0, 1).rotationAxis(0, 0, 1);
     
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-
-        lightSource.rotationStart(10,0,0);
-        lightSource.render(ctx, frame, () -> {
-            GL30.glBindVertexArray(vaoId);
-            shader.applyBindings(b -> {
-                b.mat4("u_model", lightSource.pose.getModel());
-                b.mat4("u_view", ctx.getCamera3D().getViewMatrix());
-                b.mat4("u_projection", projection);
-            }).bind();
-            GL11.glDrawElements(GL11.GL_TRIANGLES, cubeIndexCount, GL11.GL_UNSIGNED_INT, 0);
-        });
+        GL30.glBindVertexArray(vaoId);
+        shader.applyBindings(b -> {
+            b.mat4("u_model", model);
+            b.mat4("u_view", ctx.getCamera3D().getViewMatrix());
+            b.mat4("u_projection", projection);
+        }).bind();
+        GL11.glDrawElements(GL11.GL_TRIANGLES, cubeIndexCount, GL11.GL_UNSIGNED_INT, 0);
 
         axis.render(ctx);
+        lightSource.render(ctx, frame);
     }
 
     @Override
