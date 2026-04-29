@@ -1,9 +1,11 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
 import io.github.somehussar.crystalgraphics.api.shader.CgShader;
+import io.github.somehussar.crystalgraphics.api.state.CgBlendState;
 import io.github.somehussar.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
+import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.object.LightSource;
 import io.github.somehussar.crystalgraphics.harness.object.WorldAxisRenderer;
@@ -23,6 +25,7 @@ public class LightScene implements InteractiveSceneLifecycle {
 
     private static final String DIR = "assets/harness/shader/";
     CgShader shader = CgShaderFactory.load(DIR + "pos3_uv2_normal3_col4ub.vert", DIR + "pos3_uv2_normal3_col4ub.frag");
+    CgShader sphereShader = CgShaderFactory.load(DIR + "circle/sphere.vert", DIR + "circle/sphere.frag");
 
     Matrix4f model = new Matrix4f(), projection = new Matrix4f();
 
@@ -126,15 +129,23 @@ public class LightScene implements InteractiveSceneLifecycle {
     
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
+        Camera3D cam = ctx.getCamera3D();
+        CgBlendState.ALPHA.apply();
+        axis.render(ctx);
+        GL11.glDisable(GL11.GL_ALPHA_TEST);
+        GL11.glAlphaFunc(GL11.GL_GREATER,0.01f);
         GL30.glBindVertexArray(vaoId);
-        shader.applyBindings(b -> {
+        sphereShader.applyBindings(b -> {
             b.mat4("u_model", model);
-            b.mat4("u_view", ctx.getCamera3D().getViewMatrix());
+            b.mat4("u_view", cam.getViewMatrix());
             b.mat4("u_projection", projection);
+            b.vec3("u_lightPos", lightSource.pose.getPos());
+            b.vec4("u_lightCol", 1f, 0.91f, 0.37f, 1f);
+            b.vec4("u_cameraPos", cam.getPos());
+            b.vec4("u_localCameraPos" , cam.getPos().mul(model.invert(new Matrix4f())));
         }).bind();
         GL11.glDrawElements(GL11.GL_TRIANGLES, cubeIndexCount, GL11.GL_UNSIGNED_INT, 0);
 
-        axis.render(ctx);
         lightSource.render(ctx, frame);
     }
 
@@ -179,6 +190,7 @@ public class LightScene implements InteractiveSceneLifecycle {
         GL15.glDeleteBuffers(vboId);
         GL15.glDeleteBuffers(eboId);
         shader.delete();
+        sphereShader.delete();
         axis.dispose();
     }
 }

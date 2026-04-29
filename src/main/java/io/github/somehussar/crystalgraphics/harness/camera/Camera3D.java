@@ -1,7 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.camera;
 
 import org.joml.Matrix4f;
-import org.joml.Vector3f;
+import org.joml.Vector4f;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -46,6 +46,7 @@ public class Camera3D {
     private static final float MIN_PITCH = -89.0f;
 
     // ── Position and orientation ──
+    private Vector4f pos = new Vector4f();
     private float posX;
     private float posY;
     private float posZ;
@@ -324,6 +325,10 @@ public class Camera3D {
     }
 
     // ── Accessors ──
+
+    public Vector4f getPos() {
+        return pos.set(posX, posY, posZ,1);
+    }
 
     public float getPosX() {
         return posX;
