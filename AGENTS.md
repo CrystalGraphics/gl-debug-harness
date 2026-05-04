@@ -24,6 +24,12 @@
 # Run a 3D scene
 ./gradlew :gl-debug-harness:runHarness --args="--mode=image"
 
+# Instanced rendering test
+./gradlew :gl-debug-harness:runHarness --args="--mode=instancing-test"
+
+# Mesh loader test
+./gradlew :gl-debug-harness:runHarness --args="--mode=mesh-test"
+
 # Run a 3D scene with custom output name
 ./gradlew :gl-debug-harness:runHarness --args="--mode=text-3d --output-name=my-test"
 

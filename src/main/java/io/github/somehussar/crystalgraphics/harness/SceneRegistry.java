@@ -3,7 +3,10 @@ package io.github.somehussar.crystalgraphics.harness;
 import io.github.somehussar.crystalgraphics.harness.config.SceneDescriptor;
 import io.github.somehussar.crystalgraphics.harness.scene.*;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ImageScene;
+import io.github.somehussar.crystalgraphics.harness.scene.test.InstancingTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.LightScene;
+import io.github.somehussar.crystalgraphics.harness.scene.test.ReviewScene;
+import io.github.somehussar.crystalgraphics.harness.scene.test.ShaderLibTestScene;
 import io.github.somehussar.crystalgraphics.harness.tool.CapabilityReport;
 import io.github.somehussar.crystalgraphics.harness.tool.GlStateDumper;
 
@@ -79,7 +82,7 @@ public final class SceneRegistry {
                 .needsDepthBuffer(true)
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
-            () -> new LightScene()
+            () -> new ReviewScene()
         );
         reg.register(
             SceneDescriptor.builder("image")
@@ -127,6 +130,30 @@ public final class SceneRegistry {
                 () -> new TextScene3D()
         );
         
+        reg.register(
+            SceneDescriptor.builder("shader-lib-test")
+                .description("Tests GLSL library #include chain: noise, color, UV operations")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.05f, 0.05f, 0.05f, 1.0f)
+                .build(),
+            () -> new ShaderLibTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("instancing-test")
+                .description("Instancing backend diagnostics: base VAO isolation, instanced draw, GL error checks")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
+                .build(),
+            () -> new InstancingTestScene()
+        );
+
         // ── Diagnostic modes ──
         reg.register(
             SceneDescriptor.builder("atlas-dump")
@@ -148,6 +175,20 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.15f, 1.0f)
                 .build(),
                 () -> new CameraScene3D()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("mesh-test")
+                .description("3D mesh test: CgMeshBuilder shapes + OBJ + GLTF")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.08f, 0.08f, 0.12f, 1.0f)
+                .build(),
+            new HarnessSceneFactory() {
+                public HarnessSceneLifecycle create() { return new MeshTestScene(); }
+            }
         );
 
         reg.register(
