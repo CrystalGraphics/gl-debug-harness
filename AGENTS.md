@@ -24,6 +24,9 @@
 # Run a 3D scene
 ./gradlew :gl-debug-harness:runHarness --args="--mode=image"
 
+# Shader #include preprocessor test
+./gradlew :gl-debug-harness:runHarness --args="--mode=shader-test"#
+
 # Instanced rendering test
 ./gradlew :gl-debug-harness:runHarness --args="--mode=instancing-test"
 
