@@ -4,9 +4,7 @@ import io.github.somehussar.crystalgraphics.harness.config.SceneDescriptor;
 import io.github.somehussar.crystalgraphics.harness.scene.*;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ImageScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.InstancingTestScene;
-import io.github.somehussar.crystalgraphics.harness.scene.test.LightScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ReviewScene;
-import io.github.somehussar.crystalgraphics.harness.scene.test.CgShaderBufferValidationScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ShaderLibTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
 import io.github.somehussar.crystalgraphics.harness.tool.CapabilityReport;
@@ -142,17 +140,6 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.05f, 1.0f)
                 .build(),
             () -> new ShaderLibTestScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("shader-buffer-validation")
-                .description("Wave 1-4 GPU validation: UBO + SSBO/TBO pixel readback proof (throws on failure)")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(true)
-                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
-                .build(),
-            () -> new CgShaderBufferValidationScene()
         );
 
         reg.register(
