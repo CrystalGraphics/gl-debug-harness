@@ -187,7 +187,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 ctx.setProjection(HarnessProjectionUtil.perspective(vp.getWidth(), vp.getHeight()));
             }
 
-            if (Keyboard.isKeyDown(Keyboard.KEY_R)) CgShaderReloadHook.reload();
+            if (Keyboard.isKeyDown(Keyboard.KEY_R)) CgAssetReloader.reload();
             if (Keyboard.isKeyDown(Keyboard.KEY_I)) init();
             
             // 3. Check for pause toggle BEFORE camera input processing.

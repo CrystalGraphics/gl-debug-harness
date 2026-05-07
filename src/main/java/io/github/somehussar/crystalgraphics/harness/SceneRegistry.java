@@ -6,7 +6,9 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.ImageScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.InstancingTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.LightScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ReviewScene;
+import io.github.somehussar.crystalgraphics.harness.scene.test.CgShaderBufferValidationScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ShaderLibTestScene;
+import io.github.somehussar.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
 import io.github.somehussar.crystalgraphics.harness.tool.CapabilityReport;
 import io.github.somehussar.crystalgraphics.harness.tool.GlStateDumper;
 
@@ -143,6 +145,17 @@ public final class SceneRegistry {
         );
 
         reg.register(
+            SceneDescriptor.builder("shader-buffer-validation")
+                .description("Wave 1-4 GPU validation: UBO + SSBO/TBO pixel readback proof (throws on failure)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgShaderBufferValidationScene()
+        );
+
+        reg.register(
             SceneDescriptor.builder("instancing-test")
                 .description("Instancing backend diagnostics: base VAO isolation, instanced draw, GL error checks")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
@@ -152,6 +165,18 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
                 .build(),
             () -> new InstancingTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("material-dual-path")
+                .description("CrystalShader MVP: single .shader file drawn with drawDirect() and drawInstanced(8)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.08f, 0.08f, 0.12f, 1.0f)
+                .build(),
+            () -> new CgMaterialDualPathScene()
         );
 
         // ── Diagnostic modes ──

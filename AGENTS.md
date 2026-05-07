@@ -13,7 +13,7 @@
 ./gradlew :gl-debug-harness:runHarness --args="--mode=triangle-2d"
 
 # Run atlas dump
-./gradlew :gl-debug-harness:runHarness --args="--mode=atlas-dump"
+./gradlew :gl-debug-harnesTs:runHarness --args="--mode=atlas-dump"
 
 # Run with options
 ./gradlew :gl-debug-harness:runHarness --args="--mode=atlas-dump --atlas-type=mtsdf --font-size-px=128"
@@ -25,7 +25,10 @@
 ./gradlew :gl-debug-harness:runHarness --args="--mode=image"
 
 # Shader #include preprocessor test
-./gradlew :gl-debug-harness:runHarness --args="--mode=shader-test"#
+./gradlew :gl-debug-harness:runHarness --args="--mode=shader-lib-test"
+
+# Material
+./gradlew :gl-debug-harness:runHarness --args="--mode=material-dual-path"
 
 # Instanced rendering test
 ./gradlew :gl-debug-harness:runHarness --args="--mode=instancing-test"
@@ -41,7 +44,20 @@
 
 # Compile only
 ./gradlew :gl-debug-harness:compileJava
+---
+
 ```
+
+# ⚠️ AGENT EXECUTION RULES — READ BEFORE ANYTHING ELSE
+
+**These rules apply to ALL agents operating in this repository, including subagents.**
+
+- **When creating new scenes, NEVER implement raw low level GL calls. Always rely on the existing infrastructure in CrystalGraphics.**
+  Instead of `int vao = GL30.glGenVertexArrays` or `int vbo = GL11.glGenBuffers`, use
+  CgVertexArray/CgVertexBuffer/CgStreamingBuffer directly from the
+  Cg registeries such as CgVertexArray|BufferRegistry. Same for Shaders -> CgShaderBuffer,
+  Textures -> CgTexture, Shader buffers -> CgShaderBuffer,
+  FBO -> CgFrameBuffer, etc...
 
 ---
 

@@ -64,5 +64,18 @@ public  class GlErrorChecker {
         }
     }
 
+    /**
+     * Assert that no GL errors are pending. Throws {@link AssertionError} if any error is found.
+     *
+     * @param context human-readable description for the error message
+     * @throws AssertionError if any GL error was pending
+     */
+    public static void assertNoGlError(String context) {
+        List<String> errors = drainErrors();
+        if (!errors.isEmpty()) {
+            throw new AssertionError("[GlErrorChecker] GL error(s) after " + context + ": " + errors);
+        }
+    }
+
     private GlErrorChecker() { }
 }
