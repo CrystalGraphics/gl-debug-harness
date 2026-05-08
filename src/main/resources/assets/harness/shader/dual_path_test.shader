@@ -21,7 +21,7 @@ void vertex(out v2f o) {
 }
 
 void fragment(in v2f i, out vec4 fragColor) {
-    fragColor = vec4(1.0) + cg_ProjMatrix[3] * 0.00001;
+    fragColor = vec4(1) - 0.04 * CG_INSTANCE_ID;
 }
 
 

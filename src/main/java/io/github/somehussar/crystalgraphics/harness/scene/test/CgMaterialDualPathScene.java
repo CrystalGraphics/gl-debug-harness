@@ -44,7 +44,7 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         pipeline = CgMaterialPipeline.getInstance();
-        material = CgMaterial.load("demo:shaders/dual_path_test.shader");
+        material = CgMaterial.load("assets/harness/shader/dual_path_test.shader");
         mesh = CgMeshBuilder.unitCube(CgVertexFormat.SPATIAL).upload();
     }
 
