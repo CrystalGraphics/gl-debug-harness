@@ -30,6 +30,9 @@
 # Material
 ./gradlew :gl-debug-harness:runHarness --args="--mode=material-dual-path"
 
+# Attached buffer stress test
+./gradlew :gl-debug-harness:runHarness --args="--mode=attached-buffer-stress"
+
 # Instanced rendering test
 ./gradlew :gl-debug-harness:runHarness --args="--mode=instancing-test"
 

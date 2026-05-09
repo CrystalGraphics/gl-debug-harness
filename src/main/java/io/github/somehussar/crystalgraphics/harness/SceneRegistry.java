@@ -7,6 +7,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.InstancingTestSce
 import io.github.somehussar.crystalgraphics.harness.scene.test.ReviewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ShaderLibTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
+import io.github.somehussar.crystalgraphics.harness.scene.test.CgAttachedBufferStressScene;
 import io.github.somehussar.crystalgraphics.harness.tool.CapabilityReport;
 import io.github.somehussar.crystalgraphics.harness.tool.GlStateDumper;
 
@@ -164,6 +165,18 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.12f, 1.0f)
                 .build(),
             () -> new CgMaterialDualPathScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("attached-buffer-stress")
+                .description("Stress-tests attached buffer GLSL injection: 5 materials × mixed SSBO/UBO combos, 703 instanced draws")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
+                .build(),
+            () -> new CgAttachedBufferStressScene()
         );
 
         // ── Diagnostic modes ──
