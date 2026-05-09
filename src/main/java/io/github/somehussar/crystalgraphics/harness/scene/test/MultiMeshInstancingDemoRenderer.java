@@ -81,7 +81,9 @@ public final class MultiMeshInstancingDemoRenderer {
 
     public void init() {
         shader = CgShaderFactory.fromSource(VERT, FRAG);
-        state = CgRenderState.builder(shader)
+        // TODO: CgRenderState no longer carries a shader — shader must be bound separately
+        //       via CgMaterial.bind() once CgRenderLayer is migrated to the material framework.
+        state = CgRenderState.builder()
                 .blend(CgBlendState.ALPHA)
                 .depth(CgDepthState.NONE)
                 .cull(CgCullState.NONE)
@@ -131,7 +133,8 @@ public final class MultiMeshInstancingDemoRenderer {
                     255, 120 + i * 8, 80, 220,
                     1.0f, 0.2f, 0.0f, 1.0f);
         }
-        state.apply(projection);
+        // TODO: projection binding must be restored via CgMaterial once migration is complete.
+                state.apply();
         quadRenderer.flush();
         state.clear();
         quadRenderer.end();
@@ -146,7 +149,8 @@ public final class MultiMeshInstancingDemoRenderer {
                     80, 160, 255, 220,
                     0.0f, 0.6f, 1.0f, 1.0f);
         }
-        state.apply(projection);
+        // TODO: projection binding must be restored via CgMaterial once migration is complete.
+                state.apply();
         triangleRenderer.flush();
         state.clear();
         triangleRenderer.end();
@@ -161,7 +165,8 @@ public final class MultiMeshInstancingDemoRenderer {
                     160, 255, 110, 220,
                     0.3f, 1.0f, 0.2f, 1.0f);
         }
-        state.apply(projection);
+        // TODO: projection binding must be restored via CgMaterial once migration is complete.
+                state.apply();
         diamondRenderer.flush();
         state.clear();
         diamondRenderer.end();
