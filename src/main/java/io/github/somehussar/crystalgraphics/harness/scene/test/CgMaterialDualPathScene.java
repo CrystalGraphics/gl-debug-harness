@@ -1,18 +1,33 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
+import io.github.somehussar.crystalgraphics.api.CgCapabilities;
+import io.github.somehussar.crystalgraphics.api.framebuffer.CgColorAttachmentSpec;
+import io.github.somehussar.crystalgraphics.api.framebuffer.CgDepthStencilSpec;
+import io.github.somehussar.crystalgraphics.api.framebuffer.CgFramebuffer;
+import io.github.somehussar.crystalgraphics.api.framebuffer.CgFramebufferSpec;
+import io.github.somehussar.crystalgraphics.api.framebuffer.CgTextureFormatSpec;
 import io.github.somehussar.crystalgraphics.api.material.CgFrameUniforms;
 import io.github.somehussar.crystalgraphics.api.material.CgMaterial;
 import io.github.somehussar.crystalgraphics.api.material.CgMaterialPipeline;
 import io.github.somehussar.crystalgraphics.api.vertex.CgVertexFormat;
 import io.github.somehussar.crystalgraphics.gl.buffer.shader.CgShaderBuffer;
 import io.github.somehussar.crystalgraphics.gl.buffer.staging.CgBufferWriter;
+import io.github.somehussar.crystalgraphics.gl.framebuffer.CgFramebufferFactory;
 import io.github.somehussar.crystalgraphics.gl.mesh.CgMesh;
 import io.github.somehussar.crystalgraphics.gl.mesh.CgMeshBuilder;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.tool.GlErrorChecker;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL30;
+
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 
 /**
  * CrystalShader MVP demo scene exercising the full Wave-1 material system:
@@ -48,14 +63,24 @@ import org.joml.Matrix4f;
  */
 public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
 
+    private static final Logger LOGGER = LogManager.getLogger("CrystalGraphics");
+
     private boolean running = true;
 
-    // ── Resources ─────────────────────────────────────────────────────────────
+    // ── Wave-1 dual-path resources ─────────────────────────────────────────────
 
     private CgMaterial material;
     private CgMaterial outlineMaterial;
     private CgMesh mesh;
     private CgMaterialPipeline pipeline;
+
+    // ── MRT section resources ─────────────────────────────────────────────────
+
+    private CgFramebuffer mrtFbo;
+    private CgMaterial mrtMaterial;
+    /** Dedicated fullscreen NDC quad: quad2D(-1,-1,1,1), z=0, CCW winding. */
+    private CgMesh mrtMesh;
+    private boolean mrtReadbackDone = false;
 
     private static final Matrix4f SCRATCH_4 = new Matrix4f();
 
@@ -90,6 +115,30 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
         material.setNextPass(outlineMaterial);
 
         mesh = CgMeshBuilder.unitCube(CgVertexFormat.SPATIAL).upload();
+
+        // ── MRT section: 3-attachment FBO + sentinel material ─────────────────
+        initFramebuffer();
+    }
+    
+    public void initFramebuffer(){
+        CgCapabilities caps = CgCapabilities.detect();
+        if (caps.isCoreFbo() || caps.isArbFbo()) {
+            CgTextureFormatSpec rgba8 = new CgTextureFormatSpec(0x8058, 0x1908, 0x1401);
+            CgColorAttachmentSpec colorSpec = CgColorAttachmentSpec.builder().format(rgba8).build();
+            CgFramebufferSpec mrtSpec = CgFramebufferSpec.builder()
+                    .baseWidth(256)
+                    .baseHeight(256)
+                    .addColorAttachment(colorSpec)
+                    .addColorAttachment(colorSpec)
+                    .addColorAttachment(colorSpec)
+                    .depthStencil(CgDepthStencilSpec.packedDepthStencil(0x88F0))
+                    .build();
+            mrtFbo = CgFramebufferFactory.create(caps, mrtSpec);
+            mrtMaterial = CgMaterial.load("assets/harness/shader/mrt_sentinel.shader");
+            mrtMesh = CgMeshBuilder.quad2D(CgVertexFormat.SPATIAL, -1f, -1f, 1f, 1f).upload();
+        } else {
+            LOGGER.warn("[CgMrtSection] MRT not supported on EXT-only backend — skipping MRT test");
+        }
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -144,6 +193,59 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
 
         material.drawChain(() -> mesh.drawInstanced(N));
         GlErrorChecker.assertNoGlError("CgMaterialDualPathScene.drawChain.instanced");
+
+        // ── MRT section ───────────────────────────────────────────────────────
+        if (mrtFbo != null && mrtMaterial != null && mrtMesh != null) {
+            IntBuffer savedViewport = BufferUtils.createIntBuffer(16);
+            GL11.glGetInteger(GL11.GL_VIEWPORT, savedViewport);
+
+            mrtFbo.bind();
+            mrtFbo.drawBuffers(GL30.GL_COLOR_ATTACHMENT0, GL30.GL_COLOR_ATTACHMENT1, GL30.GL_COLOR_ATTACHMENT2);
+            GlErrorChecker.assertNoGlError("CgMrtSection.drawBuffers");
+
+            GL11.glViewport(0, 0, 256, 256);
+            GL11.glClearColor(0f, 0f, 0f, 1f);
+            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+
+            CgShaderBuffer mrtBuf = pipeline.objectBuffer();
+            CgBufferWriter mw = mrtBuf.beginWrite(1);
+            mw.beginRecord()
+              .mat4("modelMatrix", SCRATCH_4.identity())
+              .mat4("normalMatrix", SCRATCH_4.identity());
+            mrtBuf.endRecord();
+            mrtBuf.endWrite();
+
+            mrtMaterial.bind();
+            mrtMesh.drawDirect();
+            mrtMaterial.unbind();
+            GlErrorChecker.assertNoGlError("CgMrtSection.draw");
+
+            if (!mrtReadbackDone) {
+                mrtReadbackDone = true;
+                ByteBuffer pixel = BufferUtils.createByteBuffer(4);
+
+                GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
+                GL11.glReadPixels(128, 128, 1, 1, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixel);
+                float r0 = (pixel.get(0) & 0xFF) / 255.0f;
+                LOGGER.info("[CgMrtSection] RT0 {} (r={})", r0 > 0.9f ? "PASS" : "FAIL", r0);
+                pixel.clear();
+
+                GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT1);
+                GL11.glReadPixels(128, 128, 1, 1, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixel);
+                float g1 = (pixel.get(1) & 0xFF) / 255.0f;
+                LOGGER.info("[CgMrtSection] RT1 {} (g={})", g1 > 0.9f ? "PASS" : "FAIL", g1);
+                pixel.clear();
+
+                GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT2);
+                GL11.glReadPixels(128, 128, 1, 1, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixel);
+                float b2 = (pixel.get(2) & 0xFF) / 255.0f;
+                LOGGER.info("[CgMrtSection] RT2 {} (b={})", b2 > 0.9f ? "PASS" : "FAIL", b2);
+            }
+
+            mrtFbo.unbind();
+            GL11.glViewport(savedViewport.get(0), savedViewport.get(1),
+                    savedViewport.get(2), savedViewport.get(3));
+        }
     }
 
     // ── Dispose ───────────────────────────────────────────────────────────────
@@ -151,9 +253,11 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         if (mesh != null) mesh.delete();
-        // Unlink chain before deleting to avoid double-delete of outlineMaterial
         if (material != null) { material.setNextPass(null); material.delete(); }
         if (outlineMaterial != null) outlineMaterial.delete();
+        if (mrtMaterial != null) mrtMaterial.delete();
+        if (mrtMesh != null) mrtMesh.delete();
+        if (mrtFbo != null) mrtFbo.delete();
     }
 
     @Override public boolean isRunning()              { return running; }
