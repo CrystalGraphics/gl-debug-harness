@@ -15,25 +15,45 @@ import io.github.somehussar.crystalgraphics.harness.tool.GlErrorChecker;
 import org.joml.Matrix4f;
 
 /**
- * CrystalShader MVP demo scene: one {@code .shader} file drawn via both
- * {@code drawDirect()} (non-instanced) and {@code drawInstanced(N)} (instanced)
- * without modification, no {@code #ifdef}, same VAO.
+ * CrystalShader MVP demo scene exercising the full Wave-1 material system:
  *
- * <p>Also contains three isolated diagnostic shaders to verify the UBO and SSBO
- * data pipelines independently before testing the full material system:</p>
  * <ul>
- *   <li>RED   — UBO-only: reads {@code CgFrameBlock} view+proj, world position hardcoded in GLSL</li>
- *   <li>GREEN — SSBO-only: reads model matrix from SSBO binding 0, outputs directly to clip space</li>
- *   <li>BLUE  — UBO+SSBO: full MVP pipeline combining both buffers</li>
+ *   <li><b>Dual-path draw</b> — same material, same VAO: {@code drawDirect()} and
+ *       {@code drawInstanced(N)} without variants or {@code #ifdef}.</li>
+ *   <li><b>Material properties</b> — {@code applyBindings()} routes named writes to
+ *       {@code CgMaterialProperty} setters, which populate the {@code CgMaterialBlock} UBO
+ *       (non-samplers) and bind sampler uniforms. Adapter is cached per recompile, not
+ *       allocated per call.</li>
+ *   <li><b>Animated properties</b> — {@code _Color} cycles hue over time to confirm
+ *       per-frame UBO uploads via {@code materialPropsDirty}.</li>
+ *   <li><b>Render state</b> — {@code dual_path_test.shader} declares the full RenderState
+ *       block (Blend, DepthTest, DepthWrite, Cull, AlphaTest, ColorMask, Stencil). GL state
+ *       is saved via {@code CgGlScope} on {@code bind()} and restored on {@code unbind()} —
+ *       NOT reset to defaults.</li>
+ *   <li><b>drawChain</b> — the main material chains to an outline pass ({@code CULL FRONT},
+ *       vertex extrusion along normal) using {@link CgMaterial#drawChain(Runnable)}.
+ *       The draw command runs once per pass in the chain.</li>
+ *   <li><b>Instanced drawChain</b> — same chain API, different draw command; confirms
+ *       the chain iterates correctly over both passes for instanced draws.</li>
  * </ul>
+ *
+ * <h3>What to look for when running</h3>
+ * <ol>
+ *   <li>Single cube at origin with animated tint (hue cycling) — confirms UBO upload works.</li>
+ *   <li>Orange outline on the single cube — confirms {@code drawChain} second pass runs.</li>
+ *   <li>11 118 instanced cubes with per-instance {@code custom0} color — confirms instanced path.</li>
+ *   <li>Orange outline on all instanced cubes — confirms chain runs per instanced draw too.</li>
+ *   <li>No GL errors logged — confirmed by {@link GlErrorChecker} after each draw group.</li>
+ * </ol>
  */
 public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
-    
+
     private boolean running = true;
 
     // ── Resources ─────────────────────────────────────────────────────────────
 
     private CgMaterial material;
+    private CgMaterial outlineMaterial;
     private CgMesh mesh;
     private CgMaterialPipeline pipeline;
 
@@ -44,7 +64,31 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         pipeline = CgMaterialPipeline.getInstance();
+
+        // Main material — loads dual_path_test.shader (full RenderState + Properties block)
         material = CgMaterial.load("assets/harness/shader/dual_path_test.shader");
+
+        // Set initial property values via the cached CgMaterialBindingsAdapter.
+        // Non-sampler props (_Color, _Roughness, _Speed) → CgMaterialBlock UBO.
+        // Sampler props (_MainTex etc.) are not set here — CgFallbackTextures handle defaults.
+        material.applyProperties(b -> {
+            b.vec4("_Color",     1f, 1f, 1f, 1f);  // white tint — will animate in render()
+            b.set1f("_Roughness", 0.4f);
+            b.set1f("_Metallic",  0.0f);
+            b.set1f("_Speed",     2.0f);
+        });
+
+        // Outline material — second pass: CULL FRONT, extrudes vertices along normal
+        outlineMaterial = CgMaterial.load("assets/harness/shader/dual_path_outline.shader");
+        outlineMaterial.applyProperties(b -> {
+            b.vec4("_OutlineColor", 1f, 0.5f, 0f, 1f); // orange
+            b.set1f("_OutlineWidth", 0.04f);
+        });
+
+        // Wire chain: material → outlineMaterial.
+        // drawChain(cmd) will: bind material → cmd → unbind, then bind outline → cmd → unbind.
+        material.setNextPass(outlineMaterial);
+
         mesh = CgMeshBuilder.unitCube(CgVertexFormat.SPATIAL).upload();
     }
 
@@ -52,68 +96,85 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        Matrix4f view = ctx.getCamera3D().getViewMatrix();
+        float t = (float) frame.getElapsedTime();
+        Matrix4f view       = ctx.getCamera3D().getViewMatrix();
         Matrix4f projection = ctx.getProjection();
 
         CgFrameUniforms fu = pipeline.getFrameUniforms();
-        fu.view(view).proj(projection).timeSecs((float) frame.getElapsedTime())
+        fu.view(view).proj(projection).timeSecs(t)
           .viewportW(ctx.getScreenWidth()).viewportH(ctx.getScreenHeight());
         pipeline.beginFrame();
 
-        // ── Material: non-instanced draw (1 cube at origin) ──────────────────
+        // Animate _Color — hue cycles over 4 s. Confirms per-frame UBO re-upload via
+        // materialPropsDirty (set by applyBindings()) and the cached bindingsAdapter.
+        float hue = (t % 4f) / 4f;
+        float[] rgb = hsvToRgb(hue, 0.8f, 1f);
+        material.applyProperties(b -> b.vec4("_Color", rgb[0], rgb[1], rgb[2], 0.9f));
+
+        // ── drawChain: non-instanced (1 cube at origin) ───────────────────────
+        // Writes one object record then lets drawChain run both passes.
         CgShaderBuffer objectBuffer = pipeline.objectBuffer();
-        CgBufferWriter ssboW = objectBuffer.beginWrite(1);
-        ssboW.beginRecord()
-             .mat4("modelMatrix", SCRATCH_4.identity().translation(0f, 0f, 0f))
-             .mat4("normalMatrix", SCRATCH_4.identity())
-             .vec4("custom0", 1f, 1f, 1f, 1f);
-        // custom1–custom3 auto-zeroed
+        CgBufferWriter w = objectBuffer.beginWrite(1);
+        w.beginRecord()
+         .mat4("modelMatrix", SCRATCH_4.identity().translation(0f, 0f, 0f))
+         .mat4("normalMatrix", SCRATCH_4.identity())
+         .vec4("custom0", rgb[0], rgb[1], rgb[2], 1f);
         objectBuffer.endRecord();
         objectBuffer.endWrite();
 
-        material.bind();
-        mesh.drawDirect();
-        material.unbind();
-        GlErrorChecker.assertNoGlError("CgMaterialDualPathScene.drawDirect");
+        // drawChain: pass 1 (material, Blend+DepthTest+Stencil etc.) then
+        //            pass 2 (outlineMaterial, Cull FRONT, orange extrusion)
+        material.drawChain(mesh::drawDirect);
+        GlErrorChecker.assertNoGlError("CgMaterialDualPathScene.drawChain.direct");
 
-        // ── Material: instanced draw (8 cubes across X at z = -5) ────────────
-        int N = 11118;
-        ssboW = objectBuffer.beginWrite(N);
+        // ── drawChain: instanced (11 118 cubes across X) ──────────────────────
+        int N = 11_118;
+        w = objectBuffer.beginWrite(N);
         for (int i = 0; i < N; i++) {
             float r = (i & 1) == 0 ? 1f : 0.25f;
             float g = (i & 2) == 0 ? 1f : 0.25f;
             float b = (i & 4) == 0 ? 1f : 0.25f;
-            ssboW.beginRecord()
-                 .mat4("modelMatrix", SCRATCH_4.identity().translation(i * 1.5f, 0f, -5f))
-                 .mat4("normalMatrix", SCRATCH_4.identity())
-                 .vec4("custom0", r, g, b, 1f);
-            // custom1–custom3 auto-zeroed
+            w.beginRecord()
+             .mat4("modelMatrix", SCRATCH_4.identity().translation(i * 1.5f, 0f, -5f))
+             .mat4("normalMatrix", SCRATCH_4.identity())
+             .vec4("custom0", r, g, b, 1f);
             objectBuffer.endRecord();
         }
         objectBuffer.endWrite();
 
-        material.bind();
-        mesh.drawInstanced(N);
-        material.unbind();
-        GlErrorChecker.assertNoGlError("CgMaterialDualPathScene.drawInstanced");
+        material.drawChain(() -> mesh.drawInstanced(N));
+        GlErrorChecker.assertNoGlError("CgMaterialDualPathScene.drawChain.instanced");
     }
 
-
-  
     // ── Dispose ───────────────────────────────────────────────────────────────
 
     @Override
     public void dispose() {
         if (mesh != null) mesh.delete();
-        if (material != null) material.delete();
+        // Unlink chain before deleting to avoid double-delete of outlineMaterial
+        if (material != null) { material.setNextPass(null); material.delete(); }
+        if (outlineMaterial != null) outlineMaterial.delete();
     }
 
-    @Override
-    public boolean isRunning() {return running;}
+    @Override public boolean isRunning()              { return running; }
+    @Override public boolean uses3DCamera()           { return true; }
+    @Override public boolean shouldShutdownOnComplete() { return true; }
 
-    @Override
-    public boolean uses3DCamera() {return true;}
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    @Override
-    public boolean shouldShutdownOnComplete() {return true;}
+    private static float[] hsvToRgb(float h, float s, float v) {
+        int hi = (int)(h * 6f) % 6;
+        float f  = h * 6f - (int)(h * 6f);
+        float p  = v * (1f - s);
+        float q  = v * (1f - f * s);
+        float t  = v * (1f - (1f - f) * s);
+        switch (hi) {
+            case 0: return new float[]{v, t, p};
+            case 1: return new float[]{q, v, p};
+            case 2: return new float[]{p, v, t};
+            case 3: return new float[]{p, q, v};
+            case 4: return new float[]{t, p, v};
+            default: return new float[]{v, p, q};
+        }
+    }
 }
