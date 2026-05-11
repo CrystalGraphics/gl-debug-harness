@@ -21,7 +21,7 @@ import io.github.somehussar.crystalgraphics.harness.runtime.WorldPassCoordinator
 import io.github.somehussar.crystalgraphics.harness.scheduler.TaskScheduler;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessProjectionUtil;
 import io.github.somehussar.crystalgraphics.harness.util.RenderPassState;
-import io.github.somehussar.crystalgraphics.mc.shader.CgShaderReloadHook;
+import io.github.somehussar.crystalgraphics.mc.CgAssetReloader;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;

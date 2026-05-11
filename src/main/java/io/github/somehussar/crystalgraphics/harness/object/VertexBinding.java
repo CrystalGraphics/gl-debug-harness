@@ -14,8 +14,8 @@ public class VertexBinding {
     }
 
     public void dispose() {
-        GL30.glDeleteVertexArrays(vaoId);
-        GL15.glDeleteBuffers(vboId);
-        GL15.glDeleteBuffers(eboId);
+        if (vaoId != -1) GL30.glDeleteVertexArrays(vaoId);
+        if (vboId != -1) GL15.glDeleteBuffers(vboId);
+        if (eboId != -1) GL15.glDeleteBuffers(eboId);
     }
 }

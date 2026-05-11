@@ -1,18 +1,15 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
 import io.github.somehussar.crystalgraphics.api.CgCapabilities;
-import io.github.somehussar.crystalgraphics.api.framebuffer.CgColorAttachmentSpec;
-import io.github.somehussar.crystalgraphics.api.framebuffer.CgDepthStencilSpec;
-import io.github.somehussar.crystalgraphics.api.framebuffer.CgFramebuffer;
-import io.github.somehussar.crystalgraphics.api.framebuffer.CgFramebufferSpec;
-import io.github.somehussar.crystalgraphics.api.framebuffer.CgTextureFormatSpec;
+import io.github.somehussar.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
+import io.github.somehussar.crystalgraphics.api.texture.CgTextureType;
 import io.github.somehussar.crystalgraphics.api.material.CgFrameUniforms;
 import io.github.somehussar.crystalgraphics.api.material.CgMaterial;
 import io.github.somehussar.crystalgraphics.api.material.CgMaterialPipeline;
 import io.github.somehussar.crystalgraphics.api.vertex.CgVertexFormat;
 import io.github.somehussar.crystalgraphics.gl.buffer.shader.CgShaderBuffer;
 import io.github.somehussar.crystalgraphics.gl.buffer.staging.CgBufferWriter;
-import io.github.somehussar.crystalgraphics.gl.framebuffer.CgFramebufferFactory;
+import io.github.somehussar.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import io.github.somehussar.crystalgraphics.gl.mesh.CgMesh;
 import io.github.somehussar.crystalgraphics.gl.mesh.CgMeshBuilder;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -76,7 +73,7 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
 
     // ── MRT section resources ─────────────────────────────────────────────────
 
-    private CgFramebuffer mrtFbo;
+    private CgFrameBuffer mrtFbo;
     private CgMaterial mrtMaterial;
     /** Dedicated fullscreen NDC quad: quad2D(-1,-1,1,1), z=0, CCW winding. */
     private CgMesh mrtMesh;
@@ -117,28 +114,18 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
         mesh = CgMeshBuilder.unitCube(CgVertexFormat.SPATIAL).upload();
 
         // ── MRT section: 3-attachment FBO + sentinel material ─────────────────
-        initFramebuffer();
-    }
-    
-    public void initFramebuffer(){
-        CgCapabilities caps = CgCapabilities.detect();
-        if (caps.isCoreFbo() || caps.isArbFbo()) {
-            CgTextureFormatSpec rgba8 = new CgTextureFormatSpec(0x8058, 0x1908, 0x1401);
-            CgColorAttachmentSpec colorSpec = CgColorAttachmentSpec.builder().format(rgba8).build();
-            CgFramebufferSpec mrtSpec = CgFramebufferSpec.builder()
-                    .baseWidth(256)
-                    .baseHeight(256)
-                    .addColorAttachment(colorSpec)
-                    .addColorAttachment(colorSpec)
-                    .addColorAttachment(colorSpec)
-                    .depthStencil(CgDepthStencilSpec.packedDepthStencil(0x88F0))
-                    .build();
-            mrtFbo = CgFramebufferFactory.create(caps, mrtSpec);
-            mrtMaterial = CgMaterial.load("assets/harness/shader/mrt_sentinel.shader");
-            mrtMesh = CgMeshBuilder.quad2D(CgVertexFormat.SPATIAL, -1f, -1f, 1f, 1f).upload();
-        } else {
-            LOGGER.warn("[CgMrtSection] MRT not supported on EXT-only backend — skipping MRT test");
-        }
+        CgFrameBufferFormat mrtFormat = CgFrameBufferFormat.builder("mrt_test")
+                .color(0, CgTextureType.RGBA8)
+                .color(1, CgTextureType.RGBA8)
+                .color(2, CgTextureType.RGBA8)
+                .depth(CgTextureType.DEPTH24_STENCIL8)
+                .build();
+        
+        mrtFbo = CgFrameBuffer.create("mrt_test", 256, 256, mrtFormat);
+ 
+   
+        mrtMaterial = CgMaterial.load("assets/harness/shader/mrt_sentinel.shader");
+        mrtMesh = CgMeshBuilder.quad2D(CgVertexFormat.SPATIAL, -1f, -1f, 1f, 1f).upload();
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -200,7 +187,7 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
             GL11.glGetInteger(GL11.GL_VIEWPORT, savedViewport);
 
             mrtFbo.bind();
-            mrtFbo.drawBuffers(GL30.GL_COLOR_ATTACHMENT0, GL30.GL_COLOR_ATTACHMENT1, GL30.GL_COLOR_ATTACHMENT2);
+            mrtFbo.drawBuffers(0, 1, 2);
             GlErrorChecker.assertNoGlError("CgMrtSection.drawBuffers");
 
             GL11.glViewport(0, 0, 256, 256);
