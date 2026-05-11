@@ -80,7 +80,7 @@ public final class FontDebugHarnessMain {
         boolean shouldShutdown = true;
         try {
             ctx = HarnessContext.create(config.getWidth(), config.getHeight());
-            HarnessDiagnostics.logStartup(ctx);
+            //HarnessDiagnostics.logStartup(ctx);
 
             // Populate context with all configuration — single source of truth
             ctx.setOutputSettings(new OutputSettings(sceneOutputDir, outputName));
