@@ -47,6 +47,12 @@ import java.nio.IntBuffer;
  *       The draw command runs once per pass in the chain.</li>
  *   <li><b>Instanced drawChain</b> — same chain API, different draw command; confirms
  *       the chain iterates correctly over both passes for instanced draws.</li>
+ *   <li><b>Keyword variants</b> — four {@code CgMaterial.newInstance()} objects loaded from the same
+ *       {@code feature_keyword_test.shader}. Each has a different {@code enableKeyword()} combination
+ *       ({@code TINT_ENABLED}, {@code EMISSION_ENABLED}, {@code GRID_OVERLAY}), producing four
+ *       distinct {@code ProgramKey} entries in the shared {@link io.github.somehussar.crystalgraphics.gl.material.CgMaterialShader}
+ *       program cache. The four cubes rendered above the main cubes at Y=3 confirm lazy compilation,
+ *       cache sharing, and independent property values.</li>
  * </ul>
  *
  * <h3>What to look for when running</h3>
@@ -56,6 +62,9 @@ import java.nio.IntBuffer;
  *   <li>11 118 instanced cubes with per-instance {@code custom0} color — confirms instanced path.</li>
  *   <li>Orange outline on all instanced cubes — confirms chain runs per instanced draw too.</li>
  *   <li>No GL errors logged — confirmed by {@link GlErrorChecker} after each draw group.</li>
+ *   <li>Row of 4 cubes at Y=3 — from left: plain grey, blue tinted, dark with orange pulse,
+ *       green+grid+purple-pulse. Confirms keyword program cache: each cube uses a distinct GL
+ *       program compiled from the same shader source.</li>
  * </ol>
  */
 public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
@@ -78,6 +87,22 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
     /** Dedicated fullscreen NDC quad: quad2D(-1,-1,1,1), z=0, CCW winding. */
     private CgMesh mrtMesh;
     private boolean mrtReadbackDone = false;
+
+    // ── Keyword variant demo resources ────────────────────────────────────────
+    // Four independent material instances sharing one CgMaterialShader (same .shader path).
+    // Each has a different keyword combination to prove per-instance program cache entries.
+
+    /** No features active — plain base color. */
+    private CgMaterial kwNone;
+    /** TINT_ENABLED only. */
+    private CgMaterial kwTint;
+    /** EMISSION_ENABLED only. */
+    private CgMaterial kwEmission;
+    /** TINT_ENABLED + EMISSION_ENABLED + GRID_OVERLAY. */
+    private CgMaterial kwAll;
+    /** Shared unit cube for all four keyword demo draws. */
+    private CgMesh kwMesh;
+    private boolean kwLoggedOnce = false;
 
     private static final Matrix4f SCRATCH_4 = new Matrix4f();
 
@@ -126,6 +151,35 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
    
         mrtMaterial = CgMaterial.load("assets/harness/shader/mrt_sentinel.shader");
         mrtMesh = CgMeshBuilder.quad2D(CgVertexFormat.SPATIAL, -1f, -1f, 1f, 1f).upload();
+
+        // ── Keyword variant demo ───────────────────────────────────────────────────
+        // All four share the same underlying CgMaterialShader (same path, newInstance() API).
+        // Each has an independent propStore + enabledKeywords → independent ProgramKey in the cache.
+        kwMesh = CgMeshBuilder.unitCube(CgVertexFormat.SPATIAL).upload();
+
+        kwNone = CgMaterial.newInstance("assets/harness/shader/feature_keyword_test.shader");
+        kwNone.applyProperties(b -> b.vec4("_BaseTint", 0.7f, 0.7f, 0.7f, 1.0f));
+
+        kwTint = CgMaterial.newInstance("assets/harness/shader/feature_keyword_test.shader");
+        kwTint.enableKeyword("TINT_ENABLED");
+        kwTint.applyProperties(b -> b.vec4("_BaseTint", 0.2f, 0.6f, 1.0f, 1.0f));
+
+        kwEmission = CgMaterial.newInstance("assets/harness/shader/feature_keyword_test.shader");
+        kwEmission.enableKeyword("EMISSION_ENABLED");
+        kwEmission.applyProperties(b -> {
+            b.vec4("_BaseTint", 0.15f, 0.15f, 0.15f, 1.0f);
+            b.vec4("_EmissionColor", 1.0f, 0.4f, 0.0f,1f);
+        });
+
+        kwAll = CgMaterial.newInstance("assets/harness/shader/feature_keyword_test.shader");
+        kwAll.enableKeyword("TINT_ENABLED");
+        kwAll.enableKeyword("EMISSION_ENABLED");
+        kwAll.enableKeyword("GRID_OVERLAY");
+        kwAll.applyProperties(b -> {
+            b.vec4("_BaseTint", 0.0f, 0.8f, 0.3f, 1.0f);
+            b.vec4("_EmissionColor", 0.8f, 0.0f, 0.8f,1f);
+            b.set1f("_GridScale", 6.0f);
+        });
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -145,7 +199,7 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
         // materialPropsDirty (set by applyBindings()) and the cached bindingsAdapter.
         float hue = (t % 4f) / 4f;
         float[] rgb = hsvToRgb(hue, 0.8f, 1f);
-        material.applyProperties(b -> b.vec4("_Color", rgb[0], rgb[1], rgb[2], 0.9f));
+        //material.applyProperties(b -> b.vec4("_Color", rgb[0], rgb[1], rgb[2], 0.9f));
 
         // ── drawChain: non-instanced (1 cube at origin) ───────────────────────
         // Writes one object record then lets drawChain run both passes.
@@ -233,6 +287,77 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
             GL11.glViewport(savedViewport.get(0), savedViewport.get(1),
                     savedViewport.get(2), savedViewport.get(3));
         }
+
+        // ── Keyword variant demo ───────────────────────────────────────────────
+        // Draw 4 cubes in a row at Y=3, spaced 2.5 units apart on X.
+        // One beginWrite(1)/endWrite/drawInstanced(1) cycle per material so that each
+        // draw reads its own record at gl_InstanceID=0 (the correct per-cube position).
+        {
+            CgShaderBuffer kwBuf = pipeline.objectBuffer();
+
+            CgBufferWriter kw = kwBuf.beginWrite(1);
+            kw.beginRecord()
+              .mat4("modelMatrix",  SCRATCH_4.identity().translation(-3.75f, 3f, 0f))
+              .mat4("normalMatrix", SCRATCH_4.identity())
+              .vec4("custom0",      1f, 1f, 1f, 1f);
+            kwBuf.endRecord();
+            kwBuf.endWrite();
+            kwNone.bind();
+            kwMesh.drawInstanced(1);
+            kwNone.unbind();
+
+            kw = kwBuf.beginWrite(1);
+            kw.beginRecord()
+              .mat4("modelMatrix",  SCRATCH_4.identity().translation(-1.25f, 3f, 0f))
+              .mat4("normalMatrix", SCRATCH_4.identity())
+              .vec4("custom0",      1f, 1f, 1f, 1f);
+            kwBuf.endRecord();
+            kwBuf.endWrite();
+            kwTint.bind();
+            kwMesh.drawInstanced(1);
+            kwTint.unbind();
+
+            kw = kwBuf.beginWrite(1);
+            kw.beginRecord()
+              .mat4("modelMatrix",  SCRATCH_4.identity().translation(1.25f, 3f, 0f))
+              .mat4("normalMatrix", SCRATCH_4.identity())
+              .vec4("custom0",      1f, 1f, 1f, 1f);
+            kwBuf.endRecord();
+            kwBuf.endWrite();
+            kwEmission.bind();
+            kwMesh.drawInstanced(1);
+            kwEmission.unbind();
+
+            kw = kwBuf.beginWrite(1);
+            kw.beginRecord()
+              .mat4("modelMatrix",  SCRATCH_4.identity().translation(3.75f, 3f, 0f))
+              .mat4("normalMatrix", SCRATCH_4.identity())
+              .vec4("custom0",      1f, 1f, 1f, 1f);
+            kwBuf.endRecord();
+            kwBuf.endWrite();
+            kwAll.bind();
+            kwMesh.drawInstanced(1);
+            kwAll.unbind();
+
+            GlErrorChecker.assertNoGlError("CgMaterialDualPathScene.keywordDemo");
+        }
+
+        if (!kwLoggedOnce) {
+            kwLoggedOnce = true;
+            LOGGER.info("[KwDemo] kwNone     keywords=[] shader={}",
+                    System.identityHashCode(kwNone.getShader()));
+            LOGGER.info("[KwDemo] kwTint     keywords=[TINT_ENABLED] shader={}",
+                    System.identityHashCode(kwTint.getShader()));
+            LOGGER.info("[KwDemo] kwEmission keywords=[EMISSION_ENABLED] shader={}",
+                    System.identityHashCode(kwEmission.getShader()));
+            LOGGER.info("[KwDemo] kwAll      keywords=[TINT_ENABLED,EMISSION_ENABLED,GRID_OVERLAY] shader={}",
+                    System.identityHashCode(kwAll.getShader()));
+            boolean allDistinct =
+                    kwNone.getShader()     != kwTint.getShader() &&
+                    kwTint.getShader()     != kwEmission.getShader() &&
+                    kwEmission.getShader() != kwAll.getShader();
+            LOGGER.info("[KwDemo] All programs distinct: {}", allDistinct ? "YES ✓" : "NO — UNEXPECTED");
+        }
     }
 
     // ── Dispose ───────────────────────────────────────────────────────────────
@@ -245,6 +370,11 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
         if (mrtMaterial != null) mrtMaterial.delete();
         if (mrtMesh != null) mrtMesh.delete();
         if (mrtFbo != null) mrtFbo.delete();
+        if (kwNone     != null) kwNone.delete();
+        if (kwTint     != null) kwTint.delete();
+        if (kwEmission != null) kwEmission.delete();
+        if (kwAll      != null) kwAll.delete();
+        if (kwMesh     != null) kwMesh.delete();
     }
 
     @Override public boolean isRunning()              { return running; }

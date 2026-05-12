@@ -58,7 +58,6 @@ Properties {
     // Non-samplers — all go into layout(std140) uniform CgMaterialBlock { ... }
     _Color      ("Tint Color",      color)         = (1.0, 1.0, 1.0, 1.0)
     _BaseColor  ("Base Color",      vec4)          = (0.2, 0.4, 0.8, 1.0)
-    _Emission   ("Emission",        vec3)          = (0.0, 0.0, 0.0)
     _Offset     ("UV Offset",       vec2)          = (0.0, 0.0)
     _Roughness  ("Roughness",       float)         = 0.5
     _Metallic   ("Metallic",        float)         = 0.0
