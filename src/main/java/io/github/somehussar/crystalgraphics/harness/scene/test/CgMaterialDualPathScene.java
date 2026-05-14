@@ -3,9 +3,9 @@ package io.github.somehussar.crystalgraphics.harness.scene.test;
 import io.github.somehussar.crystalgraphics.api.CgCapabilities;
 import io.github.somehussar.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import io.github.somehussar.crystalgraphics.api.texture.CgTextureType;
-import io.github.somehussar.crystalgraphics.api.material.CgFrameUniforms;
+import io.github.somehussar.crystalgraphics.api.render.CgFrameData;
+import io.github.somehussar.crystalgraphics.api.render.CgRenderPipeline;
 import io.github.somehussar.crystalgraphics.api.material.CgMaterial;
-import io.github.somehussar.crystalgraphics.api.material.CgMaterialPipeline;
 import io.github.somehussar.crystalgraphics.api.vertex.CgVertexFormat;
 import io.github.somehussar.crystalgraphics.gl.buffer.shader.CgShaderBuffer;
 import io.github.somehussar.crystalgraphics.gl.buffer.staging.CgBufferWriter;
@@ -78,7 +78,7 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
     private CgMaterial material;
     private CgMaterial outlineMaterial;
     private CgMesh mesh;
-    private CgMaterialPipeline pipeline;
+    private CgRenderPipeline pipeline;
 
     // ── MRT section resources ─────────────────────────────────────────────────
 
@@ -110,7 +110,7 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        pipeline = CgMaterialPipeline.getInstance();
+        pipeline = CgRenderPipeline.getInstance();
 
         // Main material — loads dual_path_test.shader (full RenderState + Properties block)
         material = CgMaterial.load("assets/harness/shader/dual_path_test.shader");
@@ -190,10 +190,14 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
         Matrix4f view       = ctx.getCamera3D().getViewMatrix();
         Matrix4f projection = ctx.getProjection();
 
-        CgFrameUniforms fu = pipeline.getFrameUniforms();
-        fu.view(view).proj(projection).timeSecs(t)
-          .viewportW(ctx.getScreenWidth()).viewportH(ctx.getScreenHeight());
-        pipeline.beginFrame();
+        CgFrameData fd = pipeline.getFrameData();
+        fd.viewMatrix.set(view);
+        fd.projMatrix.set(projection);
+        fd.timeSecs  = t;
+        fd.viewportW = ctx.getScreenWidth();
+        fd.viewportH = ctx.getScreenHeight();
+        fd.deriveFromViewMatrix();
+        pipeline.prepareFrame();
 
         // Animate _Color — hue cycles over 4 s. Confirms per-frame UBO re-upload via
         // materialPropsDirty (set by applyBindings()) and the cached bindingsAdapter.

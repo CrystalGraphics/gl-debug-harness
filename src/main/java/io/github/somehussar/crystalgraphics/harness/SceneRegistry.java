@@ -8,6 +8,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.ReviewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ShaderLibTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgAttachedBufferStressScene;
+import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import io.github.somehussar.crystalgraphics.harness.tool.CapabilityReport;
 import io.github.somehussar.crystalgraphics.harness.tool.GlStateDumper;
 
@@ -177,6 +178,18 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
                 .build(),
             () -> new CgAttachedBufferStressScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("forward-renderer")
+                .description("Phase 1 render pipeline: depth prepass + opaque auto-instancing + transparent depth order")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
+                .build(),
+            () -> new CgForwardRendererScene()
         );
 
         // ── Diagnostic modes ──

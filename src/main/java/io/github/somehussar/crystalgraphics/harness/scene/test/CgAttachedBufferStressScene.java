@@ -1,9 +1,9 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
 import io.github.somehussar.crystalgraphics.api.buffer.CgBufferFormat;
-import io.github.somehussar.crystalgraphics.api.material.CgFrameUniforms;
+import io.github.somehussar.crystalgraphics.api.render.CgFrameData;
+import io.github.somehussar.crystalgraphics.api.render.CgRenderPipeline;
 import io.github.somehussar.crystalgraphics.api.material.CgMaterial;
-import io.github.somehussar.crystalgraphics.api.material.CgMaterialPipeline;
 import io.github.somehussar.crystalgraphics.api.vertex.CgVertexFormat;
 import io.github.somehussar.crystalgraphics.gl.buffer.shader.CgShaderBuffer;
 import io.github.somehussar.crystalgraphics.gl.buffer.shader.CgUniformBuffer;
@@ -39,7 +39,7 @@ public class CgAttachedBufferStressScene implements InteractiveSceneLifecycle {
 
     // Shared mesh — unit cube for all draws
     private CgMesh mesh;
-    private CgMaterialPipeline pipeline;
+    private CgRenderPipeline pipeline;
 
     // Attached buffers (user-owned, not engine pipeline buffers)
     private CgShaderBuffer particleBuf;   // "ParticleData", userIndex=0
@@ -84,7 +84,7 @@ public class CgAttachedBufferStressScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        pipeline = CgMaterialPipeline.getInstance();
+        pipeline = CgRenderPipeline.getInstance();
         mesh = CgMeshBuilder.unitCube(CgVertexFormat.SPATIAL).upload();
 
         particleBuf = CgShaderBuffer.create("ParticleDataBuffer", PARTICLE_FORMAT, 0);
@@ -116,10 +116,14 @@ public class CgAttachedBufferStressScene implements InteractiveSceneLifecycle {
         Matrix4f view = ctx.getCamera3D().getViewMatrix();
         Matrix4f projection = ctx.getProjection();
 
-        CgFrameUniforms fu = pipeline.getFrameUniforms();
-        fu.view(view).proj(projection).timeSecs((float) frame.getElapsedTime())
-          .viewportW(ctx.getScreenWidth()).viewportH(ctx.getScreenHeight());
-        pipeline.beginFrame();
+        CgFrameData fd = pipeline.getFrameData();
+        fd.viewMatrix.set(view);
+        fd.projMatrix.set(projection);
+        fd.timeSecs  = (float) frame.getElapsedTime();
+        fd.viewportW = ctx.getScreenWidth();
+        fd.viewportH = ctx.getScreenHeight();
+        fd.deriveFromViewMatrix();
+        pipeline.prepareFrame();
 
         float t = (float) frame.getElapsedTime();
 
@@ -145,6 +149,13 @@ public class CgAttachedBufferStressScene implements InteractiveSceneLifecycle {
             particleBuf.endRecord();
         }
         particleBuf.endWrite();
+        GL11.glEnable(GL11.GL_BLEND);
+GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK,GL11.GL_FILL);
+        GL11.glPointSize(15);
+        GL11.glLineWidth(2);
+        GL11.glEnable(GL11.GL_POINT_SMOOTH);
+        GL11.glEnable(GL11.GL_LINE_SMOOTH);
 
         CgShaderBuffer objBuf = pipeline.objectBuffer();
         CgBufferWriter ow = objBuf.beginWrite(N_PARTICLE);
