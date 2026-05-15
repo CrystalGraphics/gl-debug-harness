@@ -1,16 +1,16 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
-import io.github.somehussar.crystalgraphics.api.vertex.CgInstanceFormat;
-import io.github.somehussar.crystalgraphics.api.vertex.CgVertexFormat;
-import io.github.somehussar.crystalgraphics.gl.buffer.staging.CgInstanceWriter;
-import io.github.somehussar.crystalgraphics.gl.buffer.staging.CgVertexWriter;
-import io.github.somehussar.crystalgraphics.gl.render.CgBatchRenderer;
-import io.github.somehussar.crystalgraphics.gl.render.CgInstanceRenderer;
-import io.github.somehussar.crystalgraphics.gl.render.CgQuadInstanceRenderer;
-import io.github.somehussar.crystalgraphics.gl.vertex.CgInstanceVertexArrayBinding;
-import io.github.somehussar.crystalgraphics.api.CgCapabilities;
-import io.github.somehussar.crystalgraphics.api.shader.CgShader;
-import io.github.somehussar.crystalgraphics.gl.shader.CgShaderFactory;
+import com.crystalgraphics.api.vertex.CgInstanceFormat;
+import com.crystalgraphics.api.vertex.CgVertexFormat;
+import com.crystalgraphics.gl.buffer.staging.CgInstanceWriter;
+import com.crystalgraphics.gl.buffer.staging.CgVertexWriter;
+import com.crystalgraphics.gl.render.CgBatchRenderer;
+import com.crystalgraphics.gl.render.CgInstanceRenderer;
+import com.crystalgraphics.gl.render.CgQuadInstanceRenderer;
+import com.crystalgraphics.gl.vertex.CgInstanceVertexArrayBinding;
+import com.crystalgraphics.api.CgCapabilities;
+import com.crystalgraphics.api.shader.CgShader;
+import com.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;

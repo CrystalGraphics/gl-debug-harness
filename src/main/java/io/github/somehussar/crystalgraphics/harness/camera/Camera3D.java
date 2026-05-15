@@ -1,6 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.camera;
 
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
@@ -52,6 +53,7 @@ public class Camera3D {
     private float posZ;
     private float yaw;   // degrees, 0 = looking along -Z (OpenGL convention)
     private float pitch; // degrees, positive = looking up
+    private Vector3f lookVector = new Vector3f();
 
     // ── Settings ──
     private float sensitivity;
@@ -269,6 +271,7 @@ public class Camera3D {
                 targetX, targetY, targetZ,
                 0.0f, 1.0f, 0.0f
         );
+        lookVector.set(lookX, lookY, lookZ);
     }
 
     // ── LLM Debug Tool Methods ──
@@ -349,6 +352,8 @@ public class Camera3D {
     public float getPitch() {
         return pitch;
     }
+    
+    public Vector3f getLookVector() {return lookVector;}
 
     public void setSensitivity(float sensitivity) {
         this.sensitivity = sensitivity;

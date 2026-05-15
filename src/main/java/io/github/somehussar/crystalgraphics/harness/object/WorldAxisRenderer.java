@@ -1,7 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.object;
 
-import io.github.somehussar.crystalgraphics.api.shader.CgShader;
-import io.github.somehussar.crystalgraphics.gl.shader.CgShaderFactory;
+import com.crystalgraphics.api.shader.CgShader;
+import com.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;

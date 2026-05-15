@@ -1,17 +1,17 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
-import io.github.somehussar.crystalgraphics.api.CgCapabilities;
-import io.github.somehussar.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
-import io.github.somehussar.crystalgraphics.api.texture.CgTextureType;
-import io.github.somehussar.crystalgraphics.api.render.CgFrameData;
-import io.github.somehussar.crystalgraphics.api.render.CgRenderPipeline;
-import io.github.somehussar.crystalgraphics.api.material.CgMaterial;
-import io.github.somehussar.crystalgraphics.api.vertex.CgVertexFormat;
-import io.github.somehussar.crystalgraphics.gl.buffer.shader.CgShaderBuffer;
-import io.github.somehussar.crystalgraphics.gl.buffer.staging.CgBufferWriter;
-import io.github.somehussar.crystalgraphics.gl.framebuffer.CgFrameBuffer;
-import io.github.somehussar.crystalgraphics.gl.mesh.CgMesh;
-import io.github.somehussar.crystalgraphics.gl.mesh.CgMeshBuilder;
+import com.crystalgraphics.gl.material.CgMaterialShader;
+import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
+import com.crystalgraphics.api.texture.CgTextureType;
+import com.crystalgraphics.api.render.CgFrameData;
+import com.crystalgraphics.api.render.CgRenderPipeline;
+import com.crystalgraphics.api.material.CgMaterial;
+import com.crystalgraphics.api.vertex.CgVertexFormat;
+import com.crystalgraphics.gl.buffer.shader.CgShaderBuffer;
+import com.crystalgraphics.gl.buffer.staging.CgBufferWriter;
+import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
+import com.crystalgraphics.gl.mesh.CgMesh;
+import com.crystalgraphics.gl.mesh.CgMeshBuilder;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -50,7 +50,7 @@ import java.nio.IntBuffer;
  *   <li><b>Keyword variants</b> — four {@code CgMaterial.newInstance()} objects loaded from the same
  *       {@code feature_keyword_test.shader}. Each has a different {@code enableKeyword()} combination
  *       ({@code TINT_ENABLED}, {@code EMISSION_ENABLED}, {@code GRID_OVERLAY}), producing four
- *       distinct {@code ProgramKey} entries in the shared {@link io.github.somehussar.crystalgraphics.gl.material.CgMaterialShader}
+ *       distinct {@code ProgramKey} entries in the shared {@link CgMaterialShader}
  *       program cache. The four cubes rendered above the main cubes at Y=3 confirm lazy compilation,
  *       cache sharing, and independent property values.</li>
  * </ul>

@@ -1,17 +1,17 @@
 package io.github.somehussar.crystalgraphics.harness.config;
 
-import io.github.somehussar.crystalgraphics.api.CgCapabilities;
-import io.github.somehussar.crystalgraphics.api.PoseStack;
-import io.github.somehussar.crystalgraphics.api.font.CgFont;
-import io.github.somehussar.crystalgraphics.api.font.CgFontStyle;
-import io.github.somehussar.crystalgraphics.api.font.CgTextLayoutBuilder;
-import io.github.somehussar.crystalgraphics.gl.render.CgDynamicTextureRenderLayer;
+import com.crystalgraphics.api.CgCapabilities;
+import com.crystalgraphics.api.PoseStack;
+import com.crystalgraphics.api.font.CgFont;
+import com.crystalgraphics.api.font.CgFontStyle;
+import com.crystalgraphics.api.font.CgTextLayoutBuilder;
+import com.crystalgraphics.gl.render.CgDynamicTextureRenderLayer;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
-import io.github.somehussar.crystalgraphics.text.cache.CgFontRegistry;
-import io.github.somehussar.crystalgraphics.text.render.CgTextLayers;
-import io.github.somehussar.crystalgraphics.text.render.CgTextRenderContext;
-import io.github.somehussar.crystalgraphics.text.render.CgTextRenderer;
+import com.crystalgraphics.text.cache.CgFontRegistry;
+import com.crystalgraphics.text.render.CgTextLayers;
+import com.crystalgraphics.text.render.CgTextRenderContext;
+import com.crystalgraphics.text.render.CgTextRenderer;
 
 public class TextContext {
 

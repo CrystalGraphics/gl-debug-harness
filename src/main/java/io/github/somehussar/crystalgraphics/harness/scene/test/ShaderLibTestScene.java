@@ -1,9 +1,9 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
-import io.github.somehussar.crystalgraphics.api.shader.CgActiveUniform;
-import io.github.somehussar.crystalgraphics.api.shader.CgShader;
-import io.github.somehussar.crystalgraphics.api.shader.CgShaderPreprocessor;
-import io.github.somehussar.crystalgraphics.gl.shader.CgShaderFactory;
+import com.crystalgraphics.api.shader.CgActiveUniform;
+import com.crystalgraphics.api.shader.CgShader;
+import com.crystalgraphics.api.shader.CgShaderPreprocessor;
+import com.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;

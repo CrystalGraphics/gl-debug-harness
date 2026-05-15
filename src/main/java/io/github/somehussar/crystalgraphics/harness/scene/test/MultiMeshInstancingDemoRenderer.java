@@ -1,20 +1,20 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
-import io.github.somehussar.crystalgraphics.api.mesh.CgMeshData;
-import io.github.somehussar.crystalgraphics.api.mesh.CgMeshTopology;
-import io.github.somehussar.crystalgraphics.api.shader.CgShader;
-import io.github.somehussar.crystalgraphics.api.state.CgBlendState;
-import io.github.somehussar.crystalgraphics.api.state.CgCullState;
-import io.github.somehussar.crystalgraphics.api.state.CgDepthState;
-import io.github.somehussar.crystalgraphics.api.state.CgRenderState;
-import io.github.somehussar.crystalgraphics.api.vertex.CgInstanceFormat;
-import io.github.somehussar.crystalgraphics.api.vertex.CgVertexFormat;
-import io.github.somehussar.crystalgraphics.gl.buffer.staging.CgInstanceWriter;
-import io.github.somehussar.crystalgraphics.gl.buffer.staging.CgVertexWriter;
-import io.github.somehussar.crystalgraphics.gl.mesh.CgMesh;
-import io.github.somehussar.crystalgraphics.gl.mesh.CgMeshBuilder;
-import io.github.somehussar.crystalgraphics.gl.render.CgInstanceRenderer;
-import io.github.somehussar.crystalgraphics.gl.shader.CgShaderFactory;
+import com.crystalgraphics.api.mesh.CgMeshData;
+import com.crystalgraphics.api.mesh.CgMeshTopology;
+import com.crystalgraphics.api.shader.CgShader;
+import com.crystalgraphics.api.state.CgBlendState;
+import com.crystalgraphics.api.state.CgCullState;
+import com.crystalgraphics.api.state.CgDepthState;
+import com.crystalgraphics.api.state.CgRenderState;
+import com.crystalgraphics.api.vertex.CgInstanceFormat;
+import com.crystalgraphics.api.vertex.CgVertexFormat;
+import com.crystalgraphics.gl.buffer.staging.CgInstanceWriter;
+import com.crystalgraphics.gl.buffer.staging.CgVertexWriter;
+import com.crystalgraphics.gl.mesh.CgMesh;
+import com.crystalgraphics.gl.mesh.CgMeshBuilder;
+import com.crystalgraphics.gl.render.CgInstanceRenderer;
+import com.crystalgraphics.gl.shader.CgShaderFactory;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 

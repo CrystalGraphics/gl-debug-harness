@@ -1,15 +1,15 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
-import io.github.somehussar.crystalgraphics.api.buffer.CgBufferFormat;
-import io.github.somehussar.crystalgraphics.api.render.CgFrameData;
-import io.github.somehussar.crystalgraphics.api.render.CgRenderPipeline;
-import io.github.somehussar.crystalgraphics.api.material.CgMaterial;
-import io.github.somehussar.crystalgraphics.api.vertex.CgVertexFormat;
-import io.github.somehussar.crystalgraphics.gl.buffer.shader.CgShaderBuffer;
-import io.github.somehussar.crystalgraphics.gl.buffer.shader.CgUniformBuffer;
-import io.github.somehussar.crystalgraphics.gl.buffer.staging.CgBufferWriter;
-import io.github.somehussar.crystalgraphics.gl.mesh.CgMesh;
-import io.github.somehussar.crystalgraphics.gl.mesh.CgMeshBuilder;
+import com.crystalgraphics.api.buffer.CgBufferFormat;
+import com.crystalgraphics.api.render.CgFrameData;
+import com.crystalgraphics.api.render.CgRenderPipeline;
+import com.crystalgraphics.api.material.CgMaterial;
+import com.crystalgraphics.api.vertex.CgVertexFormat;
+import com.crystalgraphics.gl.buffer.shader.CgShaderBuffer;
+import com.crystalgraphics.gl.buffer.shader.CgUniformBuffer;
+import com.crystalgraphics.gl.buffer.staging.CgBufferWriter;
+import com.crystalgraphics.gl.mesh.CgMesh;
+import com.crystalgraphics.gl.mesh.CgMeshBuilder;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -18,8 +18,8 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 
-import static io.github.somehussar.crystalgraphics.api.buffer.CgBufferFormat.MemoryLayout.STD140;
-import static io.github.somehussar.crystalgraphics.api.buffer.CgBufferFormat.MemoryLayout.STD430;
+import static com.crystalgraphics.api.buffer.CgBufferFormat.MemoryLayout.STD140;
+import static com.crystalgraphics.api.buffer.CgBufferFormat.MemoryLayout.STD430;
 
 /**
  * Stress-tests the full attached-buffer pipeline across 5 materials simultaneously.

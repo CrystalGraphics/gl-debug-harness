@@ -1,10 +1,11 @@
 package io.github.somehussar.crystalgraphics.harness.scene;
 
-import io.github.somehussar.crystalgraphics.api.mesh.CgMeshData;
-import io.github.somehussar.crystalgraphics.api.shader.CgShader;
-import io.github.somehussar.crystalgraphics.api.vertex.CgVertexFormat;
+import com.crystalgraphics.api.mesh.CgMeshData;
+import com.crystalgraphics.api.shader.CgShader;
+import com.crystalgraphics.api.vertex.CgVertexFormat;
+import com.crystalgraphics.gl.mesh.*;
 import io.github.somehussar.crystalgraphics.gl.mesh.*;
-import io.github.somehussar.crystalgraphics.gl.shader.CgShaderFactory;
+import com.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;

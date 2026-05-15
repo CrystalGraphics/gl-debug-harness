@@ -1,6 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.util;
 
-import io.github.somehussar.crystalgraphics.api.CgCapabilities;
+import com.crystalgraphics.api.CgCapabilities;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 
 import java.util.logging.Logger;

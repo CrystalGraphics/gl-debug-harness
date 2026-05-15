@@ -1,8 +1,8 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
-import io.github.somehussar.crystalgraphics.api.shader.CgShader;
-import io.github.somehussar.crystalgraphics.api.state.CgBlendState;
-import io.github.somehussar.crystalgraphics.gl.shader.CgShaderFactory;
+import com.crystalgraphics.api.shader.CgShader;
+import com.crystalgraphics.api.state.CgBlendState;
+import com.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
@@ -133,7 +133,7 @@ public class LightScene implements InteractiveSceneLifecycle {
         CgBlendState.ALPHA.apply();
         axis.render(ctx);
         GL11.glDisable(GL11.GL_ALPHA_TEST);
-        GL11.glAlphaFunc(GL11.GL_GREATER,0.01f);
+       // GL11.glAlphaFunc(GL11.GL_GREATER,0.01f);
         GL30.glBindVertexArray(vaoId);
         sphereShader.applyBindings(b -> {
             b.mat4("u_model", model);

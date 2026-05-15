@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness;
 
+import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.camera.FloorRenderer;
 import io.github.somehussar.crystalgraphics.harness.camera.HUDRenderer;
@@ -21,7 +22,7 @@ import io.github.somehussar.crystalgraphics.harness.runtime.WorldPassCoordinator
 import io.github.somehussar.crystalgraphics.harness.scheduler.TaskScheduler;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessProjectionUtil;
 import io.github.somehussar.crystalgraphics.harness.util.RenderPassState;
-import io.github.somehussar.crystalgraphics.mc.CgAssetReloader;
+import com.crystalgraphics.mc.CgAssetReloader;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
@@ -167,6 +168,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         GL11.glDepthFunc(GL11.GL_LEQUAL);
 
         init();
+        CgGraphicsLifecycle.initContext(currentWidth, currentHeight);
 
         LOGGER.info("[InteractiveSceneRunner] Entering render loop for: "
                 + scene.getClass().getSimpleName());
@@ -183,6 +185,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             //    Also notifies the scene via the unified lifecycle onResize hook.
             if (resizeHandler.checkAndPropagate()) {
                 ViewportState vp = ctx.getViewport();
+                CgGraphicsLifecycle.onResize(vp.getWidth(), vp.getHeight());
                 scene.onResize(vp.getWidth(), vp.getHeight());
                 ctx.setProjection(HarnessProjectionUtil.perspective(vp.getWidth(), vp.getHeight()));
             }
@@ -240,6 +243,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         worldPassCoordinator.delete();
         overlayCaptureOrchestrator.deletePipeline();
         ctx.getTextContext().delete();
+        CgGraphicsLifecycle.destroyContext();
 
         LOGGER.info("[InteractiveSceneRunner] Cleanup complete. shouldShutdown="
                 + scene.shouldShutdownOnComplete());

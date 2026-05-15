@@ -11,11 +11,11 @@ import com.crystalgraphics.msdfgen.FreeTypeMSDFIntegration;
 import com.crystalgraphics.msdfgen.MSDFGenerator;
 import com.crystalgraphics.msdfgen.MSDFShape;
 import com.crystalgraphics.msdfgen.MSDFTransform;
-import io.github.somehussar.crystalgraphics.api.font.CgFont;
-import io.github.somehussar.crystalgraphics.text.msdf.CgMsdfGenerator;
-import io.github.somehussar.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
-import io.github.somehussar.crystalgraphics.text.msdf.CgMsdfGlyphLayout;
-import io.github.somehussar.crystalgraphics.text.msdf.CgMsdfVerificationConfig;
+import com.crystalgraphics.api.font.CgFont;
+import com.crystalgraphics.text.msdf.CgMsdfGenerator;
+import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
+import com.crystalgraphics.text.msdf.CgMsdfGlyphLayout;
+import com.crystalgraphics.text.msdf.CgMsdfVerificationConfig;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;

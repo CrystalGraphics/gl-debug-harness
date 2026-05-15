@@ -1,10 +1,10 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
 import com.crystalgui.core.property.Property;
-import io.github.somehussar.crystalgraphics.api.PoseStack;
-import io.github.somehussar.crystalgraphics.api.shader.CgShader;
-import io.github.somehussar.crystalgraphics.api.text.CgTextLayout;
-import io.github.somehussar.crystalgraphics.gl.shader.CgShaderFactory;
+import com.crystalgraphics.api.PoseStack;
+import com.crystalgraphics.api.shader.CgShader;
+import com.crystalgraphics.api.text.CgTextLayout;
+import com.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -248,7 +248,7 @@ public class ImageScene implements InteractiveSceneLifecycle {
 
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glEnable(GL11.GL_ALPHA_TEST);
-        GL11.glAlphaFunc(GL11.GL_GREATER, 0.001f);
+        //GL11.glAlphaFunc(GL11.GL_GREATER, 0.001f);
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
         GL13.glActiveTexture(GL13.GL_TEXTURE0);

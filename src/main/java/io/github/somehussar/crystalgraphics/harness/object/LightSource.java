@@ -1,11 +1,10 @@
 package io.github.somehussar.crystalgraphics.harness.object;
 
-import io.github.somehussar.crystalgraphics.api.shader.CgShader;
-import io.github.somehussar.crystalgraphics.api.state.CgBlendState;
-import io.github.somehussar.crystalgraphics.gl.shader.CgShaderFactory;
+import com.crystalgraphics.api.shader.CgShader;
+import com.crystalgraphics.api.state.CgBlendState;
+import com.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
-import io.github.somehussar.crystalgraphics.harness.config.TextContext;
 import org.joml.Vector3f;
 
 public class LightSource {

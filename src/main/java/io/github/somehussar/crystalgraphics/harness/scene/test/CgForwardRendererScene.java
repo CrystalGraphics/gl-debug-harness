@@ -1,14 +1,17 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
-import io.github.somehussar.crystalgraphics.api.CgCapabilities;
-import io.github.somehussar.crystalgraphics.api.material.CgMaterial;
-import io.github.somehussar.crystalgraphics.api.material.CgRenderQueue;
-import io.github.somehussar.crystalgraphics.api.render.CgFrameData;
-import io.github.somehussar.crystalgraphics.api.render.CgRenderCommand;
-import io.github.somehussar.crystalgraphics.api.render.CgRenderPipeline;
-import io.github.somehussar.crystalgraphics.api.vertex.CgVertexFormat;
-import io.github.somehussar.crystalgraphics.gl.mesh.CgMesh;
-import io.github.somehussar.crystalgraphics.gl.mesh.CgMeshBuilder;
+import com.crystalgraphics.render.pipeline.CgForwardRenderer;
+import com.crystalgraphics.api.CgCapabilities;
+import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
+import com.crystalgraphics.api.material.CgMaterial;
+import com.crystalgraphics.api.material.CgRenderQueue;
+import com.crystalgraphics.api.render.CgFrameData;
+import com.crystalgraphics.api.render.CgRenderCommand;
+import com.crystalgraphics.api.render.CgRenderPipeline;
+import com.crystalgraphics.api.vertex.CgVertexFormat;
+import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
+import com.crystalgraphics.gl.mesh.CgMesh;
+import com.crystalgraphics.gl.mesh.CgMeshBuilder;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -16,6 +19,8 @@ import io.github.somehussar.crystalgraphics.harness.tool.GlErrorChecker;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 /**
  * GL harness scene exercising the complete Phase 1 CrystalGraphics forward render pipeline.
@@ -26,7 +31,7 @@ import org.joml.Matrix4f;
  *
  * <ol>
  *   <li><b>GROUP A — auto-instancing stress</b>: 50 unit cubes in a 10×5 grid (y=0)
- *       all using the same material and mesh. The {@link io.github.somehussar.crystalgraphics.render.pipeline.CgForwardRenderer}
+ *       all using the same material and mesh. The {@link CgForwardRenderer}
  *       must collapse these into a single {@code drawInstanced(50)} call.</li>
  *   <li><b>GROUP B — material break test</b>: 20 cubes at y=1.5, submitted interleaved
  *       (A-B-A-B…) but sorted by material identity. Expect 2 instanced draw calls
@@ -95,6 +100,8 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
     /** Singleton orchestrator owning the sort, prepass, and all pass renderers. */
     private CgRenderPipeline renderFrame;
 
+    public CgFrameBuffer fbo;
+    
     // ── State ─────────────────────────────────────────────────────────────────
 
     private boolean running         = true;
@@ -128,6 +135,8 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
 
         // Singleton pipeline orchestrator — created lazily on first access
         renderFrame = CgRenderPipeline.getInstance();
+        fbo = CgFrameBuffer.createScreenSized("depth", CgFrameBufferFormat.RGBA8_WITH_DEPTH);
+        
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -164,7 +173,7 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
             CgRenderCommand cmd = renderFrame.acquireCommand();
             cmd.mesh     = unitCubeMesh;
             cmd.material = solidMaterial;
-            cmd.queueSlot = CgRenderQueue.TRANSPARENT;
+            cmd.queueSlot = CgRenderQueue.GEOMETRY;
 
             cmd.modelMatrix.identity().translation(x, y, z);
 
@@ -193,7 +202,7 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
             cmdA.modelMatrix.identity().translation(xA, 1.5f, -0.5f);
             cmdA.custom0.set(1f, 1f, 1f, 1f);
             setUnitCubeAabb(cmdA, xA, 1.5f, -0.5f);
-//            renderFrame.submit(cmdA);
+            renderFrame.submit(cmdA);
 
             // Submit B (interleaved second — different identity → sort will group separately)
             CgRenderCommand cmdB = renderFrame.acquireCommand();
@@ -203,7 +212,7 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
             cmdB.modelMatrix.identity().translation(xB, 1.5f, 0.5f);
             cmdB.custom0.set(1f, 1f, 1f, 1f);
             setUnitCubeAabb(cmdB, xB, 1.5f, 0.5f);
-//            renderFrame.submit(cmdB);
+            renderFrame.submit(cmdB);
         }
 
         // ── 4. GROUP C — transparent depth order ─────────────────────────────
@@ -231,9 +240,25 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
         // Internally: sort() → updateFrameUniforms() → beginFrame() → depth prepass
         // → CgForwardRenderer (opaque) → CgTransparentRenderer (transparent).
         // GL state is saved before and restored after the entire execute() call.
+        // fbo.bind();
+        // GL11.glClearColor(0f, 0f, 0f, 1f);
+        //  GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+        Vector4f camPos = ctx.getCamera3D().getPos();
+        Vector3f camLook = ctx.getCamera3D().getLookVector();
+        System.out.println(String.format("camerPos = [%.2f,%.2f,%.2f], lookVector = [%.2f,%.2f,%.2f]",
+                camPos.x, camPos.y, camPos.z, camLook.x, camLook.y, camLook.z));
+        
         renderFrame.execute(0.0f);
+        fbo.unbind();
+
+        int tex = fbo.getDepthTexture().getId();
+        //        int tex = fbo.getColorTexture(0).getId();
+        //        CgDebugBlit.rgba(tex);
+        //   CgDebugBlit.depth(tex,0.001f,20f);
+        //ScreenshotUtil.captureTexture(tex, fbo.getWidth(),fbo.getHeight(), GL11.GL_RGBA8,"","idk.png");
 
         GlErrorChecker.assertNoGlError("CgForwardRendererScene.frame");
+
 
         // ── 6. First-frame diagnostics ────────────────────────────────────────
         if (!loggedFirstFrame) {
