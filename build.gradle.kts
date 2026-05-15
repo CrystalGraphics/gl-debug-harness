@@ -61,9 +61,13 @@ dependencies {
 
     // ── Hard dependency: CrystalGraphics (rendering API, font system) ──
     // When standalone (root IS CrystalGraphics), use ":" since the root project
-    // is CrystalGraphics itself. When embedded in a parent mod, use ":CrystalGraphics".
+    // is CrystalGraphics itself. When embedded in a parent mod, use the Maven
+    // coordinate — composite build substitution routes it to :mc1710, which
+    // exposes :core and :platform via api() so their classes are visible here.
+    // Cannot use project(":CrystalGraphics") — CrystalGraphics is an included
+    // build, not a subproject, so that path doesn't exist in the parent's tree.
     if (rootIsParentMod) {
-        implementation(project(":CrystalGraphics"))
+        implementation("com.crystalgraphics:crystalgraphics:1.0.0")
     } else {
         implementation(project(":"))
     }
@@ -282,21 +286,15 @@ tasks.register<JavaExec>("runHarness") {
     systemProperty("harness.output.dir", file("harness-output").absolutePath)
 
     // Shader hotswap: point to source resources so edits are picked up on R-key reload.
-    // When a parent mod exists, use its resources directory (may contain shader overrides).
-    // Otherwise, fall back to CrystalGraphics resources for shader source files.
-    // When standalone (rootIsParentMod=false): root IS CrystalGraphics → project(":")
-    // When embedded (rootIsParentMod=true): CrystalGraphics is a composite subproject
-    val cgProject = if (rootIsParentMod) {
-        // Composite build: CrystalGraphics is available via includedBuild("CrystalGraphics")
-        // We reference it by looking up the included build project
-        findProject(":CrystalGraphics") ?: project(":")  // Fallback to root if not found
-    } else {
-        project(":")  // Standalone: root IS CrystalGraphics
-    }
+    // When embedded in a parent mod, CrystalGraphics is a composite included build at
+    // rootProject/CrystalGraphics/ — findProject(":CrystalGraphics") returns null
+    // because included builds are not subprojects. Use a filesystem path instead.
+    // When standalone, root IS CrystalGraphics so project(":") resolves directly.
     val shaderOverrideDir = if (rootIsParentMod) {
-        project(":").file("src/main/resources")
+        // Shaders live in core/src/main/resources within the CrystalGraphics submodule
+        rootProject.file("CrystalGraphics/core/src/main/resources")
     } else {
-        cgProject.file("src/main/resources")
+        project(":").file("src/main/resources")
     }
     systemProperty("crystalgraphics.shader.resourceOverrideDir", shaderOverrideDir.absolutePath)
 
