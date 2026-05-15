@@ -4,7 +4,7 @@ import com.crystalgraphics.api.mesh.CgMeshData;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.gl.mesh.*;
-import io.github.somehussar.crystalgraphics.gl.mesh.*;
+import com.crystalgraphics.gl.mesh.*;
 import com.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
