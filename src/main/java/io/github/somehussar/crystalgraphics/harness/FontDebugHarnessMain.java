@@ -13,6 +13,11 @@ public final class FontDebugHarnessMain {
     private static final Logger LOGGER = Logger.getLogger(FontDebugHarnessMain.class.getName());
 
     public static void main(String[] args) {
+        try {
+            System.load("C:\\Program Files\\RenderDoc\\renderdoc.dll");
+        } catch (Exception e) {
+        }
+        
         String mode = null;
         boolean listMode = false;
         boolean helpMode = false;
