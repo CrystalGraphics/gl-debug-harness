@@ -1,6 +1,6 @@
 #type spatial
 
-Queue = "Transparent"
+Queue = "Geometry"
 
 Properties {
     // Samplers — remain as individual uniform sampler* declarations
@@ -25,15 +25,15 @@ Pass {
 
     RenderState {
         // ── Blend ──────────────────────────────────────────────────────────────
-        Blend SRC_ALPHA ONE_MINUS_SRC_ALPHA
+//         Blend SRC_ALPHA ONE_MINUS_SRC_ALPHA
         BlendEquation ADD
         // ── Depth ─────────────────────────────────────────────────────────────
         DepthTest LEQUAL
-        DepthWrite OFF
+//         DepthWrite OFF
         // ── Cull ──────────────────────────────────────────────────────────────
-        Cull BACK
+        Cull OFF
         // ── AlphaTest ─────────────────────────────────────────────────────────
-        AlphaTest GREATER 0.5
+        AlphaTest GREATER 0.05
         // ── ColorMask ─────────────────────────────────────────────────────────
         ColorMask RGBA
         // ── Stencil ───────────────────────────────────────────────────────────
@@ -65,6 +65,6 @@ Pass {
     }
 
     void fragment(in v2f i, out vec4 fragColor) {
-        fragColor = _Color - 0.04 * CG_INSTANCE_ID;
+        fragColor = CG_OBJECT_CUSTOM0 - 0.4* 1;
     }
 }
