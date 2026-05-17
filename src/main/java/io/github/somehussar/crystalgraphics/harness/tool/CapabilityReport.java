@@ -1,6 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.tool;
 
-import com.crystalgraphics.api.CgCapabilities;
+import com.crystalgraphics.platform.gl.CgCapabilities;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessConfig;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;

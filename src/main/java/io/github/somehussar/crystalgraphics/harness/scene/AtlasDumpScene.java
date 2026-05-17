@@ -3,7 +3,7 @@ package io.github.somehussar.crystalgraphics.harness.scene;
 import com.crystalgraphics.msdfgen.FreeTypeMSDFIntegration;
 import com.crystalgraphics.msdfgen.MSDFException;
 import com.crystalgraphics.msdfgen.MSDFShape;
-import com.crystalgraphics.api.CgCapabilities;
+import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;

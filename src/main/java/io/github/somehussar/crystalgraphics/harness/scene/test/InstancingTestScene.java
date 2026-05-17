@@ -8,7 +8,7 @@ import com.crystalgraphics.gl.render.CgBatchRenderer;
 import com.crystalgraphics.gl.render.CgInstanceRenderer;
 import com.crystalgraphics.gl.render.CgQuadInstanceRenderer;
 import com.crystalgraphics.gl.vertex.CgInstanceVertexArrayBinding;
-import com.crystalgraphics.api.CgCapabilities;
+import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;

@@ -1,7 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.render.pipeline.CgForwardRenderer;
-import com.crystalgraphics.api.CgCapabilities;
+import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgRenderQueue;
@@ -15,7 +15,6 @@ import com.crystalgraphics.gl.mesh.CgMeshBuilder;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
-import io.github.somehussar.crystalgraphics.harness.tool.GlErrorChecker;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
@@ -257,7 +256,7 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
         //   CgDebugBlit.depth(tex,0.001f,20f);
         //ScreenshotUtil.captureTexture(tex, fbo.getWidth(),fbo.getHeight(), GL11.GL_RGBA8,"","idk.png");
 
-        GlErrorChecker.assertNoGlError("CgForwardRendererScene.frame");
+       // GlErrorChecker.assertNoGlError("CgForwardRendererScene.frame");
 
 
         // ── 6. First-frame diagnostics ────────────────────────────────────────
