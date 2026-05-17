@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness;
 
+import com.crystalgraphics.mc.platform.PlatformService1710;
 import io.github.somehussar.crystalgraphics.harness.config.*;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessDiagnostics;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
@@ -84,6 +85,7 @@ public final class FontDebugHarnessMain {
         HarnessContext ctx = null;
         boolean shouldShutdown = true;
         try {
+            PlatformService1710.onPreInit();
             ctx = HarnessContext.create(config.getWidth(), config.getHeight());
             //HarnessDiagnostics.logStartup(ctx);
 
