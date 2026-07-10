@@ -8,6 +8,9 @@ version = "1.0.0-SNAPSHOT"
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
+    // Disable automatic JVM version filtering so Gradle doesn't reject :core (JVM 21 toolchain)
+    // and Taffy (JVM 17+) when resolving transitive dependencies from :mc1710.
+    disableAutoTargetJvm()
 }
 
 repositories {
@@ -86,11 +89,11 @@ dependencies {
         implementation(project(":freetype-msdfgen-harfbuzz-bindings"))
     }
 
-    // ── Soft dependency: parent mod's root project (mod classes) ────────
-    // Included when a parent mod exists (any root that isn't CrystalGraphics).
-    // When building standalone inside CrystalGraphics, this is skipped.
+    // ── Soft dependency: parent mod's mc1710 subproject (mod classes) ───────
+    // Previously pointed at root project (:) when root was the Forge mod.
+    // Now that Forge lives in :mc1710, reference it directly.
     if (rootIsParentMod) {
-        implementation(project(":"))
+        implementation(project(":mc1710"))
     }
 
     // JOML for Matrix4f (used by PoseStack and world-text projection math)
@@ -127,13 +130,17 @@ dependencies {
     // in its API surface. The harness needs these on the compile classpath so javac can
     // resolve transitive type references. At runtime, the runHarness task assembles
     // patchedMc classes explicitly (and FIRST) on the classpath — see classpath assembly below.
-    compileOnly(files(rootProject.layout.buildDirectory.dir("classes/java/patchedMc")))
+    // Now that Forge lives in :mc1710, patchedMc classes are under mc1710/build/.
+    // Cannot use project(":mc1710").file() inside dependencies {} — that resolves to
+    // DependencyHandler.project() which returns ProjectDependency, not Project.
+    // rootProject.file() is always available and resolves relative to root project dir.
+    compileOnly(files(rootProject.file("mc1710/build/classes/java/patchedMc")))
 }
 
 // Ensure patchedMcClasses are built before harness compilation
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
-    dependsOn(":patchedMcClasses")
+    dependsOn(":mc1710:patchedMcClasses")
 }
 
 // ── Extract LWJGL natives from platform JARs ─────────────────────────
@@ -196,7 +203,7 @@ tasks.register<JavaExec>("runHarness") {
     // We depend on :compileJava and :processResources because the harness classpath
     // uses raw class output (not the shadowed dev JAR) to avoid relocated-type mismatches.
     if (rootIsParentMod) {
-        dependsOn(":compileJava", ":processResources", ":patchedMcClasses", ":processPatchedMcResources")
+        dependsOn(":mc1710:compileJava", ":mc1710:processResources", ":mc1710:patchedMcClasses", ":mc1710:processPatchedMcResources")
     } else {
         // Standalone CrystalGraphics: still need patchedMcClasses for MC class stubs
         // (e.g. IResourceManagerReloadListener referenced by CgShaderManagerImpl)
@@ -219,17 +226,18 @@ tasks.register<JavaExec>("runHarness") {
     // replace the shadowed dev JAR with the root project's raw class output
     // to avoid NoSuchMethodError from relocated type mismatches.
     classpath = if (rootIsParentMod) {
-        val rootMainClasses = project(":").layout.buildDirectory.dir("classes/java/main")
-        val rootMainResources = project(":").layout.buildDirectory.dir("resources/main")
-        val rootPatchedMcClasses = project(":").layout.buildDirectory.dir("classes/java/patchedMc")
-        val rootPatchedMcResources = project(":").layout.buildDirectory.dir("resources/patchedMc")
+        val mc1710Project = project(":mc1710")
+        val rootMainClasses = mc1710Project.file("build/classes/java/main")
+        val rootMainResources = mc1710Project.file("build/resources/main")
+        val rootPatchedMcClasses = mc1710Project.file("build/classes/java/patchedMc")
+        val rootPatchedMcResources = mc1710Project.file("build/resources/patchedMc")
 
         // Filter out the root project's shadowed dev JAR from the runtime classpath,
         // then add the raw (un-relocated) class output instead.
-        val rootDevJarDir = project(":").layout.buildDirectory.dir("libs")
+        val rootDevJarDir = mc1710Project.file("build/libs")
         val filteredClasspath = sourceSets["main"].runtimeClasspath.filter { file ->
             // Exclude any JAR from the root project's libs directory
-            !file.absolutePath.startsWith(rootDevJarDir.get().asFile.absolutePath)
+            !file.absolutePath.startsWith(rootDevJarDir.absolutePath)
         }
         // patchedMc FIRST so MC stubs load before any CrystalGraphics static init
         files(rootPatchedMcClasses, rootPatchedMcResources) + filteredClasspath + files(rootMainClasses, rootMainResources)
