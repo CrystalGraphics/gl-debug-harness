@@ -1,9 +1,8 @@
 package io.github.somehussar.crystalgraphics.harness;
 
-import com.crystalgraphics.mc.platform.PlatformService1710;
 import io.github.somehussar.crystalgraphics.harness.config.*;
-import io.github.somehussar.crystalgraphics.harness.util.HarnessDiagnostics;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
+import io.github.somehussar.crystalgraphics.platform.PlatformService1710;
 
 import java.io.File;
 import java.util.List;
