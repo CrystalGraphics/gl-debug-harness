@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness;
 
+import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.*;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
 import io.github.somehussar.crystalgraphics.platform.PlatformService1710;
@@ -86,6 +87,7 @@ public final class FontDebugHarnessMain {
         try {
             PlatformService1710.onPreInit();
             ctx = HarnessContext.create(config.getWidth(), config.getHeight());
+            CgGraphicsLifecycle.initContext(ctx.getScreenWidth(), ctx.getScreenHeight());
             //HarnessDiagnostics.logStartup(ctx);
 
             // Populate context with all configuration — single source of truth
@@ -120,6 +122,7 @@ public final class FontDebugHarnessMain {
                     scene.dispose();
                 }
             }
+            CgGraphicsLifecycle.destroyContext();
 
             LOGGER.info("[Harness] Mode '" + mode + "' completed successfully.");
         } catch (Exception e) {

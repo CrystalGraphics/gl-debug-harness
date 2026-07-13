@@ -168,7 +168,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         GL11.glDepthFunc(GL11.GL_LEQUAL);
 
         init();
-        CgGraphicsLifecycle.initContext(currentWidth, currentHeight);
 
         LOGGER.info("[InteractiveSceneRunner] Entering render loop for: "
                 + scene.getClass().getSimpleName());
@@ -243,7 +242,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         worldPassCoordinator.delete();
         overlayCaptureOrchestrator.deletePipeline();
         ctx.getTextContext().delete();
-        CgGraphicsLifecycle.destroyContext();
 
         LOGGER.info("[InteractiveSceneRunner] Cleanup complete. shouldShutdown="
                 + scene.shouldShutdownOnComplete());
