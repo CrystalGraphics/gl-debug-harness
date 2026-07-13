@@ -15,7 +15,7 @@ public final class FontDebugHarnessMain {
 
     public static void main(String[] args) {
         try {
-            System.load("C:\\Program Files\\RenderDoc\\renderdoc.dll");
+//            System.load("C:\\Program Files\\RenderDoc\\renderdoc.dll");
         } catch (Exception e) {
         }
         

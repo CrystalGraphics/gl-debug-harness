@@ -9,6 +9,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.ShaderLibTestScen
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgAttachedBufferStressScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRendererScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTestScene;
 import io.github.somehussar.crystalgraphics.harness.tool.CapabilityReport;
 import io.github.somehussar.crystalgraphics.harness.tool.GlStateDumper;
 
@@ -190,6 +191,18 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
                 .build(),
             () -> new CgForwardRendererScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-test")
+                .description("CrystalGUI UI test: DOM tree with Taffy layout, sprites, and quads")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiTestScene()
         );
 
         // ── Diagnostic modes ──
