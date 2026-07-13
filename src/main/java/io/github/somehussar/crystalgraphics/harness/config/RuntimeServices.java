@@ -2,8 +2,6 @@ package io.github.somehussar.crystalgraphics.harness.config;
 
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneRunner;
 import io.github.somehussar.crystalgraphics.harness.capture.ArtifactService;
-import io.github.somehussar.crystalgraphics.harness.config.ViewportState;
-import io.github.somehussar.crystalgraphics.harness.debug.UiInputForwarder;
 
 /**
  * Typed accessor for interactive runtime services.
@@ -108,9 +106,6 @@ public final class RuntimeServices {
         return runner.getArtifactService();
     }
 
-    public void setUiInputForwarder(UiInputForwarder forwarder) {
-        runner.getInputPauseHandler().setUiForwarder(forwarder);
-    }
 
     @Override
     public String toString() {

@@ -1,6 +1,5 @@
 package io.github.somehussar.crystalgraphics.harness.runtime;
 
-import io.github.somehussar.crystalgraphics.harness.debug.UiInputForwarder;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -37,15 +36,9 @@ public final class InputPauseHandler {
     private static final Logger LOGGER = Logger.getLogger(InputPauseHandler.class.getName());
 
     private boolean paused = false;
-    private UiInputForwarder uiForwarder;
 
     public InputPauseHandler() {
     }
-
-    public void setUiForwarder(UiInputForwarder forwarder) {
-        this.uiForwarder = forwarder;
-    }
-
     /**
      * Polls the LWJGL keyboard event queue for ESCAPE and T key-down events
      * to toggle pause state.
@@ -78,16 +71,8 @@ public final class InputPauseHandler {
                 continue;
             }
 
-            // When paused, forward non-pause keys to the CrystalGUI container
-            if (paused && uiForwarder != null) {
-                uiForwarder.forwardKeyEvent(key, ch, pressed);
-            }
         }
 
-        // When paused, also drain mouse events into the UI
-        if (paused && uiForwarder != null) {
-            uiForwarder.drainMouseEvents();
-        }
     }
 
     /**

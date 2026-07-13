@@ -1,15 +1,5 @@
 package io.github.somehussar.crystalgraphics.harness.scene;
 
-import com.crystalgui.core.render.CgUiRuntime;
-import com.crystalgui.core.geometry.UiRect;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.elements.UiButton;
-import com.crystalgui.ui.elements.UiTextbox;
-import com.crystalgui.ui.UIContainer;
-import com.crystalgui.ui.test.CgUiTest;
-import io.github.somehussar.crystalgraphics.harness.debug.UiEventInjector;
-import io.github.somehussar.crystalgraphics.harness.debug.UiInputForwarder;
-import io.github.somehussar.crystalgraphics.harness.debug.UiValidationState;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFontFamily;
 import com.crystalgraphics.text.render.CgTextRenderer;
@@ -87,9 +77,6 @@ public class TextScene3D implements InteractiveSceneLifecycle {
     private WorldTextRenderHelper jpHelper;
 
     // ── Real Cgui UI (rendered when paused) ──
-    private UIContainer testUi;
-    private UiEventInjector uiInjector;
-    private UiValidationState validationState;
     private final Matrix4f orthoProjection = new Matrix4f();
 
     @Override
@@ -137,12 +124,6 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         }
 
         // Initialize CgUiRuntime with text support from the first helper's renderer/font
-        if (!CgUiRuntime.isInitialized()) {
-            CgTextRenderer textRenderer = helper.getTextRenderer();
-            CgFontFamily fontFamily = helper.getFontFamily();
-//            CgUiRuntime.initialize(textRenderer, fontFamily);
-
-        }
 //        testUi = CgUiTest.create();
 //        uiInjector = new UiEventInjector(testUi);
 //        validationState = new UiValidationState(testUi);
@@ -388,10 +369,6 @@ public class TextScene3D implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         CgTextRenderer.diagnosticLogging = false;
-        if (testUi != null) {
-            testUi.dispose();
-            testUi = null;
-        }
         if (helper != null) {
             helper.dispose();
         }

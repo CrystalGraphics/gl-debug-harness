@@ -110,7 +110,7 @@ dependencies {
     // don't use Taffy (or use a different layout engine) won't break the build.
     // Taffy targets JVM 17+ but the harness runs on JVM 25, so this is fine at runtime.
     if (rootIsParentMod && rootProject.properties.containsKey("taffy_version")) {
-        runtimeOnly("dev.vfyjxf:taffy:${rootProject.properties["taffy_version"]}") {
+        implementation("dev.vfyjxf:taffy:${rootProject.properties["taffy_version"]}") {
             attributes {
                 attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 17)
             }

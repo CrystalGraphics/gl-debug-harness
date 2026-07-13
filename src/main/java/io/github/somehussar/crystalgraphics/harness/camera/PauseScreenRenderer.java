@@ -1,10 +1,10 @@
 package io.github.somehussar.crystalgraphics.harness.camera;
 
-import com.crystalgui.rewrite.UIElement;
-import com.crystalgui.rewrite.Ui;
-import com.crystalgui.rewrite.UiRuntime;
-import com.crystalgui.rewrite.texture.CgUiQuad;
-import com.crystalgui.rewrite.texture.CgUiSprite;
+import com.crystalgui.UIElement;
+import com.crystalgui.Ui;
+import com.crystalgui.UiRuntime;
+import com.crystalgui.texture.CgUiQuad;
+import com.crystalgui.texture.CgUiSprite;
 import dev.vfyjxf.taffy.geometry.TaffyRect;
 import dev.vfyjxf.taffy.style.*;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -84,7 +84,7 @@ public final class PauseScreenRenderer {
 
         UIElement container = new UIElement();
         container.setBackground(new CgUiQuad(0x2DFFFFFF));
-        container.layout( l -> l.widthPercent(1).heightPercent(1).flex(1).gap(10).flexDirection(FlexDirection.COLUMN));
+        container.layout( l -> l.widthPercent(1).heightPercent(1).flex(1).gap(10));
         root.addChild(container);
 
         UIElement header = new UIElement();

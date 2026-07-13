@@ -1,6 +1,5 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
-import com.crystalgui.core.property.Property;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.api.text.CgTextLayout;
@@ -188,7 +187,6 @@ public class ImageScene implements InteractiveSceneLifecycle {
         uploadQuad(vboId, rightX, rightY, quadSize, quadSize, 0, 0, 1, 1);
     }
 
-    public static Property<String> metaData = new Property<>("");
 
     public static void renderText(HarnessContext ctx, long frameCounter) {
         TextContext text = ctx.getTextContext();
@@ -218,13 +216,6 @@ public class ImageScene implements InteractiveSceneLifecycle {
         text.renderer.draw(text.textLayer, layout, text.font, rightX, rightY,
                 TEXT_COLOR, frameCounter, text.orthoContext, poseStack);
         text.textLayer.end();
-
-
-        layout = text.layoutBuilder.layout(ImageScene.metaData.get(), text.font, 0, 0);
-        text.textLayer.begin(text.orthoContext.getProjection());
-        text.renderer.draw(text.textLayer, layout, text.font, width / 2.35f, height / 2.5f,
-                TEXT_COLOR, frameCounter, text.orthoContext, poseStack);
-        text.textLayer.end();
     }
 
     @Override
@@ -240,11 +231,6 @@ public class ImageScene implements InteractiveSceneLifecycle {
 
         int frameIdx = (int) rawT % totalFrames;   // integer frame: 7
         float blendT = rawT - (int) rawT;
-
-        metaData.set(String.format("Duration: %.2fs\n" +
-                "Time: %.2fs\n" +
-                "Current frame: %s/%s\n" +
-                "F_interpolation: %.2f", totalDurSec, elapsedSec, frameIdx + 1, totalFrames, blendT));
 
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glEnable(GL11.GL_ALPHA_TEST);
