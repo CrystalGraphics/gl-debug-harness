@@ -1,5 +1,12 @@
 package io.github.somehussar.crystalgraphics.harness.camera;
 
+import com.crystalgui.rewrite.UIElement;
+import com.crystalgui.rewrite.Ui;
+import com.crystalgui.rewrite.UiRuntime;
+import com.crystalgui.rewrite.texture.CgUiQuad;
+import com.crystalgui.rewrite.texture.CgUiSprite;
+import dev.vfyjxf.taffy.geometry.TaffyRect;
+import dev.vfyjxf.taffy.style.*;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessShaderUtil;
 import org.lwjgl.BufferUtils;
@@ -28,6 +35,8 @@ import java.util.logging.Logger;
 public final class PauseScreenRenderer {
 
     private static final Logger LOGGER = Logger.getLogger(PauseScreenRenderer.class.getName());
+
+    private final UiRuntime uiRuntime;
 
     // Overlay height as a fraction of screen height
     private static final float OVERLAY_HEIGHT_FRACTION = 0.10f;
@@ -63,6 +72,80 @@ public final class PauseScreenRenderer {
     private int screenSizeLoc;
     private int colorLoc;
     private boolean initialized = false;
+
+    public PauseScreenRenderer() {
+        UIElement root = new UIElement();
+        root.layout(l -> l
+                .width(250).height(475)
+                .padding(10)
+        );
+        root.setBackground(new CgUiQuad(0xFF1C1E21));
+
+
+        UIElement container = new UIElement();
+        container.setBackground(new CgUiQuad(0x2DFFFFFF));
+        container.layout( l -> l.widthPercent(1).heightPercent(1).flex(1).gap(10).flexDirection(FlexDirection.COLUMN));
+        root.addChild(container);
+
+        UIElement header = new UIElement();
+        header.setBackground(new CgUiQuad(0x2DFFFFFF));
+        header.layout( l -> l.height(60));
+        container.addChild(header);
+
+        UIElement main = new UIElement();
+        main.setBackground(new CgUiQuad(0x2DFFFFFF));
+        main.layout(l -> l.flex(1).margin(10, 0, 10, 0));
+        container.addChild(main);
+
+        UIElement content = new UIElement();
+        content.setBackground(new CgUiQuad(0x2DFFFFFF));
+        content.layout(l -> l.flex(2).margin(10, 0, 10, 0));
+        container.addChild(content);
+
+
+        UIElement absolute = new UIElement();
+        absolute.setBackground(new CgUiQuad(0xFF606770));
+        absolute.layout(l -> l
+                .position(TaffyPosition.ABSOLUTE)
+                .widthPercent(1).height(64)
+                .flexDirection(FlexDirection.ROW)
+                .alignItems(AlignItems.CENTER)
+                .justifyContent(AlignContent.SPACE_AROUND)
+                .raw().inset = new TaffyRect<>(LengthPercentageAuto.AUTO, LengthPercentageAuto.AUTO, LengthPercentageAuto.AUTO, LengthPercentageAuto.ZERO));
+        container.addChild(absolute);
+
+        UIElement button1 = new UIElement();
+        button1.setBackground(new CgUiSprite("crystalgui:textures/gui/Spritesheet_UI_Flat.png",
+                (236f)/736f,
+                (233f)/288f,
+                (236f+14f)/736f,
+                (233f+14f)/288f
+        ));
+        button1.layout(l -> l.width(40).height(40) );
+        absolute.addChild(button1);
+
+        for(int i = 0; i < 3; i++) {
+            UIElement button = new UIElement();
+            button.setBackground(new CgUiQuad(0x2DFFFFFF));
+            button.layout(l -> l.width(40).height(40) );
+            absolute.addChild(button);
+        }
+
+
+
+//        UIElement panel = new UIElement();
+//        panel.layout(l -> l.width(14).height(14)
+//                .position(TaffyPosition.RELATIVE));
+//        panel.setBackground(new CgUiSprite("crystalgui:textures/gui/Spritesheet_UI_Flat.png",
+//                (236f)/736f,
+//                (233f)/288f,
+//                (236f+14f)/736f,
+//                (233f+14f)/288f
+//        ));
+//        root.addChild(panel);
+
+        this.uiRuntime = new UiRuntime(Ui.of(root));
+    }
 
     /**
      * Initializes GL resources (shader program, VAO, VBO).
@@ -167,6 +250,9 @@ public final class PauseScreenRenderer {
         GL30.glBindVertexArray(0);
 
         GL20.glUseProgram(0);
+
+        uiRuntime.resize(screenWidth, screenHeight);
+        uiRuntime.paintFrame();
     }
 
     /**
