@@ -44,30 +44,44 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
                 .width(250).height(475)
                 .padding(10)
         );
-        root.setBackground(new CgUiQuad(0xFF1C1E21));
+//        root.setBackground(new CgUiQuad(0xFF1C1E21));
+
+        CgUiSprite backgroundMain = new CgUiSprite()
+                .setTexture("crystalgui:textures/gui/Spritesheet_UI_Flat.png")
+                .setTextureSizeReference(736, 288)
+                .setSprite(128, 32, 96, 64)
+                .setBorder(3, 5, 92, 58);
+
+        CgUiSprite inset = backgroundMain.copy()
+                .setSprite(160, 128, 32, 32)
+                .setBorder(3, 4, 28, 27);
+
+        root.setBackground(backgroundMain);
 
         UIElement container = new UIElement();
-        container.setBackground(new CgUiQuad(0x2DFFFFFF));
-        container.layout(l -> l.widthPercent(1).heightPercent(1).flex(1).gap(10));
+        container.setBackground(inset);
+        container.layout(l -> l.widthPercent(1).heightPercent(1).flex(1).gap(10).flexDirection(FlexDirection.COLUMN));
         root.addChild(container);
 
         UIElement header = new UIElement();
-        header.setBackground(new CgUiQuad(0x2DFFFFFF));
-        header.layout(l -> l.height(60));
+        header
+                .setColor(0xFFDDDDDD)
+                .setBackground(inset)
+                .layout(l -> l.height(60));
         container.addChild(header);
 
         UIElement main = new UIElement();
-        main.setBackground(new CgUiQuad(0x2DFFFFFF));
+        main.setBackground(inset);
         main.layout(l -> l.flex(1).margin(10, 0, 10, 0));
         container.addChild(main);
 
         UIElement content = new UIElement();
-        content.setBackground(new CgUiQuad(0x2DFFFFFF));
-        content.layout(l -> l.flex(2).margin(10, 0, 10, 0));
+        content.setBackground(inset);
+        content.layout(l -> l.flex(2).margin(10, 0, 10, 0).margin(10,0,10,72));
         container.addChild(content);
 
         UIElement absolute = new UIElement();
-        absolute.setBackground(new CgUiQuad(0xFF606770));
+        absolute.setBackground(new CgUiQuad(0x55606770));
         absolute.layout(l -> l
                 .position(TaffyPosition.ABSOLUTE)
                 .widthPercent(1).height(64)
@@ -88,17 +102,17 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
 //                (236f + 14f) / 736f,
 //                (233f + 14f) / 288f
 //        ));
-        button1.setBackground(new CgUiSprite()
+        button1.setOverlay(new CgUiSprite()
                 .setTexture("crystalgui:textures/gui/Spritesheet_UI_Flat.png")
-                .setSprite(236, 233, 14, 14)
+                .setSprite(296, 233, 14, 14)
                 .setTextureSizeReference(736, 288)
-        );
+        ).setBackground(inset);
         button1.layout(l -> l.width(40).height(40));
         absolute.addChild(button1);
 
         for (int i = 0; i < 3; i++) {
             UIElement button = new UIElement();
-            button.setBackground(new CgUiQuad(0x2DFFFFFF));
+            button.setBackground(inset);
             button.layout(l -> l.width(40).height(40));
             absolute.addChild(button);
         }
@@ -110,7 +124,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getViewport().getWidth();
         int h = ctx.getViewport().getHeight();
-        uiRuntime.resize(w, h);
+        uiRuntime.resize(w/2, h/2);
         uiRuntime.paintFrame();
     }
 
