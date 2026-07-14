@@ -3,6 +3,7 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 import com.crystalgui.UIElement;
 import com.crystalgui.Ui;
 import com.crystalgui.UiRuntime;
+import com.crystalgui.render.CgUIRenderer;
 import com.crystalgui.texture.CgUiQuad;
 import com.crystalgui.texture.CgUiSprite;
 import dev.vfyjxf.taffy.geometry.TaffyRect;
@@ -74,7 +75,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
 
         UIElement header = new UIElement();
         header
-                .setColor(0xFFDDDDDD)
+                .setColorTint(0xFFDDDDDD)
                 .setBackground(inset)
                 .layout(l -> l.height(60));
         container.addChild(header);
@@ -105,12 +106,6 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
         container.addChild(absolute);
 
         UIElement button1 = new UIElement();
-//        button1.setBackground(new CgUiSprite("crystalgui:textures/gui/Spritesheet_UI_Flat.png",
-//                (236f) / 736f,
-//                (233f) / 288f,
-//                (236f + 14f) / 736f,
-//                (233f + 14f) / 288f
-//        ));
         button1.setOverlay(new CgUiSprite()
                 .setTexture("crystalgui:textures/gui/Spritesheet_UI_Flat.png")
                 .setTextureSizeReference(736, 288)
@@ -131,10 +126,8 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        int w = ctx.getViewport().getWidth();
-        int h = ctx.getViewport().getHeight();
-        uiRuntime.resize(w/2, h/2);
-        uiRuntime.setMouse(Mouse.getX() / 2f, ((float) h /2) - Mouse.getY() / 2f);
+        uiRuntime.resize(ctx.getScreenWidth(), ctx.getScreenHeight());
+        uiRuntime.setMouse(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY() );
         uiRuntime.paintFrame();
     }
 
