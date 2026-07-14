@@ -48,14 +48,22 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
 //        root.setBackground(new CgUiQuad(0xFF1C1E21));
 
         CgUiSprite backgroundMain = new CgUiSprite()
-                .setTexture("crystalgui:textures/gui/Spritesheet_UI_Flat.png")
-                .setTextureSizeReference(736, 288)
-                .setSprite(128, 32, 96, 64)
-                .setBorder(3, 5, 92, 58);
+                .setTexture("crystalgui:textures/gui/gdp_styles.png")
+                .setTextureSizeReference(256, 256)
+                .setSprite(29, 1, 13, 13)
+                .setBorder(1, 1, 11, 11);
 
         CgUiSprite inset = backgroundMain.copy()
-                .setSprite(160, 128, 32, 32)
-                .setBorder(3, 4, 28, 27);
+                .setSprite(154, 131, 16, 16)
+                .setBorder(5, 6, 9, 10);
+
+        CgUiSprite overlay = inset.copy()
+                .setSprite(86, 239, 16, 16)
+                .setBorder(4, 5, 10, 11);
+
+        CgUiSprite buttonSprite = inset.copy()
+                .setSprite(154, 165, 16, 16)
+                .setBorder(5, 6, 9, 10);
 
         root.setBackground(backgroundMain);
 
@@ -82,7 +90,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
         container.addChild(content);
 
         UIElement absolute = new UIElement();
-        absolute.setBackground(new CgUiQuad(0x55606770));
+        absolute.setBackground(overlay);
         absolute.layout(l -> l
                 .position(TaffyPosition.ABSOLUTE)
                 .widthPercent(1).height(64)
@@ -105,15 +113,15 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
 //        ));
         button1.setOverlay(new CgUiSprite()
                 .setTexture("crystalgui:textures/gui/Spritesheet_UI_Flat.png")
-                .setSprite(296, 233, 14, 14)
                 .setTextureSizeReference(736, 288)
-        ).setBackground(inset);
+                .setSprite(296, 233, 14, 14)
+        ).setBackground(buttonSprite);
         button1.layout(l -> l.width(40).height(40));
         absolute.addChild(button1);
 
         for (int i = 0; i < 3; i++) {
             UIElement button = new UIElement();
-            button.setBackground(inset);
+            button.setBackground(buttonSprite);
             button.layout(l -> l.width(40).height(40));
             absolute.addChild(button);
         }
