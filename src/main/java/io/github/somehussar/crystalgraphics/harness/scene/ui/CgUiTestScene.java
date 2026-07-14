@@ -14,6 +14,7 @@ import dev.vfyjxf.taffy.style.TaffyPosition;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
+import org.lwjgl.input.Mouse;
 
 /**
  * Interactive harness scene that builds and renders a CrystalGUI DOM tree
@@ -125,6 +126,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
         int w = ctx.getViewport().getWidth();
         int h = ctx.getViewport().getHeight();
         uiRuntime.resize(w/2, h/2);
+        uiRuntime.setMouse(Mouse.getX() / 2f, ((float) h /2) - Mouse.getY() / 2f);
         uiRuntime.paintFrame();
     }
 
