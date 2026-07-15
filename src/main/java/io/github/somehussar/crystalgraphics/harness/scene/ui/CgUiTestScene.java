@@ -44,7 +44,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
         UIElement root = new UIElement();
         root.layout(l -> l
                 .width(250).height(475)
-                .padding(10)
+                .paddingAll(10)
         );
 //        root.setBackground(new CgUiQuad(0xFF1C1E21));
 
@@ -70,39 +70,34 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
 
         UIElement container = new UIElement();
         container.setBackground(inset);
-        container.layout(l -> l.widthPercent(1).heightPercent(1).flex(1).gap(10).flexDirection(FlexDirection.COLUMN));
+        container.layout(l -> l.widthPercent(1).heightPercent(1).flex(1).gapAll(10).flexDirection(FlexDirection.COLUMN));
         root.addChild(container);
 
         UIElement header = new UIElement();
         header
-                .setColorTint(0xFFDDDDDD)
                 .setBackground(inset)
                 .layout(l -> l.height(60));
         container.addChild(header);
 
         UIElement main = new UIElement();
         main.setBackground(inset);
-        main.layout(l -> l.flex(1).margin(10, 0, 10, 0));
+        main.layout(l -> l.flex(1).marginLeft(10).marginRight(10));
         container.addChild(main);
 
         UIElement content = new UIElement();
         content.setBackground(inset);
-        content.layout(l -> l.flex(2).margin(10, 0, 10, 0).margin(10,0,10,72));
+        content.layout(l -> l.flex(2).marginTop(10).marginBottom(10).marginBottom(72));
         container.addChild(content);
 
         UIElement absolute = new UIElement();
         absolute.setBackground(overlay);
         absolute.layout(l -> l
-                .position(TaffyPosition.ABSOLUTE)
+                .positionType(TaffyPosition.ABSOLUTE)
                 .widthPercent(1).height(64)
                 .flexDirection(FlexDirection.ROW)
                 .alignItems(AlignItems.CENTER)
                 .justifyContent(AlignContent.SPACE_AROUND)
-                .raw().inset = new TaffyRect<>(
-                        LengthPercentageAuto.AUTO,
-                        LengthPercentageAuto.AUTO,
-                        LengthPercentageAuto.AUTO,
-                        LengthPercentageAuto.ZERO));
+                .bottom(0));
         container.addChild(absolute);
 
         UIElement button1 = new UIElement();
