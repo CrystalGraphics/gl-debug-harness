@@ -3,15 +3,9 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 import com.crystalgui.UIElement;
 import com.crystalgui.Ui;
 import com.crystalgui.UiRuntime;
-import com.crystalgui.render.CgUIRenderer;
 import com.crystalgui.texture.CgUiQuad;
 import com.crystalgui.texture.CgUiSprite;
-import dev.vfyjxf.taffy.geometry.TaffyRect;
-import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.LengthPercentageAuto;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import dev.vfyjxf.taffy.style.*;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -41,12 +35,32 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
+        UIElement root =
+//                createUISimple();
+                createYogaExample();
+
+        this.uiRuntime = new UiRuntime(Ui.of(root));
+    }
+
+    private UIElement createUISimple() {
+        UIElement root = new UIElement()
+                .setBackground(new CgUiQuad(0xFFFFFFFF))
+                .layout(l -> l.height(600).width(600).flexDirection(FlexDirection.COLUMN));
+
+        root.addChild(
+                new UIElement().setBackground(new CgUiQuad(0xFFFF0000))
+                        .layout(l -> l.widthPercent(100).height(300))
+        );
+
+        return root;
+    }
+
+    private UIElement createYogaExample() {
         UIElement root = new UIElement();
         root.layout(l -> l
                 .width(250).height(475)
                 .paddingAll(10)
         );
-//        root.setBackground(new CgUiQuad(0xFF1C1E21));
 
         CgUiSprite backgroundMain = new CgUiSprite()
                 .setTexture("crystalgui:textures/gui/gdp_styles.png")
@@ -70,24 +84,58 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
 
         UIElement container = new UIElement();
         container.setBackground(inset);
-        container.layout(l -> l.widthPercent(100).heightPercent(100).flex(1).gapAll(10).flexDirection(FlexDirection.COLUMN));
+        container.layout(l -> l
+                .widthPercent(100).heightPercent(100)
+                .flex(1)
+                .gapAll(10)
+                .flexDirection(FlexDirection.COLUMN)
+//                .justifyContent(AlignContent.CENTER)
+//                .justifyItems(AlignItems.CENTER)
+//                .alignItems(AlignItems.CENTER)
+//                .alignContent(AlignContent.CENTER)
+        );
         root.addChild(container);
 
         UIElement header = new UIElement();
-        header
-                .setBackground(inset)
+        header.setBackground(inset)
                 .layout(l -> l.height(60));
         container.addChild(header);
 
+        UIElement mainWrapper = new UIElement();
+        mainWrapper.layout(l -> l
+                .flex(1)
+                .marginLeft(10).marginRight(10)
+                // no alignSelf(CENTER) — let it stretch, so it has a definite width
+                .flexDirection(FlexDirection.ROW)      // new
+                .justifyContent(AlignContent.CENTER)   // centers `main` when main < 100% wide
+        );
+        container.addChild(mainWrapper);
+
         UIElement main = new UIElement();
         main.setBackground(inset);
-        main.layout(l -> l.flex(1).marginLeft(10).marginRight(10));
-        container.addChild(main);
+        main.layout(l -> l.widthPercent(100) // this now resolves against mainWrapper's definite width
+                .heightPercent(100)
+                .flexDirection(FlexDirection.ROW)
+                .flexWrap(FlexWrap.WRAP)
+                .paddingAll(10)
+                .height(140)
+                .alignContent(AlignContent.CENTER)
+                .alignItems(AlignItems.CENTER)
+                .justifyContent(AlignContent.SPACE_AROUND)
+        );
+        mainWrapper.addChild(main);
 
-        UIElement content = new UIElement();
-        content.setBackground(inset);
-        content.layout(l -> l.flex(2).marginTop(10).marginBottom(10).marginBottom(72));
-        container.addChild(content);
+        for (int i = 0; i < 3; i++) {
+            UIElement button = new UIElement();
+            button.setBackground(buttonSprite);
+            button.layout(l -> l.width(40).height(40));
+            main.addChild(button);
+        }
+
+//        UIElement content = new UIElement();
+//        content.setBackground(inset);
+//        content.layout(l -> l.flex(2).marginBottom(72)); // gap already provides the top spacing
+//        container.addChild(content);
 
         UIElement absolute = new UIElement();
         absolute.setBackground(overlay);
@@ -115,13 +163,20 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
             button.layout(l -> l.width(40).height(40));
             absolute.addChild(button);
         }
-
-        this.uiRuntime = new UiRuntime(Ui.of(root));
+        return root;
     }
-
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         uiRuntime.resize(ctx.getScreenWidth(), ctx.getScreenHeight());
+        long timeMillis = System.currentTimeMillis();
+
+        float value = (float) Math.sin(2 * Math.PI * timeMillis / 5000.0);
+        uiRuntime.ui.rootElement.layout(l -> {
+//            l.height(475 + value*50);
+        })
+        .getChildren().get(0).getChildren().get(1).getChildren().get(0).layout(
+                l -> l.widthPercent(60 + 40*value).minWidth(60)
+        );
         uiRuntime.setMouse(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY() );
         uiRuntime.paintFrame();
     }

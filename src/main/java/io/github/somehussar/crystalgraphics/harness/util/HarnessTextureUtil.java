@@ -6,7 +6,6 @@ import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL30;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
-import sun.awt.image.ImageFormatException;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -141,12 +140,12 @@ public class HarnessTextureUtil {
         return images;
     }
 
-    public static BufferedImage stitchImages(boolean vertical, BufferedImage... images) throws ImageFormatException {
+    public static BufferedImage stitchImages(boolean vertical, BufferedImage... images) throws IOException {
         int width = images[0].getWidth(), height = images[0].getHeight();
         for (BufferedImage image : images) {
             int iWidth = image.getWidth(), iHeight = image.getHeight();
             if (iWidth != width || iHeight != height)
-                throw new ImageFormatException(
+                throw new IOException(
                         String.format("All images must be of same dimensions. Expected: %sx%s, Provided: %sx%s ",
                                 width, height, iWidth, iHeight));
         }
