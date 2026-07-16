@@ -245,6 +245,6 @@ public class HarnessTextureUtil {
                 }
             }
         }
-        return buff.flip();
+        return (ByteBuffer) buff.flip();
     }
 }

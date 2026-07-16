@@ -1,14 +1,11 @@
 package io.github.somehussar.crystalgraphics.platform.service;
 
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
-import com.crystalgraphics.mixins.early.impl.client.MixinMinecraft;
 import com.crystalgraphics.platform.service.CgLifecycleService;
 
 /**
  * MC 1.7.10 implementation of {@link CgLifecycleService}.
  *
- * <p>Delegates directly to {@link CgGraphicsLifecycle}. Context init / destroy / resize
- * are called by {@link MixinMinecraft}
  * on the GL thread.</p>
  */
 public final class LifecycleService1710 implements CgLifecycleService {

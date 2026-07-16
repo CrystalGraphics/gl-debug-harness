@@ -70,7 +70,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
 
         UIElement container = new UIElement();
         container.setBackground(inset);
-        container.layout(l -> l.widthPercent(1).heightPercent(1).flex(1).gapAll(10).flexDirection(FlexDirection.COLUMN));
+        container.layout(l -> l.widthPercent(100).heightPercent(100).flex(1).gapAll(10).flexDirection(FlexDirection.COLUMN));
         root.addChild(container);
 
         UIElement header = new UIElement();
@@ -93,7 +93,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
         absolute.setBackground(overlay);
         absolute.layout(l -> l
                 .positionType(TaffyPosition.ABSOLUTE)
-                .widthPercent(1).height(64)
+                .widthPercent(100).height(64)
                 .flexDirection(FlexDirection.ROW)
                 .alignItems(AlignItems.CENTER)
                 .justifyContent(AlignContent.SPACE_AROUND)

@@ -45,6 +45,7 @@ public final class HarnessContext {
     public static final int DEFAULT_WIDTH = 800;
     /** Default initial screen height. */
     public static final int DEFAULT_HEIGHT = 600;
+    private static HarnessContext INSTANCE;
 
     // ── Immutable GL context info (set at creation) ──
     private final String glVersion;
@@ -116,6 +117,10 @@ public final class HarnessContext {
         return create(DEFAULT_WIDTH, DEFAULT_HEIGHT);
     }
 
+    public static HarnessContext getInstance() {
+        return INSTANCE;
+    }
+
     /**
      * Creates a new HarnessContext by initializing the LWJGL Display and
      * OpenGL 3.0 context with the specified dimensions.
@@ -150,7 +155,8 @@ public final class HarnessContext {
         LOGGER.info("[Harness] GL Vendor:   " + glVendor);
         LOGGER.info("[Harness] GL Renderer: " + glRenderer);
 
-        return new HarnessContext(glVersion, glVendor, glRenderer, width, height);
+        INSTANCE = new HarnessContext(glVersion, glVendor, glRenderer, width, height);
+        return INSTANCE;
     }
 
     /**

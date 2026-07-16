@@ -1,9 +1,8 @@
 package io.github.somehussar.crystalgraphics.platform.service;
 
 import com.crystalgraphics.api.render.CgRenderPipeline;
-import com.crystalgraphics.mixins.early.impl.client.CgRenderHook;
 import com.crystalgraphics.platform.service.CgRenderingService;
-import net.minecraft.client.Minecraft;
+import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 
 /**
  * MC 1.7.10 implementation of {@link CgRenderingService}.
@@ -19,6 +18,6 @@ public final class RenderingService1710 implements CgRenderingService {
         CgRenderPipeline.getInstance().execute(partialTick);
     }
 
-    @Override public int getDisplayWidth()  { return Minecraft.getMinecraft().displayWidth; }
-    @Override public int getDisplayHeight() { return Minecraft.getMinecraft().displayHeight; }
+    @Override public int getDisplayWidth()  { return HarnessContext.getInstance().getScreenWidth(); }
+    @Override public int getDisplayHeight() { return HarnessContext.getInstance().getScreenHeight(); }
 }

@@ -3,7 +3,6 @@ package io.github.somehussar.crystalgraphics.platform.gl;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
-import net.minecraft.client.renderer.OpenGlHelper;
 import org.lwjgl.opengl.*;
 
 import java.nio.ByteBuffer;
@@ -153,7 +152,7 @@ public final class Lwjgl2GLBackend extends CgGLBackend {
 
     @Override
     public void bindFramebufferCompat(int fbo) {
-        OpenGlHelper.func_153171_g(GL30.GL_FRAMEBUFFER, fbo);
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
     }
 
     // -------------------------------------------------------------------------
