@@ -35,6 +35,11 @@ dependencies {
     runtimeOnly("org.lwjgl.lwjgl:lwjgl-platform:2.9.4-nightly-20150209:natives-linux")
     runtimeOnly("org.lwjgl.lwjgl:lwjgl-platform:2.9.4-nightly-20150209:natives-osx")
 
+    compileOnly("org.projectlombok:lombok:1.18.44")
+    annotationProcessor("org.projectlombok:lombok:1.18.44")
+    testCompileOnly("org.projectlombok:lombok:1.18.44")
+    testAnnotationProcessor("org.projectlombok:lombok:1.18.44")
+
     implementation("org.apache.logging.log4j:log4j-api:2.26.1")
     implementation("org.apache.logging.log4j:log4j-core:2.26.1")
     implementation("commons-io:commons-io:2.18.0")
