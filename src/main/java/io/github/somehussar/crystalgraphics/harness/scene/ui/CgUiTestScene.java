@@ -7,6 +7,7 @@ import com.crystalgui.texture.CgUiQuad;
 import com.crystalgui.texture.CgUiSprite;
 import dev.vfyjxf.taffy.style.*;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
+import io.github.somehussar.crystalgraphics.harness.InputProcessing;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import org.lwjgl.input.Mouse;
@@ -27,7 +28,7 @@ import org.lwjgl.input.Mouse;
  * <p>Register in {@link io.github.somehussar.crystalgraphics.harness.SceneRegistry}
  * under scene id {@code "cgui-test"}.</p>
  */
-public class CgUiTestScene implements InteractiveSceneLifecycle {
+public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing.Keyboard {
 
     private UiRuntime uiRuntime;
 
@@ -101,20 +102,20 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
 
         UIElement mainWrapper = new UIElement()
                 .layout(l -> l
-                        .flexGrow(0)              // don't consume leftover vertical space
-                        .flexShrink(0)            // don't get compressed either, if you want a hard floor
-                        .heightAuto()
+                        .positionType(TaffyPosition.ABSOLUTE)   // pulls it out of container's flex flow entirely
+                        .widthPercent(100).heightPercent(100)   // stretches to fill container, top to bottom
                         .marginLeft(10).marginRight(10)
-                        // no alignSelf(CENTER) — let it stretch, so it has a definite width
-                        .flexDirection(FlexDirection.ROW)      // new
-                        .justifyContent(AlignContent.CENTER)   // centers `main` when main < 100% wide
+                        .flexDirection(FlexDirection.ROW)
+                        .justifyContent(AlignContent.CENTER)
+                        .alignItems(AlignItems.CENTER)           // center main vertically within the full stretch too
                 );
-        container.addChild(mainWrapper);
+        container.addChild(mainWrapper); // still added before `content` — controls paint order, not flow anymore
 
         UIElement main = new UIElement()
-                .generalStyle(s -> s.background(inset))
+                .generalStyle(s -> s.background(inset).color(0xFF00FF00))
                 .layout(l -> l
-                        .widthPercent(100) // this now resolves against mainWrapper's definite width
+                        .widthPercent(100)
+                        .heightAuto()
                         .flexDirection(FlexDirection.ROW)
                         .flexWrap(FlexWrap.WRAP)
                         .paddingAll(10)
@@ -132,11 +133,8 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
         }
 
         UIElement content = new UIElement()
-                .generalStyle(s -> s
-                        .background(inset)
-                        .color(0xFFFF0000)
-                )
-                .layout(l -> l.flex(2).marginBottom(72)); // gap already provides the top spacing
+                .generalStyle(s -> s.background(inset).color(0xFFFF0000))
+                .layout(l -> l.flex(2).marginBottom(72));
         container.addChild(content);
 
         UIElement absolute = new UIElement()
@@ -207,4 +205,34 @@ public class CgUiTestScene implements InteractiveSceneLifecycle {
     public boolean shouldShutdownOnComplete() {
         return false;
     }
+
+    @Override
+    public boolean processEvent(Event event) {
+
+        if (event.pressed()) {
+            uiRuntime.ui.rootElement.generalStyle(s -> {
+                   s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00);
+            });
+        }
+
+        return true;
+    }
+
+//    private void pollKeyboard() {
+////        Keyboard.enableRepeatEvents(true);
+//        while (Keyboard.next()) {
+//            int key = Keyboard.getEventKey();
+//            char ch = Keyboard.getEventCharacter();
+//            boolean pressed = Keyboard.getEventKeyState(); // true = key down, false = key up
+//
+//            if (pressed) {
+////                dispatchKeyDown(key, ch);
+//                uiRuntime.ui.rootElement.generalStyle(s -> {
+//                   s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00);
+//                });
+//            } else {
+////                dispatchKeyUp(key);
+//            }
+//        }
+//    }
 }

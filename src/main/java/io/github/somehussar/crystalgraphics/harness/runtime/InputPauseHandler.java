@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.runtime;
 
+import io.github.somehussar.crystalgraphics.harness.InputProcessing;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -31,7 +32,7 @@ import java.util.logging.Logger;
  * called once per frame BEFORE camera input processing, so the camera
  * skips updates while paused.</p>
  */
-public final class InputPauseHandler {
+public final class InputPauseHandler implements InputProcessing.Keyboard, InputProcessing.Mouse {
 
     private static final Logger LOGGER = Logger.getLogger(InputPauseHandler.class.getName());
 
@@ -119,5 +120,35 @@ public final class InputPauseHandler {
     @Override
     public String toString() {
         return "InputPauseHandler[paused=" + paused + "]";
+    }
+
+    @Override
+    public boolean processEvent(InputProcessing.Keyboard.Event event) {
+        if (event.repeat())
+            return !paused;
+
+        int key = event.key();
+        boolean pressed = event.pressed();
+
+        if (pressed && (key == Keyboard.KEY_ESCAPE || key == Keyboard.KEY_T)) {
+            paused = !paused;
+            if (paused) {
+                Mouse.setGrabbed(false);
+                LOGGER.info("[InputPauseHandler] PAUSED \u2014 cursor released");
+            } else {
+                Mouse.setGrabbed(true);
+                Mouse.getDX();
+                Mouse.getDY();
+                LOGGER.info("[InputPauseHandler] RESUMED \u2014 cursor locked");
+            }
+            return false;
+        }
+
+        return !paused;
+    }
+
+    @Override
+    public boolean processEvent(InputProcessing.Mouse.Event event) {
+        return !paused;
     }
 }

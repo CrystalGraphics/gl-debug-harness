@@ -24,9 +24,12 @@ import io.github.somehussar.crystalgraphics.harness.util.HarnessProjectionUtil;
 import io.github.somehussar.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.mc.CgAssetReloader;
 import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -106,6 +109,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private OverlayPipeline overlayPipeline;
     private WorldPassCoordinator worldPassCoordinator;
 
+    private List<InputProcessing.Mouse> mouseListeners = new ArrayList<>();
+    private List<InputProcessing.Keyboard> keyboardListeners = new ArrayList<>();
+
     public InteractiveSceneRunner(InteractiveSceneLifecycle scene, HarnessContext ctx) {
         this.scene = scene;
         this.ctx = ctx;
@@ -142,6 +148,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // ── Create runtime service collaborators ──
         frameClock = new FrameClock();
         inputPauseHandler = new InputPauseHandler();
+        registerInputHandler(inputPauseHandler);
+        registerInputHandler(scene);
         resizeHandler = new ResizeHandler(ctx, worldPassCoordinator, overlayPipeline);
         overlayCaptureOrchestrator = new OverlayCaptureOrchestrator(ctx, overlayPipeline);
 
@@ -195,7 +203,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // 3. Check for pause toggle BEFORE camera input processing.
             //    Uses Keyboard event queue to detect key-down events (not held state),
             //    preventing rapid toggling from a single key press.
-            inputPauseHandler.pollPauseToggle();
+//            inputPauseHandler.pollPauseToggle();
+            pollInput();
 
             // 4. Camera update (skipped when paused)
             if (scene.uses3DCamera() && !inputPauseHandler.isPaused()) {
@@ -245,6 +254,42 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
         LOGGER.info("[InteractiveSceneRunner] Cleanup complete. shouldShutdown="
                 + scene.shouldShutdownOnComplete());
+    }
+
+    private void pollInput() {
+        if (!mouseListeners.isEmpty()) {
+            while (Mouse.next()) {
+                InputProcessing.Mouse.Event event = new InputProcessing.Mouse.Event(
+                        Mouse.getEventX(), Mouse.getEventY(), Mouse.getEventDX(),
+                        Mouse.getEventDY(), Mouse.getEventButton(), Mouse.getEventButtonState(),
+                        Mouse.getEventDWheel(), Mouse.getEventNanoseconds()
+                );
+                for (InputProcessing.Mouse listener : mouseListeners) {
+                    if (!listener.processEvent(event)) break;
+                }
+            }
+        }
+
+        if (!keyboardListeners.isEmpty()) {
+            while (Keyboard.next()) {
+                InputProcessing.Keyboard.Event event = new InputProcessing.Keyboard.Event(
+                        Keyboard.getEventCharacter(), Keyboard.getEventKey(),
+                        Keyboard.getEventKeyState(), Keyboard.isRepeatEvent(),
+                        Keyboard.getEventNanoseconds()
+                );
+                for (InputProcessing.Keyboard listener : keyboardListeners) {
+                    if (!listener.processEvent(event)) break;
+                }
+            }
+        }
+    }
+
+    private void registerInputHandler(Object objectToProcess) {
+        if (objectToProcess instanceof InputProcessing.Mouse mouseHandler)
+            this.mouseListeners.add(mouseHandler);
+
+        if (objectToProcess instanceof InputProcessing.Keyboard keyboardHandler)
+            this.keyboardListeners.add(keyboardHandler);
     }
 
     public void init() {
