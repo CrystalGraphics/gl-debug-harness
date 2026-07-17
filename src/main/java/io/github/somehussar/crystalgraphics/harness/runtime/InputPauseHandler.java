@@ -35,45 +35,16 @@ import java.util.logging.Logger;
 public final class InputPauseHandler implements InputProcessing.Keyboard, InputProcessing.Mouse {
 
     private static final Logger LOGGER = Logger.getLogger(InputPauseHandler.class.getName());
+    private final boolean grabCursorOnUnpause;
 
     private boolean paused = false;
 
     public InputPauseHandler() {
+        this(true);
     }
-    /**
-     * Polls the LWJGL keyboard event queue for ESCAPE and T key-down events
-     * to toggle pause state.
-     *
-     * <p>Uses the event queue rather than {@code Keyboard.isKeyDown()} to
-     * ensure a single press produces exactly one toggle, regardless of how
-     * many frames the key is held.</p>
-     *
-     * <p>When toggling to paused: releases the mouse cursor.
-     * When toggling to unpaused: grabs the mouse cursor and drains any
-     * accumulated mouse delta to prevent a camera jump.</p>
-     */
-    public void pollPauseToggle() {
-        while (Keyboard.next()) {
-            int key = Keyboard.getEventKey();
-            char ch = Keyboard.getEventCharacter();
-            boolean pressed = Keyboard.getEventKeyState();
 
-            if (pressed && (key == Keyboard.KEY_ESCAPE || key == Keyboard.KEY_T)) {
-                paused = !paused;
-                if (paused) {
-                    Mouse.setGrabbed(false);
-                    LOGGER.info("[InputPauseHandler] PAUSED \u2014 cursor released");
-                } else {
-                    Mouse.setGrabbed(true);
-                    Mouse.getDX();
-                    Mouse.getDY();
-                    LOGGER.info("[InputPauseHandler] RESUMED \u2014 cursor locked");
-                }
-                continue;
-            }
-
-        }
-
+    public InputPauseHandler(boolean grabCursorOnUnpause) {
+        this.grabCursorOnUnpause = grabCursorOnUnpause;
     }
 
     /**
@@ -102,10 +73,12 @@ public final class InputPauseHandler implements InputProcessing.Keyboard, InputP
         this.paused = paused;
         if (paused) {
             Mouse.setGrabbed(false);
+            LOGGER.info("[InputPauseHandler] PAUSED \u2014 cursor released");
         } else {
-            Mouse.setGrabbed(true);
+            Mouse.setGrabbed(grabCursorOnUnpause);
             Mouse.getDX();
             Mouse.getDY();
+            LOGGER.info("[InputPauseHandler] RESUMED \u2014 cursor locked");
         }
     }
 
@@ -125,26 +98,17 @@ public final class InputPauseHandler implements InputProcessing.Keyboard, InputP
     @Override
     public boolean processEvent(InputProcessing.Keyboard.Event event) {
         if (event.repeat())
-            return !paused;
+            return !isPaused();
 
         int key = event.key();
         boolean pressed = event.pressed();
 
         if (pressed && (key == Keyboard.KEY_ESCAPE || key == Keyboard.KEY_T)) {
-            paused = !paused;
-            if (paused) {
-                Mouse.setGrabbed(false);
-                LOGGER.info("[InputPauseHandler] PAUSED \u2014 cursor released");
-            } else {
-                Mouse.setGrabbed(true);
-                Mouse.getDX();
-                Mouse.getDY();
-                LOGGER.info("[InputPauseHandler] RESUMED \u2014 cursor locked");
-            }
+            setPaused(!isPaused());
             return false;
         }
 
-        return !paused;
+        return !isPaused();
     }
 
     @Override
