@@ -218,21 +218,4 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
         return true;
     }
 
-//    private void pollKeyboard() {
-////        Keyboard.enableRepeatEvents(true);
-//        while (Keyboard.next()) {
-//            int key = Keyboard.getEventKey();
-//            char ch = Keyboard.getEventCharacter();
-//            boolean pressed = Keyboard.getEventKeyState(); // true = key down, false = key up
-//
-//            if (pressed) {
-////                dispatchKeyDown(key, ch);
-//                uiRuntime.ui.rootElement.generalStyle(s -> {
-//                   s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00);
-//                });
-//            } else {
-////                dispatchKeyUp(key);
-//            }
-//        }
-//    }
 }
