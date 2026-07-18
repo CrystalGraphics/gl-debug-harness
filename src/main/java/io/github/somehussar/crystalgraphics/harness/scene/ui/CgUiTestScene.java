@@ -11,6 +11,7 @@ import io.github.somehussar.crystalgraphics.harness.InputProcessing;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import org.lwjgl.input.Mouse;
+import org.lwjgl.opengl.Display;
 
 /**
  * Interactive harness scene that builds and renders a CrystalGUI DOM tree
@@ -30,7 +31,9 @@ import org.lwjgl.input.Mouse;
  */
 public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing.Keyboard {
 
-    private UIWindow UIWindow;
+    private UIWindow uiWindow;
+
+    private UIElement hoveredElement;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -40,7 +43,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
 //                createUISimple();
                 createYogaExample();
 
-        this.UIWindow = new UIWindow(Ui.of(root));
+        this.uiWindow = new UIWindow(Ui.of(root));
     }
 
     private UIElement createUISimple() {
@@ -85,7 +88,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
                 );
 
 
-        UIElement container = new UIElement()
+        UIElement container = new UIElement().setId("Container")
                 .generalStyle(s -> s.background(inset))
                 .layout(l -> l
                         .widthPercent(100).heightPercent(100)
@@ -95,15 +98,16 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
                 );
         root.addChild(container);
 
-        UIElement header = new UIElement()
+        UIElement header = new UIElement().setId("Header")
                 .generalStyle(s -> s.background(inset))
                 .layout(l -> l.height(60));
         container.addChild(header);
 
-        UIElement mainWrapper = new UIElement()
+        UIElement mainWrapper = new UIElement().setId("wrapper")
+                .setHitTest(false)
                 .layout(l -> l
-                        .positionType(TaffyPosition.ABSOLUTE)   // pulls it out of container's flex flow entirely
-                        .widthPercent(100).heightPercent(100)   // stretches to fill container, top to bottom
+//                        .positionType(TaffyPosition.ABSOLUTE)   // pulls it out of container's flex flow entirely
+//                        .widthPercent(100).heightPercent(100)   // stretches to fill container, top to bottom
                         .marginLeft(10).marginRight(10)
                         .flexDirection(FlexDirection.ROW)
                         .justifyContent(AlignContent.CENTER)
@@ -111,7 +115,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
                 );
         container.addChild(mainWrapper); // still added before `content` — controls paint order, not flow anymore
 
-        UIElement main = new UIElement()
+        UIElement main = new UIElement().setId("main")
                 .generalStyle(s -> s.background(inset).color(0xFF00FF00))
                 .layout(l -> l
                         .widthPercent(100)
@@ -126,18 +130,18 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
         mainWrapper.addChild(main);
 
         for (int i = 0; i < 3; i++) {
-            UIElement button = new UIElement()
+            UIElement button = new UIElement().setId("buttonMain"+i)
                     .generalStyle(s -> s.background(buttonSprite))
                     .layout(l -> l.width(40).height(40));
             main.addChild(button);
         }
 
-        UIElement content = new UIElement()
+        UIElement content = new UIElement().setId("content")
                 .generalStyle(s -> s.background(inset).color(0xFFFF0000))
                 .layout(l -> l.flex(2).marginBottom(72));
         container.addChild(content);
 
-        UIElement absolute = new UIElement()
+        UIElement absolute = new UIElement().setId("absolute")
                 .generalStyle(s -> s.background(overlay))
                 .layout(l -> l
                         .positionType(TaffyPosition.ABSOLUTE)
@@ -149,7 +153,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
                 );
         container.addChild(absolute);
 
-        UIElement button1 = new UIElement()
+        UIElement button1 = new UIElement().setId("button0")
                 .generalStyle(s -> s
                         .background(buttonSprite)
                         .overlay(new CgUiSprite()
@@ -162,7 +166,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
         absolute.addChild(button1);
 
         for (int i = 0; i < 3; i++) {
-            UIElement button = new UIElement()
+            UIElement button = new UIElement().setId("Header"+(1+i))
                     .generalStyle(s -> s.background(buttonSprite))
                     .layout(l -> l.width(40).height(40));
             absolute.addChild(button);
@@ -172,23 +176,33 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        UIWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
+        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         long timeMillis = System.currentTimeMillis();
 
         float value = (float) Math.sin(2 * Math.PI * timeMillis / 5000.0);
-        UIWindow.ui.rootElement.layout(l -> {
+        uiWindow.ui.rootElement.layout(l -> {
 //            l.height(475 + value*10);
                 })
                 .getChildren().getFirst().getChildren().get(1).getChildren().getFirst().layout(
                         l -> l.widthPercent(60 + 40 * value).minWidth(60)
                 );
-        UIWindow.setMouse(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
-        UIWindow.paintFrame();
+        uiWindow.setMouse(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
+        uiWindow.paintFrame();
+        UIElement previousElement = this.hoveredElement;
+        this.hoveredElement = uiWindow.ui.rootElement.getHoveredElement(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
+        if (this.hoveredElement != previousElement) {
+            if (this.hoveredElement == null) {
+                Display.setTitle("No element selected :(");
+            } else {
+                Display.setTitle(hoveredElement.getId() + "#");
+            }
+        }
+//        Display.setTitle(String.format("%d, %d", Mouse.getX(), ctx.getScreenHeight() - Mouse.getY()));
     }
 
     @Override
     public void dispose() {
-        UIWindow = null;
+        uiWindow = null;
     }
 
     @Override
@@ -210,7 +224,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
     public boolean processEvent(Event event) {
 
         if (event.pressed()) {
-            UIWindow.ui.rootElement.generalStyle(s -> {
+            uiWindow.ui.rootElement.generalStyle(s -> {
                    s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00);
             });
         }
