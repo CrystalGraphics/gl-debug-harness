@@ -186,7 +186,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
         uiWindow.setMouse(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
         uiWindow.paintFrame();
         UIElement previousElement = this.hoveredElement;
-        this.hoveredElement = uiWindow.ui.rootElement.getHoveredElement(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
+        this.hoveredElement = uiWindow.getHoveredElement(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
         if (this.hoveredElement != previousElement) {
             if (this.hoveredElement == null) {
                 Display.setTitle("No element selected :(");
