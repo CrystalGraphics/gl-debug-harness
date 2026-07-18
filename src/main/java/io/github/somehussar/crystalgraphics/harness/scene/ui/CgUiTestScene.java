@@ -2,7 +2,7 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgui.UIElement;
 import com.crystalgui.Ui;
-import com.crystalgui.UiRuntime;
+import com.crystalgui.UIWindow;
 import com.crystalgui.render.texture.CgUiQuad;
 import com.crystalgui.render.texture.CgUiSprite;
 import dev.vfyjxf.taffy.style.*;
@@ -14,7 +14,7 @@ import org.lwjgl.input.Mouse;
 
 /**
  * Interactive harness scene that builds and renders a CrystalGUI DOM tree
- * using the immediate-mode {@link UiRuntime} paint path.
+ * using the immediate-mode {@link UIWindow} paint path.
  *
  * <p>This scene exercises the full CrystalGUI stack — Taffy layout, DOM tree
  * traversal, {@code CgUiQuad} solid fills, {@code CgUiSprite} atlas sprites,
@@ -30,7 +30,7 @@ import org.lwjgl.input.Mouse;
  */
 public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing.Keyboard {
 
-    private UiRuntime uiRuntime;
+    private UIWindow UIWindow;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
 //                createUISimple();
                 createYogaExample();
 
-        this.uiRuntime = new UiRuntime(Ui.of(root));
+        this.UIWindow = new UIWindow(Ui.of(root));
     }
 
     private UIElement createUISimple() {
@@ -172,23 +172,23 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiRuntime.resize(ctx.getScreenWidth(), ctx.getScreenHeight());
+        UIWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         long timeMillis = System.currentTimeMillis();
 
         float value = (float) Math.sin(2 * Math.PI * timeMillis / 5000.0);
-        uiRuntime.ui.rootElement.layout(l -> {
+        UIWindow.ui.rootElement.layout(l -> {
 //            l.height(475 + value*10);
                 })
                 .getChildren().getFirst().getChildren().get(1).getChildren().getFirst().layout(
                         l -> l.widthPercent(60 + 40 * value).minWidth(60)
                 );
-        uiRuntime.setMouse(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
-        uiRuntime.paintFrame();
+        UIWindow.setMouse(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
+        UIWindow.paintFrame();
     }
 
     @Override
     public void dispose() {
-        uiRuntime = null;
+        UIWindow = null;
     }
 
     @Override
@@ -210,7 +210,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
     public boolean processEvent(Event event) {
 
         if (event.pressed()) {
-            uiRuntime.ui.rootElement.generalStyle(s -> {
+            UIWindow.ui.rootElement.generalStyle(s -> {
                    s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00);
             });
         }
