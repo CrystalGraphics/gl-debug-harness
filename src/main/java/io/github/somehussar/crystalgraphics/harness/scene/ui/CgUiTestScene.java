@@ -108,7 +108,6 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
                 .layout(l -> l
 //                        .positionType(TaffyPosition.ABSOLUTE)   // pulls it out of container's flex flow entirely
 //                        .widthPercent(100).heightPercent(100)   // stretches to fill container, top to bottom
-                        .marginLeft(10).marginRight(10)
                         .flexDirection(FlexDirection.ROW)
                         .justifyContent(AlignContent.CENTER)
                         .alignItems(AlignItems.CENTER)           // center main vertically within the full stretch too
@@ -138,7 +137,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
 
         UIElement content = new UIElement().setId("content")
                 .generalStyle(s -> s.background(inset).color(0xFFFF0000))
-                .layout(l -> l.flex(2).marginBottom(72));
+                .layout(l -> l.flex(2).marginBottom(72).marginLeft(10).marginRight(10));
         container.addChild(content);
 
         UIElement absolute = new UIElement().setId("absolute")
@@ -180,9 +179,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
         long timeMillis = System.currentTimeMillis();
 
         float value = (float) Math.sin(2 * Math.PI * timeMillis / 5000.0);
-        uiWindow.ui.rootElement.layout(l -> {
-//            l.height(475 + value*10);
-                })
+        uiWindow.ui.rootElement
                 .getChildren().getFirst().getChildren().get(1).getChildren().getFirst().layout(
                         l -> l.widthPercent(60 + 40 * value).minWidth(60)
                 );
