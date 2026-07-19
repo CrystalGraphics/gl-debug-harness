@@ -35,6 +35,25 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
 
     private UIElement hoveredElement;
 
+    CgUiSprite backgroundMain = new CgUiSprite()
+            .setTexture("crystalgui:textures/gui/gdp_styles.png")
+            .setTextureSizeReference(256, 256)
+            .setSprite(29, 1, 13, 13)
+            .setBorder(1, 1, 11, 11);
+
+    CgUiSprite inset = backgroundMain.copy()
+            .setSprite(154, 131, 16, 16)
+            .setBorder(5, 6, 9, 10);
+
+    CgUiSprite overlay = inset.copy()
+            .setSprite(86, 239, 16, 16)
+            .setBorder(4, 5, 10, 11);
+
+    CgUiSprite buttonSprite = inset.copy()
+            .setSprite(154, 165, 16, 16)
+            .setBorder(5, 6, 9, 10);
+
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     @Override
@@ -60,24 +79,6 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
     }
 
     private UIElement createYogaExample() {
-
-        CgUiSprite backgroundMain = new CgUiSprite()
-                .setTexture("crystalgui:textures/gui/gdp_styles.png")
-                .setTextureSizeReference(256, 256)
-                .setSprite(29, 1, 13, 13)
-                .setBorder(1, 1, 11, 11);
-
-        CgUiSprite inset = backgroundMain.copy()
-                .setSprite(154, 131, 16, 16)
-                .setBorder(5, 6, 9, 10);
-
-        CgUiSprite overlay = inset.copy()
-                .setSprite(86, 239, 16, 16)
-                .setBorder(4, 5, 10, 11);
-
-        CgUiSprite buttonSprite = inset.copy()
-                .setSprite(154, 165, 16, 16)
-                .setBorder(5, 6, 9, 10);
 
         UIElement root = new UIElement()
                 .generalStyle(s -> s.background(backgroundMain))
@@ -181,19 +182,19 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
         float value = (float) Math.sin(2 * Math.PI * timeMillis / 5000.0);
         uiWindow.ui.rootElement
                 .getChildren().getFirst().getChildren().get(1).getChildren().getFirst().layout(
-                        l -> l.widthPercent(60 + 40 * value).minWidth(60)
+                        l -> l.widthPercent(60 + 40 * value).minWidth(60).maxHeight(160)
                 );
-        uiWindow.setMouse(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
+//        uiWindow.setMouse(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
         uiWindow.paintFrame();
         UIElement previousElement = this.hoveredElement;
-        this.hoveredElement = uiWindow.getHoveredElement(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
-        if (this.hoveredElement != previousElement) {
-            if (this.hoveredElement == null) {
-                Display.setTitle("No element selected :(");
-            } else {
-                Display.setTitle(hoveredElement.getId() + "#");
-            }
-        }
+//        this.hoveredElement = uiWindow.getHoveredElement(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
+//        if (this.hoveredElement != previousElement) {
+//            if (this.hoveredElement == null) {
+//                Display.setTitle("No element selected :(");
+//            } else {
+//                Display.setTitle(hoveredElement.getId() + "#");
+//            }
+//        }
 //        Display.setTitle(String.format("%d, %d", Mouse.getX(), ctx.getScreenHeight() - Mouse.getY()));
     }
 
@@ -224,6 +225,19 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
             uiWindow.ui.rootElement.generalStyle(s -> {
                    s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00);
             });
+
+            if(this.hoveredElement != null) {
+                this.hoveredElement.addChild(new UIElement().setId("button0")
+                        .generalStyle(s -> s
+                                .background(buttonSprite)
+                                .overlay(new CgUiSprite()
+                                        .setTexture("crystalgui:textures/gui/Spritesheet_UI_Flat.png")
+                                        .setTextureSizeReference(736, 288)
+                                        .setSprite(296, 233, 14, 14)
+                                )
+                        )
+                        .layout(l -> l.width(40).height(40)));
+            }
         }
 
         return true;
