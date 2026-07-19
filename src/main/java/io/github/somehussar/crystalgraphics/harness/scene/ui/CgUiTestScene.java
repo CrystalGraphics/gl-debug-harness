@@ -1,17 +1,15 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
-import com.crystalgui.UIElement;
-import com.crystalgui.Ui;
-import com.crystalgui.UIWindow;
+import com.crystalgui.ui.UIElement;
+import com.crystalgui.ui.Ui;
+import com.crystalgui.ui.UIWindow;
 import com.crystalgui.render.texture.CgUiQuad;
 import com.crystalgui.render.texture.CgUiSprite;
 import dev.vfyjxf.taffy.style.*;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
-import io.github.somehussar.crystalgraphics.harness.InputProcessing;
+import com.crystalgui.core.input.SystemInput;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
-import org.lwjgl.input.Mouse;
-import org.lwjgl.opengl.Display;
 
 /**
  * Interactive harness scene that builds and renders a CrystalGUI DOM tree
@@ -29,7 +27,7 @@ import org.lwjgl.opengl.Display;
  * <p>Register in {@link io.github.somehussar.crystalgraphics.harness.SceneRegistry}
  * under scene id {@code "cgui-test"}.</p>
  */
-public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing.Keyboard {
+public class CgUiTestScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
 
     private UIWindow uiWindow;
 
@@ -219,7 +217,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
     }
 
     @Override
-    public boolean processEvent(Event event) {
+    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
 
         if (event.pressed()) {
             uiWindow.ui.rootElement.generalStyle(s -> {
@@ -243,4 +241,9 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, InputProcessing
         return true;
     }
 
+    @Override
+    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+
+        return false;
+    }
 }

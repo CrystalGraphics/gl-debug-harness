@@ -1,6 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness;
 
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
+import com.crystalgui.core.input.SystemInput;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.camera.FloorRenderer;
 import io.github.somehussar.crystalgraphics.harness.camera.HUDRenderer;
@@ -109,8 +110,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private OverlayPipeline overlayPipeline;
     private WorldPassCoordinator worldPassCoordinator;
 
-    private List<InputProcessing.Mouse> mouseListeners = new ArrayList<>();
-    private List<InputProcessing.Keyboard> keyboardListeners = new ArrayList<>();
+    private List<SystemInput.Mouse> mouseListeners = new ArrayList<>();
+    private List<SystemInput.Keyboard> keyboardListeners = new ArrayList<>();
 
     public InteractiveSceneRunner(InteractiveSceneLifecycle scene, HarnessContext ctx) {
         this.scene = scene;
@@ -259,36 +260,36 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private void pollInput() {
         if (!mouseListeners.isEmpty()) {
             while (Mouse.next()) {
-                InputProcessing.Mouse.Event event = new InputProcessing.Mouse.Event(
+                SystemInput.Mouse.Event event = new SystemInput.Mouse.Event(
                         Mouse.getEventX(), Mouse.getEventY(), Mouse.getEventDX(),
                         Mouse.getEventDY(), Mouse.getEventButton(), Mouse.getEventButtonState(),
                         Mouse.getEventDWheel(), Mouse.getEventNanoseconds()
                 );
-                for (InputProcessing.Mouse listener : mouseListeners) {
-                    if (!listener.processEvent(event)) break;
+                for (SystemInput.Mouse listener : mouseListeners) {
+                    if (!listener.consumeMouseEvent(event)) break;
                 }
             }
         }
 
         if (!keyboardListeners.isEmpty()) {
             while (Keyboard.next()) {
-                InputProcessing.Keyboard.Event event = new InputProcessing.Keyboard.Event(
+                SystemInput.Keyboard.Event event = new SystemInput.Keyboard.Event(
                         Keyboard.getEventCharacter(), Keyboard.getEventKey(),
                         Keyboard.getEventKeyState(), Keyboard.isRepeatEvent(),
                         Keyboard.getEventNanoseconds()
                 );
-                for (InputProcessing.Keyboard listener : keyboardListeners) {
-                    if (!listener.processEvent(event)) break;
+                for (SystemInput.Keyboard listener : keyboardListeners) {
+                    if (!listener.consumeKeyboardEvent(event)) break;
                 }
             }
         }
     }
 
     private void registerInputHandler(Object objectToProcess) {
-        if (objectToProcess instanceof InputProcessing.Mouse mouseHandler)
+        if (objectToProcess instanceof SystemInput.Mouse mouseHandler)
             this.mouseListeners.add(mouseHandler);
 
-        if (objectToProcess instanceof InputProcessing.Keyboard keyboardHandler)
+        if (objectToProcess instanceof SystemInput.Keyboard keyboardHandler)
             this.keyboardListeners.add(keyboardHandler);
     }
 
