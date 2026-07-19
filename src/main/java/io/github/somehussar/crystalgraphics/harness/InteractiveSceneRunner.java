@@ -82,6 +82,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private static final Logger LOGGER = Logger.getLogger(InteractiveSceneRunner.class.getName());
 
     private static final int TARGET_FPS = 60;
+    /**
+     * How many nanoseconds are represented by a millisecond.
+     */
+    private static final long NANOS_IN_MILLIS = 1_000_000L ;
 
     /**
      * The scene driven by this runner, accessed through the unified lifecycle contract.
@@ -260,10 +264,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private void pollInput() {
         if (!mouseListeners.isEmpty()) {
             while (Mouse.next()) {
+                int buttonId = Mouse.getEventButton();
+                long millisTimestamp = buttonId == -1 ? -1 : Mouse.getEventNanoseconds() / NANOS_IN_MILLIS;
                 SystemInput.Mouse.Event event = new SystemInput.Mouse.Event(
                         Mouse.getEventX(), Mouse.getEventY(), Mouse.getEventDX(),
-                        Mouse.getEventDY(), Mouse.getEventButton(), Mouse.getEventButtonState(),
-                        Mouse.getEventDWheel(), Mouse.getEventNanoseconds()
+                        Mouse.getEventDY() * -1, buttonId, Mouse.getEventButtonState(),
+                        Mouse.getEventDWheel(), millisTimestamp
                 );
                 for (SystemInput.Mouse listener : mouseListeners) {
                     if (!listener.consumeMouseEvent(event)) break;
@@ -276,7 +282,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 SystemInput.Keyboard.Event event = new SystemInput.Keyboard.Event(
                         Keyboard.getEventCharacter(), Keyboard.getEventKey(),
                         Keyboard.getEventKeyState(), Keyboard.isRepeatEvent(),
-                        Keyboard.getEventNanoseconds()
+                        Keyboard.getEventNanoseconds() / NANOS_IN_MILLIS
                 );
                 for (SystemInput.Keyboard listener : keyboardListeners) {
                     if (!listener.consumeKeyboardEvent(event)) break;
