@@ -5,11 +5,13 @@ import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.UIWindow;
 import com.crystalgui.render.texture.CgUiQuad;
 import com.crystalgui.render.texture.CgUiSprite;
+import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.*;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import com.crystalgui.core.input.SystemInput;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
+import org.lwjgl.input.Keyboard;
 
 /**
  * Interactive harness scene that builds and renders a CrystalGUI DOM tree
@@ -59,7 +61,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, SystemInput.Key
         UIElement root =
 //                createUISimple();
                 createYogaExample();
-
+        Keyboard.enableRepeatEvents(true);
         this.uiWindow = new UIWindow(Ui.of(root));
     }
 
@@ -111,7 +113,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, SystemInput.Key
                         .flexDirection(FlexDirection.ROW)
                         .justifyContent(AlignContent.CENTER)
                         .alignItems(AlignItems.CENTER)           // center main vertically within the full stretch too
-                );
+                ).setFocusPolicy(FocusPolicy.NONE);
         container.addChild(mainWrapper); // still added before `content` — controls paint order, not flow anymore
 
         UIElement main = new UIElement().setId("main")
