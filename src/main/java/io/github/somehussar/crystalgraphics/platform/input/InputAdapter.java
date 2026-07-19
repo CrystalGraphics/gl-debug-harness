@@ -32,4 +32,9 @@ public class InputAdapter implements CgUiInputAdapter {
     public boolean isMouseDown(int localMouseCode) {
         return Mouse.isButtonDown(localMouseCode);
     }
+
+    @Override
+    public int howManyMouseButtons() {
+        return Mouse.getButtonCount();
+    }
 }
