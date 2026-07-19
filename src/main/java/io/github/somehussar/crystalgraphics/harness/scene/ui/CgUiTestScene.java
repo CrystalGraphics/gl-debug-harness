@@ -84,8 +84,9 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, SystemInput.Key
                         .width(250)
                         .height(475)
                         .paddingAll(10)
-                );
-
+                ).onMouseDown.attachListener(
+                        (thiz, event) -> thiz.generalStyle(s -> s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00)),
+                        false, false);
 
         UIElement container = new UIElement().setId("Container")
                 .generalStyle(s -> s.background(inset))
@@ -219,31 +220,30 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, SystemInput.Key
     @Override
     public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
 
-        if (event.pressed()) {
-            uiWindow.ui.rootElement.generalStyle(s -> {
-                   s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00);
-            });
+//        if (event.pressed()) {
+//            uiWindow.ui.rootElement.generalStyle(s -> {
+//                   s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00);
+//            });
+//
+//            if(this.hoveredElement != null) {
+//                this.hoveredElement.addChild(new UIElement().setId("button0")
+//                        .generalStyle(s -> s
+//                                .background(buttonSprite)
+//                                .overlay(new CgUiSprite()
+//                                        .setTexture("crystalgui:textures/gui/Spritesheet_UI_Flat.png")
+//                                        .setTextureSizeReference(736, 288)
+//                                        .setSprite(296, 233, 14, 14)
+//                                )
+//                        )
+//                        .layout(l -> l.width(40).height(40)));
+//            }
+//        }
 
-            if(this.hoveredElement != null) {
-                this.hoveredElement.addChild(new UIElement().setId("button0")
-                        .generalStyle(s -> s
-                                .background(buttonSprite)
-                                .overlay(new CgUiSprite()
-                                        .setTexture("crystalgui:textures/gui/Spritesheet_UI_Flat.png")
-                                        .setTextureSizeReference(736, 288)
-                                        .setSprite(296, 233, 14, 14)
-                                )
-                        )
-                        .layout(l -> l.width(40).height(40)));
-            }
-        }
-
-        return true;
+        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
-        uiWindow.getInputHandler().consumeMouseEvent(event);
-        return true;
+        return uiWindow.getInputHandler().consumeMouseEvent(event);
     }
 }
