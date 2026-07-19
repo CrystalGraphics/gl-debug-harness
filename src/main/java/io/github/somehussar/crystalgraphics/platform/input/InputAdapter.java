@@ -1,7 +1,7 @@
 package io.github.somehussar.crystalgraphics.platform.input;
 
 import com.crystalgui.core.input.CgUiInputAdapter;
-import com.crystalgui.core.input.Modifiers;
+import com.crystalgui.core.input.keyboard.Modifiers;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 

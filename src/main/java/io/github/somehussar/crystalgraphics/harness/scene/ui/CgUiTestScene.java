@@ -244,6 +244,6 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, SystemInput.Key
     @Override
     public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
 
-        return false;
+        return true;
     }
 }
