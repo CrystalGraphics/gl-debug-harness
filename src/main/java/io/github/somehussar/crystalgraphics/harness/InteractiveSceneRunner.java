@@ -267,8 +267,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 int buttonId = Mouse.getEventButton();
                 long millisTimestamp = buttonId == -1 ? -1 : Mouse.getEventNanoseconds() / NANOS_IN_MILLIS;
                 SystemInput.Mouse.Event event = new SystemInput.Mouse.Event(
-                        Mouse.getEventX(), Mouse.getEventY(), Mouse.getEventDX(),
-                        Mouse.getEventDY() * -1, buttonId, Mouse.getEventButtonState(),
+                        Mouse.getEventX(), ctx.getScreenHeight()-Mouse.getEventY(),
+                        Mouse.getEventDX(), Mouse.getEventDY() * -1,
+                        buttonId, Mouse.getEventButtonState(),
                         Mouse.getEventDWheel(), millisTimestamp
                 );
                 for (SystemInput.Mouse listener : mouseListeners) {
