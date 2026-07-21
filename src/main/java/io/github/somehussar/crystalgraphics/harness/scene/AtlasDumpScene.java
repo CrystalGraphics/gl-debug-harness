@@ -9,12 +9,10 @@ import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.font.CgGlyphKey;
 import com.crystalgraphics.api.font.CgTextLayoutBuilder;
-import com.crystalgraphics.gl.render.CgDynamicTextureRenderLayer;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.atlas.CgGlyphAtlas;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
 import com.crystalgraphics.text.msdf.CgMsdfGenerator;
-import com.crystalgraphics.text.render.CgTextLayers;
 import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
@@ -137,7 +135,6 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         CgMsdfAtlasConfig registryMsdfConfig = config.buildMsdfAtlasConfig(registryAtlasSize);
         CgFontRegistry registry = new CgFontRegistry(registryAtlasSize, registryMsdfConfig);
         CgTextRenderer renderer = CgTextRenderer.create(caps, registry);
-        CgDynamicTextureRenderLayer textLayer = CgTextLayers.msdf(CgTextRenderer.MSDF_SHADER);
         CgTextLayoutBuilder layoutBuilder = new CgTextLayoutBuilder();
 
         int fbo = GL30.glGenFramebuffers();
@@ -180,14 +177,12 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 // Deterministic prewarm: render enough frames so every unique glyph
                 // is rasterized and allocated before the dump capture. This produces
                 // denser packing because all glyphs are present simultaneously.
-                frame = prewarmAllGlyphs(registry, renderer, textLayer, bitmapLayout, bitmapFont,
+                frame = prewarmAllGlyphs(registry, renderer, bitmapLayout, bitmapFont,
                         text, 20.0f, 40.0f, frame, renderContext, poseStack);
                 LOGGER.info("[Harness] Bitmap prewarm complete at frame " + frame);
             } else {
-                textLayer.begin(renderContext.getProjection());
-                renderer.draw(textLayer, bitmapLayout, bitmapFont, 20.0f, 40.0f, 0xFFFFFF, frame,
+                renderer.draw(bitmapLayout, bitmapFont, 20.0f, 40.0f, 0xFFFFFF, frame,
                         renderContext, poseStack);
-                textLayer.end();
                 LOGGER.info("[Harness] Bitmap pass: drew at " + bitmapPxSize + "px");
             }
         }
@@ -212,10 +207,8 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 int framesNeeded = (text.length() / 4) + 5;
                 for (long f = 1; f <= framesNeeded; f++) {
                     registry.tickFrame(frame + f);
-                    textLayer.begin(renderContext.getProjection());
-                    renderer.draw(textLayer, msdfLayout, msdfFont, 20.0f, 80.0f, 0xFFFFFF, frame + f,
+                    renderer.draw(msdfLayout, msdfFont, 20.0f, 80.0f, 0xFFFFFF, frame + f,
                             renderContext, poseStack);
-                    textLayer.end();
                 }
                 frame += framesNeeded;
                 LOGGER.info("[Harness] MSDF pass: drew " + framesNeeded
@@ -255,7 +248,6 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         }
 
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
-        textLayer.delete();
         renderer.delete();
         registry.releaseAll();
         if (msdfFont != null) {
@@ -288,7 +280,6 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
      */
     private long prewarmAllGlyphs(CgFontRegistry registry,
                                    CgTextRenderer renderer,
-                                   CgDynamicTextureRenderLayer textLayer,
                                    CgTextLayout layout,
                                    CgFont font,
                                    String text,
@@ -308,9 +299,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         for (int i = 0; i < maxFrames; i++) {
             frame++;
             registry.tickFrame(frame);
-            textLayer.begin(renderContext.getProjection());
-            renderer.draw(textLayer, layout, font, x, y, 0xFFFFFF, frame, renderContext, poseStack);
-            textLayer.end();
+            renderer.draw(layout, font, x, y, 0xFFFFFF, frame, renderContext, poseStack);
 
             int currentSlots = countTotalAtlasSlots(registry, font);
             if (currentSlots == prevTotalSlots) {

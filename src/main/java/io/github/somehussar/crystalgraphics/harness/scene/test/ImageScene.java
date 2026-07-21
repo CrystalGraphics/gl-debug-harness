@@ -203,19 +203,17 @@ public class ImageScene implements InteractiveSceneLifecycle {
         float leftX = (width / 4f) - halfSize / 2;
         float leftY = verticalCenter - halfSize;
         CgTextLayout layout = text.layoutBuilder.layout("NO INTERPOLATION", text.font, 0, 0);
-        text.textLayer.begin(text.orthoContext.getProjection());
-        text.renderer.draw(text.textLayer, layout, text.font, leftX, leftY,
-                TEXT_COLOR, frameCounter, text.orthoContext, poseStack);
-        text.textLayer.end();
-
 
         float rightX = (3f * width / 4f) - halfSize;
         float rightY = verticalCenter - halfSize;
-        layout = text.layoutBuilder.layout("INBETWEEN FRAME INTERPOLATION", text.font, 0, 0);
-        text.textLayer.begin(text.orthoContext.getProjection());
-        text.renderer.draw(text.textLayer, layout, text.font, rightX, rightY,
+        CgTextLayout rightLayout = text.layoutBuilder.layout("INBETWEEN FRAME INTERPOLATION", text.font, 0, 0);
+
+        text.renderer.beginBatch();
+        text.renderer.draw(layout, text.font, leftX, leftY,
                 TEXT_COLOR, frameCounter, text.orthoContext, poseStack);
-        text.textLayer.end();
+        text.renderer.draw(rightLayout, text.font, rightX, rightY,
+                TEXT_COLOR, frameCounter, text.orthoContext, poseStack);
+        text.renderer.endBatch();
     }
 
     @Override

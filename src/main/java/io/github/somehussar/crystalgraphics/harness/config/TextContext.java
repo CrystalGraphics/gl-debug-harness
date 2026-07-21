@@ -5,11 +5,9 @@ import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.font.CgTextLayoutBuilder;
-import com.crystalgraphics.gl.render.CgDynamicTextureRenderLayer;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.text.cache.CgFontRegistry;
-import com.crystalgraphics.text.render.CgTextLayers;
 import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 
@@ -20,8 +18,6 @@ public class TextContext {
     public CgTextRenderer renderer = CgTextRenderer.create(CgCapabilities.detect(), registry);
 
     public CgTextLayoutBuilder layoutBuilder = new CgTextLayoutBuilder();
-
-    public CgDynamicTextureRenderLayer textLayer = CgTextLayers.msdf(CgTextRenderer.MSDF_SHADER);
 
     public CgTextRenderContext orthoContext = CgTextRenderContext.orthographic(HarnessContext.DEFAULT_WIDTH,
             HarnessContext.DEFAULT_HEIGHT);
@@ -37,18 +33,11 @@ public class TextContext {
     }
 
     public void draw(String text, int x, int y, int rgba, PoseStack pose, FrameInfo frame) {
-        textLayer.begin(orthoContext.getProjection());
-        renderer.draw(textLayer, text, font, x, y, rgba, frame.getFrameNumber(), orthoContext, pose);
-        textLayer.end();
+        renderer.draw(text, font, x, y, rgba, frame.getFrameNumber(), orthoContext, pose);
     }
-    
 
     public void delete() {
 
-        if (textLayer != null) {
-            textLayer.delete();
-            textLayer = null;
-        }
         if (renderer != null) {
             renderer.delete();
             renderer = null;

@@ -6,9 +6,7 @@ import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontFamily;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.font.CgTextLayoutBuilder;
-import com.crystalgraphics.gl.render.CgDynamicTextureRenderLayer;
 import com.crystalgraphics.text.cache.CgFontRegistry;
-import com.crystalgraphics.text.render.CgTextLayers;
 import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.render.CgWorldTextRenderContext;
@@ -70,8 +68,6 @@ public final class WorldTextRenderHelper {
     private CgTextRenderer renderer;
     private CgTextLayout worldLayout;
     private CgTextLayout refLayout;
-    /** Dynamic-texture layer required by CgTextRenderer's layer-based draw path. */
-    private CgDynamicTextureRenderLayer textLayer;
 
     /**
      * Creates a new helper with the given configuration.
@@ -116,7 +112,6 @@ public final class WorldTextRenderHelper {
                 .withMtsdf(mtsdf);
         registry = new CgFontRegistry(atlasSize, atlasConfig);
         renderer = CgTextRenderer.create(caps, registry);
-        textLayer = CgTextLayers.msdf(CgTextRenderer.MSDF_SHADER);
 
         CgTextLayoutBuilder layoutBuilder = new CgTextLayoutBuilder();
         worldLayout = layoutBuilder.layout(
@@ -151,11 +146,9 @@ public final class WorldTextRenderHelper {
 
         registry.tickFrame(frameNumber);
 
-        textLayer.begin(perspProjection);
-        renderer.drawWorld(textLayer, worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, frameNumber, worldContext, poseStack);
-        textLayer.end();
+        renderer.drawWorld(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, frameNumber, worldContext, poseStack);
     }
-    
+
 
     /**
      * Renders world-space text for the interactive 3D scene path.
@@ -196,10 +189,8 @@ public final class WorldTextRenderHelper {
 
         registry.tickFrame(frameNumber);
 
-        textLayer.begin(perspProjection);
-        renderer.drawWorld(textLayer, worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, frameNumber,
+        renderer.drawWorld(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, frameNumber,
                 worldContext, poseStack);
-        textLayer.end();
     }
 
     /**
@@ -237,20 +228,15 @@ public final class WorldTextRenderHelper {
         int framesNeeded = (text.length() / 4) + 5;
         for (long f = 1; f <= framesNeeded; f++) {
             registry.tickFrame(frame + f);
-            textLayer.begin(perspProjection);
-            renderer.drawWorld(textLayer, worldLayout, font, 20.0f, 40.0f, 0xFFFFFFFF, frame + f,
+            renderer.drawWorld(worldLayout, font, 20.0f, 40.0f, 0xFFFFFFFF, frame + f,
                     worldContext, poseStack);
-            textLayer.end();
         }
 
         // Also render a 2D reference for comparison
         CgTextRenderContext orthoContext = CgTextRenderContext.orthographic(fboWidth, fboHeight);
         PoseStack orthoPose = new PoseStack();
-        Matrix4f orthoProjection = orthoContext.getProjection();
-        textLayer.begin(orthoProjection);
-        renderer.draw(textLayer, refLayout, font, 20.0f, (float)(fboHeight - 40), 0xAAFFAAFF,
+        renderer.draw(refLayout, font, 20.0f, (float)(fboHeight - 40), 0xAAFFAAFF,
                 frame + framesNeeded + 1, orthoContext, orthoPose);
-        textLayer.end();
     }
 
     /** Returns the shared text renderer owned by this helper. */
@@ -300,10 +286,6 @@ public final class WorldTextRenderHelper {
      * from partial initialization.</p>
      */
     public void dispose() {
-        if (textLayer != null) {
-            textLayer.delete();
-            textLayer = null;
-        }
         if (renderer != null) {
             renderer.delete();
             renderer = null;

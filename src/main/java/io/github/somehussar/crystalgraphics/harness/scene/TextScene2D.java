@@ -5,10 +5,8 @@ import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.font.CgTextLayoutBuilder;
-import com.crystalgraphics.gl.render.CgDynamicTextureRenderLayer;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.atlas.CgGlyphAtlas;
-import com.crystalgraphics.text.render.CgTextLayers;
 import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
@@ -92,7 +90,6 @@ public class TextScene2D implements HarnessSceneLifecycle {
         CgMsdfAtlasConfig msdfConfig = config.buildMsdfAtlasConfig();
         CgFontRegistry registry = new CgFontRegistry(config.getAtlasSize(), msdfConfig);
         CgTextRenderer renderer = CgTextRenderer.create(caps, registry);
-        CgDynamicTextureRenderLayer textLayer = CgTextLayers.msdf(CgTextRenderer.MSDF_SHADER);
         CgTextRenderer.diagnosticLogging = true;
 
         CgTextLayoutBuilder layoutBuilder = new CgTextLayoutBuilder();
@@ -162,7 +159,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
 
         if (config.isMtsdf()) {
             frame = prewarmDistanceFieldGlyphs(renderer, registry,
-                    font, textLayer,
+                    font,
                     topLabelLayout, 20.0f, 20.0f, TOP_LABEL_COLOR,
                     labels, layouts, bandYOffsets, scales,
                     renderContext, frame);
@@ -170,12 +167,11 @@ public class TextScene2D implements HarnessSceneLifecycle {
 
         // Draw top label: exact replication of CrystalGraphicsFontDemo's
         // identity-pose green label (position 20,20 — color 0xAAFFAAFF)
+        renderer.beginBatch();
         renderContext.clearHistory();
         PoseStack topLabelPose = new PoseStack();
-        textLayer.begin(renderContext.getProjection());
-        renderer.draw(textLayer, topLabelLayout, font, 20.0f, 20.0f, TOP_LABEL_COLOR, frame,
+        renderer.draw(topLabelLayout, font, 20.0f, 20.0f, TOP_LABEL_COLOR, frame,
                 renderContext, topLabelPose);
-        textLayer.end();
         frame++;
 
         for (int bandIdx = 0; bandIdx < scales.size(); bandIdx++) {
@@ -201,12 +197,11 @@ public class TextScene2D implements HarnessSceneLifecycle {
             }
 
             renderContext.clearHistory();
-            textLayer.begin(renderContext.getProjection());
-            renderer.draw(textLayer, layout, font, xDraw, yDraw, 0xFFFFFF, frame,
+            renderer.draw(layout, font, xDraw, yDraw, 0xFFFFFF, frame,
                     renderContext, poseStack);
-            textLayer.end();
             frame++;
         }
+        renderer.endBatch();
 
         GL11.glFinish();
 
@@ -230,7 +225,6 @@ public class TextScene2D implements HarnessSceneLifecycle {
         }
 
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
-        textLayer.delete();
         renderer.delete();
         registry.releaseAll();
         font.dispose();
@@ -243,7 +237,6 @@ public class TextScene2D implements HarnessSceneLifecycle {
     private long prewarmDistanceFieldGlyphs(CgTextRenderer renderer,
                                             CgFontRegistry registry,
                                             CgFont font,
-                                            CgDynamicTextureRenderLayer textLayer,
                                             CgTextLayout topLabelLayout,
                                             float topLabelX,
                                             float topLabelY,
@@ -264,12 +257,12 @@ public class TextScene2D implements HarnessSceneLifecycle {
             long drawFrame = frame + i;
             registry.tickFrame(drawFrame);
 
+            renderer.beginBatch();
+
             renderContext.clearHistory();
             PoseStack topLabelPose = new PoseStack();
-            textLayer.begin(renderContext.getProjection());
-            renderer.draw(textLayer, topLabelLayout, font,
+            renderer.draw(topLabelLayout, font,
                     topLabelX, topLabelY, topLabelColor, drawFrame, renderContext, topLabelPose);
-            textLayer.end();
 
             for (int bandIdx = 0; bandIdx < scales.size(); bandIdx++) {
                 float scale = scales.get(bandIdx);
@@ -282,11 +275,11 @@ public class TextScene2D implements HarnessSceneLifecycle {
                     yDraw /= scale;
                 }
                 renderContext.clearHistory();
-                textLayer.begin(renderContext.getProjection());
-                renderer.draw(textLayer, layouts[bandIdx], font, xDraw, yDraw,
+                renderer.draw(layouts[bandIdx], font, xDraw, yDraw,
                         0xFFFFFF, drawFrame, renderContext, poseStack);
-                textLayer.end();
             }
+
+            renderer.endBatch();
         }
 
         GL11.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
