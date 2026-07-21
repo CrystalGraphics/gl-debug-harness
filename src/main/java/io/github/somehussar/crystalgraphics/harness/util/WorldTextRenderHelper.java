@@ -9,7 +9,6 @@ import com.crystalgraphics.api.font.CgTextLayoutBuilder;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
-import com.crystalgraphics.text.render.CgWorldTextRenderContext;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
 import io.github.somehussar.crystalgraphics.harness.scene.TextScene3D;
 import com.crystalgraphics.api.text.CgTextLayout;
@@ -33,7 +32,8 @@ import java.util.logging.Logger;
  *   <li>Layout construction for world text and 2D ortho reference text</li>
  *   <li>World-space and 2D ortho reference text rendering, both via
  *       {@link CgTextRenderer#draw} — the context's runtime type (plain
- *       {@link CgTextRenderContext} vs {@link CgWorldTextRenderContext}) determines
+ *       {@link CgTextRenderContext} built via {@link CgTextRenderContext#orthographic}
+ *       vs {@link CgTextRenderContext#world}) determines
  *       2D-vs-world behavior; there is no separate world-space entry point</li>
  *   <li>Resource cleanup (renderer, registry, font disposal)</li>
  * </ul>
@@ -142,7 +142,7 @@ public final class WorldTextRenderHelper {
         //   3. Scale with Y-flip: positive scale on X/Z, negative on Y to flip
         //      text right-side-up, and scale down from pixel units to world units
         Matrix4f modelView = poseStack.last().pose();
-        CgWorldTextRenderContext worldContext = CgWorldTextRenderContext.create(perspProjection, screenWidth,
+        CgTextRenderContext worldContext = CgTextRenderContext.world(perspProjection, screenWidth,
                 screenHeight);
         worldContext.updateProjectedSize(modelView, perspProjection, fontSizePx);
 
@@ -158,7 +158,8 @@ public final class WorldTextRenderHelper {
      * <p>Builds a model-view matrix from the given camera view matrix,
      * positions the text above the floor (Y=0.5), scales from pixel units
      * to world units with a Y-flip for correct orientation, then draws
-     * via {@link CgTextRenderer#draw} (passed a {@link CgWorldTextRenderContext}).</p>
+     * via {@link CgTextRenderer#draw} (passed a {@link CgTextRenderContext} built
+     * via {@link CgTextRenderContext#world}).</p>
      *
      * @param viewMatrix   the camera's view matrix (world → view space)
      * @param screenWidth  current viewport width in pixels
@@ -185,7 +186,7 @@ public final class WorldTextRenderHelper {
         modelView.translate(-textWorldWidth * 0.5f, 0.5f, -5f);
         modelView.scale(worldScale, -worldScale, worldScale);
 
-        CgWorldTextRenderContext worldContext = CgWorldTextRenderContext.create(
+        CgTextRenderContext worldContext = CgTextRenderContext.world(
                 perspProjection, screenWidth, screenHeight);
         worldContext.updateProjectedSize(modelView, perspProjection, fontSizePx);
 
@@ -213,7 +214,7 @@ public final class WorldTextRenderHelper {
         float aspect = (float) fboWidth / (float) fboHeight;
         Matrix4f perspProjection = HarnessProjectionUtil.perspective(aspect);
 
-        CgWorldTextRenderContext worldContext = CgWorldTextRenderContext.create(
+        CgTextRenderContext worldContext = CgTextRenderContext.world(
                 perspProjection, fboWidth, fboHeight);
 
         // Model-view: position text at z=-200 (moderate viewing distance)
