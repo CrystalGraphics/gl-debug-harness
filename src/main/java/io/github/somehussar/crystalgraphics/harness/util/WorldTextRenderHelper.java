@@ -31,8 +31,10 @@ import java.util.logging.Logger;
  *   <li>GL capability validation (core FBO, core shaders, VAO, glMapBufferRange)</li>
  *   <li>Font loading and CgFontRegistry/CgTextRenderer creation</li>
  *   <li>Layout construction for world text and 2D ortho reference text</li>
- *   <li>World-space text rendering via {@link CgTextRenderer#drawWorld}</li>
- *   <li>2D ortho reference text rendering via {@link CgTextRenderer#draw}</li>
+ *   <li>World-space and 2D ortho reference text rendering, both via
+ *       {@link CgTextRenderer#draw} — the context's runtime type (plain
+ *       {@link CgTextRenderContext} vs {@link CgWorldTextRenderContext}) determines
+ *       2D-vs-world behavior; there is no separate world-space entry point</li>
  *   <li>Resource cleanup (renderer, registry, font disposal)</li>
  * </ul>
  *
@@ -146,7 +148,7 @@ public final class WorldTextRenderHelper {
 
         registry.tickFrame(frameNumber);
 
-        renderer.drawWorld(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, frameNumber, worldContext, poseStack);
+        renderer.draw(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, frameNumber, worldContext, poseStack);
     }
 
 
@@ -156,7 +158,7 @@ public final class WorldTextRenderHelper {
      * <p>Builds a model-view matrix from the given camera view matrix,
      * positions the text above the floor (Y=0.5), scales from pixel units
      * to world units with a Y-flip for correct orientation, then draws
-     * via {@link CgTextRenderer#drawWorld}.</p>
+     * via {@link CgTextRenderer#draw} (passed a {@link CgWorldTextRenderContext}).</p>
      *
      * @param viewMatrix   the camera's view matrix (world → view space)
      * @param screenWidth  current viewport width in pixels
@@ -189,7 +191,7 @@ public final class WorldTextRenderHelper {
 
         registry.tickFrame(frameNumber);
 
-        renderer.drawWorld(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, frameNumber,
+        renderer.draw(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, frameNumber,
                 worldContext, poseStack);
     }
 
@@ -228,7 +230,7 @@ public final class WorldTextRenderHelper {
         int framesNeeded = (text.length() / 4) + 5;
         for (long f = 1; f <= framesNeeded; f++) {
             registry.tickFrame(frame + f);
-            renderer.drawWorld(worldLayout, font, 20.0f, 40.0f, 0xFFFFFFFF, frame + f,
+            renderer.draw(worldLayout, font, 20.0f, 40.0f, 0xFFFFFFFF, frame + f,
                     worldContext, poseStack);
         }
 

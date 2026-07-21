@@ -36,7 +36,7 @@ public final class GlStateResetHelper {
      *   <li>Unbinds texture on unit 0 (atlas textures may remain bound)</li>
      *   <li>Enables depth test with LEQUAL func and depth writes on</li>
      *   <li>Disables blend (FloorRenderer expects blend OFF)</li>
-     *   <li>Disables cull face (drawWorld() may leave GL_CULL_FACE enabled)</li>
+     *   <li>Disables cull face (world-text draw() may leave GL_CULL_FACE enabled)</li>
      *   <li>Unbinds FBO to ensure we render to the default backbuffer</li>
      * </ul>
      */
@@ -63,7 +63,7 @@ public final class GlStateResetHelper {
         // Disable blend — FloorRenderer expects blend OFF; HUD/pause manage their own
         GL11.glDisable(GL11.GL_BLEND);
 
-        // Disable cull face — drawWorld() enables GL_CULL_FACE for single-sided text
+        // Disable cull face — world-text draw() enables GL_CULL_FACE for single-sided text
         GL11.glDisable(GL11.GL_CULL_FACE);
 
         // Ensure we're rendering to the default framebuffer (backbuffer)

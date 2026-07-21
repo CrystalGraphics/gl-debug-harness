@@ -329,7 +329,7 @@ public class TextScene3D implements InteractiveSceneLifecycle {
 
         // Delegate all world-text rendering to the shared helper.
         // The helper handles perspective projection, model-view setup,
-        // text positioning, and drawWorld() with correct winding order.
+        // text positioning, and world-text draw() with correct winding order.
 
         PoseStack poseStack = new PoseStack();
         Matrix4f modelView = poseStack.last().pose();
@@ -351,7 +351,7 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         arHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
 
         // ── GL state cleanup after world text rendering ──
-        // drawWorld() internally saves/restores state via CgStateBoundary, but in the
+        // world-text draw() internally saves/restores state via CgStateBoundary, but in the
         // standalone harness (no coremod), the GLStateMirror is in UNKNOWN state which
         // can cause incomplete restoration. Use the shared reset helper to guarantee
         // floor, HUD, and pause overlay render correctly in subsequent passes.
