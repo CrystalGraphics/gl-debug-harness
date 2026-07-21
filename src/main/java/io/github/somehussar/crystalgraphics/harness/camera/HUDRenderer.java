@@ -5,7 +5,7 @@ import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.font.CgTextLayoutBuilder;
-import com.crystalgraphics.text.cache.CgFontRegistry;
+import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -65,7 +65,6 @@ public final class HUDRenderer {
     private CgTextLayoutBuilder layoutBuilder;
     private PoseStack poseStack;
 
-    private long frameCounter = 0;
     private boolean initialized = false;
 
     private static final float DEMO_TEXT_X = 20.0f;
@@ -200,7 +199,12 @@ public final class HUDRenderer {
         }
 
         updateScaleIfNeeded(screenWidth, screenHeight);
-        frameCounter++;
+        // The shared CgFontRegistry's per-frame tick happens exclusively via the
+        // platform lifecycle service (InteractiveSceneRunner calling
+        // CgPlatform.lifecycle().onFrameRendered() once per loop iteration) — this
+        // class must not call CgGraphicsLifecycle.tickFrame() itself. Just read the
+        // shared frame number for atlas-LRU bookkeeping in the draw() calls below.
+        long frameCounter = CgGraphicsLifecycle.getCurrentFrame();
 
         // Format camera state into HUD text (two lines separated by newline)
         String posLine = String.format("Pos: %.2f %.2f %.2f",

@@ -1,6 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness;
 
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
+import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgui.core.input.SystemInput;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.camera.FloorRenderer;
@@ -242,6 +243,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
             overlayCaptureOrchestrator.executePostSceneSequence(
                     inputPauseHandler.isPaused(), scene.uses3DCamera());
+
+            // 13b. Whole frame (world + scene + HUD overlay) is now fully rendered — the
+            //      canonical per-frame tick point (ticks CgFontRegistry's frame clock via
+            //      the platform lifecycle service, not called directly by feature code
+            //      like HUDRenderer/CgUiPaintContext).
+            CgPlatform.lifecycle().onFrameRendered();
 
             // 14. Buffer swap + frame sync
             Display.update();
