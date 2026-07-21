@@ -1,6 +1,5 @@
 package io.github.somehussar.crystalgraphics.harness.config;
 
-import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
@@ -13,9 +12,8 @@ import com.crystalgraphics.text.render.CgTextRenderer;
 
 public class TextContext {
 
-    public CgFontRegistry registry = new CgFontRegistry();
     public CgFont font = CgFont.load(HarnessFontUtil.resolveFontPath(null), CgFontStyle.REGULAR, 24);
-    public CgTextRenderer renderer = CgTextRenderer.create(CgCapabilities.detect(), registry);
+    public CgTextRenderer renderer = CgTextRenderer.create();
 
     public CgTextLayoutBuilder layoutBuilder = new CgTextLayoutBuilder();
 
@@ -41,10 +39,6 @@ public class TextContext {
         if (renderer != null) {
             renderer.delete();
             renderer = null;
-        }
-        if (registry != null) {
-            registry.releaseAll();
-            registry = null;
         }
         if (font != null) {
             font.dispose();

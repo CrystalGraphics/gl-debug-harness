@@ -60,7 +60,6 @@ public final class HUDRenderer {
     private CgFont jpFnt;
     private CgFont arabicFont;
     private CgFont demoFont;
-    private CgFontRegistry registry;
     private CgTextRenderer renderer;
     private CgTextRenderContext orthoContext;
     private CgTextLayoutBuilder layoutBuilder;
@@ -165,8 +164,7 @@ public final class HUDRenderer {
         font = CgFont.load(fontPath, CgFontStyle.REGULAR, currentFontSizePx);
         demoFont = CgFont.load(fontPath, CgFontStyle.REGULAR, DEMO_FONT_SIZE_PX);
 
-        registry = new CgFontRegistry();
-        renderer = CgTextRenderer.create(caps, registry);
+        renderer = CgTextRenderer.create();
 
         // Start with a default orthographic projection (updated on first render via updateScaleIfNeeded)
         orthoContext = CgTextRenderContext.orthographic(HarnessContext.DEFAULT_WIDTH, HarnessContext.DEFAULT_HEIGHT);
@@ -215,10 +213,7 @@ public final class HUDRenderer {
         // Build text layout for the current frame's text.
         // maxWidth=0 means unbounded (no line wrapping beyond our explicit newline).
         CgTextLayout layout = layoutBuilder.layout(hudText, font, 0, 0);
-
-        // Tick the font registry to advance atlas LRU tracking
-        registry.tickFrame(frameCounter);
-
+        
         // Render text at top-left corner with the configured offset.
         // CgTextRenderer.draw() handles its own GL state save/restore internally
         // via CgStateBoundary, but in the standalone harness the GLStateMirror
@@ -314,10 +309,7 @@ public final class HUDRenderer {
             renderer.delete();
             renderer = null;
         }
-        if (registry != null) {
-            registry.releaseAll();
-            registry = null;
-        }
+
         if (font != null) {
             font.dispose();
             font = null;

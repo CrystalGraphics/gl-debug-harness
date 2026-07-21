@@ -113,7 +113,7 @@ public final class WorldTextRenderHelper {
                 .withPageSize(atlasSize)
                 .withMtsdf(mtsdf);
         registry = new CgFontRegistry(atlasSize, atlasConfig);
-        renderer = CgTextRenderer.create(caps, registry);
+        renderer = CgTextRenderer.create();
 
         CgTextLayoutBuilder layoutBuilder = new CgTextLayoutBuilder();
         worldLayout = layoutBuilder.layout(
