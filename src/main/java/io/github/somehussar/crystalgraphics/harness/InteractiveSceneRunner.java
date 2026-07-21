@@ -86,6 +86,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * How many nanoseconds are represented by a millisecond.
      */
     private static final long NANOS_IN_MILLIS = 1_000_000L ;
+    private static final int NORMALIZE_TOP_LEFT_ORIGIN = -1;
+    private static final float MOUSE_SCROLL_NORMALIZE = 1/120f * NORMALIZE_TOP_LEFT_ORIGIN;
 
     /**
      * The scene driven by this runner, accessed through the unified lifecycle contract.
@@ -268,9 +270,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 long millisTimestamp = buttonId == -1 ? -1 : Mouse.getEventNanoseconds() / NANOS_IN_MILLIS;
                 SystemInput.Mouse.Event event = new SystemInput.Mouse.Event(
                         Mouse.getEventX(), ctx.getScreenHeight()-Mouse.getEventY(),
-                        Mouse.getEventDX(), Mouse.getEventDY() * -1,
+                        Mouse.getEventDX(), Mouse.getEventDY() * NORMALIZE_TOP_LEFT_ORIGIN,
                         buttonId, Mouse.getEventButtonState(),
-                        Mouse.getEventDWheel(), millisTimestamp
+                        Mouse.getEventDWheel() * MOUSE_SCROLL_NORMALIZE, millisTimestamp
                 );
                 for (SystemInput.Mouse listener : mouseListeners) {
                     if (!listener.consumeMouseEvent(event)) break;
