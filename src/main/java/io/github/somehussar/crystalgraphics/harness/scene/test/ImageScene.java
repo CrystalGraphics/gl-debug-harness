@@ -209,10 +209,10 @@ public class ImageScene implements InteractiveSceneLifecycle {
         CgTextLayout rightLayout = text.layoutBuilder.layout("INBETWEEN FRAME INTERPOLATION", text.font, 0, 0);
 
         text.renderer.beginBatch();
-        text.renderer.draw(layout, text.font, leftX, leftY,
-                TEXT_COLOR, poseStack);
-        text.renderer.draw(rightLayout, text.font, rightX, rightY,
-                TEXT_COLOR, poseStack);
+        text.renderer.draw().layout(layout).font(text.font).at(leftX, leftY)
+                .color(TEXT_COLOR).pose(poseStack).submit();
+        text.renderer.draw().layout(rightLayout).font(text.font).at(rightX, rightY)
+                .color(TEXT_COLOR).pose(poseStack).submit();
         text.renderer.endBatch();
     }
 

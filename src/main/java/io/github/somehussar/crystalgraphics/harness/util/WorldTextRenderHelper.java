@@ -151,7 +151,7 @@ public final class WorldTextRenderHelper {
         renderer.context(CgTextRenderContext.world(perspProjection, screenWidth, screenHeight));
         renderer.context().updateProjectedSize(modelView, perspProjection, fontSizePx);
 
-        renderer.draw(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, poseStack);
+        renderer.draw().layout(worldLayout).font(font).at(0.0f, 0.0f).color(0xFFFFFFFF).pose(poseStack).submit();
     }
 
 
@@ -192,7 +192,7 @@ public final class WorldTextRenderHelper {
         renderer.context(CgTextRenderContext.world(perspProjection, screenWidth, screenHeight));
         renderer.context().updateProjectedSize(modelView, perspProjection, fontSizePx);
 
-        renderer.draw(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, poseStack);
+        renderer.draw().layout(worldLayout).font(font).at(0.0f, 0.0f).color(0xFFFFFFFF).pose(poseStack).submit();
     }
 
     /**
@@ -228,13 +228,14 @@ public final class WorldTextRenderHelper {
         // Multi-frame to allow MSDF generation budget
         int framesNeeded = (text.length() / 4) + 5;
         for (long f = 1; f <= framesNeeded; f++) {
-            renderer.draw(worldLayout, font, 20.0f, 40.0f, 0xFFFFFFFF, poseStack);
+            renderer.draw().layout(worldLayout).font(font).at(20.0f, 40.0f).color(0xFFFFFFFF).pose(poseStack).submit();
         }
 
         // Also render a 2D reference for comparison
         renderer.context(CgTextRenderContext.orthographic(fboWidth, fboHeight));
         PoseStack orthoPose = new PoseStack();
-        renderer.draw(refLayout, font, 20.0f, (float)(fboHeight - 40), 0xAAFFAAFF, orthoPose);
+        renderer.draw().layout(refLayout).font(font).at(20.0f, (float)(fboHeight - 40))
+                .color(0xAAFFAAFF).pose(orthoPose).submit();
     }
 
     /** Returns the shared text renderer owned by this helper. */

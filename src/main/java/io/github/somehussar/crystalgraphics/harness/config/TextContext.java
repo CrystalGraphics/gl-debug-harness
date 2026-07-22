@@ -26,7 +26,7 @@ public class TextContext {
     }
 
     public void draw(String text, int x, int y, int rgba, PoseStack pose) {
-        renderer.draw(text, font, x, y, rgba, pose);
+        renderer.draw().text(text).font(font).at(x, y).color(rgba).pose(pose).submit();
     }
 
     public void delete() {

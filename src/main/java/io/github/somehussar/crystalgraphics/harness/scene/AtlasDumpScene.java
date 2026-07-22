@@ -181,8 +181,8 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                         text, 20.0f, 40.0f, frame, poseStack);
                 LOGGER.info("[Harness] Bitmap prewarm complete at frame " + frame);
             } else {
-                renderer.draw(bitmapLayout, bitmapFont, 20.0f, 40.0f, 0xFFFFFF,
-                        poseStack);
+                renderer.draw().layout(bitmapLayout).font(bitmapFont).at(20.0f, 40.0f)
+                        .color(0xFFFFFF).pose(poseStack).submit();
                 LOGGER.info("[Harness] Bitmap pass: drew at " + bitmapPxSize + "px");
             }
         }
@@ -207,8 +207,8 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 int framesNeeded = (text.length() / 4) + 5;
                 for (long f = 1; f <= framesNeeded; f++) {
                     registry.tickFrame(frame + f);
-                    renderer.draw(msdfLayout, msdfFont, 20.0f, 80.0f, 0xFFFFFF,
-                            poseStack);
+                    renderer.draw().layout(msdfLayout).font(msdfFont).at(20.0f, 80.0f)
+                            .color(0xFFFFFF).pose(poseStack).submit();
                 }
                 frame += framesNeeded;
                 LOGGER.info("[Harness] MSDF pass: drew " + framesNeeded
@@ -298,7 +298,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         for (int i = 0; i < maxFrames; i++) {
             frame++;
             registry.tickFrame(frame);
-            renderer.draw(layout, font, x, y, 0xFFFFFF, poseStack);
+            renderer.draw().layout(layout).font(font).at(x, y).color(0xFFFFFF).pose(poseStack).submit();
 
             int currentSlots = countTotalAtlasSlots(registry, font);
             if (currentSlots == prevTotalSlots) {

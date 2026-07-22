@@ -170,8 +170,8 @@ public class TextScene2D implements HarnessSceneLifecycle {
         renderer.beginBatch();
         renderer.context().clearHistory();
         PoseStack topLabelPose = new PoseStack();
-        renderer.draw(topLabelLayout, font, 20.0f, 20.0f, TOP_LABEL_COLOR,
-                topLabelPose);
+        renderer.draw().layout(topLabelLayout).font(font).at(20.0f, 20.0f)
+                .color(TOP_LABEL_COLOR).pose(topLabelPose).submit();
         frame++;
 
         for (int bandIdx = 0; bandIdx < scales.size(); bandIdx++) {
@@ -197,8 +197,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
             }
 
             renderer.context().clearHistory();
-            renderer.draw(layout, font, xDraw, yDraw, 0xFFFFFF,
-                    poseStack);
+            renderer.draw().layout(layout).font(font).at(xDraw, yDraw).color(0xFFFFFF).pose(poseStack).submit();
             frame++;
         }
         renderer.endBatch();
@@ -260,8 +259,8 @@ public class TextScene2D implements HarnessSceneLifecycle {
 
             renderer.context().clearHistory();
             PoseStack topLabelPose = new PoseStack();
-            renderer.draw(topLabelLayout, font,
-                    topLabelX, topLabelY, topLabelColor, topLabelPose);
+            renderer.draw().layout(topLabelLayout).font(font).at(topLabelX, topLabelY)
+                    .color(topLabelColor).pose(topLabelPose).submit();
 
             for (int bandIdx = 0; bandIdx < scales.size(); bandIdx++) {
                 float scale = scales.get(bandIdx);
@@ -274,8 +273,8 @@ public class TextScene2D implements HarnessSceneLifecycle {
                     yDraw /= scale;
                 }
                 renderer.context().clearHistory();
-                renderer.draw(layouts[bandIdx], font, xDraw, yDraw,
-                        0xFFFFFF, poseStack);
+                renderer.draw().layout(layouts[bandIdx]).font(font).at(xDraw, yDraw)
+                        .color(0xFFFFFF).pose(poseStack).submit();
             }
 
             renderer.endBatch();

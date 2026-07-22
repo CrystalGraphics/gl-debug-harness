@@ -212,8 +212,8 @@ public final class HUDRenderer {
         // via CgStateBoundary, but in the standalone harness the GLStateMirror
         // may be in UNKNOWN state, so we also do explicit cleanup after draw.
         renderer.beginBatch();
-        renderer.draw(layout, font, currentQuadOffset, currentQuadOffset,
-                TEXT_COLOR, poseStack);
+        renderer.draw().layout(layout).font(font).at(currentQuadOffset, currentQuadOffset)
+                .color(TEXT_COLOR).pose(poseStack).submit();
 
         int wheel = Mouse.getDWheel();
         if (wheel > 0) {
@@ -239,13 +239,8 @@ public final class HUDRenderer {
                     demoFont, logicalWidth, 0);
 
             renderer.context().clearHistory();
-            renderer.draw(
-                    demoLayout,
-                    demoFont,
-                    DEMO_TEXT_X,
-                    lineY,
-                    0xFFFFFFFF,
-                    ps);
+            renderer.draw().layout(demoLayout).font(demoFont).at(DEMO_TEXT_X, lineY)
+                    .color(0xFFFFFFFF).pose(ps).submit();
 
             lineY += demoLayout.getTotalHeight() * demoScale + DEMO_TEXT_ROW_GAP;
         }
