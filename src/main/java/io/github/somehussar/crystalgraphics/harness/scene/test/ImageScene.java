@@ -210,9 +210,9 @@ public class ImageScene implements InteractiveSceneLifecycle {
 
         text.renderer.beginBatch();
         text.renderer.draw(layout, text.font, leftX, leftY,
-                TEXT_COLOR, text.orthoContext, poseStack);
+                TEXT_COLOR, poseStack);
         text.renderer.draw(rightLayout, text.font, rightX, rightY,
-                TEXT_COLOR, text.orthoContext, poseStack);
+                TEXT_COLOR, poseStack);
         text.renderer.endBatch();
     }
 

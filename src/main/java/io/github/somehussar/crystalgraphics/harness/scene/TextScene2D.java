@@ -154,7 +154,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
         GL11.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
 
-        CgTextRenderContext renderContext = CgTextRenderContext.orthographic(fboWidth, fboHeight);
+        renderer.context(CgTextRenderContext.orthographic(fboWidth, fboHeight));
         long frame = 1;
 
         if (config.isMtsdf()) {
@@ -162,16 +162,16 @@ public class TextScene2D implements HarnessSceneLifecycle {
                     font,
                     topLabelLayout, 20.0f, 20.0f, TOP_LABEL_COLOR,
                     labels, layouts, bandYOffsets, scales,
-                    renderContext, frame);
+                    frame);
         }
 
         // Draw top label: exact replication of CrystalGraphicsFontDemo's
         // identity-pose green label (position 20,20 — color 0xAAFFAAFF)
         renderer.beginBatch();
-        renderContext.clearHistory();
+        renderer.context().clearHistory();
         PoseStack topLabelPose = new PoseStack();
         renderer.draw(topLabelLayout, font, 20.0f, 20.0f, TOP_LABEL_COLOR,
-                renderContext, topLabelPose);
+                topLabelPose);
         frame++;
 
         for (int bandIdx = 0; bandIdx < scales.size(); bandIdx++) {
@@ -196,9 +196,9 @@ public class TextScene2D implements HarnessSceneLifecycle {
                 yDraw /= scale;
             }
 
-            renderContext.clearHistory();
+            renderer.context().clearHistory();
             renderer.draw(layout, font, xDraw, yDraw, 0xFFFFFF,
-                    renderContext, poseStack);
+                    poseStack);
             frame++;
         }
         renderer.endBatch();
@@ -245,7 +245,6 @@ public class TextScene2D implements HarnessSceneLifecycle {
                                             CgTextLayout[] layouts,
                                             int[] bandYOffsets,
                                             List<Float> scales,
-                                            CgTextRenderContext renderContext,
                                             long frame) {
         int totalChars = TOP_LABEL_TEXT.length();
         for (String label : labels) {
@@ -259,10 +258,10 @@ public class TextScene2D implements HarnessSceneLifecycle {
 
             renderer.beginBatch();
 
-            renderContext.clearHistory();
+            renderer.context().clearHistory();
             PoseStack topLabelPose = new PoseStack();
             renderer.draw(topLabelLayout, font,
-                    topLabelX, topLabelY, topLabelColor, renderContext, topLabelPose);
+                    topLabelX, topLabelY, topLabelColor, topLabelPose);
 
             for (int bandIdx = 0; bandIdx < scales.size(); bandIdx++) {
                 float scale = scales.get(bandIdx);
@@ -274,9 +273,9 @@ public class TextScene2D implements HarnessSceneLifecycle {
                     xDraw /= scale;
                     yDraw /= scale;
                 }
-                renderContext.clearHistory();
+                renderer.context().clearHistory();
                 renderer.draw(layouts[bandIdx], font, xDraw, yDraw,
-                        0xFFFFFF, renderContext, poseStack);
+                        0xFFFFFF, poseStack);
             }
 
             renderer.endBatch();

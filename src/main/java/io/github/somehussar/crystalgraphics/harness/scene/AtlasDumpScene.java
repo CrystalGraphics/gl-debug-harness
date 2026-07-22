@@ -161,7 +161,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         GL11.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
 
-        CgTextRenderContext renderContext = CgTextRenderContext.orthographic(fboWidth, fboHeight);
+        renderer.context(CgTextRenderContext.orthographic(fboWidth, fboHeight));
         PoseStack poseStack = new PoseStack();
         long frame = 1;
 
@@ -178,11 +178,11 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 // is rasterized and allocated before the dump capture. This produces
                 // denser packing because all glyphs are present simultaneously.
                 frame = prewarmAllGlyphs(registry, renderer, bitmapLayout, bitmapFont,
-                        text, 20.0f, 40.0f, frame, renderContext, poseStack);
+                        text, 20.0f, 40.0f, frame, poseStack);
                 LOGGER.info("[Harness] Bitmap prewarm complete at frame " + frame);
             } else {
                 renderer.draw(bitmapLayout, bitmapFont, 20.0f, 40.0f, 0xFFFFFF,
-                        renderContext, poseStack);
+                        poseStack);
                 LOGGER.info("[Harness] Bitmap pass: drew at " + bitmapPxSize + "px");
             }
         }
@@ -208,7 +208,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 for (long f = 1; f <= framesNeeded; f++) {
                     registry.tickFrame(frame + f);
                     renderer.draw(msdfLayout, msdfFont, 20.0f, 80.0f, 0xFFFFFF,
-                            renderContext, poseStack);
+                            poseStack);
                 }
                 frame += framesNeeded;
                 LOGGER.info("[Harness] MSDF pass: drew " + framesNeeded
@@ -285,7 +285,6 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                                    String text,
                                    float x, float y,
                                    long startFrame,
-                                   CgTextRenderContext renderContext,
                                    PoseStack poseStack) {
         // Upper bound: each unique char needs at most 1 frame per MAX_PER_FRAME slot.
         // Add generous headroom for multi-pass convergence and edge cases.
@@ -299,7 +298,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         for (int i = 0; i < maxFrames; i++) {
             frame++;
             registry.tickFrame(frame);
-            renderer.draw(layout, font, x, y, 0xFFFFFF, renderContext, poseStack);
+            renderer.draw(layout, font, x, y, 0xFFFFFF, poseStack);
 
             int currentSlots = countTotalAtlasSlots(registry, font);
             if (currentSlots == prevTotalSlots) {

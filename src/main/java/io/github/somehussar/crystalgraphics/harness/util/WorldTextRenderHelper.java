@@ -148,12 +148,10 @@ public final class WorldTextRenderHelper {
         //   3. Scale with Y-flip: positive scale on X/Z, negative on Y to flip
         //      text right-side-up, and scale down from pixel units to world units
         Matrix4f modelView = poseStack.last().pose();
-        CgTextRenderContext worldContext = CgTextRenderContext.world(perspProjection, screenWidth,
-                screenHeight);
-        worldContext.updateProjectedSize(modelView, perspProjection, fontSizePx);
+        renderer.context(CgTextRenderContext.world(perspProjection, screenWidth, screenHeight));
+        renderer.context().updateProjectedSize(modelView, perspProjection, fontSizePx);
 
-
-        renderer.draw(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, worldContext, poseStack);
+        renderer.draw(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, poseStack);
     }
 
 
@@ -163,8 +161,8 @@ public final class WorldTextRenderHelper {
      * <p>Builds a model-view matrix from the given camera view matrix,
      * positions the text above the floor (Y=0.5), scales from pixel units
      * to world units with a Y-flip for correct orientation, then draws
-     * via {@link CgTextRenderer#draw} (passed a {@link CgTextRenderContext} built
-     * via {@link CgTextRenderContext#world}).</p>
+     * via {@link CgTextRenderer#draw} (the renderer's owned {@link CgTextRenderContext}
+     * is set to one built via {@link CgTextRenderContext#world}).</p>
      *
      * @param viewMatrix   the camera's view matrix (world → view space)
      * @param screenWidth  current viewport width in pixels
@@ -191,12 +189,10 @@ public final class WorldTextRenderHelper {
         modelView.translate(-textWorldWidth * 0.5f, 0.5f, -5f);
         modelView.scale(worldScale, -worldScale, worldScale);
 
-        CgTextRenderContext worldContext = CgTextRenderContext.world(
-                perspProjection, screenWidth, screenHeight);
-        worldContext.updateProjectedSize(modelView, perspProjection, fontSizePx);
-        
-        renderer.draw(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF,
-                worldContext, poseStack);
+        renderer.context(CgTextRenderContext.world(perspProjection, screenWidth, screenHeight));
+        renderer.context().updateProjectedSize(modelView, perspProjection, fontSizePx);
+
+        renderer.draw(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, poseStack);
     }
 
     /**
@@ -217,8 +213,7 @@ public final class WorldTextRenderHelper {
         float aspect = (float) fboWidth / (float) fboHeight;
         Matrix4f perspProjection = HarnessProjectionUtil.perspective(aspect);
 
-        CgTextRenderContext worldContext = CgTextRenderContext.world(
-                perspProjection, fboWidth, fboHeight);
+        renderer.context(CgTextRenderContext.world(perspProjection, fboWidth, fboHeight));
 
         // Model-view: position text at z=-200 (moderate viewing distance)
         PoseStack poseStack = new PoseStack();
@@ -226,22 +221,20 @@ public final class WorldTextRenderHelper {
         modelView.translate(0.0f, 0.0f, -200.0f);
 
         // Update projected-size hint for quality/LOD tier selection
-        worldContext.updateProjectedSize(modelView, perspProjection, fontSizePx);
+        renderer.context().updateProjectedSize(modelView, perspProjection, fontSizePx);
 
         long frame = 1;
 
         // Multi-frame to allow MSDF generation budget
         int framesNeeded = (text.length() / 4) + 5;
         for (long f = 1; f <= framesNeeded; f++) {
-            renderer.draw(worldLayout, font, 20.0f, 40.0f, 0xFFFFFFFF,
-                    worldContext, poseStack);
+            renderer.draw(worldLayout, font, 20.0f, 40.0f, 0xFFFFFFFF, poseStack);
         }
 
         // Also render a 2D reference for comparison
-        CgTextRenderContext orthoContext = CgTextRenderContext.orthographic(fboWidth, fboHeight);
+        renderer.context(CgTextRenderContext.orthographic(fboWidth, fboHeight));
         PoseStack orthoPose = new PoseStack();
-        renderer.draw(refLayout, font, 20.0f, (float)(fboHeight - 40), 0xAAFFAAFF,
-                orthoContext, orthoPose);
+        renderer.draw(refLayout, font, 20.0f, (float)(fboHeight - 40), 0xAAFFAAFF, orthoPose);
     }
 
     /** Returns the shared text renderer owned by this helper. */

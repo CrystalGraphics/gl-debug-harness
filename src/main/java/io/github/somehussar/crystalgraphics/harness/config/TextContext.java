@@ -6,7 +6,6 @@ import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.font.CgTextLayoutBuilder;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.text.cache.CgFontRegistry;
-import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 
 public class TextContext {
@@ -16,13 +15,10 @@ public class TextContext {
 
     public CgTextLayoutBuilder layoutBuilder = new CgTextLayoutBuilder();
 
-    public CgTextRenderContext orthoContext = CgTextRenderContext.orthographic(HarnessContext.DEFAULT_WIDTH,
-            HarnessContext.DEFAULT_HEIGHT);
-
     public PoseStack poseStack = new PoseStack();
 
     public void update(HarnessContext ctx) {
-        orthoContext.updateOrtho(ctx.getScreenWidth(), ctx.getScreenHeight());
+        renderer.context().updateOrtho(ctx.getScreenWidth(), ctx.getScreenHeight());
     }
 
     public void draw(String text, int x, int y, int rgba) {
@@ -30,7 +26,7 @@ public class TextContext {
     }
 
     public void draw(String text, int x, int y, int rgba, PoseStack pose) {
-        renderer.draw(text, font, x, y, rgba, orthoContext, pose);
+        renderer.draw(text, font, x, y, rgba, pose);
     }
 
     public void delete() {
