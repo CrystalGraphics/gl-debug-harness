@@ -97,10 +97,9 @@ public final class HUDRenderer {
         int newFontSizePx = Math.round(BASE_FONT_SIZE_PX * scale);
         currentQuadOffset = BASE_QUAD_OFFSET * scale;
 
-        // Update orthographic projection for new viewport dimensions
-        if (renderer != null) {
-            renderer.context().updateOrtho(screenWidth, screenHeight);
-        }
+        // Note: the renderer's context is created via CgTextRenderer.createScreenSized(),
+        // so its orthographic projection auto-tracks the display window resolution via
+        // CgTextRendererRegistry — no manual updateOrtho() call needed here.
 
         // Reload font at new size if the computed pixel size changed
         if (newFontSizePx != currentFontSizePx && font != null) {
@@ -160,10 +159,9 @@ public final class HUDRenderer {
         font = CgFont.load(fontPath, CgFontStyle.REGULAR, currentFontSizePx);
         demoFont = CgFont.load(fontPath, CgFontStyle.REGULAR, DEMO_FONT_SIZE_PX);
 
-        renderer = CgTextRenderer.create();
-
-        // Start with a default orthographic projection (updated on first render via updateScaleIfNeeded)
-        renderer.context().updateOrtho(HarnessContext.DEFAULT_WIDTH, HarnessContext.DEFAULT_HEIGHT);
+        // Screen-sized: the owned context's orthographic projection auto-tracks the
+        // display window resolution via CgTextRendererRegistry (see CgGraphicsLifecycle.onResize).
+        renderer = CgTextRenderer.createScreenSized();
         layoutBuilder = new CgTextLayoutBuilder();
         poseStack = new PoseStack();
         poseStack.translate(0,20,0);
