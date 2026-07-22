@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgui.style.property.layout.LayoutProperties;
 import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.UIWindow;
@@ -86,9 +87,10 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, SystemInput.Key
                         .width(250)
                         .height(475)
                         .paddingAll(10)
-                ).onMouseDown.attachListener(
-                        (thiz, event) -> thiz.generalStyle(s -> s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00)),
-                        false, false);
+                ).onMouseScroll.attachListener(
+//                        (thiz, event) -> thiz.generalStyle(s -> s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00)),
+                        (thizElement, event) -> uiWindow.getLeftPos(),
+                        true, false);
 
         UIElement container = new UIElement().setId("Container")
                 .generalStyle(s -> s.background(inset))
