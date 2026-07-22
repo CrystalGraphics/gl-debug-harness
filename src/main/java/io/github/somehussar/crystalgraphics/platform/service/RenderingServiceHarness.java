@@ -11,7 +11,7 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  * {@link CgRenderHook} each frame.
  * Viewport dimensions read from {@code Minecraft.displayWidth/displayHeight}.</p>
  */
-public final class RenderingService1710 implements CgRenderingService {
+public final class RenderingServiceHarness implements CgRenderingService {
 
     @Override
     public void onFrameBegin(float partialTick) {

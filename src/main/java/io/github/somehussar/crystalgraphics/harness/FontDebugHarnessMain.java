@@ -4,7 +4,7 @@ import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgui.core.CrystalGuiCore;
 import io.github.somehussar.crystalgraphics.harness.config.*;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
-import io.github.somehussar.crystalgraphics.platform.PlatformService1710;
+import io.github.somehussar.crystalgraphics.platform.PlatformServiceHarness;
 import io.github.somehussar.crystalgraphics.platform.input.InputAdapter;
 
 import java.io.File;
@@ -87,7 +87,7 @@ public final class FontDebugHarnessMain {
         HarnessContext ctx = null;
         boolean shouldShutdown = true;
         try {
-            PlatformService1710.onPreInit();
+            PlatformServiceHarness.onPreInit();
             CrystalGuiCore.setAdapter(new InputAdapter());
             ctx = HarnessContext.create(config.getWidth(), config.getHeight());
             CgGraphicsLifecycle.initContext(ctx.getScreenWidth(), ctx.getScreenHeight());
