@@ -52,16 +52,21 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
 
             .button {
                 color: #AAAAAA;
-                transition: color 250ms ease-in-out, width 200ms ease-out, height 200ms ease-out;
+                width: 32;
+                height: 32;
+                transition: color 1000ms ease-in-out, width 200ms ease-out, height 200ms ease-out;
             }
 
             .button:hover {
                 color: #FFFFFF;
+                width: 60;
+                height: 60;
             }
 
             .button:active {
                 width: 40;
                 height: 40;
+                color: #FFFF00;
             }
 
             .button.primary {
@@ -110,10 +115,16 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
         // button 0: "#submit", starts disabled -> demonstrates the #id:pseudo-class combo
         // button 1: "primary" class -> demonstrates compound selector + !important
         // button 2: plain "button" -> baseline hover/active transition
+        //
+        // NOTE: base width/height come from the ".button" stylesheet rule, not from a Java
+        // .layout(l -> l.width(...)) call here. Setting a property via .layout()/.generalStyle()
+        // creates an INLINE-origin candidate, and INLINE always outranks STYLESHEET regardless of
+        // selector specificity (same as a real `style=""` attribute beating any non-!important CSS
+        // rule) — so a ".button:hover { width: ... }" rule could never win against an inline base
+        // width, and the property would never appear to update or transition at all.
         for (int i = 0; i < 3; i++) {
             UIElement button = new UIElement()
-                    .generalStyle(s -> s.background(buttonSprite))
-                    .layout(l -> l.width(32).height(32));
+                    .generalStyle(s -> s.background(buttonSprite));
             button.addClass("button");
 
             if (i == 0) {
