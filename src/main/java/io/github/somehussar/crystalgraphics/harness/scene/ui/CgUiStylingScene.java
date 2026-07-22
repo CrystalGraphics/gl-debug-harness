@@ -6,8 +6,11 @@ import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.UIWindow;
 import com.crystalgui.core.input.SystemInput;
+import com.crystalgui.ui.input.FocusPolicy;
+import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.JustifyContent;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -54,23 +57,26 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
                 color: #AAAAAA;
                 width: 32;
                 height: 32;
-                transition: color 1000ms ease-in-out, width 200ms ease-out, height 200ms ease-out;
+                transition: color 100ms ease-in-out, width 200ms ease-out, height 200ms ease-out;
             }
-
+            
             .button:hover {
                 color: #FFFFFF;
                 width: 60;
                 height: 60;
             }
 
+            .button.primary {
+                color: #55AAFF;
+            }
+            .button:focus {
+                color: #FF0000;
+            }
+            
             .button:active {
                 width: 40;
                 height: 40;
                 color: #FFFF00;
-            }
-
-            .button.primary {
-                color: #55AAFF !important;
             }
 
             #submit:disabled {
@@ -99,18 +105,20 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
                         .width(300)
                         .height(150)
                         .paddingAll(16)
-                        .flexDirection(FlexDirection.COLUMN)
+                        .flexDirection(FlexDirection.ROW)
                         .gapAll(12)
-                );
+                        .justifyContent(AlignContent.CENTER)
+                        .alignItems(AlignItems.CENTER)
+                ).setFocusPolicy(FocusPolicy.NONE);
         root.addClass("panel");
 
-        UIElement row = new UIElement()
-                .layout(l -> l
-                        .flexDirection(FlexDirection.ROW)
-                        .gapAll(10)
-                        .alignItems(AlignItems.CENTER)
-                );
-        root.addChild(row);
+//        UIElement row = new UIElement()
+//                .layout(l -> l
+//                        .flexDirection(FlexDirection.ROW)
+//                        .gapAll(10)
+//                        .alignItems(AlignItems.CENTER)
+//                );
+//        root.addChild(row);
 
         // button 0: "#submit", starts disabled -> demonstrates the #id:pseudo-class combo
         // button 1: "primary" class -> demonstrates compound selector + !important
@@ -129,12 +137,12 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
 
             if (i == 0) {
                 button.setId("submit");
-                button.setEnabled(false);
+//                button.setEnabled(false);
             } else if (i == 1) {
                 button.addClass("primary");
             }
 
-            row.addChild(button);
+            root.addChild(button);
         }
 
         return root;
