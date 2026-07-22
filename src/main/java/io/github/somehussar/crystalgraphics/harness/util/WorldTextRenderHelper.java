@@ -13,6 +13,7 @@ import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
 import io.github.somehussar.crystalgraphics.harness.scene.TextScene3D;
 import com.crystalgraphics.api.text.CgTextLayout;
 
+import lombok.Getter;
 import org.joml.Matrix4f;
 
 import java.util.logging.Logger;
@@ -57,6 +58,13 @@ public final class WorldTextRenderHelper {
 
     // ── Configuration (set at construction, immutable) ──
     private final String fontPath;
+    /**
+     * -- GETTER --
+     *  Returns the font size in pixels.
+     *
+     * @return the configured font size
+     */
+    @Getter
     private final int fontSizePx;
     private final String text;
     private final int layoutWidth;
@@ -64,10 +72,15 @@ public final class WorldTextRenderHelper {
     private final int atlasSize;
     private final boolean mtsdf;
     // ── GL resources (created in init(), destroyed in dispose()) ──
-    private CgCapabilities caps;
     private CgFont font;
-    private CgFontRegistry registry;
     private CgTextRenderer renderer;
+    /**
+     * -- GETTER --
+     *  Returns the world-space text layout for external dimension queries.
+     *
+     * @return the world text layout, or null if not yet initialized
+     */
+    @Getter
     private CgTextLayout worldLayout;
     private CgTextLayout refLayout;
 
@@ -101,18 +114,11 @@ public final class WorldTextRenderHelper {
      * @throws IllegalStateException if required GL capabilities are missing
      */
     public void init() {
-        caps = CgCapabilities.detect();
-        if (!caps.isCoreFbo() || !caps.isCoreShaders()
-                || !caps.isVaoSupported() || !caps.isMapBufferRangeSupported()) {
-            throw new IllegalStateException(
-                    "World text scene requires modern GL: core FBO, core shaders, VAO, glMapBufferRange");
-        }
 
         font = CgFont.load(fontPath, CgFontStyle.REGULAR, fontSizePx);
         CgMsdfAtlasConfig atlasConfig = CgMsdfAtlasConfig.defaultConfig()
                 .withPageSize(atlasSize)
                 .withMtsdf(mtsdf);
-        registry = new CgFontRegistry(atlasSize, atlasConfig);
         renderer = CgTextRenderer.create();
 
         CgTextLayoutBuilder layoutBuilder = new CgTextLayoutBuilder();
@@ -146,9 +152,8 @@ public final class WorldTextRenderHelper {
                 screenHeight);
         worldContext.updateProjectedSize(modelView, perspProjection, fontSizePx);
 
-        registry.tickFrame(frameNumber);
 
-        renderer.draw(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, frameNumber, worldContext, poseStack);
+        renderer.draw(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, worldContext, poseStack);
     }
 
 
@@ -189,10 +194,8 @@ public final class WorldTextRenderHelper {
         CgTextRenderContext worldContext = CgTextRenderContext.world(
                 perspProjection, screenWidth, screenHeight);
         worldContext.updateProjectedSize(modelView, perspProjection, fontSizePx);
-
-        registry.tickFrame(frameNumber);
-
-        renderer.draw(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF, frameNumber,
+        
+        renderer.draw(worldLayout, font, 0.0f, 0.0f, 0xFFFFFFFF,
                 worldContext, poseStack);
     }
 
@@ -230,8 +233,7 @@ public final class WorldTextRenderHelper {
         // Multi-frame to allow MSDF generation budget
         int framesNeeded = (text.length() / 4) + 5;
         for (long f = 1; f <= framesNeeded; f++) {
-            registry.tickFrame(frame + f);
-            renderer.draw(worldLayout, font, 20.0f, 40.0f, 0xFFFFFFFF, frame + f,
+            renderer.draw(worldLayout, font, 20.0f, 40.0f, 0xFFFFFFFF,
                     worldContext, poseStack);
         }
 
@@ -239,7 +241,7 @@ public final class WorldTextRenderHelper {
         CgTextRenderContext orthoContext = CgTextRenderContext.orthographic(fboWidth, fboHeight);
         PoseStack orthoPose = new PoseStack();
         renderer.draw(refLayout, font, 20.0f, (float)(fboHeight - 40), 0xAAFFAAFF,
-                frame + framesNeeded + 1, orthoContext, orthoPose);
+                orthoContext, orthoPose);
     }
 
     /** Returns the shared text renderer owned by this helper. */
@@ -260,28 +262,7 @@ public final class WorldTextRenderHelper {
      *
      * @param frameNumber the current frame number
      */
-    public void tickFrame(long frameNumber) {
-        registry.tickFrame(frameNumber);
-    }
 
-    /**
-     * Returns the world-space text layout for external dimension queries.
-     *
-     * @return the world text layout, or null if not yet initialized
-     */
-    public CgTextLayout getWorldLayout() {
-        return worldLayout;
-    }
-
-    /**
-     * Returns the font size in pixels.
-     *
-     * @return the configured font size
-     */
-    public int getFontSizePx() {
-        return fontSizePx;
-    }
-    
     /**
      * Releases all GL resources held by this helper.
      *
@@ -292,10 +273,6 @@ public final class WorldTextRenderHelper {
         if (renderer != null) {
             renderer.delete();
             renderer = null;
-        }
-        if (registry != null) {
-            registry.releaseAll();
-            registry = null;
         }
         if (font != null) {
             font.dispose();

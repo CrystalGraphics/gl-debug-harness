@@ -188,7 +188,7 @@ public class ImageScene implements InteractiveSceneLifecycle {
     }
 
 
-    public static void renderText(HarnessContext ctx, long frameCounter) {
+    public static void renderText(HarnessContext ctx) {
         TextContext text = ctx.getTextContext();
         int TEXT_COLOR = 0xff0000ff;
         int width = ctx.getScreenWidth(), height = ctx.getScreenHeight();
@@ -210,9 +210,9 @@ public class ImageScene implements InteractiveSceneLifecycle {
 
         text.renderer.beginBatch();
         text.renderer.draw(layout, text.font, leftX, leftY,
-                TEXT_COLOR, frameCounter, text.orthoContext, poseStack);
+                TEXT_COLOR, text.orthoContext, poseStack);
         text.renderer.draw(rightLayout, text.font, rightX, rightY,
-                TEXT_COLOR, frameCounter, text.orthoContext, poseStack);
+                TEXT_COLOR, text.orthoContext, poseStack);
         text.renderer.endBatch();
     }
 
@@ -266,7 +266,7 @@ public class ImageScene implements InteractiveSceneLifecycle {
         GL11.glDrawElements(GL11.GL_TRIANGLES, 6, GL11.GL_UNSIGNED_INT, 0);
 
         // Overlay text
-        renderText(ctx, frame.getFrameNumber());
+        renderText(ctx);
     }
 
     @Override

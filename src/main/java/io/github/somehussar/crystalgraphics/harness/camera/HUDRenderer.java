@@ -5,7 +5,6 @@ import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.font.CgTextLayoutBuilder;
-import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -199,12 +198,6 @@ public final class HUDRenderer {
         }
 
         updateScaleIfNeeded(screenWidth, screenHeight);
-        // The shared CgFontRegistry's per-frame tick happens exclusively via the
-        // platform lifecycle service (InteractiveSceneRunner calling
-        // CgPlatform.lifecycle().onFrameRendered() once per loop iteration) — this
-        // class must not call CgGraphicsLifecycle.tickFrame() itself. Just read the
-        // shared frame number for atlas-LRU bookkeeping in the draw() calls below.
-        long frameCounter = CgGraphicsLifecycle.getCurrentFrame();
 
         // Format camera state into HUD text (two lines separated by newline)
         String posLine = String.format("Pos: %.2f %.2f %.2f",
@@ -224,7 +217,7 @@ public final class HUDRenderer {
         // may be in UNKNOWN state, so we also do explicit cleanup after draw.
         renderer.beginBatch();
         renderer.draw(layout, font, currentQuadOffset, currentQuadOffset,
-                TEXT_COLOR, frameCounter, orthoContext, poseStack);
+                TEXT_COLOR, orthoContext, poseStack);
 
         int wheel = Mouse.getDWheel();
         if (wheel > 0) {
@@ -256,7 +249,6 @@ public final class HUDRenderer {
                     DEMO_TEXT_X,
                     lineY,
                     0xFFFFFFFF,
-                    frameCounter,
                     orthoContext,
                     ps);
 
@@ -275,7 +267,6 @@ public final class HUDRenderer {
 //                        20.0f,
 //                        20.0f,
 //                        0xAAFFAAFF,
-//                        frameCounter,
 //                        orthoContext,
 //                        identityPose);
         }

@@ -170,7 +170,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
         renderer.beginBatch();
         renderContext.clearHistory();
         PoseStack topLabelPose = new PoseStack();
-        renderer.draw(topLabelLayout, font, 20.0f, 20.0f, TOP_LABEL_COLOR, frame,
+        renderer.draw(topLabelLayout, font, 20.0f, 20.0f, TOP_LABEL_COLOR,
                 renderContext, topLabelPose);
         frame++;
 
@@ -197,7 +197,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
             }
 
             renderContext.clearHistory();
-            renderer.draw(layout, font, xDraw, yDraw, 0xFFFFFF, frame,
+            renderer.draw(layout, font, xDraw, yDraw, 0xFFFFFF,
                     renderContext, poseStack);
             frame++;
         }
@@ -262,7 +262,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
             renderContext.clearHistory();
             PoseStack topLabelPose = new PoseStack();
             renderer.draw(topLabelLayout, font,
-                    topLabelX, topLabelY, topLabelColor, drawFrame, renderContext, topLabelPose);
+                    topLabelX, topLabelY, topLabelColor, renderContext, topLabelPose);
 
             for (int bandIdx = 0; bandIdx < scales.size(); bandIdx++) {
                 float scale = scales.get(bandIdx);
@@ -276,7 +276,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
                 }
                 renderContext.clearHistory();
                 renderer.draw(layouts[bandIdx], font, xDraw, yDraw,
-                        0xFFFFFF, drawFrame, renderContext, poseStack);
+                        0xFFFFFF, renderContext, poseStack);
             }
 
             renderer.endBatch();
