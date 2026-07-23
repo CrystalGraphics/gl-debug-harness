@@ -103,7 +103,6 @@ public final class HarnessContext {
         this.glVendor = glVendor;
         this.glRenderer = glRenderer;
         this.viewport = new ViewportState(screenWidth, screenHeight);
-        this.textContext = new TextContext();
     }
 
     /**
@@ -233,7 +232,17 @@ public final class HarnessContext {
         this.runtimeServices = services;
     }
     
-    public TextContext getTextContext(){
+    /**
+     * Returns the shared {@link TextContext}, constructing it on first call. Deliberately lazy
+     * (not built in the constructor): by the time any real caller reaches this method,
+     * {@code CgGraphicsLifecycle.initContext()} has already run, so {@code TextContext}'s
+     * {@code CgTextRenderer.create()} field initializer sees fully-resolved
+     * {@code CgBindingPoints} values instead of racing them.
+     */
+    public TextContext getTextContext() {
+        if (textContext == null) {
+            textContext = new TextContext();
+        }
         return textContext;
     }
 
