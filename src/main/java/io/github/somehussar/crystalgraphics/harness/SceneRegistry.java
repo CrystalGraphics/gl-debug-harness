@@ -8,6 +8,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.ReviewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ShaderLibTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgAttachedBufferStressScene;
+import io.github.somehussar.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTestScene;
@@ -180,6 +181,20 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
                 .build(),
             () -> new CgAttachedBufferStressScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("quad-renderer-test")
+                .description("CgQuadRenderer: SSBO/TBO-backed instanced quad batching — grid + rotating spinners in one draw call")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(900)
+                .defaultHeight(700)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgQuadRendererTestScene()
         );
 
         reg.register(
