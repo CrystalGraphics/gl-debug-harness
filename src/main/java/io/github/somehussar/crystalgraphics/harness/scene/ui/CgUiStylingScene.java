@@ -10,6 +10,7 @@ import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.FlexWrap;
 import dev.vfyjxf.taffy.style.JustifyContent;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -20,7 +21,9 @@ import org.lwjgl.input.Keyboard;
  * Interactive harness scene that exercises CrystalGUI's stylesheet + transition system:
  * class/id/pseudo-class selectors, combinators, {@code !important}, and CSS-{@code transition}
  * state animations (both a paint-only property and a layout property, to prove interpolated
- * values actually reach Taffy, not just {@code getComputed()}).
+ * values actually reach Taffy, not just {@code getComputed()}) — plus {@code background}
+ * cross-fades ({@code CgUiCrossFade}, via {@code TextureProperty}'s interpolator) between
+ * color/texture/9-slice drawable pairs, triggered by hovering the {@code .fade-*} swatches.
  *
  * <p>Built on the same real {@link UIWindow}/input plumbing as {@link CgUiTestScene}, so
  * {@code :hover}/{@code :active} are driven by genuine mouse input in the harness window — move
@@ -54,37 +57,98 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
             * { z-index: 0; }
 
             .button {
-                color: #AAAAAA;
                 width: 32;
                 height: 32;
-                transition: color 100ms ease-in-out, width 200ms ease-out, height 200ms ease-out;
+                transition: background-color 500ms ease-in-out, width 200ms ease-out, height 200ms ease-out;
             }
             
             .button:hover {
-                color: #FFFFFF;
+                background-color: #FFFFFF;
                 width: 60;
                 height: 60;
             }
 
             .button.primary {
-                color: #55AAFF;
+                background-color: #55AAFF;
             }
             .button:focus {
-                color: #FF0000;
+                background-color: #FF0000;
             }
             
             .button:active {
                 width: 40;
                 height: 40;
-                color: #FFFF00;
+                background-color: #FFFF00;
             }
 
             #submit:disabled {
-                color: #444444;
+                background-color: #444444;
             }
 
             .panel > .button {
                 margin-top: 2;
+            }
+
+            .color-swatch {
+                background: #33CC9955;
+                background-color: rgba(255, 0, 0, 0.25);
+            }
+
+            .sliced-swatch {
+                background: sprite("crystalgui:textures/gui/gdp_styles.png", 154 165 16 16, 5 6 9 10);
+            }
+
+            /* Background cross-fade demo (hover each swatch) — one entry per CgUiDrawable type
+             * pairing, proving CgUiCrossFade works uniformly regardless of the concrete drawable
+             * types on either side of the transition. */
+            .fade-color-color {
+                background: #3355AA;
+                transition: background 700ms ease-in-out;
+            }
+            .fade-color-color:hover {
+                background: #E8B23DCC;
+            }
+
+            .fade-color-texture {
+                background: #33AA66;
+                transition: background 700ms ease-in-out;
+            }
+            .fade-color-texture:hover {
+                background: image("crystalgui:textures/gui/gdp_styles.png");
+            }
+
+            /* 9-slice <-> 9-slice with DIFFERENT border thicknesses (1,1,11,11 vs 5,6,9,10) —
+             * CgUiCrossFade's draw-A-then-draw-B-on-top compositing has no per-pixel correspondence
+             * to blend against when the two sides don't even share the same quad geometry, so this
+             * looks rough by construction, not by bug. A real fix needs a dedicated 2-sampler
+             * pixel-blend shader restricted to matching-geometry drawables — deliberately deferred,
+             * not built here. Kept as a visible reference case, not polished. */
+            .fade-texture-texture {
+                background: sprite("crystalgui:textures/gui/gdp_styles.png", 29 1 13 13, 1 1 11 11);
+                transition: background 700ms ease-in-out;
+            }
+            .fade-texture-texture:hover {
+                background: sprite("crystalgui:textures/gui/gdp_styles.png", 154 165 16 16, 5 6 9 10);
+            }
+
+            /* SDF rounded-rect cross-fades — answers "are SDFs definable from CSS?": yes, via
+             * roundedrect(radius, borderWidth, borderColor, fill). Both endpoints are independent
+             * CgUiRoundedRect instances (their own radius/border/fill baked in at parse time), so
+             * CgUiCrossFade fades between them exactly like any other drawable pair. */
+            .fade-sdf-color {
+                background: roundedrect(10, 0, #00000000, #3355AA);
+                transition: background 700ms ease-in-out;
+            }
+            .fade-sdf-color:hover {
+                background: roundedrect(10, 3, #224488, #E8B23D);
+            }
+
+            .fade-sdf-texture {
+                background: roundedrect(10, 3, #224488, #3355AA);
+                transition: background 700ms ease-in-out;
+            }
+            .fade-sdf-texture:hover {
+                background: roundedrect(10, 3, #224488, "crystalgui:textures/gui/gdp_styles.png");
             }
             """;
 
@@ -102,10 +166,11 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
         UIElement root = new UIElement()
                 .generalStyle(s -> s.background(panelSprite))
                 .layout(l -> l
-                        .width(300)
-                        .height(150)
+                        .width(420)
+                        .height(280)
                         .paddingAll(16)
                         .flexDirection(FlexDirection.ROW)
+                        .flexWrap(FlexWrap.WRAP)
                         .gapAll(12)
                         .justifyContent(AlignContent.CENTER)
                         .alignItems(AlignItems.CENTER)
@@ -144,6 +209,50 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
 
             root.addChild(button);
         }
+
+        // Phase 4 smoke-test: SDF rounded rect with a stroked border, exercised at runtime so
+        // gui_rounded_rect.shader actually compiles under real GL, not just javac.
+        UIElement roundedButton = new UIElement()
+                .generalStyle(s -> s.background(new com.crystalgui.render.texture.CgUiRoundedRect()
+                        .setCornerRadius(10f)
+                        .setBorder(3f, 0xFF224488)
+                        .setFillColor(0xFFEE8822)))
+                .layout(l -> l.width(48).height(48).borderAll(3));
+        root.addChild(roundedButton);
+
+        // Phase 7 smoke-test: background/background-color parsers exercised through the real
+        // stylesheet pipeline (not constructed directly in Java), plus the new sprite(...) CSS
+        // function for 9-slice-from-CSS.
+        UIElement colorSwatch = new UIElement().layout(l -> l.width(24).height(48));
+        colorSwatch.addClass("color-swatch");
+        root.addChild(colorSwatch);
+
+        UIElement slicedSwatch = new UIElement().layout(l -> l.width(32).height(32));
+        slicedSwatch.addClass("sliced-swatch");
+        root.addChild(slicedSwatch);
+
+        // Background cross-fade demo — move the mouse over each swatch to trigger the
+        // `background 700ms ease-in-out` transition. Each pairs a different CgUiDrawable
+        // combination on either side of the fade:
+        UIElement fadeColorColor = new UIElement().layout(l -> l.width(48).height(48)); // flat color -> flat color
+        fadeColorColor.addClass("fade-color-color");
+        root.addChild(fadeColorColor);
+
+        UIElement fadeColorTexture = new UIElement().layout(l -> l.width(48).height(48)); // flat color -> full texture
+        fadeColorTexture.addClass("fade-color-texture");
+        root.addChild(fadeColorTexture);
+
+        UIElement fadeTextureTexture = new UIElement().layout(l -> l.width(48).height(48)); // 9-slice -> 9-slice
+        fadeTextureTexture.addClass("fade-texture-texture");
+        root.addChild(fadeTextureTexture);
+
+        UIElement fadeSdfColor = new UIElement().layout(l -> l.width(48).height(48)); // SDF rounded rect -> SDF rounded rect (color fill)
+        fadeSdfColor.addClass("fade-sdf-color");
+        root.addChild(fadeSdfColor);
+
+        UIElement fadeSdfTexture = new UIElement().layout(l -> l.width(48).height(48)); // SDF rounded rect, color fill -> texture fill
+        fadeSdfTexture.addClass("fade-sdf-texture");
+        root.addChild(fadeSdfTexture);
 
         return root;
     }
