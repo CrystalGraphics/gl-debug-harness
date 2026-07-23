@@ -136,31 +136,45 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
                 background: sprite("crystalgui:textures/gui/gdp_styles.png", 154 165 16 16, 5 6 9 10);
             }
 
-            /* SDF rounded-rect MORPHS (not cross-fades) — answers "are SDFs definable from CSS?":
-             * yes, via roundedrect(radius, borderWidth, borderColor, fill). Two CgUiRoundedRects are
-             * the same procedural shape family, so TextureProperty's interpolator true-lerps their
-             * radii/border as a single draw (CgUiRoundedRect.morph) instead of compositing two draws
-             * like CgUiCrossFade does for unrelated drawable pairs. */
+            /* border-radius/border-width/border-color are a universal wrapping layer, not a special
+             * background value type — they apply on top of whatever `background:` resolves to
+             * (real CSS semantics). Transitions animate the underlying scalar/color longhands
+             * directly (no shape-morph special case needed at the drawable level anymore). */
             .fade-sdf-color {
-                background: roundedrect(90, 2, #000000, #3355AA);
-                transition: background 2000ms ease-in-out;
+                background: #3355AA;
+                border-radius: 24px;
+                border-width: 2px;
+                border-color: #000000;
+                transition: background 2000ms ease-in-out, border-radius 2000ms ease-in-out,
+                            border-width 2000ms ease-in-out, border-color 2000ms ease-in-out;
             }
             .fade-sdf-color:hover {
-                background: roundedrect(40, 5, #224488, #E8B23D);
+                background: #E8B23D;
+                border-radius: 40px;
+                border-width: 5px;
+                border-color: #224488;
             }
 
             .fade-sdf-texture {
-                background: roundedrect(40, 3, #224488, #3355AA);
+                background: #3355AA;
+                border-radius: 40px;
+                border-width: 3px;
+                border-color: #224488;
                 transition: background 2000ms ease-in-out;
             }
             .fade-sdf-texture:hover {
-                background: roundedrect(40, 3, #224488, "crystalgui:textures/gui/gdp_styles.png");
+                background: image("crystalgui:textures/gui/gdp_styles.png");
             }
 
             /* Per-corner radii, CSS border-radius order (TL TR BR BL): only the top edge is
-             * rounded, bottom corners stay square. */
+             * rounded, bottom corners stay square. A 9-slice/sprite background can't be visually
+             * clipped by this layer yet (documented gap) — this swatch uses a flat color fill so
+             * the rounding/border are actually visible. */
             .rounded-corners-swatch {
-                background: roundedrect("14 14 0 0", 2, #224488, #EE8822);
+                background: #EE8822;
+                border-radius: 14px 14px 0px 0px;
+                border-width: 2px;
+                border-color: #224488;
             }
             """;
 
@@ -222,13 +236,15 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
             root.addChild(button);
         }
 
-        // Phase 4 smoke-test: SDF rounded rect with a stroked border, exercised at runtime so
-        // gui_rounded_rect.shader actually compiles under real GL, not just javac.
+        // SDF rounded-rect smoke-test: border-radius/border-width/border-color as a universal
+        // wrapping layer over a flat-color background, exercised at runtime so
+        // gui_rounded_rect.shader actually compiles under real GL, not just javac. border-width
+        // (set via .borderAll below) now grows the layout box for real — it's the same
+        // border-width-* longhand Taffy resolves, not a bespoke SDF-only number.
         UIElement roundedButton = new UIElement()
-                .generalStyle(s -> s.background(new com.crystalgui.render.texture.CgUiRoundedRect()
-                        .setCornerRadius(10f)
-                        .setBorder(3f, 0xFF224488)
-                        .setFillColor(0xFFEE8822)))
+                .generalStyle(s -> s.background(new com.crystalgui.render.texture.CgUiQuad(0xFFEE8822))
+                        .borderRadius(10f)
+                        .borderColor(0xFF224488))
                 .layout(l -> l.width(48).height(48).borderAll(3));
         root.addChild(roundedButton);
 
