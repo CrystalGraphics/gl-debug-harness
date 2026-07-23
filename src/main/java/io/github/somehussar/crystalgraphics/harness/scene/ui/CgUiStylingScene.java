@@ -59,7 +59,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
             .button {
                 width: 32;
                 height: 32;
-                transition: background-color 500ms ease-in-out, width 200ms ease-out, height 200ms ease-out;
+                transition: background-color 2000ms ease-in-out, width 200ms ease-out, height 200ms ease-out;
             }
             
             .button:hover {
@@ -98,12 +98,17 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
                 background: sprite("crystalgui:textures/gui/gdp_styles.png", 154 165 16 16, 5 6 9 10);
             }
 
+            /* image(...)'s new optional crop-rect arg: a plain (non-9-slice) sub-region of the atlas. */
+            .cropped-swatch {
+                background: image("crystalgui:textures/gui/gdp_styles.png", "154 165 16 16");
+            }
+
             /* Background cross-fade demo (hover each swatch) — one entry per CgUiDrawable type
              * pairing, proving CgUiCrossFade works uniformly regardless of the concrete drawable
              * types on either side of the transition. */
             .fade-color-color {
                 background: #3355AA;
-                transition: background 700ms ease-in-out;
+                transition: background 2000ms ease-in-out;
             }
             .fade-color-color:hover {
                 background: #E8B23DCC;
@@ -111,7 +116,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
 
             .fade-color-texture {
                 background: #33AA66;
-                transition: background 700ms ease-in-out;
+                transition: background 2000ms ease-in-out;
             }
             .fade-color-texture:hover {
                 background: image("crystalgui:textures/gui/gdp_styles.png");
@@ -125,30 +130,37 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
              * not built here. Kept as a visible reference case, not polished. */
             .fade-texture-texture {
                 background: sprite("crystalgui:textures/gui/gdp_styles.png", 29 1 13 13, 1 1 11 11);
-                transition: background 700ms ease-in-out;
+                transition: background 2000ms ease-in-out;
             }
             .fade-texture-texture:hover {
                 background: sprite("crystalgui:textures/gui/gdp_styles.png", 154 165 16 16, 5 6 9 10);
             }
 
-            /* SDF rounded-rect cross-fades — answers "are SDFs definable from CSS?": yes, via
-             * roundedrect(radius, borderWidth, borderColor, fill). Both endpoints are independent
-             * CgUiRoundedRect instances (their own radius/border/fill baked in at parse time), so
-             * CgUiCrossFade fades between them exactly like any other drawable pair. */
+            /* SDF rounded-rect MORPHS (not cross-fades) — answers "are SDFs definable from CSS?":
+             * yes, via roundedrect(radius, borderWidth, borderColor, fill). Two CgUiRoundedRects are
+             * the same procedural shape family, so TextureProperty's interpolator true-lerps their
+             * radii/border as a single draw (CgUiRoundedRect.morph) instead of compositing two draws
+             * like CgUiCrossFade does for unrelated drawable pairs. */
             .fade-sdf-color {
-                background: roundedrect(10, 0, #00000000, #3355AA);
-                transition: background 700ms ease-in-out;
+                background: roundedrect(90, 2, #000000, #3355AA);
+                transition: background 2000ms ease-in-out;
             }
             .fade-sdf-color:hover {
-                background: roundedrect(10, 3, #224488, #E8B23D);
+                background: roundedrect(40, 5, #224488, #E8B23D);
             }
 
             .fade-sdf-texture {
-                background: roundedrect(10, 3, #224488, #3355AA);
-                transition: background 700ms ease-in-out;
+                background: roundedrect(40, 3, #224488, #3355AA);
+                transition: background 2000ms ease-in-out;
             }
             .fade-sdf-texture:hover {
-                background: roundedrect(10, 3, #224488, "crystalgui:textures/gui/gdp_styles.png");
+                background: roundedrect(40, 3, #224488, "crystalgui:textures/gui/gdp_styles.png");
+            }
+
+            /* Per-corner radii, CSS border-radius order (TL TR BR BL): only the top edge is
+             * rounded, bottom corners stay square. */
+            .rounded-corners-swatch {
+                background: roundedrect("14 14 0 0", 2, #224488, #EE8822);
             }
             """;
 
@@ -167,7 +179,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
                 .generalStyle(s -> s.background(panelSprite))
                 .layout(l -> l
                         .width(420)
-                        .height(280)
+                        .height(320)
                         .paddingAll(16)
                         .flexDirection(FlexDirection.ROW)
                         .flexWrap(FlexWrap.WRAP)
@@ -231,6 +243,10 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
         slicedSwatch.addClass("sliced-swatch");
         root.addChild(slicedSwatch);
 
+        UIElement croppedSwatch = new UIElement().layout(l -> l.width(32).height(32));
+        croppedSwatch.addClass("cropped-swatch");
+        root.addChild(croppedSwatch);
+
         // Background cross-fade demo — move the mouse over each swatch to trigger the
         // `background 700ms ease-in-out` transition. Each pairs a different CgUiDrawable
         // combination on either side of the fade:
@@ -253,6 +269,10 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
         UIElement fadeSdfTexture = new UIElement().layout(l -> l.width(48).height(48)); // SDF rounded rect, color fill -> texture fill
         fadeSdfTexture.addClass("fade-sdf-texture");
         root.addChild(fadeSdfTexture);
+
+        UIElement roundedCorners = new UIElement().layout(l -> l.width(48).height(48)); // per-corner radii: top rounded, bottom square
+        roundedCorners.addClass("rounded-corners-swatch");
+        root.addChild(roundedCorners);
 
         return root;
     }
