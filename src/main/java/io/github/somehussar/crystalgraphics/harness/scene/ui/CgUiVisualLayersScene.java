@@ -59,6 +59,9 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
                 margin-left: -14;
                 margin-top: -14;
             }
+            .mask-child:hover {
+                background: #FF444488
+            }
 
             .opacity-box {
                 width: 60;
@@ -89,8 +92,8 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
 
         // TEMP diagnostic — remove after investigation. Captures a screenshot then exits so it
         // can be inspected directly instead of relying on a human to relay one back.
-        ctx.getTaskScheduler().schedule(0.5, "capture", () -> ctx.getArtifactService().requestCapture("snapshot"));
-        ctx.getTaskScheduler().schedule(1.0, "shutdown", () -> shutdownRequested = true);
+//        ctx.getTaskScheduler().schedule(0.5, "capture", () -> ctx.getArtifactService().requestCapture("snapshot"));
+//        ctx.getTaskScheduler().schedule(1.0, "shutdown", () -> shutdownRequested = true);
     }
 
     private volatile boolean shutdownRequested = false;
@@ -104,18 +107,6 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
                         .flexDirection(FlexDirection.COLUMN)
                         .alignItems(AlignItems.CENTER)
                 );
-
-        // TEMP diagnostic — isolate to just one mask box.
-        if (true) {
-            UIElement maskOn = new UIElement().layout(l -> l.width(48).height(48));
-            maskOn.addClass("mask-box");
-            maskOn.addClass("mask-on");
-            UIElement maskOnChild = new UIElement();
-            maskOnChild.addClass("mask-child");
-            maskOn.addChild(maskOnChild);
-            root.addChild(maskOn);
-            return root;
-        }
 
         UIElement maskRow = new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER));
         maskRow.addClass("row");
@@ -177,7 +168,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
 
     @Override
     public boolean isRunning() {
-        return !shutdownRequested; // TEMP diagnostic — remove after investigation
+        return true;
     }
 
     @Override
@@ -187,7 +178,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
 
     @Override
     public boolean shouldShutdownOnComplete() {
-        return true; // TEMP diagnostic — remove after investigation
+        return false;
     }
 
     @Override
