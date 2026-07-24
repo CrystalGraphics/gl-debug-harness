@@ -60,7 +60,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
                 margin-top: -14;
             }
             .mask-child:hover {
-                background: #FF444488
+                background: #FF444488;
             }
 
             .opacity-box {
@@ -107,6 +107,18 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
                         .flexDirection(FlexDirection.COLUMN)
                         .alignItems(AlignItems.CENTER)
                 );
+
+        // TEMP diagnostic — isolate to just one mask box.
+//        if (true) {
+//            UIElement maskOn = new UIElement().layout(l -> l.width(48).height(48));
+//            maskOn.addClass("mask-box");
+//            maskOn.addClass("mask-on");
+//            UIElement maskOnChild = new UIElement();
+//            maskOnChild.addClass("mask-child");
+//            maskOn.addChild(maskOnChild);
+//            root.addChild(maskOn);
+//            return root;
+//        }
 
         UIElement maskRow = new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER));
         maskRow.addClass("row");
