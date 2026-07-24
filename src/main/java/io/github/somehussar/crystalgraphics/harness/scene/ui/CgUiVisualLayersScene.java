@@ -27,6 +27,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  *       parent (left) vs. a full-opacity parent (right). Left should show no seam at the overlap (the pair
  *       blends as one unit before fading); right should show a visible double-blend seam where they cross,
  *       since each child fades against the other independently.</li>
+ *   <li><b>Row 3 — scissor</b>: same overflowing-red-child setup as row 1, but using {@code clip: scissor}
+ *       instead of {@code clip: mask}. Left box clips the red overflow to a hard axis-aligned rectangle
+ *       (no rounding, unlike mask); right box doesn't clip at all. Exercises {@code UIElement#paintChildren}'s
+ *       scissor path directly (not the mask/opacity FBO path row 1/2 exercise).</li>
  * </ul>
  *
  * <p>Register in {@link io.github.somehussar.crystalgraphics.harness.SceneRegistry}
@@ -82,6 +86,22 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
                 margin-left: -18;
                 margin-top: 18;
             }
+
+            .scissor-box {
+                background: #33AA66;
+                width: 48;
+                height: 48;
+            }
+            .scissor-on {
+                clip: scissor;
+            }
+            .scissor-child {
+                background: #FF4444;
+                width: 40;
+                height: 40;
+                margin-left: -14;
+                margin-top: -14;
+            }
             """;
 
     @Override
@@ -90,9 +110,9 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
         this.uiWindow = new UIWindow(Ui.of(root));
         this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLE_SHEET));
 
-        // TEMP diagnostic — remove after investigation. Captures a screenshot then exits so it
-        // can be inspected directly instead of relying on a human to relay one back.
-//        ctx.getTaskScheduler().schedule(0.5, "capture", () -> ctx.getArtifactService().requestCapture("snapshot"));
+        // Captures a screenshot then exits so it can be inspected directly instead of relying
+        // on a human to relay one back.
+        ctx.getTaskScheduler().schedule(0.5, "capture", () -> ctx.getArtifactService().requestCapture("snapshot"));
 //        ctx.getTaskScheduler().schedule(1.0, "shutdown", () -> shutdownRequested = true);
     }
 
@@ -102,7 +122,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
         UIElement root = new UIElement()
                 .layout(l -> l
                         .width(300)
-                        .height(220)
+                        .height(300)
                         .paddingAll(20)
                         .flexDirection(FlexDirection.COLUMN)
                         .alignItems(AlignItems.CENTER)
@@ -164,6 +184,25 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
         opacityOff.addChild(opacityOffB);
         opacityRow.addChild(opacityOff);
 
+        UIElement scissorRow = new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER));
+        scissorRow.addClass("row");
+        root.addChild(scissorRow);
+
+        UIElement scissorOn = new UIElement().layout(l -> l.width(48).height(48));
+        scissorOn.addClass("scissor-box");
+        scissorOn.addClass("scissor-on");
+        UIElement scissorOnChild = new UIElement();
+        scissorOnChild.addClass("scissor-child");
+        scissorOn.addChild(scissorOnChild);
+        scissorRow.addChild(scissorOn);
+
+        UIElement scissorOff = new UIElement().layout(l -> l.width(48).height(48));
+        scissorOff.addClass("scissor-box");
+        UIElement scissorOffChild = new UIElement();
+        scissorOffChild.addClass("scissor-child");
+        scissorOff.addChild(scissorOffChild);
+        scissorRow.addChild(scissorOff);
+
         return root;
     }
 
@@ -171,6 +210,10 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
     public void render(HarnessContext ctx, FrameInfo frame) {
         uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         uiWindow.paintFrame();
+        // TEMP diagnostic — capture the first several frames individually to inspect startup pop-in.
+//        if (frame.getFrameNumber() <= 10) {
+//            ctx.getArtifactService().requestCapture("startupframe" + frame.getFrameNumber());
+//        }
     }
 
     @Override
@@ -180,7 +223,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
 
     @Override
     public boolean isRunning() {
-        return true;
+        return !shutdownRequested;
     }
 
     @Override
