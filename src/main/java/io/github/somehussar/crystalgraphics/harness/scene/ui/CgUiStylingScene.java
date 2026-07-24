@@ -59,7 +59,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
             .button {
                 width: 32;
                 height: 32;
-                transition: background-color 2000ms ease-in-out, width 200ms ease-out, height 200ms ease-out;
+                transition: background-color 250ms ease-in-out, width 200ms ease-out, height 200ms ease-out;
             }
             
             .button:hover {
@@ -108,7 +108,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
              * types on either side of the transition. */
             .fade-color-color {
                 background: #3355AA;
-                transition: background 2000ms ease-in-out;
+                transition: background 250ms ease-in-out;
             }
             .fade-color-color:hover {
                 background: #E8B23DCC;
@@ -116,7 +116,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
 
             .fade-color-texture {
                 background: #33AA66;
-                transition: background 2000ms ease-in-out;
+                transition: background 250ms ease-in-out;
             }
             .fade-color-texture:hover {
                 background: image("crystalgui:textures/gui/gdp_styles.png");
@@ -130,7 +130,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
              * not built here. Kept as a visible reference case, not polished. */
             .fade-texture-texture {
                 background: sprite("crystalgui:textures/gui/gdp_styles.png", 29 1 13 13, 1 1 11 11);
-                transition: background 2000ms ease-in-out;
+                transition: background 250ms ease-in-out;
             }
             .fade-texture-texture:hover {
                 background: sprite("crystalgui:textures/gui/gdp_styles.png", 154 165 16 16, 5 6 9 10);
@@ -145,8 +145,8 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
                 border-radius: 24px;
                 border-width: 2px;
                 border-color: #000000;
-                transition: background 2000ms ease-in-out, border-radius 2000ms ease-in-out,
-                            border-width 2000ms ease-in-out, border-color 2000ms ease-in-out;
+                transition: background 250ms ease-in-out, border-radius 250ms ease-in-out,
+                            border-width 250ms ease-in-out, border-color 250ms ease-in-out;
             }
             .fade-sdf-color:hover {
                 background: #E8B23D;
@@ -160,7 +160,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
                 border-radius: 40px;
                 border-width: 3px;
                 border-color: #224488;
-                transition: background 2000ms ease-in-out;
+                transition: background 250ms ease-in-out;
             }
             .fade-sdf-texture:hover {
                 background: image("crystalgui:textures/gui/gdp_styles.png");
@@ -175,51 +175,6 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
                 border-radius: 14px 14px 0px 0px;
                 border-width: 2px;
                 border-color: #224488;
-            }
-
-            /* Visual Layers: clip: mask (the "overflow" style enum's CSS property is named "clip",
-             * not "overflow"). The child is deliberately bigger than the parent
-             * (negative margin pokes it toward the top-left corner) so it visibly overflows the
-             * rounded shape — with the mask active, that overflow should be clipped to the inner
-             * rounded region; without it (compare .mask-off-swatch), it spills past the corner. */
-            .mask-swatch, .mask-off-swatch {
-                background: #33AA66;
-                border-radius: 16px;
-                border-width: 3px;
-                border-color: #224488;
-            }
-            .mask-swatch {
-                clip: mask;
-            }
-            .mask-child {
-                background: #FF4444;
-                width: 40;
-                height: 40;
-                margin-left: -12;
-                margin-top: -12;
-            }
-
-            /* Visual Layers: fractional opacity isolation. Two overlapping translucent children —
-             * with isolation, they blend against each other first, then the whole group fades as
-             * one unit (no seam at the overlap); without it (.opacity-off-swatch's children, which
-             * paint directly against the parent's own already-opaque backdrop with no group
-             * isolation), the overlap region visibly double-blends. */
-            .opacity-swatch {
-                opacity: 0.5;
-            }
-            .opacity-off-swatch {
-            }
-            .opacity-child-a {
-                background: rgba(255, 0, 0, 0.5);
-                width: 30;
-                height: 30;
-            }
-            .opacity-child-b {
-                background: rgba(0, 128, 255, 0.6);
-                width: 30;
-                height: 30;
-                margin-left: -15;
-                margin-top: 15;
             }
             """;
 
@@ -266,116 +221,74 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
         // selector specificity (same as a real `style=""` attribute beating any non-!important CSS
         // rule) — so a ".button:hover { width: ... }" rule could never win against an inline base
         // width, and the property would never appear to update or transition at all.
-//        for (int i = 0; i < 3; i++) {
-//            UIElement button = new UIElement()
-//                    .generalStyle(s -> s.background(buttonSprite));
-//            button.addClass("button");
-//
-//            if (i == 0) {
-//                button.setId("submit");
-////                button.setEnabled(false);
-//            } else if (i == 1) {
-//                button.addClass("primary");
-//            }
-//
-//            root.addChild(button);
-//        }
-//
-//        // SDF rounded-rect smoke-test: border-radius/border-width/border-color as a universal
-//        // wrapping layer over a flat-color background, exercised at runtime so
-//        // gui_rounded_rect.shader actually compiles under real GL, not just javac. border-width
-//        // (set via .borderAll below) now grows the layout box for real — it's the same
-//        // border-width-* longhand Taffy resolves, not a bespoke SDF-only number.
-//        UIElement roundedButton = new UIElement()
-//                .generalStyle(s -> s.background(new com.crystalgui.render.texture.CgUiQuad(0xFFEE8822))
-//                        .borderRadius(10f)
-//                        .borderColor(0xFF224488))
-//                .layout(l -> l.width(48).height(48).borderAll(3));
-//        root.addChild(roundedButton);
-//
-//        // Phase 7 smoke-test: background/background-color parsers exercised through the real
-//        // stylesheet pipeline (not constructed directly in Java), plus the new sprite(...) CSS
-//        // function for 9-slice-from-CSS.
-//        UIElement colorSwatch = new UIElement().layout(l -> l.width(24).height(48));
-//        colorSwatch.addClass("color-swatch");
-//        root.addChild(colorSwatch);
-//
-//        UIElement slicedSwatch = new UIElement().layout(l -> l.width(32).height(32));
-//        slicedSwatch.addClass("sliced-swatch");
-//        root.addChild(slicedSwatch);
-//
-//        UIElement croppedSwatch = new UIElement().layout(l -> l.width(32).height(32));
-//        croppedSwatch.addClass("cropped-swatch");
-//        root.addChild(croppedSwatch);
-//
-//        // Background cross-fade demo — move the mouse over each swatch to trigger the
-//        // `background 700ms ease-in-out` transition. Each pairs a different CgUiDrawable
-//        // combination on either side of the fade:
-//        UIElement fadeColorColor = new UIElement().layout(l -> l.width(48).height(48)); // flat color -> flat color
-//        fadeColorColor.addClass("fade-color-color");
-//        root.addChild(fadeColorColor);
-//
-//        UIElement fadeColorTexture = new UIElement().layout(l -> l.width(48).height(48)); // flat color -> full texture
-//        fadeColorTexture.addClass("fade-color-texture");
-//        root.addChild(fadeColorTexture);
-//
-//        UIElement fadeTextureTexture = new UIElement().layout(l -> l.width(48).height(48)); // 9-slice -> 9-slice
-//        fadeTextureTexture.addClass("fade-texture-texture");
-//        root.addChild(fadeTextureTexture);
-//
-//        UIElement fadeSdfColor = new UIElement().layout(l -> l.width(48).height(48)); // SDF rounded rect -> SDF rounded rect (color fill)
-//        fadeSdfColor.addClass("fade-sdf-color");
-//        root.addChild(fadeSdfColor);
-//
-//        UIElement fadeSdfTexture = new UIElement().layout(l -> l.width(48).height(48)); // SDF rounded rect, color fill -> texture fill
-//        fadeSdfTexture.addClass("fade-sdf-texture");
-//        root.addChild(fadeSdfTexture);
-//
-//        UIElement roundedCorners = new UIElement().layout(l -> l.width(48).height(48)); // per-corner radii: top rounded, bottom square
-//        roundedCorners.addClass("rounded-corners-swatch");
-//        root.addChild(roundedCorners);
-//
-//        // Visual Layers smoke-test: clip: mask, compare against an identical but unmasked
-//        // sibling to see the difference the mask makes to the overflowing child.
-//        UIElement maskOn = new UIElement().layout(l -> l.width(48).height(48).paddingAll(4));
-//        maskOn.addClass("mask-swatch");
-//        UIElement maskOnChild = new UIElement();
-//        maskOnChild.addClass("mask-child");
-//        maskOn.addChild(maskOnChild);
-//        root.addChild(maskOn);
-//
-//        UIElement maskOff = new UIElement().layout(l -> l.width(48).height(48).paddingAll(4));
-//        maskOff.addClass("mask-off-swatch");
-//        UIElement maskOffChild = new UIElement();
-//        maskOffChild.addClass("mask-child");
-//        maskOff.addChild(maskOffChild);
-//        root.addChild(maskOff);
-//
-//        // Visual Layers smoke-test: fractional opacity isolation, compare against an unisolated
-//        // sibling with the same overlapping translucent children — the overlap region should look
-//        // different (no double-blend seam with isolation, a visible seam without it).
-//        UIElement opacityOn = new UIElement().layout(l -> l.width(48).height(48));
-//        opacityOn.addClass("opacity-swatch");
-//        UIElement opacityOnA = new UIElement();
-//        opacityOnA.addClass("opacity-child-a");
-//        UIElement opacityOnB = new UIElement();
-//        opacityOnB.addClass("opacity-child-b");
-//        opacityOn.addChild(opacityOnA);
-//        opacityOn.addChild(opacityOnB);
-//        root.addChild(opacityOn);
+        for (int i = 0; i < 3; i++) {
+            UIElement button = new UIElement()
+                    .generalStyle(s -> s.background(buttonSprite));
+            button.addClass("button");
 
-        UIElement opacityOff = new UIElement().layout(l -> l.width(48).height(48));
-        opacityOff.addClass("opacity-off-swatch");
-        UIElement opacityOffA = new UIElement();
-        opacityOffA.addClass("opacity-child-a");
-        UIElement opacityOffB = new UIElement();
-        opacityOffB.addClass("opacity-child-b");
-        opacityOff.addChild(opacityOffA);
-        opacityOff.addChild(opacityOffB);
-        UIElement noParentB = new UIElement();
-        noParentB.addClass("opacity-child-a");
-        root.addChild(noParentB);
-//        root.addChild(opacityOff);
+            if (i == 0) {
+                button.setId("submit");
+//                button.setEnabled(false);
+            } else if (i == 1) {
+                button.addClass("primary");
+            }
+
+            root.addChild(button);
+        }
+
+        // SDF rounded-rect smoke-test: border-radius/border-width/border-color as a universal
+        // wrapping layer over a flat-color background, exercised at runtime so
+        // gui_rounded_rect.shader actually compiles under real GL, not just javac. border-width
+        // (set via .borderAll below) now grows the layout box for real — it's the same
+        // border-width-* longhand Taffy resolves, not a bespoke SDF-only number.
+        UIElement roundedButton = new UIElement()
+                .generalStyle(s -> s.background(new com.crystalgui.render.texture.CgUiQuad(0xFFEE8822))
+                        .borderRadius(10f)
+                        .borderColor(0xFF224488))
+                .layout(l -> l.width(48).height(48).borderAll(3));
+        root.addChild(roundedButton);
+
+        // Phase 7 smoke-test: background/background-color parsers exercised through the real
+        // stylesheet pipeline (not constructed directly in Java), plus the new sprite(...) CSS
+        // function for 9-slice-from-CSS.
+        UIElement colorSwatch = new UIElement().layout(l -> l.width(24).height(48));
+        colorSwatch.addClass("color-swatch");
+        root.addChild(colorSwatch);
+
+        UIElement slicedSwatch = new UIElement().layout(l -> l.width(32).height(32));
+        slicedSwatch.addClass("sliced-swatch");
+        root.addChild(slicedSwatch);
+
+        UIElement croppedSwatch = new UIElement().layout(l -> l.width(32).height(32));
+        croppedSwatch.addClass("cropped-swatch");
+        root.addChild(croppedSwatch);
+
+        // Background cross-fade demo — move the mouse over each swatch to trigger the
+        // `background 700ms ease-in-out` transition. Each pairs a different CgUiDrawable
+        // combination on either side of the fade:
+        UIElement fadeColorColor = new UIElement().layout(l -> l.width(48).height(48)); // flat color -> flat color
+        fadeColorColor.addClass("fade-color-color");
+        root.addChild(fadeColorColor);
+
+        UIElement fadeColorTexture = new UIElement().layout(l -> l.width(48).height(48)); // flat color -> full texture
+        fadeColorTexture.addClass("fade-color-texture");
+        root.addChild(fadeColorTexture);
+
+        UIElement fadeTextureTexture = new UIElement().layout(l -> l.width(48).height(48)); // 9-slice -> 9-slice
+        fadeTextureTexture.addClass("fade-texture-texture");
+        root.addChild(fadeTextureTexture);
+
+        UIElement fadeSdfColor = new UIElement().layout(l -> l.width(48).height(48)); // SDF rounded rect -> SDF rounded rect (color fill)
+        fadeSdfColor.addClass("fade-sdf-color");
+        root.addChild(fadeSdfColor);
+
+        UIElement fadeSdfTexture = new UIElement().layout(l -> l.width(48).height(48)); // SDF rounded rect, color fill -> texture fill
+        fadeSdfTexture.addClass("fade-sdf-texture");
+        root.addChild(fadeSdfTexture);
+
+        UIElement roundedCorners = new UIElement().layout(l -> l.width(48).height(48)); // per-corner radii: top rounded, bottom square
+        roundedCorners.addClass("rounded-corners-swatch");
+        root.addChild(roundedCorners);
 
         return root;
     }
