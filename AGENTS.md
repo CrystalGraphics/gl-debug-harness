@@ -312,7 +312,7 @@ Rot: yaw=Y pitch=P
 4. **GlStateDumper** — Structured GL state report to file
 5. **CapabilityReport** — CgCapabilities + harness environment report
 6. **GlErrorChecker** — Drain and name all pending GL errors
-7. **AtlasDumper** — Dump CgGlyphAtlas texture + manifest file
+7. **AtlasDumper** — Dump CgGlyphAtlasPage texture(s) + manifest file
 
 ### Usage from Scene Code
 
@@ -336,9 +336,9 @@ FboInspector.dumpColorAttachment(fboId, 800, 600, outputDir, "fbo-color.png");
 boolean hadErrors = GlErrorChecker.checkAndLog("after render pass");
 List<String> errors = GlErrorChecker.drainErrors();
 
-// Atlas dumper
-AtlasDumper.dump(atlas, 1024, 0x8229, outputDir, "my-atlas");
-// Produces: my-atlas.png + my-atlas-manifest.txt
+// Atlas dumper (paged atlas pages — the only atlas storage model now)
+AtlasDumper.dumpAllPagedPages(pages, "bitmap-atlas-dump", "128px", 0x8229, outputDir);
+// Produces: bitmap-atlas-dump-128px-page-N.png + bitmap-atlas-dump-128px-manifest.txt
 ```
 
 ---
@@ -624,7 +624,7 @@ Use `--output-name=PREFIX` to customize output filenames:
 
 ## Build Configuration
 
-The harness is a standalone Gradle subproject (`gl-debug-harness/build.gradle.kts`) that depends on the root project for CgCapabilities, CgGlyphAtlas, and font APIs. It bundles LWJGL 2 natives and JNI bindings for freetype-harfbuzz and msdfgen.
+The harness is a standalone Gradle subproject (`gl-debug-harness/build.gradle.kts`) that depends on the root project for CgCapabilities, CgGlyphAtlasPage, and font APIs. It bundles LWJGL 2 natives and JNI bindings for freetype-harfbuzz and msdfgen.
 
 Key tasks:
 - `compileJava` — Compile all harness code
