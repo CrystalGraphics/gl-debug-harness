@@ -11,6 +11,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.CgAttachedBufferS
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTestScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiVisualLayersScene;
 import io.github.somehussar.crystalgraphics.harness.tool.CapabilityReport;
 import io.github.somehussar.crystalgraphics.harness.tool.GlStateDumper;
 
@@ -216,6 +217,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiStylingScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-visual-layers")
+                .description("CrystalGUI Visual Layers: opacity isolation + clip:mask, minimal side-by-side on/off comparisons")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiVisualLayersScene()
         );
 
         // ── Diagnostic modes ──
