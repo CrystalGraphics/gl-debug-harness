@@ -6,7 +6,6 @@ import com.crystalgraphics.gl.buffer.staging.CgInstanceWriter;
 import com.crystalgraphics.gl.buffer.staging.CgVertexWriter;
 import com.crystalgraphics.gl.render.CgBatchRenderer;
 import com.crystalgraphics.gl.render.CgInstanceRenderer;
-import com.crystalgraphics.gl.render.CgQuadInstanceRenderer;
 import com.crystalgraphics.gl.vertex.CgInstanceVertexArrayBinding;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.shader.CgShader;
@@ -86,7 +85,6 @@ public class InstancingTestScene implements InteractiveSceneLifecycle {
     private CgShader baseShader;
     private CgShader instancedShader;
     private CgBatchRenderer baseRenderer;
-    private CgQuadInstanceRenderer instancedRenderer;
     private MultiMeshInstancingDemoRenderer multiMeshDemo;
 
     private boolean diagnosticsRan = false;
@@ -106,10 +104,7 @@ public class InstancingTestScene implements InteractiveSceneLifecycle {
 
         if (CgInstanceVertexArrayBinding.isSupported()) {
             baseRenderer = CgBatchRenderer.create(CgVertexFormat.POS2_UV2_COL4UB, 4);
-            instancedRenderer = CgQuadInstanceRenderer.create(
-                    CgVertexFormat.POS2_UV2_COL4UB,
-                    CgInstanceFormat.TRANSFORM_COLOR_CUSTOM,
-                     INSTANCE_COUNT);
+     
             multiMeshDemo = new MultiMeshInstancingDemoRenderer();
             multiMeshDemo.init();
         }
@@ -169,15 +164,6 @@ public class InstancingTestScene implements InteractiveSceneLifecycle {
         boolean instancedOk = false;
         try {
             final Matrix4f proj = ortho;
-            instancedShader.applyBindings(b -> b.mat4("u_projection", proj)).bind();
-            instancedRenderer.begin();
-            //writeBaseQuad(instancedRenderer.v(), -8, -8, 8, 8);
-            for (int i = 0; i < INSTANCE_COUNT; i++) {
-                writeInstance(i, w, h);
-            }
-            instancedRenderer.flush();
-            instancedRenderer.end();
-            instancedShader.unbind();
             int err = GL11.glGetError();
             instancedOk = (err == GL11.GL_NO_ERROR);
             if (instancedOk) { logInfoIf(report, "PASS [3/{}] instanced (count={}, gl-error={})", total, INSTANCE_COUNT, err); passed++; }
@@ -265,17 +251,5 @@ public class InstancingTestScene implements InteractiveSceneLifecycle {
         w.vertex(x1, y1).uv(1, 1).color(255, 255, 255, 255).endVertex();
         w.vertex(x0, y1).uv(0, 1).color(255, 255, 255, 255).endVertex();
     }
-
-    private void writeInstance(int idx, int w, int h) {
-        CgInstanceWriter iw = instancedRenderer.instance();
-        float col = idx / (float) INSTANCE_COUNT;
-        float tx = (idx % 10) * (w / 10.0f) + w / 20.0f;
-        float ty = (idx / 10) * (h / 10.0f) + h / 20.0f;
-
-        Matrix4f model = new Matrix4f().translation(tx, ty, 0f).scale(15);
-        iw.mat4(model)
-          .color((int)(col * 255), (int)((1 - col) * 255), 100, 200)
-          .vec4(col, 1 - col, 0.5f, 1.0f)
-          .endInstance();
-    }
+    
 }

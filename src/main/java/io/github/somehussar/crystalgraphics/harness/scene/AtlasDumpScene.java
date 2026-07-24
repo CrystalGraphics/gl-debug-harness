@@ -365,7 +365,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
             }
             GlyphPrewarmEntry entry = glyphs.get(i);
             CgGlyphKey glyphKey = new CgGlyphKey(font.getKey(), entry.glyphId, true, 0);
-            registry.queueGlyphPagedPublic(font, glyphKey, font.getKey().getTargetPx(), 0, frame);
+            registry.queueGlyphPaged(font, glyphKey, font.getKey().getTargetPx(), 0, frame);
             queued++;
         }
         registry.awaitAsyncGlyphs(5000L);
