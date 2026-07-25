@@ -82,7 +82,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private static final Logger LOGGER = Logger.getLogger(InteractiveSceneRunner.class.getName());
 
-    private static final int TARGET_FPS = 60;
+    private static final int TARGET_FPS = 120;
     /**
      * How many nanoseconds are represented by a millisecond.
      */
