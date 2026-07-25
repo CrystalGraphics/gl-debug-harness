@@ -100,53 +100,57 @@ public final class MsdfVerificationTool {
         }
 
         MSDFShape shape = glyphData.getShape();
-        shape.normalize();
-        CgMsdfGenerator.applyEdgeColoring(shape, atlasConfig);
-        if (!shape.validate()) {
-            LOGGER.warning("[MsdfVerify] Shape validation failed for glyph " + glyphId);
-        }
-
-        double[] bounds = shape.getBounds();
-        CgMsdfGlyphLayout layout = CgMsdfGlyphLayout.compute(
-                bounds[0], bounds[1], bounds[2], bounds[3],
-                atlasConfig.getAtlasScalePx(), atlasConfig.getPxRange(),
-                atlasConfig.getMiterLimit(), atlasConfig.isAlignOriginX(), atlasConfig.isAlignOriginY());
-        if (layout.isEmpty()) {
-            return null;
-        }
-
-        MSDFTransform transform = new MSDFTransform()
-                .scale(layout.getScale())
-                .translate(layout.getTranslateX(), layout.getTranslateY())
-                .range(-layout.getRangeInShapeUnits(), layout.getRangeInShapeUnits());
-
-        MSDFBitmap msdfBitmap = MSDFBitmap.allocMsdf(layout.getBoxWidth(), layout.getBoxHeight());
-        MSDFBitmap reconstructedBitmap = MSDFBitmap.allocSdf(layout.getBoxWidth(), layout.getBoxHeight());
         try {
-            MSDFGenerator.generateMsdf(msdfBitmap, shape, transform,
-                    atlasConfig.isOverlapSupport(),
-                    atlasConfig.getErrorCorrectionMode(),
-                    atlasConfig.getDistanceCheckMode(),
-                    atlasConfig.getMinDeviationRatio(),
-                    atlasConfig.getMinImproveRatio());
-            MSDFGenerator.renderSdf(reconstructedBitmap, msdfBitmap, transform,
-                    verificationConfig.getReconstructionThreshold());
-
-            float[] reconstructed = reconstructedBitmap.getPixelData();
-            ReferenceGlyph referenceGlyph = renderReferenceGlyph(font, face, glyphId, verificationConfig.getReferenceRenderPx());
-            ComparisonMetrics metrics = compare(referenceGlyph, reconstructed,
-                    layout, verificationConfig);
-
-            boolean shouldDump = !metrics.isPassing() || verificationConfig.isDumpPassingGlyphs();
-            if (shouldDump) {
-                dumpArtifacts(referenceGlyph, reconstructed, metrics, glyphId, codePoint,
-                        outputDir, outputPrefix);
+            shape.normalize();
+            CgMsdfGenerator.applyEdgeColoring(shape, atlasConfig);
+            if (!shape.validate()) {
+                LOGGER.warning("[MsdfVerify] Shape validation failed for glyph " + glyphId);
             }
 
-            return new GlyphVerificationResult(glyphId, codePoint, metrics.getMismatchRatio(), metrics.isPassing());
+            double[] bounds = shape.getBounds();
+            CgMsdfGlyphLayout layout = CgMsdfGlyphLayout.compute(
+                    bounds[0], bounds[1], bounds[2], bounds[3],
+                    atlasConfig.atlasScalePx(), atlasConfig.pxRange(),
+                    atlasConfig.miterLimit(), atlasConfig.alignOriginX(), atlasConfig.alignOriginY());
+            if (layout.isEmpty()) {
+                return null;
+            }
+
+            MSDFTransform transform = new MSDFTransform()
+                    .scale(layout.getScale())
+                    .translate(layout.getTranslateX(), layout.getTranslateY())
+                    .range(-layout.getRangeInShapeUnits(), layout.getRangeInShapeUnits());
+
+            MSDFBitmap msdfBitmap = MSDFBitmap.allocMsdf(layout.getBoxWidth(), layout.getBoxHeight());
+            MSDFBitmap reconstructedBitmap = MSDFBitmap.allocSdf(layout.getBoxWidth(), layout.getBoxHeight());
+            try {
+                MSDFGenerator.generateMsdf(msdfBitmap, shape, transform,
+                        atlasConfig.overlapSupport(),
+                        atlasConfig.errorCorrectionMode(),
+                        atlasConfig.distanceCheckMode(),
+                        atlasConfig.minDeviationRatio(),
+                        atlasConfig.minImproveRatio());
+                MSDFGenerator.renderSdf(reconstructedBitmap, msdfBitmap, transform,
+                        verificationConfig.reconstructionThreshold());
+
+                float[] reconstructed = reconstructedBitmap.getPixelData();
+                ReferenceGlyph referenceGlyph = renderReferenceGlyph(font, face, glyphId, verificationConfig.referenceRenderPx());
+                ComparisonMetrics metrics = compare(referenceGlyph, reconstructed,
+                        layout, verificationConfig);
+
+                boolean shouldDump = !metrics.isPassing() || verificationConfig.dumpPassingGlyphs();
+                if (shouldDump) {
+                    dumpArtifacts(referenceGlyph, reconstructed, metrics, glyphId, codePoint,
+                            outputDir, outputPrefix);
+                }
+
+                return new GlyphVerificationResult(glyphId, codePoint, metrics.getMismatchRatio(), metrics.isPassing());
+            } finally {
+                reconstructedBitmap.free();
+                msdfBitmap.free();
+            }
         } finally {
-            reconstructedBitmap.free();
-            msdfBitmap.free();
+            shape.free();
         }
     }
 
@@ -193,8 +197,8 @@ public final class MsdfVerificationTool {
             for (int x = 0; x < width; x++) {
                 float reconstructedAlpha = reconstructed[y * width + x];
                 float referenceAlpha = sampleReference(referenceGlyph, layout, x, y, width, height);
-                boolean reconstructedInside = reconstructedAlpha >= verificationConfig.getReconstructionThreshold();
-                boolean referenceInside = referenceAlpha >= verificationConfig.getReferenceThreshold();
+                boolean reconstructedInside = reconstructedAlpha >= verificationConfig.reconstructionThreshold();
+                boolean referenceInside = referenceAlpha >= verificationConfig.referenceThreshold();
                 if (reconstructedInside != referenceInside) {
                     mismatches++;
                     diff.setRGB(x, y, 0xFFFF0000);
@@ -205,7 +209,7 @@ public final class MsdfVerificationTool {
             }
         }
         float mismatchRatio = total > 0 ? (float) mismatches / (float) total : 0.0f;
-        return new ComparisonMetrics(diff, mismatchRatio, mismatchRatio <= verificationConfig.getMaxMismatchRatio());
+        return new ComparisonMetrics(diff, mismatchRatio, mismatchRatio <= verificationConfig.maxMismatchRatio());
     }
 
     private static float sampleReference(ReferenceGlyph referenceGlyph,
@@ -279,10 +283,10 @@ public final class MsdfVerificationTool {
                 writer.println("Failing glyphs: " + failing);
                 writer.println("Worst mismatch ratio: " + worstMismatch);
                 writer.println("Atlas config: " + atlasConfig);
-                writer.println("Verification config: refPx=" + verificationConfig.getReferenceRenderPx()
-                        + ", reconstructionThreshold=" + verificationConfig.getReconstructionThreshold()
-                        + ", referenceThreshold=" + verificationConfig.getReferenceThreshold()
-                        + ", maxMismatchRatio=" + verificationConfig.getMaxMismatchRatio());
+                writer.println("Verification config: refPx=" + verificationConfig.referenceRenderPx()
+                        + ", reconstructionThreshold=" + verificationConfig.reconstructionThreshold()
+                        + ", referenceThreshold=" + verificationConfig.referenceThreshold()
+                        + ", maxMismatchRatio=" + verificationConfig.maxMismatchRatio());
                 writer.println();
                 for (GlyphVerificationResult result : results) {
                     writer.println(String.format(Locale.ROOT,

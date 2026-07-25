@@ -396,11 +396,11 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
             double[] bounds = shape.getBounds();
             CgMsdfGlyphLayout layout = CgMsdfGlyphLayout.compute(
                     bounds[0], bounds[1], bounds[2], bounds[3],
-                    config.getAtlasScalePx(),
-                    config.getPxRange(),
-                    config.getMiterLimit(),
-                    config.isAlignOriginX(),
-                    config.isAlignOriginY());
+                    config.atlasScalePx(),
+                    config.pxRange(),
+                    config.miterLimit(),
+                    config.alignOriginX(),
+                    config.alignOriginY());
             if (layout.isEmpty()) {
                 return null;
             }

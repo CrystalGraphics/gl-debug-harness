@@ -36,7 +36,7 @@ public final class MsdfAtlasSizeEstimator {
 
         Set<Integer> glyphIds = collectGlyphIds(msdfFont, text);
         if (glyphIds.isEmpty()) {
-            return config.getPageSize();
+            return config.pageSize();
         }
 
         int totalArea = 0;
@@ -51,7 +51,7 @@ public final class MsdfAtlasSizeEstimator {
         }
 
         if (layouts.isEmpty()) {
-            return config.getPageSize();
+            return config.pageSize();
         }
 
         Collections.sort(layouts, (a, b) -> {
@@ -79,7 +79,7 @@ public final class MsdfAtlasSizeEstimator {
         candidate = roundUpToMultiple(candidate, 4);
 
         while (candidate <= 4096) {
-            if (fits(candidate, layouts, config.getSpacingPx())) {
+            if (fits(candidate, layouts, config.spacingPx())) {
                 return candidate;
             }
             candidate += 4;
@@ -128,11 +128,11 @@ public final class MsdfAtlasSizeEstimator {
             double[] bounds = shape.getBounds();
             return CgMsdfGlyphLayout.compute(
                     bounds[0], bounds[1], bounds[2], bounds[3],
-                    config.getAtlasScalePx(),
-                    config.getPxRange(),
-                    config.getMiterLimit(),
-                    config.isAlignOriginX(),
-                    config.isAlignOriginY());
+                    config.atlasScalePx(),
+                    config.pxRange(),
+                    config.miterLimit(),
+                    config.alignOriginX(),
+                    config.alignOriginY());
         } catch (MSDFException e) {
             LOGGER.log(Level.FINE, "Failed to estimate glyph layout for glyph " + glyphId, e);
             return null;
