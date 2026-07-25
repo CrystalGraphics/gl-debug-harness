@@ -1,0 +1,7 @@
+{
+  "texture": "harness:textures/9slice_frame.png",
+  "textureSize": [24, 24],
+  "elements": {
+    "ring": { "sprite": [0, 0, 24, 24], "border": [4, 4, 4, 4] }
+  }
+}

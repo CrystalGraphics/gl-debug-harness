@@ -236,7 +236,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("cgui-visual-layers")
-                .description("CrystalGUI Visual Layers: opacity isolation + clip:mask, minimal side-by-side on/off comparisons")
+                .description("CrystalGUI Visual Layers: opacity isolation + overflow:hidden mask/scissor, minimal side-by-side on/off comparisons")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
