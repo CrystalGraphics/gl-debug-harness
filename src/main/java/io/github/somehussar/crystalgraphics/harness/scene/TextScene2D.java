@@ -6,7 +6,7 @@ import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.font.CgTextLayoutBuilder;
 import com.crystalgraphics.text.cache.CgFontRegistry;
-import com.crystalgraphics.text.atlas.CgGlyphAtlas;
+import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
 import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
@@ -211,7 +211,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
             String atlasDir = outputDir + File.separator + "atlas";
             HarnessOutputDir.ensureExists(atlasDir);
             String filename = "atlas-dump-" + fontSizePx + "px.png";
-            CgGlyphAtlas bitmapAtlas = registry.findPopulatedBitmapAtlas(font.getKey());
+            CgGlyphAtlasPage bitmapAtlas = registry.findPopulatedPagedBitmapPage(font.getKey());
             if (bitmapAtlas != null) {
                 LOGGER.info("[Harness] Bitmap atlas captured: texture=" + bitmapAtlas.getTextureId()
                         + ", size=" + bitmapAtlas.getPageWidth() + "x" + bitmapAtlas.getPageHeight());
