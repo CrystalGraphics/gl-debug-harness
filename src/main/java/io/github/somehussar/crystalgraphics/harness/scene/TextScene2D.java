@@ -95,10 +95,10 @@ public class TextScene2D implements HarnessSceneLifecycle {
         CgTextLayoutBuilder layoutBuilder = new CgTextLayoutBuilder();
 
         CgTextLayout topLabelLayout = layoutBuilder.layout(TOP_LABEL_TEXT, font, (float) fboWidth, 0);
-        int topLabelBandHeight = (int) Math.ceil(topLabelLayout.getTotalHeight()) + 20;
-        LOGGER.info("[Harness] Top label: layout " + topLabelLayout.getLines().size()
-                + " lines, width=" + topLabelLayout.getTotalWidth()
-                + ", height=" + topLabelLayout.getTotalHeight()
+        int topLabelBandHeight = (int) Math.ceil(topLabelLayout.totalHeight()) + 20;
+        LOGGER.info("[Harness] Top label: layout " + topLabelLayout.lines().size()
+                + " lines, width=" + topLabelLayout.totalWidth()
+                + ", height=" + topLabelLayout.totalHeight()
                 + ", wrapWidth=" + fboWidth + " (full FBO, identity pose)");
 
         // Measurement pass: compute per-band pixel height based on actual
@@ -116,13 +116,13 @@ public class TextScene2D implements HarnessSceneLifecycle {
             float logicalMaxWidth = fboWidth / scale;
             layouts[i] = layoutBuilder.layout(labels[i], font, logicalMaxWidth, 0);
             // The layout reports logical height; the pose scale magnifies it on screen.
-            float scaledHeight = layouts[i].getTotalHeight() * scale;
+            float scaledHeight = layouts[i].totalHeight() * scale;
             bandHeights[i] = (int) Math.ceil(scaledHeight) + bandPadding;
             bandYOffsets[i] = totalBandHeight;
             totalBandHeight += bandHeights[i];
-            LOGGER.info("[Harness] Scale " + scale + "x: layout " + layouts[i].getLines().size()
-                    + " lines, width=" + layouts[i].getTotalWidth()
-                    + ", height=" + layouts[i].getTotalHeight()
+            LOGGER.info("[Harness] Scale " + scale + "x: layout " + layouts[i].lines().size()
+                    + " lines, width=" + layouts[i].totalWidth()
+                    + ", height=" + layouts[i].totalHeight()
                     + ", bandPixelH=" + bandHeights[i]);
         }
 
@@ -287,8 +287,8 @@ public class TextScene2D implements HarnessSceneLifecycle {
 
     private void logGlyphDiagnostics(CgTextLayout layout, String text) {
         int charIdx = 0;
-        for (int lineIdx = 0; lineIdx < layout.getLines().size(); lineIdx++) {
-            List<CgShapedRun> line = layout.getLines().get(lineIdx);
+        for (int lineIdx = 0; lineIdx < layout.lines().size(); lineIdx++) {
+            List<CgShapedRun> line = layout.lines().get(lineIdx);
             float penX = 0;
             for (CgShapedRun run : line) {
                 float[] advances = run.getAdvancesX();
