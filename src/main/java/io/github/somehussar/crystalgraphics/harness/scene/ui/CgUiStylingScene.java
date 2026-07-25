@@ -129,11 +129,17 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
              * pixel-blend shader restricted to matching-geometry drawables — deliberately deferred,
              * not built here. Kept as a visible reference case, not polished. */
             .fade-texture-texture {
-                background: sprite("crystalgui:textures/gui/gdp_styles.png", 29 1 13 13, 1 1 11 11);
+                background: sprite("crystalgui:textures/gui/gdp_styles.png", 154 165 16 16, 5 6 9 10);
                 transition: background 250ms ease-in-out;
+                transition: background 250ms ease-in-out, border-radius 250ms ease-in-out,
+                border-width 250ms ease-in-out, border-color 250ms ease-in-out;
             }
             .fade-texture-texture:hover {
-                background: sprite("crystalgui:textures/gui/gdp_styles.png", 154 165 16 16, 5 6 9 10);
+//                background: sprite("crystalgui:textures/gui/gdp_styles.png", 154 165 16 16, 5 6 9 10);
+                border-radius: 24px;
+                border-width: 2px;
+                border-color: #000000
+
             }
 
             /* border-radius/border-width/border-color are a universal wrapping layer, not a special
