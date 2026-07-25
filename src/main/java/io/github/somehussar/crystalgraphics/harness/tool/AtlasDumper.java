@@ -35,15 +35,21 @@ public final class AtlasDumper {
      *   <li>{@code msdf-atlas-dump-128px-manifest.txt} (combined manifest)</li>
      * </ul>
      *
+     * <p>Each page is a layer of the atlas family's shared
+     * {@code GL_TEXTURE_2D_ARRAY} (see the atlas texture-array migration) —
+     * captured via {@link ScreenshotUtil#captureArrayTextureLayer}, not a
+     * standalone-texture read, since {@code page.getTextureId()} now returns
+     * the same array id for every page and {@code page.getPageIndex()} is the
+     * layer to read.</p>
+     *
      * @param pages       list of populated atlas pages to dump
      * @param typePrefix  filename prefix: "msdf-atlas-dump" or "bitmap-atlas-dump"
      * @param pxSizeSuffix  pixel size suffix: e.g., "128px"
-     * @param format      GL internal format for texture readback
      * @param outputDir   output directory
      */
     public static void dumpAllPagedPages(List<CgGlyphAtlasPage> pages,
                                          String typePrefix, String pxSizeSuffix,
-                                         int format, String outputDir) {
+                                         String outputDir) {
         if (pages == null || pages.isEmpty()) {
             LOGGER.warning("[AtlasDumper] No paged atlas pages to dump for " + typePrefix + "-" + pxSizeSuffix);
             return;
@@ -59,10 +65,9 @@ public final class AtlasDumper {
             }
 
             String pagePng = basePrefix + "-page-" + i + ".png";
-            ScreenshotUtil.captureTexture(page.getTextureId(),
-                    page.getPageWidth(), page.getPageHeight(),
-                    format, outputDir, pagePng);
-            LOGGER.info("[AtlasDumper] Dumped paged page " + i + ": " + pagePng
+            ScreenshotUtil.captureArrayTextureLayer(page.getTextureId(), page.getPageIndex(),
+                    page.getPageWidth(), page.getPageHeight(), outputDir, pagePng);
+            LOGGER.info("[AtlasDumper] Dumped paged page " + i + " (array layer " + page.getPageIndex() + "): " + pagePng
                     + " (" + page.getPageWidth() + "x" + page.getPageHeight() + ")");
         }
 
@@ -149,18 +154,18 @@ public final class AtlasDumper {
                     "    glyphId=%d codePoint=U+%04X plane=[%.4f, %.4f, %.4f, %.4f] atlas=[%d, %d, %d, %d] size=%dx%d pxRange=%.2f type=%s",
                     key.getGlyphId(),
                     key.getGlyphId(),
-                    placement.getPlaneLeft(),
-                    placement.getPlaneBottom(),
-                    placement.getPlaneRight(),
-                    placement.getPlaneTop(),
-                    placement.getAtlasLeft(),
-                    placement.getAtlasBottom(),
-                    placement.getAtlasRight(),
-                    placement.getAtlasTop(),
-                    placement.getAtlasRight() - placement.getAtlasLeft(),
-                    placement.getAtlasTop() - placement.getAtlasBottom(),
-                    placement.getPxRange(),
-                    placement.getAtlasType()));
+                    placement.planeLeft(),
+                    placement.planeBottom(),
+                    placement.planeRight(),
+                    placement.planeTop(),
+                    placement.atlasLeft(),
+                    placement.atlasBottom(),
+                    placement.atlasRight(),
+                    placement.atlasTop(),
+                    placement.atlasRight() - placement.atlasLeft(),
+                    placement.atlasTop() - placement.atlasBottom(),
+                    placement.pxRange(),
+                    placement.atlasType()));
         }
     }
 

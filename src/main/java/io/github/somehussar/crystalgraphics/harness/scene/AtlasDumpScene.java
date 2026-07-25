@@ -226,10 +226,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
             registry.awaitAsyncGlyphs(5000L);
             registry.tickFrame(frame + 1);
             String dfPrefix = (atlasType == AtlasDumpConfig.AtlasType.MTSDF) ? "mtsdf" : "msdf";
-            int dfGlFormat = (atlasType == AtlasDumpConfig.AtlasType.MTSDF)
-                    ? 0x881A /* GL_RGBA16F */
-                    : GL30.GL_RGB16F;
-            dumpMsdfAtlases(registry, msdfFont, msdfPxSize, dumpAllPages, atlasDir, dfPrefix, dfGlFormat);
+            dumpMsdfAtlases(registry, msdfFont, msdfPxSize, dumpAllPages, atlasDir, dfPrefix);
             if (config.isVerifyMsdf()) {
                 MsdfVerificationTool verifier = new MsdfVerificationTool();
                 MsdfVerificationTool.VerificationSummary summary = verifier.verifyText(
@@ -442,13 +439,11 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
 
     private void dumpBitmapAtlases(CgFontRegistry registry, CgFont font,
                                      int pxSize, boolean dumpAllPages, String atlasDir) {
-        int glR8 = 0x8229;
-
         if (dumpAllPages) {
             List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedPagedBitmapPages(font.getKey());
             if (!pagedPages.isEmpty()) {
                 AtlasDumper.dumpAllPagedPages(pagedPages,
-                        "bitmap-atlas-dump", pxSize + "px", glR8, atlasDir);
+                        "bitmap-atlas-dump", pxSize + "px", atlasDir);
                 LOGGER.info("[Harness] Dumped " + pagedPages.size() + " bitmap atlas page(s)");
             } else {
                 LOGGER.warning("[Harness] No bitmap atlas pages found after rendering");
@@ -459,10 +454,10 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 CgGlyphAtlasPage page = pagedPages.get(0);
                 String filename = "bitmap-atlas-dump-" + pxSize + "px.png";
                 LOGGER.info("[Harness] Bitmap atlas captured: texture=" + page.getTextureId()
+                        + ", layer=" + page.getPageIndex()
                         + ", size=" + page.getPageWidth() + "x" + page.getPageHeight());
-                ScreenshotUtil.captureTexture(page.getTextureId(),
-                        page.getPageWidth(), page.getPageHeight(),
-                        glR8, atlasDir, filename);
+                ScreenshotUtil.captureArrayTextureLayer(page.getTextureId(), page.getPageIndex(),
+                        page.getPageWidth(), page.getPageHeight(), atlasDir, filename);
             } else {
                 LOGGER.warning("[Harness] Bitmap atlas not available after rendering");
             }
@@ -471,13 +466,13 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
 
     private void dumpMsdfAtlases(CgFontRegistry registry, CgFont font,
                                     int pxSize, boolean dumpAllPages, String atlasDir,
-                                    String typePrefix, int glFormat) {
+                                    String typePrefix) {
 
         if (dumpAllPages) {
             List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedPagedMsdfPages(font.getKey());
             if (!pagedPages.isEmpty()) {
                 AtlasDumper.dumpAllPagedPages(pagedPages,
-                        typePrefix + "-atlas-dump", pxSize + "px", glFormat, atlasDir);
+                        typePrefix + "-atlas-dump", pxSize + "px", atlasDir);
                 LOGGER.info("[Harness] Dumped " + pagedPages.size() + " " + typePrefix.toUpperCase()
                         + " atlas page(s)");
             } else {
@@ -489,10 +484,10 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 CgGlyphAtlasPage page = pagedPages.get(0);
                 String filename = typePrefix + "-atlas-dump-" + pxSize + "px.png";
                 LOGGER.info("[Harness] " + typePrefix.toUpperCase() + " atlas captured: texture="
-                        + page.getTextureId() + ", size=" + page.getPageWidth() + "x" + page.getPageHeight());
-                ScreenshotUtil.captureTexture(page.getTextureId(),
-                        page.getPageWidth(), page.getPageHeight(),
-                        glFormat, atlasDir, filename);
+                        + page.getTextureId() + ", layer=" + page.getPageIndex()
+                        + ", size=" + page.getPageWidth() + "x" + page.getPageHeight());
+                ScreenshotUtil.captureArrayTextureLayer(page.getTextureId(), page.getPageIndex(),
+                        page.getPageWidth(), page.getPageHeight(), atlasDir, filename);
             } else {
                 LOGGER.warning("[Harness] " + typePrefix.toUpperCase() + " atlas not available after rendering");
             }

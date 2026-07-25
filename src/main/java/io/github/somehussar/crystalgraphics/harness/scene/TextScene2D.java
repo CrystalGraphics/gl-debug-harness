@@ -214,10 +214,10 @@ public class TextScene2D implements HarnessSceneLifecycle {
             CgGlyphAtlasPage bitmapAtlas = registry.findPopulatedPagedBitmapPage(font.getKey());
             if (bitmapAtlas != null) {
                 LOGGER.info("[Harness] Bitmap atlas captured: texture=" + bitmapAtlas.getTextureId()
+                        + ", layer=" + bitmapAtlas.getPageIndex()
                         + ", size=" + bitmapAtlas.getPageWidth() + "x" + bitmapAtlas.getPageHeight());
-                ScreenshotUtil.captureTexture(bitmapAtlas.getTextureId(),
-                        bitmapAtlas.getPageWidth(), bitmapAtlas.getPageHeight(),
-                        0x8229, atlasDir, filename);
+                ScreenshotUtil.captureArrayTextureLayer(bitmapAtlas.getTextureId(), bitmapAtlas.getPageIndex(),
+                        bitmapAtlas.getPageWidth(), bitmapAtlas.getPageHeight(), atlasDir, filename);
             } else {
                 LOGGER.warning("[Harness] Bitmap atlas not available after rendering");
             }

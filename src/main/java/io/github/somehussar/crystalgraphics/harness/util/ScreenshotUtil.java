@@ -72,6 +72,68 @@ public final class ScreenshotUtil {
         writePng(image, outputDir, filename);
     }
 
+    /**
+     * Captures one layer of a {@code GL_TEXTURE_2D_ARRAY} texture to PNG.
+     *
+     * <p>You cannot {@code glGetTexImage} a single array layer directly — that call
+     * always reads the whole array (every layer) as one 3D block. Instead this
+     * attaches just {@code layer} to a temporary FBO via
+     * {@code glFramebufferTextureLayer} (GL 3.0+ core) and reads it back with
+     * {@code glReadPixels}, the same way {@link #captureFboColorTexture} already
+     * reads any other FBO-attached color target. Needed since the glyph atlas
+     * migrated from one independent {@code GL_TEXTURE_2D} per page to one shared
+     * array texture with pages as layers — see
+     * {@code CrystalGraphics/docs_research/CGTEXTRENDERER_INSTANCING_FOUNDATIONS.md}.</p>
+     *
+     * @param arrayTextureId the {@code GL_TEXTURE_2D_ARRAY} texture object
+     * @param layer          layer index to capture
+     * @param width          layer width in pixels
+     * @param height         layer height in pixels
+     * @param outputDir      output directory
+     * @param filename       output PNG filename
+     */
+    public static void captureArrayTextureLayer(int arrayTextureId, int layer,
+                                                  int width, int height,
+                                                  String outputDir, String filename) {
+        int fbo = GL30.glGenFramebuffers();
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        GL30.glFramebufferTextureLayer(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
+                arrayTextureId, 0, layer);
+
+        int status = GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER);
+        if (status != GL30.GL_FRAMEBUFFER_COMPLETE) {
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+            GL30.glDeleteFramebuffers(fbo);
+            throw new IllegalStateException(
+                    "Framebuffer incomplete capturing array layer " + layer + " of texture "
+                            + arrayTextureId + " (status 0x" + Integer.toHexString(status) + ")");
+        }
+
+        try {
+            ByteBuffer pixels = BufferUtils.createByteBuffer(width * height * 4);
+            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
+            GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixels);
+
+            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    // FBO readback is bottom-up; flip vertically
+                    int srcY = height - 1 - y;
+                    int idx = (srcY * width + x) * 4;
+                    int r = pixels.get(idx) & 0xFF;
+                    int g = pixels.get(idx + 1) & 0xFF;
+                    int b = pixels.get(idx + 2) & 0xFF;
+                    int a = pixels.get(idx + 3) & 0xFF;
+                    image.setRGB(x, y, (a << 24) | (r << 16) | (g << 8) | b);
+                }
+            }
+            writePng(image, outputDir, filename);
+        } finally {
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+            GL30.glDeleteFramebuffers(fbo);
+        }
+    }
+
     public static void captureFboColorTexture(int fboId, int textureId,
                                        int width, int height,
                                        String outputDir, String filename) {
