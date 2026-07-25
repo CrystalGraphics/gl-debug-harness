@@ -52,6 +52,13 @@ public final class HUDRenderer {
     private int currentFontSizePx;
     private float currentQuadOffset;
 
+    // FPS counter: sampled over a rolling window rather than shown per-frame,
+    // since a single frame's instantaneous 1/dt is too jittery to read.
+    private static final long FPS_SAMPLE_WINDOW_NANOS = 500_000_000L; // 0.5s
+    private long fpsWindowStartNanos = -1;
+    private int fpsWindowFrameCount = 0;
+    private double displayedFps = 0.0;
+
     // CgTextRenderer resources (created in init, destroyed in delete)
     private CgCapabilities caps;
     private CgFont font;
@@ -113,6 +120,27 @@ public final class HUDRenderer {
      * creates a new one. The CgFontRegistry handles atlas cleanup via the
      * font's dispose listener.
      */
+    /**
+     * Updates the rolling FPS sample. Counts frames within a
+     * {@link #FPS_SAMPLE_WINDOW_NANOS} window and recomputes {@link #displayedFps}
+     * once the window elapses, rather than showing a raw per-frame 1/dt value
+     * (too jittery to read frame to frame).
+     */
+    private void updateFpsSample() {
+        long now = System.nanoTime();
+        if (fpsWindowStartNanos < 0) {
+            fpsWindowStartNanos = now;
+        }
+        fpsWindowFrameCount++;
+
+        long elapsed = now - fpsWindowStartNanos;
+        if (elapsed >= FPS_SAMPLE_WINDOW_NANOS) {
+            displayedFps = fpsWindowFrameCount / (elapsed / 1_000_000_000.0);
+            fpsWindowFrameCount = 0;
+            fpsWindowStartNanos = now;
+        }
+    }
+
     private void reloadFont() {
         String fontPath = HarnessFontUtil.resolveFontPath(null);
 
@@ -194,14 +222,16 @@ public final class HUDRenderer {
         }
 
         updateScaleIfNeeded(screenWidth, screenHeight);
+        updateFpsSample();
 
-        // Format camera state into HUD text (two lines separated by newline)
+        // Format camera state into HUD text (three lines separated by newlines)
         String posLine = String.format("Pos: %.2f %.2f %.2f",
                 camera.getPosX(), camera.getPosY(), camera.getPosZ());
         // Convert yaw/pitch to integer degrees for clean display
         String rotLine = String.format("Rot: %.2f%s %.2f%s",
                 camera.getYaw(), "\u00B0", camera.getPitch(), "\u00B0");
-        String hudText = posLine + "\n" + rotLine;
+        String fpsLine = String.format("FPS: %.1f", displayedFps);
+        String hudText = posLine + "\n" + rotLine + "\n" + fpsLine;
 
         // Build text layout for the current frame's text.
         // maxWidth=0 means unbounded (no line wrapping beyond our explicit newline).
