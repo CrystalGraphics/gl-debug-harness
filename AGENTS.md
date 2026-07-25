@@ -336,8 +336,10 @@ FboInspector.dumpColorAttachment(fboId, 800, 600, outputDir, "fbo-color.png");
 boolean hadErrors = GlErrorChecker.checkAndLog("after render pass");
 List<String> errors = GlErrorChecker.drainErrors();
 
-// Atlas dumper (paged atlas pages — the only atlas storage model now)
-AtlasDumper.dumpAllPagedPages(pages, "bitmap-atlas-dump", "128px", 0x8229, outputDir);
+// Atlas dumper (paged atlas pages — each page is a layer of the atlas
+// family's shared GL_TEXTURE_2D_ARRAY as of the atlas texture-array migration;
+// dumpAllPagedPages reads pages back via ScreenshotUtil.captureArrayTextureLayer)
+AtlasDumper.dumpAllPagedPages(pages, "bitmap-atlas-dump", "128px", outputDir);
 // Produces: bitmap-atlas-dump-128px-page-N.png + bitmap-atlas-dump-128px-manifest.txt
 ```
 

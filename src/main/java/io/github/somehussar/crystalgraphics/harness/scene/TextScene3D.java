@@ -105,7 +105,7 @@ public class TextScene3D implements InteractiveSceneLifecycle {
 
         //jp  "さあ 剽悍な双眸を エーカム そうさ 先頭に e"
         jpHelper = new WorldTextRenderHelper(HarnessFontUtil.JAPANESE_FONT, fontSizePx,
-                "HELLO HELLO HELLO HELLO HELLO HELLO e", layoutWidth, layoutHeight,
+                config.kanji, layoutWidth, layoutHeight,
                 config.getAtlasSize(), config.isMtsdf());
         jpHelper.init();
 //HI بيانات الاستفسار e
@@ -120,7 +120,7 @@ public class TextScene3D implements InteractiveSceneLifecycle {
 
         // Schedule automated screenshots for validation if runtime services are available
         if (ctx.getRuntimeServices() != null) {
-            scheduleValidationScreenshots();
+           // scheduleValidationScreenshots();
         }
 
         // Initialize CgUiRuntime with text support from the first helper's renderer/font
@@ -336,7 +336,7 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         modelView.set(viewMatrix);
         float worldScale = 0.01f;
         float textWorldWidth = arHelper.getWorldLayout().getTotalWidth() * worldScale;
-        modelView.translate(-textWorldWidth * 0.5f, 0.75f, -5f);
+        modelView.translate(-textWorldWidth * 0.5f, 25.75f, -5f);
         modelView.scale(worldScale, -worldScale, worldScale);
         jpHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
 
@@ -346,9 +346,9 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         modelView.set(viewMatrix);
         worldScale = 0.01f;
         textWorldWidth = arHelper.getWorldLayout().getTotalWidth() * worldScale;
-        modelView.translate(-textWorldWidth * 0.5f, 0.15f, -5f);
+        modelView.translate(-textWorldWidth * 0.5f, 0.15f, -2f);
         modelView.scale(worldScale, -worldScale, worldScale);
-        arHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
+        //arHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
 
         // ── GL state cleanup after world text rendering ──
         // world-text draw() internally saves/restores state via CgStateBoundary, but in the
