@@ -9,6 +9,7 @@ import com.crystalgraphics.api.text.CgShapedParagraph;
 import com.crystalgraphics.api.text.CgTextAlign;
 import com.crystalgraphics.api.text.CgTextLayout;
 import com.crystalgraphics.api.text.CgTextLayoutRequest;
+import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.richtext.CgMarkupParser;
 import com.crystalgui.core.input.SystemInput;
@@ -168,6 +169,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
 
 
         renderer = CgTextRenderer.createScreenSized();
+        orthoContext = renderer.context();
+        perspectiveContext = CgTextRenderContext.world(ctx.getProjection(), ctx.getScreenWidth(),
+                ctx.getScreenHeight());
 
         sections = buildSections(regularFamily, group, wrapWidth);
         LOGGER.info("[Harness] World text scene (interactive) initialized.");
@@ -182,15 +186,33 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     private static final int LABEL_COLOR = 0xFFF985C7;
     private static final int BODY_COLOR = 0xFFFFFFFF;
 
+    // ── World-space (3D/perspective) mode constants ──
+    // The sections are laid out in the exact same local logical-pixel space (MARGIN, y-stacking,
+    // wrapWidth) regardless of mode -- only the PoseStack differs. In world mode, that local
+    // space is placed in front of the camera via: view matrix -> translate to WORLD_ORIGIN_* ->
+    // scale down by WORLD_SCALE (with a Y-flip, since layout Y is screen-down but world Y is up).
+    /** Local logical px -> world units. Smaller = the whole text block appears smaller/farther. */
+    private static final float WORLD_SCALE = 0.01f;
+    /** World-space X offset of the local origin (MARGIN, 0) -- 0 centers nothing; see renderWorldSections. */
+    private static final float WORLD_ORIGIN_X = 0f;
+    /** World-space Y offset (height above the floor) of the local origin. */
+    private static final float WORLD_ORIGIN_Y = 1.5f;
+    /** World-space Z offset (negative = in front of the camera at yaw 0). */
+    private static final float WORLD_ORIGIN_Z = -1f;
+
     CgFont labelFont;
     CgFont latinRegular;
     CgFont minecraftFont;
     CgFontFamilyGroup minecraftGroup;
-    
+
     List<Section> sections;
     CgTextRenderer renderer;
     int wrapWidth;
-    
+
+    /** Flip to switch the sections' render path between orthographic (2D/UI) and world (3D/perspective). */
+    boolean renderSectionsInWorldSpace = false;
+    CgTextRenderContext perspectiveContext, orthoContext;
+
     float scrollDelta;
     float scrollScale = 1;
     
@@ -210,9 +232,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         PoseStack poseStack = new PoseStack();
         Matrix4f modelView = poseStack.last().pose();
         modelView.set(viewMatrix);
-        float worldScale = 0.01f;
+        float worldScale = 0.001f;
         float textWorldWidth = arHelper.getWorldLayout().totalWidth() * worldScale;
-        modelView.translate(-textWorldWidth * 0.5f, 25.75f, -5f);
+        modelView.translate(-textWorldWidth * 0.5f, 2.75f, -0f);
         modelView.scale(worldScale, -worldScale, worldScale);
 //        jpHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
 
@@ -233,41 +255,57 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         // floor, HUD, and pause overlay render correctly in subsequent passes.
         GlStateResetHelper.resetAfterScene();
 
-        PoseStack pose = new PoseStack();
-        pose.scale(scrollScale, scrollScale, 1);
-        renderer.beginBatch();
-        float y = MARGIN;
-        for (Section s : sections) {
-            if (s.label != null) {
-                renderer.context().clearHistory();
-                CgTextLayout labelLayout = CgTextLayoutRequest.of(s.label, labelFont).build();
-                renderer.draw().layout(labelLayout).font(labelFont).at(MARGIN, y)
-                        .color(LABEL_COLOR).pose(pose).submit();
-                y += LABEL_FONT_SIZE_PX + LABEL_TO_BODY_GAP;
-            }
 
-            // .paragraph(...) (instead of a frozen .layout(...)) re-wraps against the current
-            // PoseStack scale every draw -- see CgTextRenderer.Draw's "layout vs. paragraph"
-            // javadoc -- so wrapWidth keeps meaning "960 on-screen pixels" under any scrollScale
-            // instead of silently growing in screen space like a prebuilt CgTextLayout would.
-            // At higher scale the effective (screen-space-constant) wrap width is narrower in
-            // local units, so the paragraph needs MORE lines -- its local height is NOT the
-            // scale==1 height, it grows with scale too. .measure() asks the renderer for the
-            // real height it's about to draw at (same resolution submit() uses, memoized, so
-            // this costs nothing extra) instead of assuming a fixed unscaled height, which is
-            // what caused sections to overlap at scrollScale > 1.
-            renderer.context().clearHistory();
-            CgTextRenderer.Draw bodyDraw = renderer.draw().paragraph(s.paragraph).constraints(wrapWidth, 0)
-                    .font(latinRegular).pose(pose);
-            float sectionHeight = bodyDraw.measure().totalHeight();
-            bodyDraw.at(MARGIN, y).color(BODY_COLOR).submit();
-            y += sectionHeight + SECTION_GAP;
+        //Render rich-format text paragraphs
+        if (true) {
+            PoseStack pose = new PoseStack();
+            renderSectionsInWorldSpace = false;
+            if (renderSectionsInWorldSpace) {
+                // World mode: same local logical-pixel layout (MARGIN, y-stacking) as ortho, just
+                // placed in front of the camera instead of pinned to the screen. Order matters:
+                // start from the camera's view matrix, translate to where the block should sit in
+                // world space, then scale local px down to world units -- WORLD_SCALE is negated on
+                // Y because layout Y grows downward (screen convention) but world Y grows upward.
+                renderer.context(perspectiveContext);
+                Matrix4f mv = pose.last().pose();
+                mv.set(viewMatrix);
+                mv.translate(WORLD_ORIGIN_X, WORLD_ORIGIN_Y, WORLD_ORIGIN_Z);
+                mv.scale(WORLD_SCALE, -WORLD_SCALE, WORLD_SCALE);
+            } else {
+                renderer.context(orthoContext);
+                pose.scale(scrollScale, scrollScale, 1);
+            }
+            renderer.beginBatch();
+            float y = MARGIN;
+            for (Section s : sections) {
+                if (s.label != null) {
+                    CgTextLayout labelLayout = CgTextLayoutRequest.of(s.label, labelFont).build();
+                    renderer.draw().layout(labelLayout).font(labelFont).at(MARGIN, y)
+                            .color(LABEL_COLOR).pose(pose).submit();
+                    y += LABEL_FONT_SIZE_PX + LABEL_TO_BODY_GAP;
+                }
+
+                // .paragraph(...) (instead of a frozen .layout(...)) re-wraps against the current
+                // PoseStack scale every draw -- see CgTextRenderer.Draw's "layout vs. paragraph"
+                // javadoc -- so wrapWidth keeps meaning "960 on-screen pixels" under any scrollScale
+                // instead of silently growing in screen space like a prebuilt CgTextLayout would.
+                // At higher scale the effective (screen-space-constant) wrap width is narrower in
+                // local units, so the paragraph needs MORE lines -- its local height is NOT the
+                // scale==1 height, it grows with scale too. .measure() asks the renderer for the
+                // real height it's about to draw at (same resolution submit() uses, memoized, so
+                // this costs nothing extra) instead of assuming a fixed unscaled height, which is
+                // what caused sections to overlap at scrollScale > 1.
+                CgTextRenderer.Draw bodyDraw = renderer.draw().paragraph(s.paragraph).constraints(wrapWidth, 0)
+                                                       .font(latinRegular).pose(pose);
+                float sectionHeight = bodyDraw.measure().totalHeight();
+                bodyDraw.at(MARGIN, y).color(BODY_COLOR).submit();
+                y += sectionHeight + SECTION_GAP;
+            }
+            pose = new PoseStack();
+            pose.scale(2, 2, 1);
+            //  renderer.draw().text("Scale: " + scrollScale).font(labelFont).at((float) 10, 10).pose(pose).submit();
+            renderer.endBatch();
         }
-        pose = new PoseStack();
-        pose.scale(2,2,1);
-        renderer.draw().text("Scale: " + scrollScale).font(labelFont).at((float) 10, 10).pose(pose).submit();
-        renderer.endBatch();
-//        }
     }
 
     @Override
@@ -309,8 +347,8 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
          else if (scrollDelta < 0) scrollScale += 0.1f;
          if(scrollDelta!=0)
         System.out.println(scrollDelta);
-         
-         if(event.button() == 1) scrollScale = 1;
+
+        if (event.button() == 1) scrollScale = 1;
         
         return false;
     }
