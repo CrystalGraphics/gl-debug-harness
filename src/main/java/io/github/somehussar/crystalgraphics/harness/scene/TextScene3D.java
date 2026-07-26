@@ -5,6 +5,7 @@ import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontFamily;
 import com.crystalgraphics.api.font.CgFontFamilyGroup;
 import com.crystalgraphics.api.font.CgFontStyle;
+import com.crystalgraphics.api.text.CgShapedParagraph;
 import com.crystalgraphics.api.text.CgTextAlign;
 import com.crystalgraphics.api.text.CgTextLayout;
 import com.crystalgraphics.api.text.CgTextLayoutRequest;
@@ -163,7 +164,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         CgFontFamily mcFamily = CgFontFamily.of(minecraftFont);
         minecraftGroup = CgFontFamilyGroup.ofRegular(mcFamily);
 
-        int wrapWidth = 1000 - 2 * MARGIN;
+        wrapWidth = 1000 - 2 * MARGIN;
 
 
         renderer = CgTextRenderer.createScreenSized();
@@ -188,6 +189,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     
     List<Section> sections;
     CgTextRenderer renderer;
+    int wrapWidth;
     
     float scrollDelta;
     float scrollScale = 1;
@@ -231,7 +233,6 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         // floor, HUD, and pause overlay render correctly in subsequent passes.
         GlStateResetHelper.resetAfterScene();
 
-     
         PoseStack pose = new PoseStack();
         pose.scale(scrollScale, scrollScale, 1);
         renderer.beginBatch();
@@ -245,11 +246,26 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 y += LABEL_FONT_SIZE_PX + LABEL_TO_BODY_GAP;
             }
 
+            // .paragraph(...) (instead of a frozen .layout(...)) re-wraps against the current
+            // PoseStack scale every draw -- see CgTextRenderer.Draw's "layout vs. paragraph"
+            // javadoc -- so wrapWidth keeps meaning "960 on-screen pixels" under any scrollScale
+            // instead of silently growing in screen space like a prebuilt CgTextLayout would.
+            // At higher scale the effective (screen-space-constant) wrap width is narrower in
+            // local units, so the paragraph needs MORE lines -- its local height is NOT the
+            // scale==1 height, it grows with scale too. .measure() asks the renderer for the
+            // real height it's about to draw at (same resolution submit() uses, memoized, so
+            // this costs nothing extra) instead of assuming a fixed unscaled height, which is
+            // what caused sections to overlap at scrollScale > 1.
             renderer.context().clearHistory();
-            renderer.draw().layout(s.layout).font(latinRegular).at(MARGIN, y)
-                    .color(BODY_COLOR).pose(pose).submit();
-            y += s.layout.totalHeight() + SECTION_GAP;
+            CgTextRenderer.Draw bodyDraw = renderer.draw().paragraph(s.paragraph).constraints(wrapWidth, 0)
+                    .font(latinRegular).pose(pose);
+            float sectionHeight = bodyDraw.measure().totalHeight();
+            bodyDraw.at(MARGIN, y).color(BODY_COLOR).submit();
+            y += sectionHeight + SECTION_GAP;
         }
+        pose = new PoseStack();
+        pose.scale(2,2,1);
+        renderer.draw().text("Scale: " + scrollScale).font(labelFont).at((float) 10, 10).pose(pose).submit();
         renderer.endBatch();
 //        }
     }
@@ -306,55 +322,50 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     public List<Section> buildSections(CgFontFamily regularFamily, CgFontFamilyGroup group, int wrapWidth) {
         List<Section> sections = new ArrayList<>();
 
-        sections.add(new Section("1) Plain paragraph -- multi-line wrap, no markup",
+        sections.add(section("1) Plain paragraph -- multi-line wrap, no markup",
                 CgTextLayoutRequest.of(
                         "This is a plain paragraph with no markup at all: just ordinary text "
                                 + "wrapped across several lines at a fixed width, exactly like "
                                 + "Draw.text(String) has always worked.",
                         regularFamily)
-                        .maxWidth(wrapWidth)
-                        .build()));
+                ));
 
-        sections.add(new Section("2) HTML-like markup: <b>, <i>, <u>, <s>, <overline>, <color=#RRGGBB>",
-                      CgTextLayoutRequest.of(
+        sections.add(section("2) HTML-like markup: <b>, <i>, <u>, <s>, <overline>, <color=#RRGGBB>",
+                CgTextLayoutRequest.of(
                                 "This line has <b>bold</b>, <i>italic</i>, <u>underlined</u>, "
                                         + "<s>strikethrough</s>, <overline>overlined</overline>, "
-                                        + "and <color=#FF0000>colored</color> <color=#00FF00>words</color> all together.",
+                                        + "and <color=#FF0000>colored</color> words all together.",
                           group)
                         .markup(CgMarkupParser.HTML)
-                        .maxWidth(wrapWidth)
-                        .build()));
+                ));
 
-        sections.add(new Section("3) Minecraft formatting codes: §l, §o, §n, §r",
-                     CgTextLayoutRequest.of(
-                                "§lBold§r §aplain§r §nunderlined§r plain "
-                                        + "§o§lbold and §d§litalic§f §mtogether§r plain again.",
+        sections.add(section("3) Minecraft formatting codes: §l, §o, §n, §r",
+                CgTextLayoutRequest.of(
+                                "§lBold§r §aplain§r §nunderlined§r §bplain§r "
+                                        + "§o§lbold and §litalic§f §mtogether§r §cplain§r again.",
                         minecraftGroup)
                         .markup(CgMarkupParser.MINECRAFT)
-                        .maxWidth(wrapWidth)
-                        .build()));
+                ));
 
-        sections.add(new Section("4) Alignment: CENTER across lines of different widths",
+        sections.add(section("4) Alignment: CENTER across lines of different widths",
                 CgTextLayoutRequest.of(
                         "Centered line one\nA noticeably longer second line that still centers\nShort",
                         regularFamily)
-                        .maxWidth(wrapWidth)
                         .align(CgTextAlign.CENTER)
-                        .build()));
+                ));
 
-        sections.add(new Section("5) Max-lines + ellipsis: truncated after 2 lines",
+        sections.add(section("5) Max-lines + ellipsis: truncated after 2 lines",
                 CgTextLayoutRequest.of(
                         "This paragraph has far more lines than we allow to display, so it "
                                 + "should truncate after two lines and show an ellipsis marker "
                                 + "instead of silently cutting off.\nSecond line here.\n"
                                 + "Third line never shown.\nFourth line never shown either.",
                         regularFamily)
-                        .maxWidth(wrapWidth)
                         .maxLines(2)
                         .ellipsis("...")
-                        .build()));
+                ));
 
-        sections.add(new Section("6) Arabic RTL -- font-fallback resolves the Arabic face automatically",
+        sections.add(section("6) Arabic RTL -- font-fallback resolves the Arabic face automatically",
                 CgTextLayoutRequest.of(
                         "مرحبا بكم! هذا "
                                 + "نص عربي يُكتب "
@@ -362,11 +373,10 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                                 + "اليسار، مع التفاف "
                                 + "لخطوط متعددة.",
                         regularFamily)
-                        .maxWidth(wrapWidth)
                         .align(CgTextAlign.RIGHT)
-                        .build()));
+                ));
 
-        sections.add(new Section("7) Combination: bold HTML span containing Arabic RTL, plus color, wrapped",
+        sections.add(section("7) Combination: bold HTML span containing Arabic RTL, plus color, wrapped",
                 CgTextLayoutRequest.of(
                                 "Hello <b>bold text with مرحبا Arabic "
                                         + "shaped right inside it</b>, followed by "
@@ -375,12 +385,22 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                                         + "together at once: markup, fallback fonts, RTL, and color.",
                         group)
                         .markup(CgMarkupParser.HTML)
-                        .maxWidth(wrapWidth)
-                        .build()));
+                ));
 
         return sections;
     }
 
-    record Section(String label, CgTextLayout layout) {
+    /**
+     * Shapes {@code request} without baking a fixed {@code maxWidth}/{@code CgTextLayout} --
+     * the retained {@link CgShapedParagraph} is what lets {@code render()} re-wrap against the
+     * live PoseStack scale every frame (see {@code CgTextRenderer.Draw#paragraph}), and query
+     * its real per-frame height via {@code CgTextRenderer.Draw#measure()} for stacking, instead
+     * of freezing either the wrap points or the measured height at build-time scale.
+     */
+    private static Section section(String label, CgTextLayoutRequest request) {
+        return new Section(label, request.shape());
+    }
+
+    record Section(String label, CgShapedParagraph paragraph) {
     }
 }

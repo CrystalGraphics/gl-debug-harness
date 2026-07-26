@@ -291,9 +291,9 @@ public class TextScene2D implements HarnessSceneLifecycle {
             List<CgShapedRun> line = layout.lines().get(lineIdx);
             float penX = 0;
             for (CgShapedRun run : line) {
-                float[] advances = run.getAdvancesX();
-                float[] offsetsX = run.getOffsetsX();
-                int[] glyphIds = run.getGlyphIds();
+                float[] advances = run.advancesX();
+                float[] offsetsX = run.offsetsX();
+                int[] glyphIds = run.glyphIds();
                 for (int i = 0; i < glyphIds.length; i++) {
                     char ch = charIdx < text.length() ? text.charAt(charIdx) : '?';
                     LOGGER.info(String.format("[Diag] glyph[%d] '%c' glyphId=%d penX=%.3f advance=%.3f offsetX=%.3f",
