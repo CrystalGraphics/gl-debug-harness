@@ -3,6 +3,7 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 import com.crystalgui.core.input.SystemInput;
 import com.crystalgui.core.input.keyboard.CgUiKeyCodes;
 import com.crystalgui.core.property.Property;
+import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.Ui;
@@ -143,6 +144,8 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, SystemInput.Key
     public void render(HarnessContext ctx, FrameInfo frame) {
         uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         uiWindow.paintFrame();
+        var context = CgUiPaintContext.getInstance();
+        context.text().draw().at(0, 0).text(uiWindow.getUiScale() + "x").font(context.getFont().atSize(32)).submit();
     }
 
     @Override
