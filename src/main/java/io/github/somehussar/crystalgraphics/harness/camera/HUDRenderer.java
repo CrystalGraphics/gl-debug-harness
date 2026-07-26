@@ -272,7 +272,7 @@ public final class HUDRenderer {
             renderer.draw().layout(demoLayout).font(demoFont).at(DEMO_TEXT_X, lineY)
                     .color(0xFFFFFFFF).pose(ps).submit();
 
-            lineY += demoLayout.getTotalHeight() * demoScale + DEMO_TEXT_ROW_GAP;
+            lineY += demoLayout.totalHeight() * demoScale + DEMO_TEXT_ROW_GAP;
         }
 
         renderer.endBatch();

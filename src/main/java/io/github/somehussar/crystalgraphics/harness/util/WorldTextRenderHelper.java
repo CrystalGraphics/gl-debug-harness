@@ -1,12 +1,10 @@
 package io.github.somehussar.crystalgraphics.harness.util;
 
-import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontFamily;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.font.CgTextLayoutBuilder;
-import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
@@ -185,7 +183,7 @@ public final class WorldTextRenderHelper {
         Matrix4f modelView = poseStack.last().pose();
         modelView.set(viewMatrix);
         float worldScale = 0.01f;
-        float textWorldWidth = worldLayout.getTotalWidth() * worldScale;
+        float textWorldWidth = worldLayout.totalWidth() * worldScale;
         modelView.translate(-textWorldWidth * 0.5f, 0.5f, -5f);
         modelView.scale(worldScale, -worldScale, worldScale);
 

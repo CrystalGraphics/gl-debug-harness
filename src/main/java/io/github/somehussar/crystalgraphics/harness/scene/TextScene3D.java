@@ -1,7 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene;
 
 import com.crystalgraphics.api.PoseStack;
-import com.crystalgraphics.api.font.CgFontFamily;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -335,7 +334,7 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         Matrix4f modelView = poseStack.last().pose();
         modelView.set(viewMatrix);
         float worldScale = 0.01f;
-        float textWorldWidth = arHelper.getWorldLayout().getTotalWidth() * worldScale;
+        float textWorldWidth = arHelper.getWorldLayout().totalWidth() * worldScale;
         modelView.translate(-textWorldWidth * 0.5f, 25.75f, -5f);
         modelView.scale(worldScale, -worldScale, worldScale);
         jpHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
@@ -345,7 +344,7 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         modelView = poseStack.last().pose();
         modelView.set(viewMatrix);
         worldScale = 0.01f;
-        textWorldWidth = arHelper.getWorldLayout().getTotalWidth() * worldScale;
+        textWorldWidth = arHelper.getWorldLayout().totalWidth() * worldScale;
         modelView.translate(-textWorldWidth * 0.5f, 0.15f, -2f);
         modelView.scale(worldScale, -worldScale, worldScale);
         //arHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
