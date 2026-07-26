@@ -327,6 +327,9 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
 
     @Override
     public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+        final var styleEngine = uiWindow.getStyleEngine();
+        if (!styleEngine.getSheets().isEmpty())
+            styleEngine.removeStylesheet(styleEngine.getSheets().getFirst());
         return uiWindow.getInputHandler().consumeKeyboardEvent(event);
     }
 

@@ -152,8 +152,13 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
                 height: 60;
             }
 
+            /* Sprite backgrounds no longer auto-detect OverflowClip.MASK on their own (Round 6 Item 3)
+             * — a plain sprite + overflow:hidden now resolves to the cheap SCISSOR clip. These three
+             * classes explicitly set `mask:` (reusing their own background) to keep opting into the
+             * mask-follows-sprite-alpha behavior they were built to demonstrate. */
             .sprite-mask-box {
                 background: sprite("harness:textures/9slice_frame.png", "0 0 24 24", "4 4 4 4");
+                mask: sprite("harness:textures/9slice_frame.png", "0 0 24 24", "4 4 4 4");
                 width: 80;
                 height: 80;
                 overflow: hidden;
@@ -164,8 +169,24 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
                 height: 80;
             }
 
+            /* No border-radius, no explicit mask: — the new default. Marker should show through
+             * EVERYWHERE inside the padding box (a plain rectangular scissor clip), not just a ring,
+             * since scissor never consults the sprite's alpha. Proves the Round 6 Item 3 correction. */
+            .sprite-scissor-default-box {
+                background: sprite("harness:textures/9slice_frame.png", "0 0 24 24", "4 4 4 4");
+                width: 80;
+                height: 80;
+                overflow: hidden;
+            }
+            .sprite-scissor-default-marker {
+                background: #FFEE33;
+                width: 80;
+                height: 80;
+            }
+
             .asset-registry-box {
                 background: asset("harness:demo", "ring");
+                mask: asset("harness:demo", "ring");
                 width: 80;
                 height: 80;
                 overflow: hidden;
@@ -183,13 +204,15 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
 
             .crossfade-mask-box {
                 background: #33AA66;
+                mask: #33AA66;
                 overflow: hidden;
                 width: 80;
                 height: 80;
-                transition: background 600ms linear;
+                transition: background 600ms linear, mask 600ms linear;
             }
             .crossfade-mask-box:hover {
                 background: sprite("harness:textures/9slice_frame.png", "0 0 24 24", "4 4 4 4");
+                mask: sprite("harness:textures/9slice_frame.png", "0 0 24 24", "4 4 4 4");
             }
             .crossfade-mask-marker {
                 background: #FFEE33;
@@ -340,13 +363,15 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
 
         // TEMP diagnostic — isolate to just the 9-slice sprite mask box (Items 3+5). The sprite
         // (assets/harness/textures/9slice_frame.png) has an opaque blue 4px border and a fully
-        // transparent center — with no explicit `mask:` override, the default mask re-renders this
-        // same sprite, so a bright-yellow marker filling the whole box should show through only in
-        // the border-band ring (mask alpha=1 there) and be fully masked out in the center square
+        // transparent center. As of Round 6 Item 3, a plain sprite background no longer
+        // auto-detects OverflowClip.MASK on its own — `.sprite-mask-box` now sets `mask:` explicitly
+        // (reusing its own background) to keep opting into mask-follows-sprite-alpha, so a
+        // bright-yellow marker filling the whole box should still show through only in the
+        // border-band ring (mask alpha=1 there) and be fully masked out in the center square
         // (mask alpha=0 there) — a shape no synthesized solid rounded rect could produce.
         // Verified: the yellow marker shows through only as a ring in the border band (texture
         // opaque there) and is fully masked out in the center (texture transparent there) — the
-        // default mask correctly follows the sprite's own alpha shape, not a synthesized rounded rect.
+        // explicit mask correctly follows the sprite's own alpha shape, not a synthesized rounded rect.
 //        if (true) {
 //            UIElement box = new UIElement().layout(l -> l.width(80).height(80));
 //            box.addClass("sprite-mask-box");
@@ -357,19 +382,49 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
 //            return root;
 //        }
 
+        // TEMP diagnostic (Round 6 Item 3) — top box: `.sprite-mask-box` (explicit mask:, should show
+        // a ring). Bottom box: `.sprite-scissor-default-box`, same sprite/marker setup but WITHOUT an
+        // explicit `mask:` override and no border-radius — the new default. Should resolve to
+        // OverflowClip.SCISSOR (plain rectangular clip), so the yellow marker shows through
+        // EVERYWHERE inside the padding box, not just a ring — scissor never consults the sprite's
+        // alpha, unlike the mask path exercised by the top box.
+        // Verified: top box (mask:) rendered a yellow ring; bottom box (no mask:, new default)
+        // rendered the marker filling the ENTIRE padding box — confirming SCISSOR (not MASK) is now
+        // the default for plain sprite backgrounds.
+//        if (true) {
+//            UIElement maskBox = new UIElement().layout(l -> l.width(80).height(80));
+//            maskBox.addClass("sprite-mask-box");
+//            UIElement maskMarker = new UIElement();
+//            maskMarker.addClass("sprite-mask-marker");
+//            maskBox.addChild(maskMarker);
+//            root.addChild(maskBox);
+//
+//            UIElement box = new UIElement().layout(l -> l.width(80).height(80).marginTop(20));
+//            box.addClass("sprite-scissor-default-box");
+//            UIElement marker = new UIElement();
+//            marker.addClass("sprite-scissor-default-marker");
+//            box.addChild(marker);
+//            root.addChild(box);
+//            return root;
+//        }
+
         // TEMP diagnostic (Round 5 Item 4 — asset registry finishing touches). `.asset-registry-box`
         // uses `background: asset("harness:demo", "ring")` — CgUiSpriteRegistry.get() reads
         // assets/harness/ui/sprites/demo.json (created for this test), which points at the SAME
-        // 9slice_frame.png texture/border rect the inline `sprite(...)` box above uses directly.
-        // Should render pixel-identical to `.sprite-mask-box` (yellow marker shows through only as a
-        // ring), proving the asset() indirection round-trips correctly through CgUiSpriteRegistry.
+        // 9slice_frame.png texture/border rect the inline `sprite(...)` box above uses directly. Also
+        // sets `mask: asset(...)` explicitly (Round 6 Item 3 — sprites no longer auto-mask on their
+        // own) to keep demonstrating mask-follows-sprite-alpha. Should render pixel-identical to
+        // `.sprite-mask-box` (yellow marker shows through only as a ring), proving the asset()
+        // indirection round-trips correctly through CgUiSpriteRegistry.
         // `.asset-registry-broken-box` deliberately references a nonexistent element in the same pack
-        // ("nonexistent-element") — should render the bright magenta fallback quad (0xFFFF00FF)
-        // instead of silently rendering nothing, confirming the fail-fast fix in
-        // CgUiSpriteRegistry.get().
+        // ("nonexistent-element") — should render the fallback texture (CgTextureManager.get().getFallback(),
+        // via CgUiSpriteRegistry.fallback()) instead of silently rendering nothing, confirming the
+        // fail-fast fix in CgUiSpriteRegistry.get().
         // Verified: top box (asset()) rendered a yellow ring pixel-identical to `.sprite-mask-box`'s
-        // inline sprite() equivalent; bottom box (broken element reference) rendered solid magenta
-        // (0xFFFF00FF), confirming the fail-fast fallback instead of silently rendering nothing.
+        // inline sprite() equivalent; bottom box (broken element reference) rendered the real
+        // magenta/black checkerboard fallback texture (CgTextureManager.get().getFallback(), via
+        // CgUiSpriteRegistry.fallback()), confirming the fail-fast fallback instead of silently
+        // rendering nothing.
 //        if (true) {
 //            UIElement box = new UIElement().layout(l -> l.width(80).height(80));
 //            box.addClass("asset-registry-box");
@@ -402,15 +457,19 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
 //        }
 
         // TEMP diagnostic (Item 8) — a `background` transition from solid color to the 9-slice
-        // sprite, with `overflow: hidden` (auto-detects MASK once the crossfade targets a sprite —
-        // see UIElement#resolveOverflowClip/isOrTransitionsToSprite) and no explicit mask: override.
-        // Simulates a hover (triggering the transition)
+        // sprite, with `overflow: hidden`. As of Round 6 Item 3, a sprite background no longer
+        // auto-detects MASK on its own, so `.crossfade-mask-box` now transitions `mask:` explicitly
+        // alongside `background:` (both 600ms linear) to keep exercising mask-follows-crossfade —
+        // see UIElement#resolveOverflowClip. Simulates a hover (triggering the transition)
         // at frame 2, then captures frames 3-30 (see render()) to sample the mask mid-transition —
         // before the fix, the mask would be stuck on a solid-white fallback for the whole 600ms
         // transition, only picking up the sprite's ring shape abruptly at the very end.
         // Verified: frame 5 (early) barely differs from the pre-hover solid color, frame 10 (mid)
         // already shows a clearly-forming ring shape, frame 17 (later) shows it progressing further
         // — a continuous blend, not a solid-white lock followed by an abrupt final-frame snap.
+        // Re-verified after Round 6 Item 3 (mask: now transitions explicitly alongside background:):
+        // frame 5 still near-solid, frame 10 shows a forming ring, frame 17 shows it progressing
+        // further — same continuous-blend behavior as originally verified for Item 8.
 //        if (true) {
 //            UIElement box = new UIElement().layout(l -> l.width(80).height(80));
 //            box.addClass("crossfade-mask-box");
