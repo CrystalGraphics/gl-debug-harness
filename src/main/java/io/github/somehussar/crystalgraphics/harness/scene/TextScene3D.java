@@ -1,22 +1,32 @@
 package io.github.somehussar.crystalgraphics.harness.scene;
 
 import com.crystalgraphics.api.PoseStack;
+import com.crystalgraphics.api.font.CgFont;
+import com.crystalgraphics.api.font.CgFontFamily;
+import com.crystalgraphics.api.font.CgFontFamilyGroup;
+import com.crystalgraphics.api.font.CgFontStyle;
+import com.crystalgraphics.api.text.CgTextAlign;
+import com.crystalgraphics.api.text.CgTextLayout;
+import com.crystalgraphics.api.text.CgTextLayoutRequest;
 import com.crystalgraphics.text.render.CgTextRenderer;
+import com.crystalgraphics.text.richtext.CgMarkupParser;
+import com.crystalgui.core.input.SystemInput;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
-import io.github.somehussar.crystalgraphics.harness.capture.ArtifactService;
-import io.github.somehussar.crystalgraphics.harness.config.*;
-import io.github.somehussar.crystalgraphics.harness.scheduler.TaskScheduler;
+import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
+import io.github.somehussar.crystalgraphics.harness.config.TextSceneConfig;
+import io.github.somehussar.crystalgraphics.harness.config.ViewportState;
 import io.github.somehussar.crystalgraphics.harness.util.GlStateResetHelper;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
 import io.github.somehussar.crystalgraphics.harness.util.WorldTextRenderHelper;
-import io.github.somehussar.crystalgraphics.harness.validation.ValidationCaptureStep;
-import io.github.somehussar.crystalgraphics.harness.validation.ValidationChoreographer;
-
+import lombok.Setter;
 import org.joml.Matrix4f;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
+
 
 /**
  * Interactive 3D world text scene for the {@code text-3d} mode.
@@ -48,7 +58,7 @@ import java.util.logging.Logger;
  *
  * @see WorldTextRenderHelper
  */
-public class TextScene3D implements InteractiveSceneLifecycle {
+public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse {
 
     private static final Logger LOGGER = Logger.getLogger(TextScene3D.class.getName());
     
@@ -68,6 +78,13 @@ public class TextScene3D implements InteractiveSceneLifecycle {
 
     // ── Interactive mode state ──
     private boolean running = true;
+    /**
+     * -- SETTER --
+     *  Configures whether the program should shut down when this scene completes.
+     *
+     * @param shutdown true to exit on completion (default), false to continue
+     */
+    @Setter
     private boolean shutdownOnComplete = false;
 
     private HarnessContext ctx;
@@ -117,206 +134,64 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         camera.setYaw(337.0f);
         camera.setPitch(0);
 
-        // Schedule automated screenshots for validation if runtime services are available
-        if (ctx.getRuntimeServices() != null) {
-           // scheduleValidationScreenshots();
-        }
 
-        // Initialize CgUiRuntime with text support from the first helper's renderer/font
-//        testUi = CgUiTest.create();
-//        uiInjector = new UiEventInjector(testUi);
-//        validationState = new UiValidationState(testUi);
+        // STYLES
 
-//        wireButtonValidation("btn-confirm");
-//        wireButtonValidation("btn-apply");
-//        wireButtonValidation("btn-cancel");
-//        wireTextboxValidation("textbox-input");
-//
-//        // Wire live LWJGL input forwarding to the UI when paused
-//        if (ctx.getRuntimeServices() != null) {
-//            UiInputForwarder forwarder = new UiInputForwarder();
-//            forwarder.setContainer(testUi);
-//            ctx.getRuntimeServices().setUiInputForwarder(forwarder);
-//        }
-//
-//        UiEventInjector.enableDebugLogging();
-//
-//        // Schedule scripted UI event injection for validation
-//        if (ctx.getRuntimeServices() != null) {
-//            scheduleUiEventValidation();
-//        }
+        String latinPath = HarnessFontUtil.LATIN_FONT;
+        String arabicPath = HarnessFontUtil.ARABIC_FONT;
+        String minecraftPath = HarnessFontUtil.MINECRAFT_FONT;
+        LOGGER.info("[Harness] Text showcase: latin=" + latinPath + ", arabic=" + arabicPath);
 
+        latinRegular = CgFont.load(latinPath, CgFontStyle.REGULAR, FONT_SIZE_PX);
+        CgFont arabicRegular = CgFont.load(arabicPath, CgFontStyle.REGULAR, FONT_SIZE_PX);
+        labelFont = CgFont.load(latinPath, CgFontStyle.REGULAR, LABEL_FONT_SIZE_PX);
+        minecraftFont = CgFont.load(minecraftPath, CgFontStyle.REGULAR, FONT_SIZE_PX);
+
+        // Latin-primary family with Arabic as a fallback source, so mixed Latin+Arabic
+        // text in one paragraph automatically resolves the right font per codepoint
+        // (CgFontFamily#resolveSourceForCodePoint) -- no manual text splitting needed.
+        //
+        // No distinct BOLD/ITALIC font files exist for this demo -- CgFontFamilyGroup.ofRegular
+        // means every requested style falls back to REGULAR, which is exactly what triggers
+        // CgShapedRun's synthetic bold/italic flags (see CgTextLayoutEngine#applyStyle) so the
+        // rasterizer fakes them via FTFace.outlineEmbolden/outlineShear (bitmap tier) or
+        // MSDFShapeSynthesis (MSDF tier), instead of the old same-file-different-size hack that
+        // caused the mixed-baseTargetPx letter-spacing bug.
+        CgFontFamily regularFamily = CgFontFamily.of(latinRegular, arabicRegular);
+        CgFontFamilyGroup group = CgFontFamilyGroup.ofRegular(regularFamily);
+        
+        CgFontFamily mcFamily = CgFontFamily.of(minecraftFont);
+        minecraftGroup = CgFontFamilyGroup.ofRegular(mcFamily);
+
+        int wrapWidth = 1000 - 2 * MARGIN;
+
+
+        renderer = CgTextRenderer.createScreenSized();
+
+        sections = buildSections(regularFamily, group, wrapWidth);
         LOGGER.info("[Harness] World text scene (interactive) initialized.");
     }
 
-    /**
-     * Schedules automated screenshots through the shared validation choreography.
-     */
-    private void scheduleValidationScreenshots() {
-        final TaskScheduler scheduler = ctx.getTaskScheduler();
-        final Camera3D camera = ctx.getCamera3D();
-        final RuntimeServices runtime = ctx.getRuntimeServices();
-        final ArtifactService artifacts = ctx.getArtifactService();
+    private static final int FONT_SIZE_PX = 22;
+    private static final int LABEL_FONT_SIZE_PX = 14;
+    private static final int MARGIN = 20;
+    private static final int SECTION_GAP = 24;
+    private static final int LABEL_TO_BODY_GAP = 6;
 
-        ValidationChoreographer choreographer = new ValidationChoreographer(
-                camera, scheduler, artifacts, runtime);
+    private static final int LABEL_COLOR = 0xFFF985C7;
+    private static final int BODY_COLOR = 0xFFFFFFFF;
 
-        double captureTime = MTSDF_PREWARM_SECONDS + 0.5;
-        for (int i = 0; i < INVESTIGATION_CAPTURES.length; i++) {
-            float[] capture = INVESTIGATION_CAPTURES[i];
-            choreographer.addStep(ValidationCaptureStep.builder(INVESTIGATION_CAPTURE_NAMES[i], captureTime)
-                    .cameraPosition(capture[0], capture[1], capture[2])
-                    .cameraOrientation(capture[3], capture[4])
-                    .build());
-            captureTime += 0.5;
-        }
-
-   
-        choreographer.onShutdown(() -> {
-            LOGGER.info("[InteractiveWorldTextScene] All screenshots captured.");
-             //   running = false;
-        });
-        choreographer.scheduleAll();
-    }
-
-//    private void wireButtonValidation(String buttonId) {
-//        UIElement el = testUi.getRoot().findById(buttonId);
-//        if (el instanceof UiButton) {
-//            final String id = buttonId;
-//            ((UiButton) el).clicked.connect(() -> validationState.recordButtonClick(id));
-//        }
-//    }
-
-//    private void wireTextboxValidation(String textboxId) {
-//        UIElement el = testUi.getRoot().findById(textboxId);
-//        if (el instanceof UiTextbox) {
-//            final String id = textboxId;
-//            UiTextbox tb = (UiTextbox) el;
-//            tb.submitted.connect(() -> validationState.recordTextboxSubmit(id));
-//            tb.textChanged.connect(value -> validationState.recordTextChanged());
-//        }
-//    }
-//
-//    /**
-//     * Schedules scripted UI interaction events using layout-derived coordinates
-//     * for deterministic validation of the CrystalGUI event/input/focus system.
-//     */
-//    private void scheduleUiEventValidation() {
-//        final TaskScheduler scheduler = ctx.getTaskScheduler();
-//
-//        scheduler.schedule(MTSDF_PREWARM_SECONDS + 0.2, "ui-pause-for-test", () -> {
-//            ctx.getRuntimeServices().setPaused(true);
-//            testUi.computeLayout(
-//                    ctx.getViewport().getWidth(),
-//                    ctx.getViewport().getHeight());
-//            LOGGER.info("[TextScene3D] Paused for UI event validation");
-//        });
-//
-//        scheduler.schedule(MTSDF_PREWARM_SECONDS + 0.4, "ui-hover-btn-confirm", () -> {
-//            float[] center = getElementCenter("btn-confirm");
-//            if (center != null) {
-//                uiInjector.mouseMove(center[0], center[1]);
-//                validationState.assertHovered("btn-confirm");
-//                LOGGER.info("[TextScene3D] Injected: hover over btn-confirm at (" + center[0] + ", " + center[1] + ")");
-//            }
-//        });
-//
-//        scheduler.schedule(MTSDF_PREWARM_SECONDS + 0.6, "ui-click-btn-confirm", () -> {
-//            float[] center = getElementCenter("btn-confirm");
-//            if (center != null) {
-//                uiInjector.mouseClick(center[0], center[1], 0);
-//                validationState.assertFocused("btn-confirm");
-//                validationState.assertClickedContains("btn-confirm");
-//                LOGGER.info("[TextScene3D] Injected: click on btn-confirm at (" + center[0] + ", " + center[1] + ")");
-//            }
-//        });
-//
-//        scheduler.schedule(MTSDF_PREWARM_SECONDS + 0.8, "ui-tab-to-btn-apply", () -> {
-//            uiInjector.tabFocus(false);
-//            validationState.recordFocusTransition(validationState.getFocusedElementId());
-//            validationState.assertFocused("btn-apply");
-//            LOGGER.info("[TextScene3D] Injected: tab focus -> expected btn-apply");
-//        });
-//
-//        scheduler.schedule(MTSDF_PREWARM_SECONDS + 1.0, "ui-shift-tab-back", () -> {
-//            uiInjector.tabFocus(true);
-//            validationState.recordFocusTransition(validationState.getFocusedElementId());
-//            validationState.assertFocused("btn-confirm");
-//            LOGGER.info("[TextScene3D] Injected: shift+tab -> expected btn-confirm");
-//        });
-//
-//        scheduler.schedule(MTSDF_PREWARM_SECONDS + 1.2, "ui-click-btn-cancel", () -> {
-//            float[] center = getElementCenter("btn-cancel");
-//            if (center != null) {
-//                uiInjector.mouseClick(center[0], center[1], 0);
-//                validationState.assertFocused("btn-cancel");
-//                validationState.assertClickedContains("btn-cancel");
-//                LOGGER.info("[TextScene3D] Injected: click on btn-cancel at (" + center[0] + ", " + center[1] + ")");
-//            }
-//        });
-//
-//        scheduler.schedule(MTSDF_PREWARM_SECONDS + 1.4, "ui-click-textbox", () -> {
-//            float[] center = getElementCenter("textbox-input");
-//            if (center != null) {
-//                uiInjector.mouseClick(center[0], center[1], 0);
-//                validationState.assertFocused("textbox-input");
-//                LOGGER.info("[TextScene3D] Injected: click on textbox-input -> focus acquired");
-//            }
-//        });
-//
-//        scheduler.schedule(MTSDF_PREWARM_SECONDS + 1.6, "ui-type-into-textbox", () -> {
-//            uiInjector.typeString("Hi");
-//            validationState.assertTextboxContent("textbox-input", "Hi");
-//            validationState.assertTextboxCaretPosition("textbox-input", 2);
-//            uiInjector.backspace();
-//            validationState.assertTextboxContent("textbox-input", "H");
-//            validationState.assertTextboxCaretPosition("textbox-input", 1);
-//            LOGGER.info("[TextScene3D] Injected: typed 'Hi' then backspace -> text='H', caret=1");
-//        });
-//
-//        // Extended textbox validation: multi-char, submit signal, textChanged count, tab-away
-//        scheduler.schedule(MTSDF_PREWARM_SECONDS + 1.8, "ui-textbox-extended", () -> {
-//            // Type more characters to exercise multi-char editing
-//            uiInjector.typeString("ello");
-//            validationState.assertTextboxContent("textbox-input", "Hello");
-//            validationState.assertTextboxCaretPosition("textbox-input", 5);
-//
-//            // Press Enter to fire submitted signal
-//            uiInjector.keyDown(com.crystalgui.core.event.CgUiKeyCodes.KEY_ENTER, 0);
-//            validationState.assertTextboxSubmitted("textbox-input");
-//
-//            // Verify textChanged fired for each character typed (H, Hi, H, He, Hel, Hell, Hello = 7)
-//            validationState.assertTextChangedCountAtLeast(7);
-//
-//            LOGGER.info("[TextScene3D] Injected: extended textbox validation -> text='Hello', submitted, textChanged>=7");
-//        });
-//
-//        scheduler.schedule(MTSDF_PREWARM_SECONDS + 2.0, "ui-tab-away-from-textbox", () -> {
-//            // Textbox should currently be focused
-//            validationState.assertFocused("textbox-input");
-//            // Tab away: should move focus to next focusable element (btn-confirm)
-//            uiInjector.tabFocus(false);
-//            validationState.recordFocusTransition(validationState.getFocusedElementId());
-//            validationState.assertFocused("btn-confirm");
-//            LOGGER.info("[TextScene3D] Injected: tab away from textbox -> focus moved to btn-confirm");
-//        });
-//
-//        scheduler.schedule(MTSDF_PREWARM_SECONDS + 2.2, "ui-validation-summary", () -> {
-//            validationState.logSummary();
-//            validationState.throwIfFailed();
-//        });
-//    }
-
-//    private float[] getElementCenter(String id) {
-//        UIElement el = testUi.getRoot().findById(id);
-//        if (el == null) {
-//            LOGGER.warning("[TextScene3D] Element not found by id: " + id);
-//            return null;
-//        }
-//        UiRect box = el.getLayoutState().getLayoutBox();
-//        return new float[]{ box.getX() + box.getWidth() / 2f, box.getY() + box.getHeight() / 2f };
-//    }
-
+    CgFont labelFont;
+    CgFont latinRegular;
+    CgFont minecraftFont;
+    CgFontFamilyGroup minecraftGroup;
+    
+    List<Section> sections;
+    CgTextRenderer renderer;
+    
+    float scrollDelta;
+    float scrollScale = 1;
+    
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         // Build view matrix from camera
@@ -337,7 +212,7 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         float textWorldWidth = arHelper.getWorldLayout().totalWidth() * worldScale;
         modelView.translate(-textWorldWidth * 0.5f, 25.75f, -5f);
         modelView.scale(worldScale, -worldScale, worldScale);
-        jpHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
+//        jpHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
 
 
         poseStack = new PoseStack();
@@ -356,12 +231,26 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         // floor, HUD, and pause overlay render correctly in subsequent passes.
         GlStateResetHelper.resetAfterScene();
 
-        // ── Real Cgui test UI (rendered when paused) ──
-//        if (ctx.getRuntimeServices() != null && ctx.getRuntimeServices().isPaused() && testUi != null) {
-//            testUi.computeLayout(screenWidth, screenHeight);
-//            orthoProjection.setOrtho(0, screenWidth, screenHeight, 0, -1, 1);
-//            testUi.getPaintContext().setTextFrame(frame.getFrameNumber());
-//            testUi.render(orthoProjection);
+     
+        PoseStack pose = new PoseStack();
+        pose.scale(scrollScale, scrollScale, 1);
+        renderer.beginBatch();
+        float y = MARGIN;
+        for (Section s : sections) {
+            if (s.label != null) {
+                renderer.context().clearHistory();
+                CgTextLayout labelLayout = CgTextLayoutRequest.of(s.label, labelFont).build();
+                renderer.draw().layout(labelLayout).font(labelFont).at(MARGIN, y)
+                        .color(LABEL_COLOR).pose(pose).submit();
+                y += LABEL_FONT_SIZE_PX + LABEL_TO_BODY_GAP;
+            }
+
+            renderer.context().clearHistory();
+            renderer.draw().layout(s.layout).font(latinRegular).at(MARGIN, y)
+                    .color(BODY_COLOR).pose(pose).submit();
+            y += s.layout.totalHeight() + SECTION_GAP;
+        }
+        renderer.endBatch();
 //        }
     }
 
@@ -379,15 +268,6 @@ public class TextScene3D implements InteractiveSceneLifecycle {
         return shutdownOnComplete;
     }
 
-    /**
-     * Configures whether the program should shut down when this scene completes.
-     *
-     * @param shutdown true to exit on completion (default), false to continue
-     */
-    public void setShutdownOnComplete(boolean shutdown) {
-        this.shutdownOnComplete = shutdown;
-    }
-
     @Override
     public boolean isRunning() {
         return running;
@@ -403,5 +283,104 @@ public class TextScene3D implements InteractiveSceneLifecycle {
     @Override
     public boolean uses3DCamera() {
         return true;
+    }
+
+    @Override
+    public boolean consumeMouseEvent(Event event) {
+        scrollDelta = event.wheelDelta();
+        
+         if (scrollDelta > 0) scrollScale -= 0.1f;
+         else if (scrollDelta < 0) scrollScale += 0.1f;
+         if(scrollDelta!=0)
+        System.out.println(scrollDelta);
+         
+         if(event.button() == 1) scrollScale = 1;
+        
+        return false;
+    }
+
+    /**
+     Rich-text pipeline showcase: paragraphs, HTML markup, MC codes, alignment/ellipsis, Arabic RTL, 
+     and a combination -- to text-showcase.png
+     */
+    public List<Section> buildSections(CgFontFamily regularFamily, CgFontFamilyGroup group, int wrapWidth) {
+        List<Section> sections = new ArrayList<>();
+
+        sections.add(new Section("1) Plain paragraph -- multi-line wrap, no markup",
+                CgTextLayoutRequest.of(
+                        "This is a plain paragraph with no markup at all: just ordinary text "
+                                + "wrapped across several lines at a fixed width, exactly like "
+                                + "Draw.text(String) has always worked.",
+                        regularFamily)
+                        .maxWidth(wrapWidth)
+                        .build()));
+
+        sections.add(new Section("2) HTML-like markup: <b>, <i>, <u>, <s>, <overline>, <color=#RRGGBB>",
+                      CgTextLayoutRequest.of(
+                                "This line has <b>bold</b>, <i>italic</i>, <u>underlined</u>, "
+                                        + "<s>strikethrough</s>, <overline>overlined</overline>, "
+                                        + "and <color=#FF0000>colored</color> <color=#00FF00>words</color> all together.",
+                          group)
+                        .markup(CgMarkupParser.HTML)
+                        .maxWidth(wrapWidth)
+                        .build()));
+
+        sections.add(new Section("3) Minecraft formatting codes: §l, §o, §n, §r",
+                     CgTextLayoutRequest.of(
+                                "§lBold§r §aplain§r §nunderlined§r plain "
+                                        + "§o§lbold and §d§litalic§f §mtogether§r plain again.",
+                        minecraftGroup)
+                        .markup(CgMarkupParser.MINECRAFT)
+                        .maxWidth(wrapWidth)
+                        .build()));
+
+        sections.add(new Section("4) Alignment: CENTER across lines of different widths",
+                CgTextLayoutRequest.of(
+                        "Centered line one\nA noticeably longer second line that still centers\nShort",
+                        regularFamily)
+                        .maxWidth(wrapWidth)
+                        .align(CgTextAlign.CENTER)
+                        .build()));
+
+        sections.add(new Section("5) Max-lines + ellipsis: truncated after 2 lines",
+                CgTextLayoutRequest.of(
+                        "This paragraph has far more lines than we allow to display, so it "
+                                + "should truncate after two lines and show an ellipsis marker "
+                                + "instead of silently cutting off.\nSecond line here.\n"
+                                + "Third line never shown.\nFourth line never shown either.",
+                        regularFamily)
+                        .maxWidth(wrapWidth)
+                        .maxLines(2)
+                        .ellipsis("...")
+                        .build()));
+
+        sections.add(new Section("6) Arabic RTL -- font-fallback resolves the Arabic face automatically",
+                CgTextLayoutRequest.of(
+                        "مرحبا بكم! هذا "
+                                + "نص عربي يُكتب "
+                                + "من اليمين إلى "
+                                + "اليسار، مع التفاف "
+                                + "لخطوط متعددة.",
+                        regularFamily)
+                        .maxWidth(wrapWidth)
+                        .align(CgTextAlign.RIGHT)
+                        .build()));
+
+        sections.add(new Section("7) Combination: bold HTML span containing Arabic RTL, plus color, wrapped",
+                CgTextLayoutRequest.of(
+                                "Hello <b>bold text with مرحبا Arabic "
+                                        + "shaped right inside it</b>, followed by "
+                                        + "<color=#88CCFF>a colored finish</color>, all wrapped "
+                                        + "across multiple lines to show everything working "
+                                        + "together at once: markup, fallback fonts, RTL, and color.",
+                        group)
+                        .markup(CgMarkupParser.HTML)
+                        .maxWidth(wrapWidth)
+                        .build()));
+
+        return sections;
+    }
+
+    record Section(String label, CgTextLayout layout) {
     }
 }

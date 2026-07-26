@@ -4,12 +4,12 @@ import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontFamily;
 import com.crystalgraphics.api.font.CgFontStyle;
-import com.crystalgraphics.api.font.CgTextLayoutBuilder;
 import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
 import io.github.somehussar.crystalgraphics.harness.scene.TextScene3D;
 import com.crystalgraphics.api.text.CgTextLayout;
+import com.crystalgraphics.api.text.CgTextLayoutRequest;
 
 import lombok.Getter;
 import org.joml.Matrix4f;
@@ -119,13 +119,14 @@ public final class WorldTextRenderHelper {
                 .withMtsdf(mtsdf);
         renderer = CgTextRenderer.create();
 
-        CgTextLayoutBuilder layoutBuilder = new CgTextLayoutBuilder();
-        worldLayout = layoutBuilder.layout(
-                text + " [world-3D, " + fontSizePx + "px, " + (mtsdf ? "MTSDF" : "MSDF") + "]",
-                font, (float) layoutWidth, 0);
-        refLayout = layoutBuilder.layout(
-                "2D reference [" + fontSizePx + "px, ortho]",
-                font, (float) layoutWidth, 0);
+        worldLayout = CgTextLayoutRequest.of(
+                        text + " [world-3D, " + fontSizePx + "px, " + (mtsdf ? "MTSDF" : "MSDF") + "]",
+                        font)
+                .maxWidth((float) layoutWidth)
+                .build();
+        refLayout = CgTextLayoutRequest.of("2D reference [" + fontSizePx + "px, ortho]", font)
+                .maxWidth((float) layoutWidth)
+                .build();
 
         LOGGER.info("[WorldTextRenderHelper] Initialized: font=" + fontPath
                 + ", size=" + fontSizePx + "px"

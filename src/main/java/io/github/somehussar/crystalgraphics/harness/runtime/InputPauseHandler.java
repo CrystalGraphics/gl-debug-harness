@@ -113,6 +113,6 @@ public final class InputPauseHandler implements SystemInput.Keyboard, SystemInpu
 
     @Override
     public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
-        return !paused;
+        return true;
     }
 }

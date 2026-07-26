@@ -4,7 +4,6 @@ import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
-import com.crystalgraphics.api.font.CgTextLayoutBuilder;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
 import com.crystalgraphics.text.render.CgTextRenderContext;
@@ -19,6 +18,7 @@ import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
 import io.github.somehussar.crystalgraphics.harness.util.ScreenshotUtil;
 import com.crystalgraphics.api.text.CgShapedRun;
 import com.crystalgraphics.api.text.CgTextLayout;
+import com.crystalgraphics.api.text.CgTextLayoutRequest;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -92,9 +92,9 @@ public class TextScene2D implements HarnessSceneLifecycle {
         CgTextRenderer renderer = CgTextRenderer.create();
         CgTextRenderer.diagnosticLogging = true;
 
-        CgTextLayoutBuilder layoutBuilder = new CgTextLayoutBuilder();
-
-        CgTextLayout topLabelLayout = layoutBuilder.layout(TOP_LABEL_TEXT, font, (float) fboWidth, 0);
+        CgTextLayout topLabelLayout = CgTextLayoutRequest.of(TOP_LABEL_TEXT, font)
+                .maxWidth((float) fboWidth)
+                .build();
         int topLabelBandHeight = (int) Math.ceil(topLabelLayout.totalHeight()) + 20;
         LOGGER.info("[Harness] Top label: layout " + topLabelLayout.lines().size()
                 + " lines, width=" + topLabelLayout.totalWidth()
@@ -114,7 +114,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
             labels[i] = text + " [base " + fontSizePx + "px, pose "
                     + String.format("%.1f", scale) + "x]";
             float logicalMaxWidth = fboWidth / scale;
-            layouts[i] = layoutBuilder.layout(labels[i], font, logicalMaxWidth, 0);
+            layouts[i] = CgTextLayoutRequest.of(labels[i], font).maxWidth(logicalMaxWidth).build();
             // The layout reports logical height; the pose scale magnifies it on screen.
             float scaledHeight = layouts[i].totalHeight() * scale;
             bandHeights[i] = (int) Math.ceil(scaledHeight) + bandPadding;

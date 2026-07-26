@@ -4,11 +4,11 @@ import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
-import com.crystalgraphics.api.font.CgTextLayoutBuilder;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.api.text.CgTextLayout;
+import com.crystalgraphics.api.text.CgTextLayoutRequest;
 
 import org.lwjgl.input.Mouse;
 
@@ -66,7 +66,6 @@ public final class HUDRenderer {
     private CgFont arabicFont;
     private CgFont demoFont;
     private CgTextRenderer renderer;
-    private CgTextLayoutBuilder layoutBuilder;
     private PoseStack poseStack;
 
     private boolean initialized = false;
@@ -190,7 +189,6 @@ public final class HUDRenderer {
         // Screen-sized: the owned context's orthographic projection auto-tracks the
         // display window resolution via CgTextRendererRegistry (see CgGraphicsLifecycle.onResize).
         renderer = CgTextRenderer.createScreenSized();
-        layoutBuilder = new CgTextLayoutBuilder();
         poseStack = new PoseStack();
         poseStack.translate(0,20,0);
 
@@ -235,15 +233,15 @@ public final class HUDRenderer {
 
         // Build text layout for the current frame's text.
         // maxWidth=0 means unbounded (no line wrapping beyond our explicit newline).
-        CgTextLayout layout = layoutBuilder.layout(hudText, font, 0, 0);
+        CgTextLayout layout = CgTextLayoutRequest.of(hudText, font).build();
         
         // Render text at top-left corner with the configured offset.
         // CgTextRenderer.draw() handles its own GL state save/restore internally
         // via CgStateBoundary, but in the standalone harness the GLStateMirror
         // may be in UNKNOWN state, so we also do explicit cleanup after draw.
         renderer.beginBatch();
-        renderer.draw().layout(layout).font(font).at(currentQuadOffset, currentQuadOffset)
-                .color(TEXT_COLOR).pose(poseStack).submit();
+       // renderer.draw().layout(layout).font(font).at(currentQuadOffset, currentQuadOffset)
+               // .color(TEXT_COLOR).pose(poseStack).submit();
 
         int wheel = Mouse.getDWheel();
         if (wheel > 0) {
@@ -264,9 +262,11 @@ public final class HUDRenderer {
                 continue;
             PoseStack ps = anchoredScalePose(DEMO_TEXT_X, lineY, demoScale);
             float logicalWidth = ctx.getScreenWidth() / demoScale;
-            CgTextLayout demoLayout = layoutBuilder.layout(
-                    DEMO_TEXT + " [base " + 24 + "px, pose " + String.format("%.1f", demoScale) + "x]",
-                    demoFont, logicalWidth, 0);
+            CgTextLayout demoLayout = CgTextLayoutRequest.of(
+                            DEMO_TEXT + " [base " + 24 + "px, pose " + String.format("%.1f", demoScale) + "x]",
+                            demoFont)
+                    .maxWidth(logicalWidth)
+                    .build();
 
             renderer.context().clearHistory();
             renderer.draw().layout(demoLayout).font(demoFont).at(DEMO_TEXT_X, lineY)

@@ -8,7 +8,6 @@ import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.font.CgGlyphKey;
-import com.crystalgraphics.api.font.CgTextLayoutBuilder;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
 import com.crystalgraphics.text.msdf.CgMsdfGenerator;
@@ -27,6 +26,7 @@ import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
 import io.github.somehussar.crystalgraphics.harness.util.ScreenshotUtil;
 import com.crystalgraphics.api.text.CgTextLayout;
+import com.crystalgraphics.api.text.CgTextLayoutRequest;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -134,7 +134,6 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         CgMsdfAtlasConfig registryMsdfConfig = config.buildMsdfAtlasConfig(registryAtlasSize);
         CgFontRegistry registry = new CgFontRegistry(registryAtlasSize, registryMsdfConfig);
         CgTextRenderer renderer = CgTextRenderer.create();
-        CgTextLayoutBuilder layoutBuilder = new CgTextLayoutBuilder();
 
         int fbo = GL30.glGenFramebuffers();
         int colorTex = GL11.glGenTextures();
@@ -170,7 +169,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         CgFont bitmapFont = null;
         if (wantBitmap) {
             bitmapFont = CgFont.load(fontPath, CgFontStyle.REGULAR, bitmapPxSize);
-            CgTextLayout bitmapLayout = layoutBuilder.layout(text, bitmapFont, fboWidth, 0);
+            CgTextLayout bitmapLayout = CgTextLayoutRequest.of(text, bitmapFont).maxWidth(fboWidth).build();
 
             if (prewarmBitmap) {
                 // Deterministic prewarm: render enough frames so every unique glyph
@@ -189,7 +188,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         CgFont msdfFont = null;
         if (wantMsdf) {
             msdfFont = CgFont.load(fontPath, CgFontStyle.REGULAR, msdfPxSize);
-            CgTextLayout msdfLayout = layoutBuilder.layout(text, msdfFont, fboWidth, 0);
+            CgTextLayout msdfLayout = CgTextLayoutRequest.of(text, msdfFont).maxWidth(fboWidth).build();
 
             if (parityPrewarm) {
                 // Deterministic parity prewarm: render many frames with the full text

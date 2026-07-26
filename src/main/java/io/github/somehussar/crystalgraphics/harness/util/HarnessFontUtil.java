@@ -7,8 +7,10 @@ import java.io.File;
  */
 public final class HarnessFontUtil {
 
-    public static final String ARABIC_FONT = resolveFontPath("../src/main/resources/assets/crystalgraphics/IBMPlexSansArabic-Regular.ttf");
+    public static final String ARABIC_FONT = resolveFontPath("../CrystalGraphics/core/src/main/resources/assets/crystalgraphics/IBMPlexSansArabic-Regular.ttf");
     public static final String JAPANESE_FONT = resolveFontPath("../CrystalGraphics/core/src/main/resources/assets/crystalgraphics/MPLUS1p-Regular.ttf");
+    public static final String LATIN_FONT = resolveFontPath("../CrystalGraphics/core/src/main/resources/assets/crystalgraphics/IBMPlexSans-Regular.ttf");
+    public static final String MINECRAFT_FONT = resolveFontPath("../CrystalGraphics/core/src/main/resources/assets/crystalgraphics/mojangles.ttf");
 
     /**
      * Resolves a font path from the given config, falling back to system font discovery.
