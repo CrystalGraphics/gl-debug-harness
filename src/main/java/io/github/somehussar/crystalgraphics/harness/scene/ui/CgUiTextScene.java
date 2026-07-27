@@ -64,7 +64,7 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, SystemInput.Key
 
     private static final String STYLE_SHEET = """
             .card {
-                background-color: #2A2A2ACC;
+                background-color: #FF00FFFF;
                 border-width: 1px;
                 border-color: #555555;
                 padding-all: 8px;
@@ -97,6 +97,8 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, SystemInput.Key
                         .flexDirection(FlexDirection.ROW)
                         .gapAll(16)
                         .alignItems(dev.vfyjxf.taffy.style.AlignItems.FLEX_START)
+                        .flexWrap(FlexWrap.WRAP)
+                        .maxWidth(500)
                 ).setFocusPolicy(FocusPolicy.NONE);
 
         // Case 1: plain single-line, auto-sized.
@@ -136,6 +138,8 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, SystemInput.Key
         liveTextElement.bindTextTo(liveText);
         liveCard.addChild(liveTextElement);
         root.addChild(liveCard);
+        UIText rawText = new UIText("Testinggg");
+        root.addChild(rawText);
 
         return root;
     }
