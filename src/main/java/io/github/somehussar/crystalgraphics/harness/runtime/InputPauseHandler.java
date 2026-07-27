@@ -108,7 +108,7 @@ public final class InputPauseHandler implements SystemInput.Keyboard, SystemInpu
             return false;
         }
 
-        return !isPaused();
+        return true;
     }
 
     @Override
