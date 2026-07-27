@@ -1,14 +1,8 @@
 package io.github.somehussar.crystalgraphics.harness.scene;
 
 import com.crystalgraphics.api.PoseStack;
-import com.crystalgraphics.api.font.CgFont;
-import com.crystalgraphics.api.font.CgFontFamily;
-import com.crystalgraphics.api.font.CgFontFamilyGroup;
-import com.crystalgraphics.api.font.CgFontStyle;
-import com.crystalgraphics.api.text.CgShapedParagraph;
-import com.crystalgraphics.api.text.CgTextAlign;
-import com.crystalgraphics.api.text.CgTextLayout;
-import com.crystalgraphics.api.text.CgTextLayoutRequest;
+import com.crystalgraphics.api.font.*;
+import com.crystalgraphics.api.text.*;
 import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.richtext.CgMarkupParser;
@@ -172,7 +166,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         orthoContext = renderer.context();
         perspectiveContext = CgTextRenderContext.world(ctx.getProjection(), ctx.getScreenWidth(),
                 ctx.getScreenHeight());
-
+        
         sections = buildSections(regularFamily, group, wrapWidth);
         LOGGER.info("[Harness] World text scene (interactive) initialized.");
     }
@@ -208,7 +202,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     List<Section> sections;
     CgTextRenderer renderer;
     int wrapWidth;
-
+    
     /** Flip to switch the sections' render path between orthographic (2D/UI) and world (3D/perspective). */
     boolean renderSectionsInWorldSpace = false;
     CgTextRenderContext perspectiveContext, orthoContext;
@@ -276,13 +270,35 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 pose.scale(scrollScale, scrollScale, 1);
             }
             renderer.beginBatch();
-            float y = MARGIN;
+            // y (and MARGIN below) are tracked in DESIGN-SPACE screen pixels -- the same fixed,
+            // scale-invariant convention wrapWidth already uses via .constraints() -- NOT local
+            // pre-transform coordinates. .at() divides by scrollScale right before submitting so
+            // that, once `pose`'s scale multiplies it back out, the glyph lands at the intended
+            // fixed screen position instead of drifting with zoom. Without this, MARGIN (and y)
+            // were passed straight to .at() as local coordinates, so they got scaled UP by the
+            // same pose as everything else -- meaning the pen origin visibly drifted to the right
+            // (and down) as scrollScale grew, while wrapWidth's box stayed pinned at a fixed
+            // screen width, so the two increasingly disagreed on where the box's left edge/column
+            // actually was (invisible at scale 1, where MARGIN*1 == MARGIN, growing linearly with
+            // scale beyond that -- exactly the drift observed at higher scales).
+            float y = MARGIN + 20;
             for (Section s : sections) {
                 if (s.label != null) {
-                    CgTextLayout labelLayout = CgTextLayoutRequest.of(s.label, labelFont).build();
-                    renderer.draw().layout(labelLayout).font(labelFont).at(MARGIN, y)
-                            .color(LABEL_COLOR).pose(pose).submit();
-                    y += LABEL_FONT_SIZE_PX + LABEL_TO_BODY_GAP;
+                    // .text(...)+.constraints(...), NOT a prebuilt .layout(...) -- a prebuilt
+                    // CgTextLayout is drawn verbatim and ignores .constraints() entirely (see
+                    // Draw's "layout vs. paragraph/text" field-priority rules), which is why
+                    // constraints(wrapWidth, 0) previously did nothing here. Going through
+                    // .text() lets CgTextRenderer build (and cache, via CgTextLayoutCache) the
+                    // layout itself, applying the same scale-aware constraint division .paragraph()
+                    // gets below.
+                    CgTextRenderer.Draw labelDraw = renderer.draw().text(s.label).constraints(wrapWidth, 0)
+                            .font(labelFont).pose(pose);
+                    float labelHeightDesign = labelDraw.measure().totalHeight() * scrollScale;
+                    labelDraw.at(MARGIN / scrollScale, y / scrollScale).color(LABEL_COLOR).submit();
+                    // Same *scrollScale conversion as sectionHeightDesign below -- now that the
+                    // label can wrap to multiple lines, its measured height (not a fixed
+                    // single-line constant) has to drive the advance, same reasoning as the body.
+                    y += labelHeightDesign + LABEL_TO_BODY_GAP * scrollScale;
                 }
 
                 // .paragraph(...) (instead of a frozen .layout(...)) re-wraps against the current
@@ -295,17 +311,59 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 // real height it's about to draw at (same resolution submit() uses, memoized, so
                 // this costs nothing extra) instead of assuming a fixed unscaled height, which is
                 // what caused sections to overlap at scrollScale > 1.
+                //
+                // measure() returns the resolved layout's height in LOCAL units (it was wrapped
+                // against the already-scale-divided effective width), so it has to be multiplied
+                // back up by scrollScale before accumulating into the design-space y tracker --
+                // otherwise y would be a mix of design-space (MARGIN/SECTION_GAP) and local-space
+                // (sectionHeight) units.
                 CgTextRenderer.Draw bodyDraw = renderer.draw().paragraph(s.paragraph).constraints(wrapWidth, 0)
                                                        .font(latinRegular).pose(pose);
-                float sectionHeight = bodyDraw.measure().totalHeight();
-                bodyDraw.at(MARGIN, y).color(BODY_COLOR).submit();
-                y += sectionHeight + SECTION_GAP;
+                float sectionHeightDesign = bodyDraw.measure().totalHeight() * scrollScale;
+                bodyDraw.at(MARGIN / scrollScale, y / scrollScale).color(BODY_COLOR).submit();
+                y += sectionHeightDesign + SECTION_GAP;
             }
+
+            drawWrapWidthGuide(pose, y);
+
             pose = new PoseStack();
             pose.scale(2, 2, 1);
-            //  renderer.draw().text("Scale: " + scrollScale).font(labelFont).at((float) 10, 10).pose(pose).submit();
+            renderer.draw().text(String.format("Scale: %.1fx ", scrollScale)).font(labelFont).at(10, 0).pose(pose).submit();
+
             renderer.endBatch();
         }
+    }
+
+    /**
+     * Draws a thin vertical guide line at design-space X = MARGIN + wrapWidth, down to
+     * {@code designHeight} -- i.e. exactly where the paragraphs above wrap. Reuses the exact
+     * same quad batch/atlas white-texel machinery {@code CgTextRenderer} already uses for
+     * decoration lines (underline/strikethrough/overline) -- no new CgQuadRenderer, no new
+     * rendering code at all. A {@link CgTextDecorationRect} is normally a horizontal bar
+     * (x0/x1 span its width, thickness is its height); swapping which axis is "thin" turns the
+     * same primitive into a vertical line for free. Wrapped in a single-line, zero-glyph
+     * {@link CgTextLayout} since {@code CgTextRenderer} only looks at decorations once
+     * {@code lines()} is non-empty.
+     *
+     * <p>{@code pose} must be the SAME scaled pose the sections above were drawn with (not a
+     * fresh/identity one) -- every coordinate here is divided by {@code scrollScale} before
+     * being handed to the decoration rect (which is local-space, like a glyph pen position), so
+     * that once {@code pose} multiplies it back out, the line lands at its intended fixed
+     * design-space screen position, exactly like the sections' own {@code .at()} calls above.</p>
+     */
+    private void drawWrapWidthGuide(PoseStack pose, float designHeight) {
+        float x = (MARGIN + wrapWidth) / scrollScale;
+        float thicknessPx = 2f / scrollScale;
+        float height = designHeight / scrollScale;
+        CgFontKey fontKey = latinRegular.getKey();
+        CgTextDecorationRect guide = new CgTextDecorationRect(x, x + thicknessPx, height / 2f, height, 0xFF00FF00, fontKey);
+        CgBakedGlyphs baked = new CgBakedGlyphs(
+                0, new CgFontKey[0], new CgFont[0], new int[0],
+                new float[0], new float[0], new float[0], new int[0], new boolean[0],
+                new float[]{0f}, new int[]{0, 0}, new CgTextDecorationRect[]{guide},
+                new boolean[0], new boolean[0]);
+        CgTextLayout guideLayout = new CgTextLayout(List.of(List.of()), 0f, 0f, latinRegular.getMetrics(), baked);
+        renderer.draw().layout(guideLayout).font(latinRegular).at(0f, 0f).color(0xFF00FF00).pose(pose).submit();
     }
 
     @Override
