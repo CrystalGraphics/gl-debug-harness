@@ -18,6 +18,7 @@ import io.github.somehussar.crystalgraphics.harness.tool.AtlasDumper;
 import io.github.somehussar.crystalgraphics.harness.util.GlStateResetHelper;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
 import io.github.somehussar.crystalgraphics.harness.util.WorldTextRenderHelper;
+import lombok.Getter;
 import lombok.Setter;
 import org.joml.Matrix4f;
 
@@ -61,81 +62,39 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
 
     private static final Logger LOGGER = Logger.getLogger(TextScene3D.class.getName());
     
-    private static final double MTSDF_PREWARM_SECONDS = 3.0;
-    private static final float[][] INVESTIGATION_CAPTURES = new float[][] {
-            {-0.78f, 0.16f, -4.85f, 359.85f, 0.15f},
-            {-0.75f, 0.16f, -4.97f, 3.60f, -2.20f},
-            {-0.83f, 0.16f, -4.97f, 4.95f, -4.65f},
-            {-0.47f, 0.13f, -4.95f, 357.85f, -1.65f}
-    };
-    private static final String[] INVESTIGATION_CAPTURE_NAMES = new String[] {
-            "ar-join-notch-overview",
-            "ar-join-notch-zoom-a",
-            "ar-join-notch-zoom-b",
-            "bracket-corner-rounding"
-    };
-
     // ── Interactive mode state ──
+    @Getter
     private boolean running = true;
-    /**
-     * -- SETTER --
-     *  Configures whether the program should shut down when this scene completes.
-     *
-     * @param shutdown true to exit on completion (default), false to continue
-     */
     @Setter
     private boolean shutdownOnComplete = false;
 
     private HarnessContext ctx;
-    private WorldTextRenderHelper helper;
-    private WorldTextRenderHelper arHelper;
-    private WorldTextRenderHelper jpHelper;
-
-    // ── Real Cgui UI (rendered when paused) ──
-    private final Matrix4f orthoProjection = new Matrix4f();
-
+    private CgFont kanjiFont;
+    private CgTextLayout kanjiWorldLayout;
+    private int kanjiFontSizePx;
+    
     @Override
     public void init(HarnessContext ctx) {
         this.ctx = ctx;
         Camera3D camera = ctx.getCamera3D();
+        camera.moveCamera(0, 0.1f, 0);
 
         // Typed config is resolved before execution and available via context.
         // For interactive scenes, the config is set on ctx before init() is called.
         TextSceneConfig config = (TextSceneConfig) ctx.getSceneConfig();
         String fontPath = HarnessFontUtil.resolveFontPath(config.getFontPath());
         int fontSizePx = config.getFontSizePx();
-        String text = config.getText();
         int layoutWidth = config.getWidth();
-        int layoutHeight = config.getHeight();
 
         LOGGER.info("[Harness] World text scene (interactive): font=" + fontPath);
-        LOGGER.info("[Harness] World text scene (interactive): size=" + fontSizePx + "px"
-                + ", mtsdf=" + config.isMtsdf());
-        //CgTextRenderer.diagnosticLogging = true;
-
-        // Initialize the shared render helper (validates GL caps, loads font, builds layouts)
-        helper = new WorldTextRenderHelper(fontPath, fontSizePx, text, layoutWidth, layoutHeight,
-                config.getAtlasSize(), config.isMtsdf());
-        helper.init();
-
+        LOGGER.info("[Harness] World text scene (interactive): size=" + fontSizePx + "px" + ", mtsdf=" + config.isMtsdf());
+        
         //jp  "さあ 剽悍な双眸を エーカム そうさ 先頭に e"
-        jpHelper = new WorldTextRenderHelper(HarnessFontUtil.JAPANESE_FONT, fontSizePx,
-                config.kanji, layoutWidth, layoutHeight,
-                config.getAtlasSize(), config.isMtsdf());
-        jpHelper.init();
-//HI بيانات الاستفسار e
-        arHelper = new WorldTextRenderHelper(HarnessFontUtil.ARABIC_FONT, fontSizePx, "HI HI HI HI HI HI HI", layoutWidth,
-                layoutHeight,
-                config.getAtlasSize(), config.isMtsdf());
-        arHelper.init();
-
-        camera.moveCamera(0, 0, 0);
-        camera.setYaw(337.0f);
-        camera.setPitch(0);
-
+        kanjiFontSizePx = fontSizePx;
+        kanjiFont = CgFont.load(HarnessFontUtil.JAPANESE_FONT, CgFontStyle.REGULAR, fontSizePx);
+        kanjiWorldLayout = CgTextLayout.of(config.kanji, kanjiFont).maxWidth((float) layoutWidth).build();
 
         // STYLES
-
         String latinPath = HarnessFontUtil.LATIN_FONT;
         String arabicPath = HarnessFontUtil.ARABIC_FONT;
         String minecraftPath = HarnessFontUtil.MINECRAFT_FONT;
@@ -163,8 +122,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         minecraftGroup = CgFontFamilyGroup.ofRegular(mcFamily);
 
         wrapWidth = 1000 - 2 * MARGIN;
-
-
+        
         renderer = CgTextRenderer.create();
         orthoContext = renderer.context();
         perspectiveContext = CgTextRenderContext.world(ctx.getProjection(), ctx.getScreenWidth(),
@@ -218,34 +176,29 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         // Build view matrix from camera
         Matrix4f viewMatrix = this.ctx.getCamera3D().getViewMatrix();
 
-        ViewportState vp = this.ctx.getViewport();
-        int screenWidth = vp.getWidth();
-        int screenHeight = vp.getHeight();
-
         // Delegate all world-text rendering to the shared helper.
         // The helper handles perspective projection, model-view setup,
         // text positioning, and world-text draw() with correct winding order.
 
+        float worldScale = 0.0005f;
+        float textWorldWidth = kanjiWorldLayout.totalWidth() * worldScale;
+        
         PoseStack poseStack = new PoseStack();
         Matrix4f modelView = poseStack.last().pose();
         modelView.set(viewMatrix);
-        float worldScale = 0.0005f;
-        float textWorldWidth = arHelper.getWorldLayout().totalWidth() * worldScale;
         modelView.translate(-textWorldWidth * 0.5f, 1.5f, -0.2f);
         modelView.scale(worldScale, -worldScale, worldScale);
-        jpHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
-        
 
-        // ── GL state cleanup after world text rendering ──
-        // world-text draw() internally saves/restores state via CgStateBoundary, but in the
-        // standalone harness (no coremod), the GLStateMirror is in UNKNOWN state which
-        // can cause incomplete restoration. Use the shared reset helper to guarantee
-        // floor, HUD, and pause overlay render correctly in subsequent passes.
-        GlStateResetHelper.resetAfterScene();
+        perspectiveContext.updateProjectedSize(modelView, ctx.getProjection(), kanjiFontSizePx);
+        renderer.context(perspectiveContext);
 
+        renderer.draw().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack).submit();
+
+        //////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////
 
         //Render rich-format text paragraphs
-        if (true) {
+        if (false) {
             PoseStack pose = new PoseStack();
             renderSectionsInWorldSpace = false;
             if (renderSectionsInWorldSpace) {
@@ -360,56 +313,27 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         renderer.draw().layout(guideLayout).font(latinRegular).at(0f, 0f).color(0xFF00FF00).pose(pose).submit();
     }
 
-    @Override
-    public void dispose() {
-        CgTextRenderer.diagnosticLogging = false;
-        if (helper != null) {
-            helper.dispose();
-        }
-        LOGGER.info("[Harness] World text scene (interactive) cleaned up.");
-    }
+    public void dispose() {}
 
-    @Override
-    public boolean shouldShutdownOnComplete() {
-        return shutdownOnComplete;
-    }
+    public boolean shouldShutdownOnComplete() {return shutdownOnComplete;}
 
-    @Override
-    public boolean isRunning() {
-        return running;
-    }
+    public void requestStop() {running = false;}
 
-    /**
-     * Signals this scene to stop its render loop.
-     */
-    public void requestStop() {
-        running = false;
-    }
-
-    @Override
-    public boolean uses3DCamera() {
-        return true;
-    }
+    public boolean uses3DCamera() {return true;}
 
     @Override
     public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
         scrollDelta = event.wheelDelta();
-        
          if (scrollDelta > 0) scrollScale -= 0.1f;
          else if (scrollDelta < 0) scrollScale += 0.1f;
-         if(scrollDelta!=0)
-        System.out.println(scrollDelta);
-
         if (event.button() == 1) scrollScale = 1;
-
         return false;
     }
 
     @Override
     public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
-        if (event.pressed() && !event.repeat() && event.key() == CgUiKeyCodes.KEY_LBRACKET) {
+        if (event.pressed() && !event.repeat() && event.key() == CgUiKeyCodes.KEY_LBRACKET) 
             dumpKanjiFontAtlas();
-        }
         return true;
     }
 
@@ -418,10 +342,8 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
      * {@link AtlasDumper#dumpFontAtlas}. Bound to {@code [} — see {@link #consumeKeyboardEvent}.
      */
     private void dumpKanjiFontAtlas() {
-        CgFont font = jpHelper.getFont();
-        
         File harnessOutputRoot = new File(ctx.getOutputDir()).getParentFile();
-        AtlasDumper.dumpFontAtlas(font, harnessOutputRoot.getPath());
+        AtlasDumper.dumpFontAtlas(kanjiFont, harnessOutputRoot.getPath());
     }
 
     /**

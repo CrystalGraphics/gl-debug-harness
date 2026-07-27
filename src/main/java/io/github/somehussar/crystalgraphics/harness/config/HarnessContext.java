@@ -91,7 +91,7 @@ public final class HarnessContext {
     private WorldSettings worldSettings;
 
     // ── Shared subsystem references (set by InteractiveSceneRunner for interactive scenes) ──
-    private Matrix4f projection;
+    private final Matrix4f projection = new Matrix4f();
     private Camera3D camera3D;
     private TaskScheduler taskScheduler;
     
@@ -354,7 +354,7 @@ public final class HarnessContext {
     /**
      * Sets the shared projection matrix reference.
      */
-    public void setProjection(Matrix4f projection) { this.projection = projection; }
+    public void setProjection(Matrix4f projection) { this.projection.set(projection); }
     /**
      * Returns the shared 3D camera, or null if not in interactive mode.
      */
