@@ -117,7 +117,7 @@ public final class WorldTextRenderHelper {
         CgMsdfAtlasConfig atlasConfig = CgMsdfAtlasConfig.defaultConfig()
                 .withPageSize(atlasSize)
                 .withMtsdf(mtsdf);
-        renderer = CgTextRenderer.create();
+        renderer = CgTextRenderer.createManualSized();
 
         worldLayout = CgTextLayoutRequest.of(
                         text + " [world-3D, " + fontSizePx + "px, " + (mtsdf ? "MTSDF" : "MSDF") + "]",

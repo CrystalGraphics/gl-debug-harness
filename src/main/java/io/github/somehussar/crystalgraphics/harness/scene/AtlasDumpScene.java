@@ -133,7 +133,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
 
         CgMsdfAtlasConfig registryMsdfConfig = config.buildMsdfAtlasConfig(registryAtlasSize);
         CgFontRegistry registry = new CgFontRegistry(registryAtlasSize, registryMsdfConfig);
-        CgTextRenderer renderer = CgTextRenderer.create();
+        CgTextRenderer renderer = CgTextRenderer.createManualSized();
 
         int fbo = GL30.glGenFramebuffers();
         int colorTex = GL11.glGenTextures();

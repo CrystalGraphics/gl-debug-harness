@@ -89,7 +89,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
 
         CgMsdfAtlasConfig msdfConfig = config.buildMsdfAtlasConfig();
         CgFontRegistry registry = new CgFontRegistry(config.getAtlasSize(), msdfConfig);
-        CgTextRenderer renderer = CgTextRenderer.create();
+        CgTextRenderer renderer = CgTextRenderer.createManualSized();
         CgTextRenderer.diagnosticLogging = true;
 
         CgTextLayout topLabelLayout = CgTextLayoutRequest.of(TOP_LABEL_TEXT, font)

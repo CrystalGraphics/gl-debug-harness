@@ -162,7 +162,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         wrapWidth = 1000 - 2 * MARGIN;
 
 
-        renderer = CgTextRenderer.createScreenSized();
+        renderer = CgTextRenderer.create();
         orthoContext = renderer.context();
         perspectiveContext = CgTextRenderContext.world(ctx.getProjection(), ctx.getScreenWidth(),
                 ctx.getScreenHeight());

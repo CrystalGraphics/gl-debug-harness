@@ -4,13 +4,12 @@ import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
-import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.render.CgTextRenderer;
 
 public class TextContext {
 
     public CgFont font = CgFont.load(HarnessFontUtil.resolveFontPath(null), CgFontStyle.REGULAR, 24);
-    public CgTextRenderer renderer = CgTextRenderer.create();
+    public CgTextRenderer renderer = CgTextRenderer.createManualSized();
 
     public PoseStack poseStack = new PoseStack();
 

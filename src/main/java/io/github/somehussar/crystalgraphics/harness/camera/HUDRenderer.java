@@ -188,7 +188,7 @@ public final class HUDRenderer {
 
         // Screen-sized: the owned context's orthographic projection auto-tracks the
         // display window resolution via CgTextRendererRegistry (see CgGraphicsLifecycle.onResize).
-        renderer = CgTextRenderer.createScreenSized();
+        renderer = CgTextRenderer.create();
         poseStack = new PoseStack();
         poseStack.translate(0,20,0);
 
