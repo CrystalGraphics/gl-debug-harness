@@ -26,7 +26,6 @@ import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
 import io.github.somehussar.crystalgraphics.harness.util.ScreenshotUtil;
 import com.crystalgraphics.api.text.CgTextLayout;
-import com.crystalgraphics.api.text.CgTextLayoutRequest;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -169,7 +168,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         CgFont bitmapFont = null;
         if (wantBitmap) {
             bitmapFont = CgFont.load(fontPath, CgFontStyle.REGULAR, bitmapPxSize);
-            CgTextLayout bitmapLayout = CgTextLayoutRequest.of(text, bitmapFont).maxWidth(fboWidth).build();
+            CgTextLayout bitmapLayout = CgTextLayout.of(text, bitmapFont).maxWidth(fboWidth).build();
 
             if (prewarmBitmap) {
                 // Deterministic prewarm: render enough frames so every unique glyph
@@ -188,7 +187,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         CgFont msdfFont = null;
         if (wantMsdf) {
             msdfFont = CgFont.load(fontPath, CgFontStyle.REGULAR, msdfPxSize);
-            CgTextLayout msdfLayout = CgTextLayoutRequest.of(text, msdfFont).maxWidth(fboWidth).build();
+            CgTextLayout msdfLayout = CgTextLayout.of(text, msdfFont).maxWidth(fboWidth).build();
 
             if (parityPrewarm) {
                 // Deterministic parity prewarm: render many frames with the full text

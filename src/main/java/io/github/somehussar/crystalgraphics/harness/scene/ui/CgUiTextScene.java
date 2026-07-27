@@ -19,7 +19,7 @@ import org.lwjgl.input.Keyboard;
 
 /**
  * Interactive harness scene exercising {@code UIText} — CrystalGUI's first concrete widget —
- * against the real current CrystalGraphics text API ({@code CgTextLayoutRequest}/
+ * against the real current CrystalGraphics text API ({@code CgTextLayout.Request}/
  * {@code CgShapedParagraph}), not a mock. Four side-by-side cases:
  *
  * <ol>

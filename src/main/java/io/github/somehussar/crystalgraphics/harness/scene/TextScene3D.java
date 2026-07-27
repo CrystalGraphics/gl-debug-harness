@@ -245,7 +245,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
 
 
         //Render rich-format text paragraphs
-        if (false) {
+        if (true) {
             PoseStack pose = new PoseStack();
             renderSectionsInWorldSpace = false;
             if (renderSectionsInWorldSpace) {
@@ -432,7 +432,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         List<Section> sections = new ArrayList<>();
 
         sections.add(section("1) Plain paragraph -- multi-line wrap, no markup",
-                CgTextLayoutRequest.of(
+                CgTextLayout.of(
                         "This is a plain paragraph with no markup at all: just ordinary text "
                                 + "wrapped across several lines at a fixed width, exactly like "
                                 + "Draw.text(String) has always worked.",
@@ -440,7 +440,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 ));
 
         sections.add(section("2) HTML-like markup: <b>, <i>, <u>, <s>, <overline>, <color=#RRGGBB>",
-                CgTextLayoutRequest.of(
+                CgTextLayout.of(
                                 "This line has <b>bold</b>, <i>italic</i>, <u>underlined</u>, "
                                         + "<s>strikethrough</s>, <overline>overlined</overline>, "
                                         + "and <color=#FF0000>colored</color> words all together.",
@@ -449,7 +449,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 ));
 
         sections.add(section("3) Minecraft formatting codes: §l, §o, §n, §r",
-                CgTextLayoutRequest.of(
+                CgTextLayout.of(
                                 "§lBold§r §aplain§r §nunderlined§r §bplain§r "
                                         + "§o§lbold and §litalic§f §mtogether§r §cplain§r again.",
                         minecraftGroup)
@@ -457,14 +457,14 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 ));
 
         sections.add(section("4) Alignment: CENTER across lines of different widths",
-                CgTextLayoutRequest.of(
+                CgTextLayout.of(
                         "Centered line one\nA noticeably longer second line that still centers\nShort",
                         regularFamily)
                         .align(CgTextAlign.CENTER)
                 ));
 
         sections.add(section("5) Max-lines + ellipsis: truncated after 2 lines",
-                CgTextLayoutRequest.of(
+                CgTextLayout.of(
                         "This paragraph has far more lines than we allow to display, so it "
                                 + "should truncate after two lines and show an ellipsis marker "
                                 + "instead of silently cutting off.\nSecond line here.\n"
@@ -475,7 +475,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 ));
 
         sections.add(section("6) Arabic RTL -- font-fallback resolves the Arabic face automatically",
-                CgTextLayoutRequest.of(
+                CgTextLayout.of(
                         "مرحبا بكم! هذا "
                                 + "نص عربي يُكتب "
                                 + "من اليمين إلى "
@@ -486,7 +486,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 ));
 
         sections.add(section("7) Combination: bold HTML span containing Arabic RTL, plus color, wrapped",
-                CgTextLayoutRequest.of(
+                CgTextLayout.of(
                                 "Hello <b>bold text with مرحبا Arabic "
                                         + "shaped right inside it</b>, followed by "
                                         + "<color=#88CCFF>a colored finish</color>, all wrapped "
@@ -506,7 +506,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
      * its real per-frame height via {@code CgTextRenderer.Draw#measure()} for stacking, instead
      * of freezing either the wrap points or the measured height at build-time scale.
      */
-    private static Section section(String label, CgTextLayoutRequest request) {
+    private static Section section(String label, CgTextLayout.Request request) {
         return new Section(label, request.shape());
     }
 

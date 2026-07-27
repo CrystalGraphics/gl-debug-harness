@@ -8,7 +8,6 @@ import com.crystalgraphics.text.render.CgTextRenderer;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.api.text.CgTextLayout;
-import com.crystalgraphics.api.text.CgTextLayoutRequest;
 
 import org.lwjgl.input.Mouse;
 
@@ -232,14 +231,14 @@ public final class HUDRenderer {
 
         // Build text layout for the current frame's text.
         // maxWidth=0 means unbounded (no line wrapping beyond our explicit newline).
-        CgTextLayout layout = CgTextLayoutRequest.of(hudText, font).build();
+        CgTextLayout layout = CgTextLayout.of(hudText, font).build();
         
         // Render text at top-left corner with the configured offset.
         // CgTextRenderer.draw() handles its own GL state save/restore internally
         // via CgStateBoundary, but in the standalone harness the GLStateMirror
         // may be in UNKNOWN state, so we also do explicit cleanup after draw.
         renderer.beginBatch();
-        renderer.draw().layout(layout).font(font).at(4, 4).color(TEXT_COLOR).pose(poseStack).submit();
+        renderer.draw().layout(layout).font(font).at(4, 4).color(TEXT_COLOR).submit();
 
         int wheel = Mouse.getDWheel();
         if (wheel > 0) {
@@ -260,7 +259,7 @@ public final class HUDRenderer {
                 continue;
             PoseStack ps = anchoredScalePose(DEMO_TEXT_X, lineY, demoScale);
             float logicalWidth = ctx.getScreenWidth() / demoScale;
-            CgTextLayout demoLayout = CgTextLayoutRequest.of(
+            CgTextLayout demoLayout = CgTextLayout.of(
                             DEMO_TEXT + " [base " + 24 + "px, pose " + String.format("%.1f", demoScale) + "x]",
                             demoFont)
                     .maxWidth(logicalWidth)

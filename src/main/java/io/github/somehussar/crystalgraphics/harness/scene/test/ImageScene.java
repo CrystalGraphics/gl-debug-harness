@@ -3,7 +3,6 @@ package io.github.somehussar.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.api.text.CgTextLayout;
-import com.crystalgraphics.api.text.CgTextLayoutRequest;
 import com.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -203,11 +202,11 @@ public class ImageScene implements InteractiveSceneLifecycle {
 
         float leftX = (width / 4f) - halfSize / 2;
         float leftY = verticalCenter - halfSize;
-        CgTextLayout layout = CgTextLayoutRequest.of("NO INTERPOLATION", text.font).build();
+        CgTextLayout layout = CgTextLayout.of("NO INTERPOLATION", text.font).build();
 
         float rightX = (3f * width / 4f) - halfSize;
         float rightY = verticalCenter - halfSize;
-        CgTextLayout rightLayout = CgTextLayoutRequest.of("INBETWEEN FRAME INTERPOLATION", text.font).build();
+        CgTextLayout rightLayout = CgTextLayout.of("INBETWEEN FRAME INTERPOLATION", text.font).build();
 
         text.renderer.beginBatch();
         text.renderer.draw().layout(layout).font(text.font).at(leftX, leftY)

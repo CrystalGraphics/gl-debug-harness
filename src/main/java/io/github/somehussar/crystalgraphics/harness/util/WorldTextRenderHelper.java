@@ -9,7 +9,6 @@ import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
 import io.github.somehussar.crystalgraphics.harness.scene.TextScene3D;
 import com.crystalgraphics.api.text.CgTextLayout;
-import com.crystalgraphics.api.text.CgTextLayoutRequest;
 
 import lombok.Getter;
 import org.joml.Matrix4f;
@@ -121,12 +120,12 @@ public final class WorldTextRenderHelper {
                 .withMtsdf(mtsdf);
         renderer = CgTextRenderer.createManualSized();
 
-        worldLayout = CgTextLayoutRequest.of(
+        worldLayout = CgTextLayout.of(
                         text + " [world-3D, " + fontSizePx + "px, " + (mtsdf ? "MTSDF" : "MSDF") + "]",
                         font)
                 .maxWidth((float) layoutWidth)
                 .build();
-        refLayout = CgTextLayoutRequest.of("2D reference [" + fontSizePx + "px, ortho]", font)
+        refLayout = CgTextLayout.of("2D reference [" + fontSizePx + "px, ortho]", font)
                 .maxWidth((float) layoutWidth)
                 .build();
 

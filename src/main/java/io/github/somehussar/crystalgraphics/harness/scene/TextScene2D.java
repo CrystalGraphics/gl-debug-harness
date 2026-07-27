@@ -18,7 +18,6 @@ import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
 import io.github.somehussar.crystalgraphics.harness.util.ScreenshotUtil;
 import com.crystalgraphics.api.text.CgShapedRun;
 import com.crystalgraphics.api.text.CgTextLayout;
-import com.crystalgraphics.api.text.CgTextLayoutRequest;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -92,7 +91,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
         CgTextRenderer renderer = CgTextRenderer.createManualSized();
         CgTextRenderer.diagnosticLogging = true;
 
-        CgTextLayout topLabelLayout = CgTextLayoutRequest.of(TOP_LABEL_TEXT, font)
+        CgTextLayout topLabelLayout = CgTextLayout.of(TOP_LABEL_TEXT, font)
                 .maxWidth((float) fboWidth)
                 .build();
         int topLabelBandHeight = (int) Math.ceil(topLabelLayout.totalHeight()) + 20;
@@ -114,7 +113,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
             labels[i] = text + " [base " + fontSizePx + "px, pose "
                     + String.format("%.1f", scale) + "x]";
             float logicalMaxWidth = fboWidth / scale;
-            layouts[i] = CgTextLayoutRequest.of(labels[i], font).maxWidth(logicalMaxWidth).build();
+            layouts[i] = CgTextLayout.of(labels[i], font).maxWidth(logicalMaxWidth).build();
             // The layout reports logical height; the pose scale magnifies it on screen.
             float scaledHeight = layouts[i].totalHeight() * scale;
             bandHeights[i] = (int) Math.ceil(scaledHeight) + bandPadding;
