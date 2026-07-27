@@ -12,6 +12,8 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.CgQuadRendererTes
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCheckboxScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextScene;
@@ -283,6 +285,30 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiCheckboxScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-ore-theme")
+                .description("CrystalGUI ported LDLib2 'Ore' theme: 9-slice button/checkbox/panel sprites via StyleSheetRegistry.of(\"crystalgui:ore\")")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiOreThemeScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-nineslice")
+                .description("CrystalGUI 9-slice tiling: stretch/repeat/round/space, CPU quad path vs SDF shader path side by side")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiNineSliceScene()
         );
 
         // ── Diagnostic modes ──
