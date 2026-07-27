@@ -44,7 +44,7 @@ public final class HUDRenderer {
     private static final float BASE_RESOLUTION_HEIGHT = 600.0f;
 
     // White text with full opacity (packed RGBA: 0xRRGGBBAA)
-    private static final int TEXT_COLOR = 0XFF0000FF;
+    private static final int TEXT_COLOR = 0XFFFF0000;
 
     // Current scaled state (recomputed when screen resolution changes)
     private int lastScreenWidth = -1;
@@ -190,7 +190,6 @@ public final class HUDRenderer {
         // display window resolution via CgTextRendererRegistry (see CgGraphicsLifecycle.onResize).
         renderer = CgTextRenderer.create();
         poseStack = new PoseStack();
-        poseStack.translate(0,20,0);
 
         initialized = true;
         LOGGER.info("[HUDRenderer] Initialized with CgTextRenderer, font=" + fontPath
@@ -240,8 +239,7 @@ public final class HUDRenderer {
         // via CgStateBoundary, but in the standalone harness the GLStateMirror
         // may be in UNKNOWN state, so we also do explicit cleanup after draw.
         renderer.beginBatch();
-       // renderer.draw().layout(layout).font(font).at(currentQuadOffset, currentQuadOffset)
-               // .color(TEXT_COLOR).pose(poseStack).submit();
+        renderer.draw().layout(layout).font(font).at(4, 4).color(TEXT_COLOR).pose(poseStack).submit();
 
         int wheel = Mouse.getDWheel();
         if (wheel > 0) {

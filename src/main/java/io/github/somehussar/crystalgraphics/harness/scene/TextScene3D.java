@@ -229,9 +229,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         PoseStack poseStack = new PoseStack();
         Matrix4f modelView = poseStack.last().pose();
         modelView.set(viewMatrix);
-        float worldScale = 0.001f;
+        float worldScale = 0.0005f;
         float textWorldWidth = arHelper.getWorldLayout().totalWidth() * worldScale;
-        modelView.translate(-textWorldWidth * 0.5f, 2.5f, -0f);
+        modelView.translate(-textWorldWidth * 0.5f, 1.5f, -0.2f);
         modelView.scale(worldScale, -worldScale, worldScale);
         jpHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
         
