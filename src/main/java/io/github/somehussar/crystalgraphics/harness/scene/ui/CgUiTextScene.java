@@ -98,7 +98,7 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, SystemInput.Key
                         .gapAll(16)
                         .alignItems(dev.vfyjxf.taffy.style.AlignItems.FLEX_START)
                         .flexWrap(FlexWrap.WRAP)
-                        .maxWidth(500)
+    //                        .width(500)
                 ).setFocusPolicy(FocusPolicy.NONE);
 
         // Case 1: plain single-line, auto-sized.

@@ -10,6 +10,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.CgMaterialDualPat
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgAttachedBufferStressScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRendererScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextScene;
@@ -257,6 +258,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiTextScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-button")
+                .description("CrystalGUI Button: press/release-over-same-element activation, Space/Enter keyboard activation, sound-hook logging")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiButtonScene()
         );
 
         // ── Diagnostic modes ──
