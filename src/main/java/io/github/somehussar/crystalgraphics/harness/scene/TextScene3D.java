@@ -3,9 +3,12 @@ package io.github.somehussar.crystalgraphics.harness.scene;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.*;
 import com.crystalgraphics.api.text.*;
+import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.richtext.CgMarkupParser;
+import com.crystalgraphics.util.profiling.CgProfiler;
+import com.crystalgraphics.util.profiling.CgProfilerReport;
 import com.crystalgui.core.input.SystemInput;
 import com.crystalgui.core.input.keyboard.CgUiKeyCodes;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -23,8 +26,13 @@ import lombok.Setter;
 import org.joml.Matrix4f;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 
@@ -72,12 +80,36 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     private CgFont kanjiFont;
     private CgTextLayout kanjiWorldLayout;
     private int kanjiFontSizePx;
-    
+
+    // ── CgProfiler instrumentation for the kanji world-text draw call (see class javadoc's
+    // "Kanji warmup profiling" section) — scoped strictly to this one draw call and everything
+    // it calls into; nothing else in this scene is instrumented. ──
+    private static final double PROFILE_WINDOW_SECONDS = 8.0;
+
+    /**
+     * {@code -Dcrystalgraphics.profile.autoOrbit=true} slowly dollies the camera during the
+     * profile window. Not cosmetic: a moving camera makes
+     * {@code PerspectiveScaleResolver#updateProjectedSize} recompute {@code projectedSizeHint}
+     * every frame, which shifts {@code effectiveTargetPx}, which makes
+     * {@code CgGlyphPlacementCache.Entry#matches} reject the cached entry (an exact
+     * {@code effectiveTargetPx} match is required whenever {@code distanceField} is false — the
+     * entire MSDF warmup). That turns every frame into a full re-resolve of the whole layout,
+     * which is the path a static-camera profiling run never exercises at all.
+     */
+    private static final boolean PROFILE_AUTO_ORBIT =
+            Boolean.getBoolean("crystalgraphics.profile.autoOrbit");
+    private final List<String> profileCsvRows = new ArrayList<>();
+    private final List<String> profileTreeDumps = new ArrayList<>();
+    /** Whole-second mark of the last captured tree dump, so one lands per second of the window. */
+    private int lastTreeDumpSecond = -1;
+
     @Override
     public void init(HarnessContext ctx) {
         this.ctx = ctx;
         Camera3D camera = ctx.getCamera3D();
         camera.moveCamera(0, 0.1f, 0);
+
+        CgProfiler.setEnabled(true);
 
         // Typed config is resolved before execution and available via context.
         // For interactive scenes, the config is set on ctx before init() is called.
@@ -189,10 +221,31 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         modelView.translate(-textWorldWidth * 0.5f, 1.5f, -0.2f);
         modelView.scale(worldScale, -worldScale, worldScale);
 
-        perspectiveContext.updateProjectedSize(modelView, ctx.getProjection(), kanjiFontSizePx);
-        renderer.context(perspectiveContext);
+        try (CgProfiler.Scope ignored = CgProfiler.scope("kanjiWorldDraw")) {
+            perspectiveContext.updateProjectedSize(modelView, ctx.getProjection(), kanjiFontSizePx);
+            renderer.context(perspectiveContext);
 
-        renderer.draw().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack).submit();
+            renderer.draw().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack).submit();
+        }
+
+        if (CgProfiler.isEnabled()) {
+            // Dolly forward/back a little each frame so the projected-size hint (and hence
+            // effectiveTargetPx) actually moves -- see PROFILE_AUTO_ORBIT's javadoc.
+            if (PROFILE_AUTO_ORBIT) {
+                float dz = (float) Math.sin(frame.getElapsedTime() * 0.7) * 0.01f;
+                //ctx.getCamera3D().moveCamera(0f, 0f, dz);
+            }
+
+            int pendingAsync = CgFontRegistry.get().getPendingAsyncGlyphCount();
+            CgProfiler.sample("async.pendingGlyphs", pendingAsync);
+            recordProfileFrame(frame, CgProfiler.endFrame(), pendingAsync);
+
+            if (frame.getElapsedTime() >= PROFILE_WINDOW_SECONDS) {
+                dumpProfile(ctx);
+                CgProfiler.setEnabled(false); // fully zero-cost from here on -- see CgProfiler's javadoc
+              //  running = false;
+            }
+        }
 
         //////////////////////////////////////////////////////////
         /////////////////////////////////////////////////////////
@@ -433,5 +486,188 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     }
 
     record Section(String label, CgShapedParagraph paragraph) {
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    //  Kanji warmup profiling (see the CgProfiler.scope("kanjiWorldDraw") call in render())
+    // ────────────────────────────────────────────────────────────────
+
+    private static final String[] PROFILE_CSV_HEADER = {
+            "frame", "elapsedSec", "frameDtMs", "drawTotalMs", "resolveGlyphsMs", "flattenMs",
+            "resolvePlacementsMs", "msdfGenMs", "freetypeRasterMs", "submitQuadsMs", "glFlushMs",
+            "materialTransitionMs", "tickFrameMs", "drainMs",
+            "glyphCount", "glFlushCount", "materialTransitions",
+            "cacheHit", "cacheMiss", "missEffectiveTargetPx", "missResultDistanceField",
+            "msdfAtlasHit", "msdfSyncGenerated", "msdfBudgetExhaustedOrFailed",
+            "msdfFellBackToBitmap", "bitmapAtlasHit", "bitmapSyncRasterized",
+            "asyncGlyphsUploaded", "asyncBytesUploaded", "pendingAsyncGlyphs",
+            "growCount", "growMs", "reallocMs", "replayMs", "replayLayers", "replayBytes",
+            "reusedDF", "queried",
+            "visScanMs", "decorMs", "sortMs", "syncProjMs", "quadLoopMs",
+            "matRecompileMs", "matCompileVariantMs", "matDoBindMs",
+            "uboMapMs", "uboWriteMs", "uboCommitMs", "uboBytes",
+            "vtxMapMs", "vtxWriteMs", "vtxCommitMs", "vtxBytes",
+            "ssboMapMs", "ssboCommitMs", "ssboBytes",
+            "uboSmallUploads",
+            "dbWireMs", "dbStateSaveMs", "dbPropsUpMs", "dbUboBindMs", "dbSamplersMs", "dbRenderStateMs", "dbShaderBindMs"
+    };
+
+    /** Appends one CSV row (and, for a couple of representative frames, a full indented
+     * {@link CgProfilerReport#format()} tree dump) summarizing this frame's
+     * {@code "kanjiWorldDraw"} scope tree/counters/samples — buffered in memory and flushed once
+     * by {@link #dumpProfile} so the file I/O itself never pollutes the very timings being
+     * measured. */
+    private void recordProfileFrame(FrameInfo frame, CgProfilerReport report, int pendingAsync) {
+        if (report == null) return; // CgProfiler.isEnabled() was already checked by the caller
+
+        if (profileCsvRows.isEmpty()) {
+            profileCsvRows.add(String.join(",", PROFILE_CSV_HEADER));
+        }
+
+        String draw = "kanjiWorldDraw";
+        String resolveGlyphs = draw + "/resolveGlyphs";
+        String resolvePlacements = resolveGlyphs + "/resolvePlacements";
+        String submitQuads = draw + "/submitSortedQuads";
+
+        profileCsvRows.add(String.format(Locale.ROOT,
+                "%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,"
+                        + "%.0f,%d,%d,%d,%d,%.1f,%.2f,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+                frame.getFrameNumber(), frame.getElapsedTime(), frame.getDeltaTime() * 1000.0,
+                scopeTotalMillis(report, draw),
+                scopeTotalMillis(report, resolveGlyphs),
+                scopeTotalMillis(report, resolveGlyphs + "/flatten"),
+                scopeTotalMillis(report, resolvePlacements),
+                scopeTotalMillis(report, resolvePlacements + "/msdfgen.generate"),
+                scopeTotalMillis(report, resolvePlacements + "/freetype.rasterize"),
+                scopeTotalMillis(report, submitQuads),
+                scopeTotalMillis(report, submitQuads + "/glFlush"),
+                scopeTotalMillis(report, submitQuads + "/materialTransition"),
+                scopeTotalMillis(report, "registry.tickFrame"),
+                scopeTotalMillis(report, "registry.tickFrame/drainCompletedGlyphs"),
+                sampleValue(report, "draw.glyphCount"),
+                counterValue(report, "glFlush.count"),
+                counterValue(report, "materialTransition"),
+                counterValue(report, "placementCache.hit"), counterValue(report, "placementCache.miss"),
+                sampleValue(report, "placementCache.miss.effectiveTargetPx"),
+                sampleValue(report, "placementCache.miss.resultDistanceField"),
+                counterValue(report, "glyph.msdf.atlasHit"), counterValue(report, "glyph.msdf.syncGenerated"),
+                counterValue(report, "glyph.msdf.syncBudgetExhaustedOrFailed"),
+                counterValue(report, "glyph.msdf.fellBackToBitmap"),
+                counterValue(report, "glyph.bitmap.atlasHit"), counterValue(report, "glyph.bitmap.syncRasterized"),
+                counterValue(report, "asyncCommit.glyphsUploaded"), counterValue(report, "asyncCommit.bytesUploaded"),
+                (long) pendingAsync)
+                // Growth diagnostics appended separately -- these scopes fire from wherever the
+                // triggering glyph commit happened (registry.tickFrame's drain, or inside the
+                // draw), so they are looked up by bare scope name across the whole frame rather
+                // than at one fixed path.
+                + String.format(Locale.ROOT, ",%d,%.3f,%.3f,%.3f,%.0f,%d",
+                counterValue(report, "atlas.growCapacity.count"),
+                anyScopeTotalMillis(report, "atlas.growCapacity"),
+                anyScopeTotalMillis(report, "texArray.realloc"),
+                anyScopeTotalMillis(report, "texArray.replayLayers"),
+                sampleValue(report, "texArray.replayLayers.count"),
+                counterValue(report, "texArray.replayLayers.bytes"))
+                + String.format(Locale.ROOT, ",%d,%d",
+                counterValue(report, "resolvePlacements.reusedDistanceField"),
+                counterValue(report, "resolvePlacements.queried"))
+                // submitSortedQuads internals + material compile — looked up by bare scope name
+                // since a material bind can fire from more than one path in a frame.
+                + String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
+                anyScopeTotalMillis(report, "visibilityScan"),
+                anyScopeTotalMillis(report, "resolveDecorations"),
+                anyScopeTotalMillis(report, "sortKeys"),
+                anyScopeTotalMillis(report, "syncProjection"),
+                anyScopeTotalMillis(report, "quadLoop"),
+                anyScopeTotalMillis(report, "material.recompile"),
+                anyScopeTotalMillis(report, "material.getOrCompileVariant"),
+                anyScopeTotalMillis(report, "material.doBind"))
+                // Stream-buffer upload path, split by GL target — tells us whether any stall is
+                // UBO-specific (a usage-pattern problem) or spread across vertex/SSBO too (a
+                // problem in the shared streaming machinery every buffer sits on).
+                + String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%d,%.3f,%.3f,%.3f,%d,%.3f,%.3f,%d",
+                anyScopeTotalMillis(report, "streamBuffer.ubo.map"),
+                anyScopeTotalMillis(report, "streamBuffer.ubo.write"),
+                anyScopeTotalMillis(report, "streamBuffer.ubo.commit"),
+                counterValue(report, "streamBuffer.ubo.bytes"),
+                anyScopeTotalMillis(report, "streamBuffer.vertex.map"),
+                anyScopeTotalMillis(report, "streamBuffer.vertex.write"),
+                anyScopeTotalMillis(report, "streamBuffer.vertex.commit"),
+                counterValue(report, "streamBuffer.vertex.bytes"),
+                anyScopeTotalMillis(report, "streamBuffer.ssbo.map"),
+                anyScopeTotalMillis(report, "streamBuffer.ssbo.commit"),
+                counterValue(report, "streamBuffer.ssbo.bytes"))
+                + String.format(Locale.ROOT, ",%d", counterValue(report, "streamBuffer.ubo.smallUpload"))
+                + String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
+                anyScopeTotalMillis(report, "doBind.wire"),
+                anyScopeTotalMillis(report, "doBind.stateSave"),
+                anyScopeTotalMillis(report, "doBind.propsUpload"),
+                anyScopeTotalMillis(report, "doBind.uboBind"),
+                anyScopeTotalMillis(report, "doBind.samplers"),
+                anyScopeTotalMillis(report, "doBind.renderState"),
+                anyScopeTotalMillis(report, "doBind.shaderBind")));
+
+        // Full indented tree for the first few frames (worst case) plus one per second across the
+        // whole warmup window -- everything else only needs the CSV's numbers.
+        boolean isEarlyFrame = frame.getFrameNumber() <= 3;
+        boolean isNewSecond = (int) frame.getElapsedTime() > lastTreeDumpSecond;
+        if (isEarlyFrame || isNewSecond) {
+            profileTreeDumps.add("=== frame " + frame.getFrameNumber()
+                    + " (elapsed " + String.format(Locale.ROOT, "%.2f", frame.getElapsedTime()) + "s"
+                    + ", dt " + String.format(Locale.ROOT, "%.1f", frame.getDeltaTime() * 1000.0) + "ms"
+                    + ", pendingAsync " + pendingAsync + ") ===\n"
+                    + report.format());
+            if (isNewSecond) lastTreeDumpSecond = (int) frame.getElapsedTime();
+        }
+    }
+
+    /** Sums every scope whose path ends in {@code name}, wherever it nested this frame — for
+     * scopes that can fire from more than one call path (see the growth diagnostics). */
+    private static double anyScopeTotalMillis(CgProfilerReport report, String name) {
+        double total = 0;
+        for (CgProfilerReport.ScopeEntry entry : report.scopes()) {
+            if (entry.name().equals(name)) total += entry.totalNanos() / 1_000_000.0;
+        }
+        return total;
+    }
+
+    private static double scopeTotalMillis(CgProfilerReport report, String path) {
+        for (CgProfilerReport.ScopeEntry entry : report.scopes()) {
+            if (entry.path().equals(path)) return entry.totalNanos() / 1_000_000.0;
+        }
+        return 0.0;
+    }
+
+    private static long counterValue(CgProfilerReport report, String name) {
+        Long value = report.counters().get(name);
+        return value != null ? value : 0L;
+    }
+
+    private static double sampleValue(CgProfilerReport report, String name) {
+        CgProfilerReport.SampleSummary summary = report.samples().get(name);
+        return summary != null ? summary.last() : Double.NaN;
+    }
+
+    /** Flushes the buffered per-frame CSV rows and tree-dump snapshots to
+     * {@code harness-output/text-3d/} once, when the {@link #PROFILE_WINDOW_SECONDS} warmup
+     * window has elapsed. */
+    private void dumpProfile(HarnessContext ctx) {
+        String outputDirPath = ctx.getOutputDir();
+        File dir = new File(outputDirPath != null ? outputDirPath : "harness-output/text-3d");
+        dir.mkdirs();
+
+        File csvFile = new File(dir, "kanji-warmup-profile.csv");
+        File treeFile = new File(dir, "kanji-warmup-profile-trees.txt");
+        try {
+            try (PrintWriter pw = new PrintWriter(new FileWriter(csvFile))) {
+                for (String row : profileCsvRows) pw.println(row);
+            }
+            try (PrintWriter pw = new PrintWriter(new FileWriter(treeFile))) {
+                for (String dump : profileTreeDumps) pw.println(dump);
+            }
+            LOGGER.info("[Harness] Kanji warmup profile written: " + csvFile.getAbsolutePath()
+                    + " (" + (profileCsvRows.size() - 1) + " frames), " + treeFile.getAbsolutePath());
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Failed to write kanji warmup profile", e);
+        }
     }
 }
