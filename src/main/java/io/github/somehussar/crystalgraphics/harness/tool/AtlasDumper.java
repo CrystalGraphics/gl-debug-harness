@@ -1,8 +1,12 @@
 package io.github.somehussar.crystalgraphics.harness.tool;
 
+import com.crystalgraphics.api.font.CgFont;
+import com.crystalgraphics.api.font.CgFontKey;
 import com.crystalgraphics.api.font.CgGlyphKey;
 import com.crystalgraphics.api.font.CgGlyphPlacement;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
+import com.crystalgraphics.text.cache.CgFontRegistry;
+import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
 import io.github.somehussar.crystalgraphics.harness.util.ScreenshotUtil;
 
 import java.io.File;
@@ -13,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 /**
@@ -22,6 +27,70 @@ import java.util.logging.Logger;
 public final class AtlasDumper {
 
     private static final Logger LOGGER = Logger.getLogger(AtlasDumper.class.getName());
+
+    // ── Whole-font dump ──────────────────────────────────────────────────
+
+    /**
+     * Dumps every populated atlas page (bitmap and/or MSDF, whichever {@code font} actually has
+     * raster data in right now) to {@code harnessOutputRoot/atlas/{font-name}/}, plus a combined
+     * manifest per raster bucket — for visually auditing an entire font's atlas state (e.g.
+     * checking a many-page CJK atlas renders correctly) without hand-picking pages.
+     *
+     * <p>Looks pages up via {@link CgFontRegistry#findAllPopulatedBitmapPagesBySize}/
+     * {@link CgFontRegistry#findAllPopulatedMSDFPagesBySize}, grouped by each bucket's
+     * <strong>real</strong> raster size — {@code effectiveTargetPx} for bitmap,
+     * {@code atlasScalePx} for MSDF — not {@code font}'s merely-declared
+     * {@link CgFontKey#getTargetPx()}. A single font can back several raster buckets at once
+     * (e.g. drawn under different {@link com.crystalgraphics.api.PoseStack} scales), each
+     * genuinely a different pixel size, so every filename is labeled with the size that bucket
+     * was actually rasterized at.</p>
+     *
+     * @param font             the font to dump atlas pages for
+     * @param harnessOutputRoot the harness output root (e.g. {@code gl-debug-harness/harness-output}) —
+     *                          pages land under {@code {harnessOutputRoot}/atlas/...}, a sibling of
+     *                          every scene's own output subdirectory, not inside one
+     */
+    public static void dumpFontAtlas(CgFont font, String harnessOutputRoot) {
+        if (font == null) {
+            LOGGER.warning("[AtlasDumper] dumpFontAtlas called with a null font.");
+            return;
+        }
+        CgFontKey fontKey = font.getKey();
+
+        CgFontRegistry registry = CgFontRegistry.get();
+        Map<Integer, List<CgGlyphAtlasPage>> bitmapBuckets = registry.findAllPopulatedBitmapPagesBySize(fontKey);
+        Map<Integer, List<CgGlyphAtlasPage>> msdfBuckets = registry.findAllPopulatedMSDFPagesBySize(fontKey);
+        if (bitmapBuckets.isEmpty() && msdfBuckets.isEmpty()) {
+            LOGGER.warning("[AtlasDumper] No populated pages found for " + fontKey.getFontPath());
+            return;
+        }
+
+        String outputDir = new File(new File(harnessOutputRoot, "atlas"), fontFileBaseName(fontKey.getFontPath())).getPath();
+        HarnessOutputDir.ensureExists(outputDir);
+
+        int totalBitmapPages = 0;
+        for (Map.Entry<Integer, List<CgGlyphAtlasPage>> bucket : bitmapBuckets.entrySet()) {
+            dumpAllPagedPages(bucket.getValue(), "bitmap-atlas-dump", bucket.getKey() + "px", outputDir);
+            totalBitmapPages += bucket.getValue().size();
+        }
+        int totalMsdfPages = 0;
+        for (Map.Entry<Integer, List<CgGlyphAtlasPage>> bucket : msdfBuckets.entrySet()) {
+            dumpAllPagedPages(bucket.getValue(), "msdf-atlas-dump", bucket.getKey() + "px", outputDir);
+            totalMsdfPages += bucket.getValue().size();
+        }
+        LOGGER.info("[AtlasDumper] Dumped font atlas: " + totalBitmapPages + " bitmap page(s) across "
+                + bitmapBuckets.size() + " size bucket(s), " + totalMsdfPages + " msdf page(s) across "
+                + msdfBuckets.size() + " size bucket(s) -> " + outputDir);
+    }
+
+    private static String fontFileBaseName(String fontPath) {
+        String name = fontPath.replace('\\', '/');
+        int slash = name.lastIndexOf('/');
+        if (slash >= 0) name = name.substring(slash + 1);
+        int dot = name.lastIndexOf('.');
+        if (dot > 0) name = name.substring(0, dot);
+        return name;
+    }
 
     // ── Multi-page dump support ────────────────────────────────────────
 

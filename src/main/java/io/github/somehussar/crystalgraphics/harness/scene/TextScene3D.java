@@ -7,18 +7,21 @@ import com.crystalgraphics.text.render.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.richtext.CgMarkupParser;
 import com.crystalgui.core.input.SystemInput;
+import com.crystalgui.core.input.keyboard.CgUiKeyCodes;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.config.TextSceneConfig;
 import io.github.somehussar.crystalgraphics.harness.config.ViewportState;
+import io.github.somehussar.crystalgraphics.harness.tool.AtlasDumper;
 import io.github.somehussar.crystalgraphics.harness.util.GlStateResetHelper;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
 import io.github.somehussar.crystalgraphics.harness.util.WorldTextRenderHelper;
 import lombok.Setter;
 import org.joml.Matrix4f;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -54,7 +57,7 @@ import java.util.logging.Logger;
  *
  * @see WorldTextRenderHelper
  */
-public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse {
+public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse, SystemInput.Keyboard {
 
     private static final Logger LOGGER = Logger.getLogger(TextScene3D.class.getName());
     
@@ -228,19 +231,10 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         modelView.set(viewMatrix);
         float worldScale = 0.001f;
         float textWorldWidth = arHelper.getWorldLayout().totalWidth() * worldScale;
-        modelView.translate(-textWorldWidth * 0.5f, 2.75f, -0f);
+        modelView.translate(-textWorldWidth * 0.5f, 2.5f, -0f);
         modelView.scale(worldScale, -worldScale, worldScale);
-//        jpHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
-
-
-        poseStack = new PoseStack();
-        modelView = poseStack.last().pose();
-        modelView.set(viewMatrix);
-        worldScale = 0.01f;
-        textWorldWidth = arHelper.getWorldLayout().totalWidth() * worldScale;
-        modelView.translate(-textWorldWidth * 0.5f, 0.15f, -2f);
-        modelView.scale(worldScale, -worldScale, worldScale);
-        //arHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
+        jpHelper.renderWorld(screenWidth, screenHeight, frame.getFrameNumber(), poseStack);
+        
 
         // ── GL state cleanup after world text rendering ──
         // world-text draw() internally saves/restores state via CgStateBoundary, but in the
@@ -251,7 +245,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
 
 
         //Render rich-format text paragraphs
-        if (true) {
+        if (false) {
             PoseStack pose = new PoseStack();
             renderSectionsInWorldSpace = false;
             if (renderSectionsInWorldSpace) {
@@ -398,7 +392,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     }
 
     @Override
-    public boolean consumeMouseEvent(Event event) {
+    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
         scrollDelta = event.wheelDelta();
         
          if (scrollDelta > 0) scrollScale -= 0.1f;
@@ -407,8 +401,27 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         System.out.println(scrollDelta);
 
         if (event.button() == 1) scrollScale = 1;
-        
+
         return false;
+    }
+
+    @Override
+    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+        if (event.pressed() && !event.repeat() && event.key() == CgUiKeyCodes.KEY_LBRACKET) {
+            dumpKanjiFontAtlas();
+        }
+        return true;
+    }
+
+    /**
+     * Dumps every populated atlas page belonging to {@code jpHelper}'s kanji font via
+     * {@link AtlasDumper#dumpFontAtlas}. Bound to {@code [} — see {@link #consumeKeyboardEvent}.
+     */
+    private void dumpKanjiFontAtlas() {
+        CgFont font = jpHelper.getFont();
+        
+        File harnessOutputRoot = new File(ctx.getOutputDir()).getParentFile();
+        AtlasDumper.dumpFontAtlas(font, harnessOutputRoot.getPath());
     }
 
     /**

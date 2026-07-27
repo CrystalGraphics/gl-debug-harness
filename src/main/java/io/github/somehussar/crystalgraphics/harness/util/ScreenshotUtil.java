@@ -117,9 +117,14 @@ public final class ScreenshotUtil {
             BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
-                    // FBO readback is bottom-up; flip vertically
-                    int srcY = height - 1 - y;
-                    int idx = (srcY * width + x) * 4;
+                    // No vertical flip here, unlike captureBackbuffer/captureFboColorTexture: those
+                    // read a window-system-flipped framebuffer, but this reads a plain texture layer
+                    // attached to an FBO, where glReadPixels row 0 is texel row 0 -- the same row
+                    // CgGlyphAtlasPage.buildPlacement uploaded to (its packer uses top-left-origin
+                    // pixel coords, py=0 == "top", written straight to GL row 0 with no flip at
+                    // upload time either). Flipping here re-inverted an already-correct row order,
+                    // which is what made every atlas dump come out upside down.
+                    int idx = (y * width + x) * 4;
                     int r = pixels.get(idx) & 0xFF;
                     int g = pixels.get(idx + 1) & 0xFF;
                     int b = pixels.get(idx + 2) & 0xFF;

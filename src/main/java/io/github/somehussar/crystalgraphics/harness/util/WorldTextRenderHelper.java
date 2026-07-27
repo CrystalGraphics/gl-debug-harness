@@ -70,6 +70,8 @@ public final class WorldTextRenderHelper {
     private final int atlasSize;
     private final boolean mtsdf;
     // ── GL resources (created in init(), destroyed in dispose()) ──
+    /** -- GETTER -- Returns the loaded font, or null if not yet initialized. */
+    @Getter
     private CgFont font;
     private CgTextRenderer renderer;
     /**
