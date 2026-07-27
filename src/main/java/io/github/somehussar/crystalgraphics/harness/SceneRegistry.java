@@ -11,6 +11,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.CgAttachedBufferS
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCheckboxScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextScene;
@@ -270,6 +271,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiButtonScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-checkbox")
+                .description("CrystalGUI Checkbox/CheckboxGroup: click/keyboard toggle, :checked-driven mark, group exclusivity (allowEmpty vs required)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiCheckboxScene()
         );
 
         // ── Diagnostic modes ──
