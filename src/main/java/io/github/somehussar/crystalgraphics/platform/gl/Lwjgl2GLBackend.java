@@ -90,6 +90,30 @@ public final class Lwjgl2GLBackend extends CgGLBackend {
         }
     }
 
+    // ── GPU-side texture copy (optional; see CgGLBackend) ────────────────────
+
+    @Override
+    public void copyImageSubData(int srcName, int srcTarget, int srcLevel, int srcX, int srcY, int srcZ,
+                                  int dstName, int dstTarget, int dstLevel, int dstX, int dstY, int dstZ,
+                                  int srcWidth, int srcHeight, int srcDepth) {
+        if (GLContext.getCapabilities().OpenGL43) {
+            GL43.glCopyImageSubData(srcName, srcTarget, srcLevel, srcX, srcY, srcZ,
+                    dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth);
+        } else {
+            ARBCopyImage.glCopyImageSubData(srcName, srcTarget, srcLevel, srcX, srcY, srcZ,
+                    dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth);
+        }
+    }
+
+    @Override
+    public void framebufferTextureLayer(int target, int attachment, int texture, int level, int layer) {
+        if (coreGl30()) {
+            GL30.glFramebufferTextureLayer(target, attachment, texture, level, layer);
+        } else {
+            ARBFramebufferObject.glFramebufferTextureLayer(target, attachment, texture, level, layer);
+        }
+    }
+
     @Override
     public int getFramebufferAttachmentParameteriv(int target, int attachment, int pname) {
         if (coreGl30()) {
@@ -722,6 +746,15 @@ public final class Lwjgl2GLBackend extends CgGLBackend {
                                  int xOffset, int yOffset, int zOffset,
                                  int width, int height, int depth,
                                  int format, int type, FloatBuffer pixels) {
+        GL12.glTexSubImage3D(target, level, xOffset, yOffset, zOffset,
+                width, height, depth, format, type, pixels);
+    }
+
+    @Override
+    public void glTexSubImage3D(int target, int level,
+                                 int xOffset, int yOffset, int zOffset,
+                                 int width, int height, int depth,
+                                 int format, int type, ShortBuffer pixels) {
         GL12.glTexSubImage3D(target, level, xOffset, yOffset, zOffset,
                 width, height, depth, format, type, pixels);
     }
