@@ -1,0 +1,457 @@
+package io.github.somehussar.crystalgraphics.harness.scene.ui;
+
+import com.crystalgui.core.input.SystemInput;
+import com.crystalgui.core.property.Property;
+import com.crystalgui.render.CgUiPaintContext;
+import com.crystalgui.style.sheet.StyleSheet;
+import com.crystalgui.style.sheet.StyleSheetRegistry;
+import com.crystalgui.ui.UIElement;
+import com.crystalgui.ui.Ui;
+import com.crystalgui.ui.UIWindow;
+import com.crystalgui.ui.elements.Button;
+import com.crystalgui.ui.elements.Checkbox;
+import com.crystalgui.ui.elements.CheckboxGroup;
+import com.crystalgui.ui.elements.ScrollerView;
+import com.crystalgui.ui.elements.Slider;
+import com.crystalgui.ui.elements.SplitView;
+import com.crystalgui.ui.elements.Switch;
+import com.crystalgui.ui.elements.Tab;
+import com.crystalgui.ui.elements.TabView;
+import com.crystalgui.ui.elements.TextField;
+import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.input.FocusPolicy;
+import dev.vfyjxf.taffy.style.FlexDirection;
+import io.github.somehussar.crystalgraphics.harness.FrameInfo;
+import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
+import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
+
+/**
+ * Every CrystalGUI widget, one page each, in one navigable window — the front door.
+ *
+ * <p>The other {@code cgui-*} scenes are focused regression tests: they force states programmatically,
+ * stagger pixel captures across known frames, and each covers one widget in depth. This one covers
+ * everything shallowly, so "what can CrystalGUI do today" is one command rather than fourteen. Reach
+ * for the focused scene when you are changing a widget's behaviour; reach for this one when you want
+ * to look at the library.</p>
+ *
+ * <p><b>The theme toggle is the other half of the point.</b> {@code default.css} (user-agent origin)
+ * gives every widget functional geometry with no theme loaded; {@code ore.css} gives it appearance.
+ * Toggling between them exercises both, and a widget that looks broken with Ore off has geometry
+ * missing from {@code default.css} — which is a real bug, not a missing theme.</p>
+ *
+ * <p><b>Nothing here is lazy.</b> {@code TabView.addTab} eagerly builds both the tab and its pane, and
+ * switching tabs toggles {@code display} rather than touching the tree — which is exactly what makes
+ * element identity, listeners and scroll positions survive a switch. So every page below is
+ * constructed during {@code init}. That is fine at this size; a page heavy enough to matter should
+ * populate itself from an {@code onTabSelected} listener instead.</p>
+ */
+public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
+
+    private UIWindow uiWindow;
+    private TabView pages;
+    private Button themeToggle;
+
+    /** Held, not re-fetched, so {@code removeStylesheet} has the identical instance to remove.
+     * {@code StyleSheetRegistry} caches by path so a re-fetch would work too — this just says so. */
+    private StyleSheet oreSheet;
+    /** This scene's own layout rules. Must be re-added LAST on every toggle — see {@link #toggleTheme}. */
+    private StyleSheet sceneSheet;
+    private boolean oreOn = true;
+
+    /** Backs the two-way-bound TextField pair, so the binding is visible rather than described. */
+    private final Property<String> boundText = new Property<>("bound");
+
+    private static final String STYLES = """
+            /* Percent root: UIWindow resolves it against the logical screen size, so the gallery
+             * fills whatever window it is given instead of being pinned to 800x600 like the
+             * single-widget scenes. */
+            .gallery-root  { width: 100%; height: 100%; flex-direction: column;
+                             padding-all: 8px; gap-all: 6px; }
+            .gallery-head  { flex-direction: row; align-items: center; gap-all: 8px; }
+            .gallery-tabs  { flex-grow: 1; width: 100%; }
+            .theme-btn     { width: 118px; }
+
+            .page          { flex-direction: column; gap-all: 6px; padding-all: 4px; }
+            .page-row      { flex-direction: row; align-items: center; gap-all: 8px; }
+            /* An explicit width is what makes a UIText wrap: it self-sizes only while no ancestor
+             * has constrained it (see UIText.recompute's selfSizesWidth). */
+            .desc          { width: 300px; color: #A8B0B8; font-size: 8; }
+            .slot          { width: 86px; }
+            .field         { width: 150px; }
+
+            .swatch        { width: 14px; height: 14px; background: #6FA8DC; }
+            .box           { width: 96px; height: 40px; }
+            .box-flat      { background: #4A6E9A; }
+            /* `border-radius`, not `border-radius-all` — unlike the box-model shorthands this one
+             * has no `-all` alias; it expands into 8 corner longhands at parse time. */
+            .box-round     { background: #9A6E4A; border-radius: 10px; }
+            .box-sprite    { background: asset("crystalgui:ore", "panel"); }
+
+            .scroll-demo   { width: 300px; height: 96px; }
+            .scroll-row    { height: 22px; width: 100%; background: #3A4450; }
+            .split-demo    { width: 320px; height: 110px; }
+            .pane-a        { background: #3A4A6A; padding-all: 4px; }
+            .pane-b        { background: #4A3A5A; padding-all: 4px; }
+            .pane-c        { background: #3A5A4A; padding-all: 4px; }
+            .nested-tabs   { width: 320px; height: 110px; }
+            .pane-filler   { width: 100%; height: 30px; background: #45525F; }
+            """;
+
+    @Override
+    public void init(HarnessContext ctx) {
+        // Held keys matter on the Slider, TextField and Scroller pages.
+        org.lwjgl.input.Keyboard.enableRepeatEvents(true);
+
+        this.oreSheet = StyleSheetRegistry.of("crystalgui:ore");
+        this.sceneSheet = StyleSheet.parse(STYLES);
+
+        this.uiWindow = new UIWindow(Ui.of(createDemo()));
+        var engine = uiWindow.getStyleEngine();
+        engine.addStylesheet(StyleSheet.DEFAULT);   // USER_AGENT origin — stays through every toggle
+        engine.addStylesheet(oreSheet);
+        engine.addStylesheet(sceneSheet);
+    }
+
+    /**
+     * Swaps the Ore theme in and out on the live window.
+     *
+     * <p>Cheap: both mutators just mark every element dirty-match, and the re-match happens at the top
+     * of the next {@code paintFrame}. No rebuild, no reattach.</p>
+     *
+     * <p><b>The scene sheet must be removed and re-added last.</b> {@code sourceOrder} packs the sheet
+     * index above the rule index, so re-adding a sheet puts it back at the <em>end</em> of the list —
+     * i.e. at the highest priority, not its original position. Leave the scene sheet in place and
+     * re-adding Ore would start winning this scene's own layout rules at equal specificity.</p>
+     */
+    private void toggleTheme() {
+        var engine = uiWindow.getStyleEngine();
+        engine.removeStylesheet(sceneSheet);
+        if (oreOn) {
+            engine.removeStylesheet(oreSheet);
+        } else {
+            engine.addStylesheet(oreSheet);
+        }
+        engine.addStylesheet(sceneSheet);
+        oreOn = !oreOn;
+        themeToggle.setText(oreOn ? "theme: ore" : "theme: default");
+    }
+
+    private UIElement createDemo() {
+        UIElement root = new UIElement()
+                .layout(l -> l.paddingAll(8).flexDirection(FlexDirection.COLUMN).gapAll(6))
+                .setFocusPolicy(FocusPolicy.NONE);
+        root.addClass("gallery-root");
+        root.addClass("panel");
+
+        root.addChild(header());
+
+        pages = new TabView();
+        pages.addClass("gallery-tabs");
+        // A sidebar, not a top strip: twelve tabs across the top is the overflow case cgui-tabview
+        // exists to demonstrate. The rail is a ScrollerView either way, so a long list still scrolls.
+        pages.setTabSide(TabView.TabSide.LEFT);
+        root.addChild(pages);
+
+        buttonPage(page("Button", "Press-and-release on the same element. Space/Enter when focused."));
+        checkboxPage(page("Checkbox", "Standalone toggles, plus a CheckboxGroup that refuses to empty."));
+        switchPage(page("Switch", "The knob slides via a CSS transition on an invisible spacer."));
+        sliderPage(page("Slider", "Drag, click-to-jump, arrows, Home/End, wheel."));
+        textFieldPage(page("TextField", "Two validation tiers, and a two-way binding you can watch."));
+        textPage(page("UIText", "Self-sizing, or wrapping once an ancestor constrains its width."));
+        scrollerPage(page("Scroller", "ScrollerView opts into the wheel; a bare element does not."));
+        splitViewPage(page("SplitView", "Draggable dividers, nestable."));
+        tabViewPage(page("TabView", "A TabView inside a TabView pane."));
+        elementPage(page("UIElement", "The styleable div everything else is built from."));
+
+        return root;
+    }
+
+    private UIElement header() {
+        UIElement head = new UIElement();
+        head.addClass("gallery-head");
+
+        UIText title = new UIText("CrystalGUI — widget gallery");
+        title.addClass("label");
+        head.addChild(title);
+
+        UIElement spacer = new UIElement();
+        spacer.addClass("spacer");
+        head.addChild(spacer);
+
+        themeToggle = new Button("theme: ore");
+        themeToggle.addClass("theme-btn");
+        themeToggle.attachListener(this::toggleTheme);
+        head.addChild(themeToggle);
+
+        return head;
+    }
+
+    /** Adds a tab, gives its pane the shared page styling and a one-line description, returns the pane. */
+    private UIElement page(String label, String description) {
+        Tab tab = pages.addTab(label);
+        UIElement pane = tab.content();
+        pane.addClass("page");
+
+        UIText desc = new UIText(description);
+        desc.addClass("desc");
+        pane.addChild(desc);
+        return pane;
+    }
+
+    private UIElement row(UIElement... children) {
+        UIElement row = new UIElement();
+        row.addClass("page-row");
+        for (UIElement child : children) row.addChild(child);
+        return row;
+    }
+
+    /** A fixed-width text cell, because a bare UIText sizes itself and columns would not line up. */
+    private UIElement slot(String text) {
+        UIElement slot = new UIElement();
+        slot.addClass("slot");
+        UIText label = new UIText(text);
+        label.addClass("label");
+        slot.addChild(label);
+        return slot;
+    }
+
+    private UIElement swatch() {
+        UIElement swatch = new UIElement();
+        swatch.addClass("swatch");
+        return swatch;
+    }
+
+    // ── Pages ───────────────────────────────────────────────────────────────────────────────────
+
+    private void buttonPage(UIElement pane) {
+        Button plain = new Button("click me");
+        plain.attachListener(() -> buttonClicks++);
+
+        Button withIcon = new Button("with an icon");
+        withIcon.setPreIcon(swatch());
+
+        Button disabled = new Button("disabled");
+        disabled.setEnabled(false);
+
+        pane.addChild(row(slot("plain"), plain));
+        pane.addChild(row(slot("pre-icon"), withIcon));
+        pane.addChild(row(slot("disabled"), disabled));
+    }
+
+    private int buttonClicks = 0;
+
+    private void checkboxPage(UIElement pane) {
+        Checkbox one = new Checkbox("free-standing");
+        Checkbox two = new Checkbox("starts checked");
+        two.setChecked(true);
+
+        // allowEmpty(false) gives radio semantics: the last checked box refuses to un-check.
+        CheckboxGroup group = new CheckboxGroup().allowEmpty(false);
+        UIElement radios = row(slot("group, required"));
+        for (String name : new String[]{"red", "green", "blue"}) {
+            Checkbox option = new Checkbox(name);
+            option.setGroup(group);
+            radios.addChild(option);
+        }
+
+        pane.addChild(row(slot("standalone"), one, two));
+        pane.addChild(radios);
+    }
+
+    private void switchPage(UIElement pane) {
+        Switch off = new Switch();
+        Switch on = new Switch();
+        on.setChecked(true);
+        pane.addChild(row(slot("off"), off));
+        pane.addChild(row(slot("on"), on));
+    }
+
+    private Slider continuous;
+    private Slider stepped;
+
+    private void sliderPage(UIElement pane) {
+        continuous = new Slider();
+        continuous.setRange(0, 100).setValue(35);
+
+        stepped = new Slider();
+        stepped.setRange(0, 100).setStep(25).setValue(50);
+
+        pane.addChild(row(slot("continuous"), continuous));
+        pane.addChild(row(slot("step 25"), stepped));
+    }
+
+    private TextField plainField;
+
+    private void textFieldPage(UIElement pane) {
+        plainField = new TextField();
+        plainField.setText("edit me");
+        plainField.addClass("field");
+
+        TextField placeholder = new TextField();
+        placeholder.setPlaceholder("placeholder…");
+        placeholder.addClass("field");
+
+        // A 0..100 integer range can never be negative, so the mode's keystroke filter drops '-'
+        // outright — while "500" is typable and merely lands the field in :invalid.
+        TextField number = new TextField();
+        number.setMode(TextField.Mode.INTEGER).setRange(0, 100).setText("42");
+        number.addClass("field");
+
+        TextField bound = new TextField();
+        bound.bindValueBidirectional(boundText);
+        bound.addClass("field");
+
+        TextField mirror = new TextField();
+        mirror.bindValueBidirectional(boundText);
+        mirror.addClass("field");
+
+        pane.addChild(row(slot("plain"), plainField));
+        pane.addChild(row(slot("placeholder"), placeholder));
+        pane.addChild(row(slot("int 0..100"), number));
+        pane.addChild(row(slot("bound"), bound));
+        pane.addChild(row(slot("…mirrors it"), mirror));
+    }
+
+    private void textPage(UIElement pane) {
+        UIText self = new UIText("Self-sized: the element is exactly as wide as the glyphs.");
+        self.addClass("label");
+
+        UIText wrapped = new UIText(
+                "Constrained by an ancestor, so it wraps instead: UIText only self-sizes its width "
+                        + "while nothing else has given it one, and writes its measured height back "
+                        + "as an !important candidate either way.");
+        wrapped.addClass("desc");
+
+        pane.addChild(self);
+        pane.addChild(wrapped);
+    }
+
+    private ScrollerView scroller;
+
+    private void scrollerPage(UIElement pane) {
+        scroller = new ScrollerView();
+        scroller.addClass("scroll-demo");
+        for (int i = 1; i <= 14; i++) {
+            UIElement rowEl = new UIElement();
+            rowEl.addClass("scroll-row");
+            UIText label = new UIText("row " + i);
+            label.addClass("label");
+            rowEl.addChild(label);
+            scroller.addChild(rowEl);
+        }
+        pane.addChild(scroller);
+    }
+
+    private void splitViewPage(UIElement pane) {
+        SplitView split = new SplitView();
+        split.addClass("split-demo");
+        // Percentages here are 0..100, not 0..1 — matching LDLib2's 5..95 defaults.
+        split.setPercentage(40f).setLimits(15f, 85f);
+
+        split.first().addClass("pane-a");
+        UIText left = new UIText("first pane");
+        left.addClass("label");
+        split.first().addChild(left);
+
+        // Splits nest, and the nested one is where a divider-drag bug would show first.
+        SplitView nested = new SplitView();
+        nested.setOrientation(SplitView.Orientation.VERTICAL);
+        nested.first().addClass("pane-b");
+        nested.second().addClass("pane-c");
+        UIText top = new UIText("nested top");
+        top.addClass("label");
+        UIText bottom = new UIText("nested bottom");
+        bottom.addClass("label");
+        nested.first().addChild(top);
+        nested.second().addChild(bottom);
+        split.second().addChild(nested);
+
+        pane.addChild(split);
+    }
+
+    private void tabViewPage(UIElement pane) {
+        TabView nested = new TabView();
+        nested.addClass("nested-tabs");
+        nested.setTabSide(TabView.TabSide.TOP);
+        for (String name : new String[]{"one", "two", "three"}) {
+            UIElement filler = new UIElement();
+            filler.addClass("pane-filler");
+            UIText label = new UIText("pane " + name);
+            label.addClass("label");
+            filler.addChild(label);
+            nested.addTab(name).content().addChild(filler);
+        }
+        pane.addChild(nested);
+    }
+
+    private void elementPage(UIElement pane) {
+        UIElement flat = new UIElement();
+        flat.addClass("box");
+        flat.addClass("box-flat");
+
+        UIElement rounded = new UIElement();
+        rounded.addClass("box");
+        rounded.addClass("box-round");
+
+        UIElement sprite = new UIElement();
+        sprite.addClass("box");
+        sprite.addClass("box-sprite");
+
+        pane.addChild(row(slot("colour"), flat));
+        pane.addChild(row(slot("border-radius"), rounded));
+        pane.addChild(row(slot("9-slice"), sprite));
+    }
+
+    // ── Lifecycle ───────────────────────────────────────────────────────────────────────────────
+
+    @Override
+    public void render(HarnessContext ctx, FrameInfo frame) {
+        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
+        uiWindow.paintFrame();
+
+        var context = CgUiPaintContext.getInstance();
+        Tab selected = pages.getSelectedTab();
+        context.text().draw().at(0, 0)
+                .text(String.format("Gallery — page=%s   theme=%s   clicks=%d   slider=%.0f   bound=%s",
+                        selected == null ? "none" : selected.getText(),
+                        oreOn ? "ore" : "default",
+                        buttonClicks,
+                        continuous.getValue(),
+                        boundText.get()))
+                .font(context.getFont().atSize(14)).submit();
+
+        if (frame.getFrameNumber() == 5) {
+            ctx.getArtifactService().requestCapture("startup");
+        }
+    }
+
+    @Override
+    public void dispose() {
+        uiWindow = null;
+    }
+
+    @Override
+    public boolean isRunning() {
+        return true;
+    }
+
+    @Override
+    public boolean uses3DCamera() {
+        return false;
+    }
+
+    @Override
+    public boolean shouldShutdownOnComplete() {
+        return false;
+    }
+
+    @Override
+    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+    }
+
+    @Override
+    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+        return uiWindow.getInputHandler().consumeMouseEvent(event);
+    }
+}

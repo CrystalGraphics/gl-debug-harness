@@ -4,7 +4,7 @@ import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.*;
 import com.crystalgraphics.api.text.*;
 import com.crystalgraphics.text.cache.CgFontRegistry;
-import com.crystalgraphics.text.render.CgTextRenderContext;
+import com.crystalgraphics.text.render.context.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.richtext.CgMarkupParser;
 import com.crystalgraphics.util.profiling.CgProfiler;

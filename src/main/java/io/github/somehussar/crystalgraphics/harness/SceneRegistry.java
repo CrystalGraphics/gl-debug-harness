@@ -12,6 +12,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.CgQuadRendererTes
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCheckboxScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiGalleryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiScrollerScene;
@@ -387,6 +388,21 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiTabViewScene()
+        );
+
+        // The front door: every widget, one page each, with a live Ore <-> default theme toggle.
+        // Deliberately no defaultWidth/defaultHeight — nothing reads SceneDescriptor's, and the
+        // gallery's root is `width: 100%`, so `--width=1000 --height=700` gives it more room.
+        reg.register(
+            SceneDescriptor.builder("cgui-gallery")
+                .description("CrystalGUI gallery: every widget, one page each, with a live theme toggle")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiGalleryScene()
         );
 
         // ── Diagnostic modes ──
