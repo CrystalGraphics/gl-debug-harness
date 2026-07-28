@@ -67,6 +67,18 @@ tasks.register<JavaExec>("runHarness") {
     systemProperty("org.lwjgl.librarypath", lwjglNativesDir)
     systemProperty("harness.output.dir", file("harness-output").absolutePath)
 
+    // Forward every -Dcrystalgraphics.* from the Gradle invocation into the forked JVM.
+    //
+    // Without this they set properties on the Gradle daemon and never reach the harness, so every
+    // documented debug flag (shader.devmode, redirector.verbose, profile.autoOrbit,
+    // text.uploadDistanceFieldAsFloat, ...) silently does nothing when passed the obvious way:
+    //   ./gradlew :gl-debug-harness:runHarness -Dcrystalgraphics.shader.devmode=true
+    // Failing silently is the worst version of this, because the run looks like evidence the flag
+    // had no effect rather than evidence it was never applied.
+    System.getProperties().stringPropertyNames()
+        .filter { it.startsWith("crystalgraphics.") }
+        .forEach { systemProperty(it, System.getProperty(it)) }
+
     if (project.hasProperty("harness.debug")) {
         debugOptions {
             enabled.set(true)
