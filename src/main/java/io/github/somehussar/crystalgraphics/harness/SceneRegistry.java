@@ -14,7 +14,10 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCheckboxScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiScrollerScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSliderScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTabViewScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextFieldScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSplitViewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSwitchScene;
@@ -348,6 +351,42 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiSplitViewScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-scroller")
+                .description("CrystalGUI scrolling: overflow as an element capability, plus ScrollerView bars")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiScrollerScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-textfield")
+                .description("CrystalGUI TextField: editing, selection, clipboard, validation layers")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiTextFieldScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-tabview")
+                .description("CrystalGUI TabView: four strip sides, arrow navigation, strip overflow")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiTabViewScene()
         );
 
         // ── Diagnostic modes ──
