@@ -14,7 +14,9 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCheckboxScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSliderScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSwitchScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiVisualLayersScene;
@@ -309,6 +311,30 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiNineSliceScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-switch")
+                .description("CrystalGUI Switch: knob slides via animated flex-grow, timing declared in ore.css")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiSwitchScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-slider")
+                .description("CrystalGUI Slider: continuous + stepped, drag/click/keyboard, thumb hover/active/focus states")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiSliderScene()
         );
 
         // ── Diagnostic modes ──
