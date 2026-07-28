@@ -178,6 +178,23 @@ public final class AtlasDumper {
                     pw.println("  Glyph Count: " + glyphs);
                     pw.println("  Packed Area: " + packedArea + " px");
                     pw.printf("  Utilization: %.1f%%%n", utilization * 100.0f);
+                    // Distinguishes "looks empty in the dump image" from "has space a glyph
+                    // could actually use". A page can read 75% utilised and still hold zero
+                    // regions big enough for a real glyph, in which case the empty pixels are
+                    // an inherent packing remainder rather than an allocator failure.
+                    int avgGlyph = page.getType() == com.crystalgraphics.text.atlas.CgGlyphAtlas.Type.BITMAP ? 48 : 86;
+                    pw.printf("  Free regions fitting %dpx: %d  (60px: %d, 40px: %d)%n",
+                            avgGlyph, page.countFreeRegionsFitting(avgGlyph, avgGlyph),
+                            page.countFreeRegionsFitting(60, 60),
+                            page.countFreeRegionsFitting(40, 40));
+                    int[][] freeRegions = page.describeFreeRegions();
+                    StringBuilder fr = new StringBuilder("  Largest free regions (w x h @ x,y):");
+                    for (int r = 0; r < Math.min(6, freeRegions.length); r++) {
+                        int[] q = freeRegions[r];
+                        fr.append(String.format("  %dx%d@%d,%d", q[2], q[3], q[0], q[1]));
+                    }
+                    if (freeRegions.length == 0) fr.append("  (none)");
+                    pw.println(fr);
                     writeGlyphListing(pw, page);
                     pw.println();
 

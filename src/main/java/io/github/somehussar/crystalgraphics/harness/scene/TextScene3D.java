@@ -16,15 +16,14 @@ import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.config.TextSceneConfig;
-import io.github.somehussar.crystalgraphics.harness.config.ViewportState;
 import io.github.somehussar.crystalgraphics.harness.tool.AtlasDumper;
-import io.github.somehussar.crystalgraphics.harness.util.GlStateResetHelper;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
 import io.github.somehussar.crystalgraphics.harness.util.WorldTextRenderHelper;
 import lombok.Getter;
 import lombok.Setter;
 import org.joml.Matrix4f;
 
+import java.awt.*;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -84,7 +83,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     // ── CgProfiler instrumentation for the kanji world-text draw call (see class javadoc's
     // "Kanji warmup profiling" section) — scoped strictly to this one draw call and everything
     // it calls into; nothing else in this scene is instrumented. ──
-    private static final double PROFILE_WINDOW_SECONDS = 8.0;
+    private static final double PROFILE_WINDOW_SECONDS = 5;
 
     /**
      * {@code -Dcrystalgraphics.profile.autoOrbit=true} slowly dollies the camera during the
@@ -102,6 +101,40 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     private final List<String> profileTreeDumps = new ArrayList<>();
     /** Whole-second mark of the last captured tree dump, so one lands per second of the window. */
     private int lastTreeDumpSecond = -1;
+
+    /**
+     * Running totals from the JVM's garbage collectors, sampled once per frame so the CSV can
+     * carry a per-frame delta.
+     *
+     * <p>Exists to settle a hypothesis rather than to optimise anything: several warmup frames
+     * cost 20-30 ms with <em>every</em> {@code CgProfiler} scope reading ~0, which is the
+     * signature of time being spent outside any instrumented code. A GC pause is the obvious
+     * candidate, but "obvious candidate" is exactly what was wrong twice already this session
+     * (the half-float and shader-compile hypotheses), so this measures it directly: if a slow
+     * frame coincides with a collection-count increment, it is GC; if collections are flat
+     * across those frames, it is not and the search continues elsewhere.</p>
+     */
+    private long lastGcCount = -1;
+    private long lastGcTimeMs = -1;
+    private long frameGcCountDelta;
+    private long frameGcTimeDelta;
+
+    /** Samples cumulative GC counters and updates this frame's deltas. */
+    private void sampleGc() {
+        long count = 0;
+        long timeMs = 0;
+        for (java.lang.management.GarbageCollectorMXBean gc
+                : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+            long c = gc.getCollectionCount();
+            long t = gc.getCollectionTime();
+            if (c > 0) count += c;
+            if (t > 0) timeMs += t;
+        }
+        frameGcCountDelta = lastGcCount < 0 ? 0 : count - lastGcCount;
+        frameGcTimeDelta = lastGcTimeMs < 0 ? 0 : timeMs - lastGcTimeMs;
+        lastGcCount = count;
+        lastGcTimeMs = timeMs;
+    }
 
     @Override
     public void init(HarnessContext ctx) {
@@ -202,7 +235,29 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
 
     float scrollDelta;
     float scrollScale = 1;
-    
+
+    public static String getArialPrintableChars() {
+        // Initialize the Arial font
+        Font arial = new Font("Arial", Font.PLAIN, 12);
+        StringBuilder arialChars = new StringBuilder();
+
+        // Loop through the Basic Multilingual Plane (BMP) starting past control codes
+        for (int i = 32; i <= Character.MAX_VALUE; i++) {
+            // Skip control characters and surrogates
+            if (Character.isISOControl(i) || Character.isSurrogate((char) i)) {
+                continue;
+            }
+
+            char c = (char) i;
+            // Verify if Arial can display this specific character
+            if (arial.canDisplay(c)) {
+                arialChars.append(c);
+            }
+        }
+
+        return arialChars.toString();
+    }
+
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         // Build view matrix from camera
@@ -222,10 +277,11 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         modelView.scale(worldScale, -worldScale, worldScale);
 
         try (CgProfiler.Scope ignored = CgProfiler.scope("kanjiWorldDraw")) {
-            perspectiveContext.updateProjectedSize(modelView, ctx.getProjection(), kanjiFontSizePx);
+            perspectiveContext.projection(ctx.getProjection()).updateProjectedSize(modelView, ctx.getProjection(), kanjiFontSizePx);
             renderer.context(perspectiveContext);
 
-            renderer.draw().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack).submit();
+           // renderer.draw().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack).submit();
+            renderer.draw().text(getArialPrintableChars()).at(0.0f, 2112.0f).constraints(500,0).font(labelFont).pose(poseStack).submit();
         }
 
         if (CgProfiler.isEnabled()) {
@@ -236,14 +292,20 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 //ctx.getCamera3D().moveCamera(0f, 0f, dz);
             }
 
+            sampleGc();
             int pendingAsync = CgFontRegistry.get().getPendingAsyncGlyphCount();
             CgProfiler.sample("async.pendingGlyphs", pendingAsync);
             recordProfileFrame(frame, CgProfiler.endFrame(), pendingAsync);
 
             if (frame.getElapsedTime() >= PROFILE_WINDOW_SECONDS) {
                 dumpProfile(ctx);
+                // Dump the atlases alongside the profile so packing efficiency is captured from
+                // the same converged state the timings describe, rather than needing the '['
+                // keybind pressed by hand at an arbitrary moment (which makes before/after
+                // packing comparisons non-reproducible).
+                dumpKanjiFontAtlas();
                 CgProfiler.setEnabled(false); // fully zero-cost from here on -- see CgProfiler's javadoc
-              //  running = false;
+                // running = false;
             }
         }
 
@@ -396,7 +458,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
      */
     private void dumpKanjiFontAtlas() {
         File harnessOutputRoot = new File(ctx.getOutputDir()).getParentFile();
-        AtlasDumper.dumpFontAtlas(kanjiFont, harnessOutputRoot.getPath());
+        AtlasDumper.dumpFontAtlas(labelFont, harnessOutputRoot.getPath());
     }
 
     /**
@@ -508,7 +570,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
             "uboMapMs", "uboWriteMs", "uboCommitMs", "uboBytes",
             "vtxMapMs", "vtxWriteMs", "vtxCommitMs", "vtxBytes",
             "ssboMapMs", "ssboCommitMs", "ssboBytes",
-            "uboSmallUploads",
+            "uboSmallUploads", "gcCount", "gcTimeMs",
             "dbWireMs", "dbStateSaveMs", "dbPropsUpMs", "dbUboBindMs", "dbSamplersMs", "dbRenderStateMs", "dbShaderBindMs"
     };
 
