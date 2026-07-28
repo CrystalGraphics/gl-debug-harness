@@ -86,6 +86,7 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, SystemInput
             UIElement row = new UIElement();
             row.addClass(i % 2 == 0 ? "row" : "row-alt");
             UIText t = new UIText(tag + " row " + i);
+            if (i == 20) row.setFocusPolicy(FocusPolicy.FOCUSABLE);
             t.addClass("label");
             row.addChild(t);
             container.addChild(row);

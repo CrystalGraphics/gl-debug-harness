@@ -104,6 +104,9 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, SystemInpu
 
         plain = new TextField();
         plain.setText("edit me");
+        // Pre-selected so the startup capture shows the selection highlight — that fill is now
+        // `selection-color`, and it is the whole point of the change.
+        plain.selectAll();
         root.addChild(row("plain", plain));
 
         placeholder = new TextField();
