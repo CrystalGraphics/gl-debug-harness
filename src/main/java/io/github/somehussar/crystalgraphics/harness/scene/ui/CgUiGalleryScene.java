@@ -79,7 +79,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
             .slot          { width: 86px; }
             .field         { width: 150px; }
 
-            .swatch        { width: 14px; height: 14px; background: #6FA8DC; }
+            .swatch        { width: 8px; height: 9px; background: #6FA8DC; }
             .box           { width: 96px; height: 40px; }
             .box-flat      { background: #4A6E9A; }
             /* `border-radius`, not `border-radius-all` — unlike the box-model shorthands this one
@@ -133,7 +133,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         }
         engine.addStylesheet(sceneSheet);
         oreOn = !oreOn;
-        themeToggle.setText(oreOn ? "theme: ore" : "theme: default");
+        themeToggle.setText(oreOn ? "theme: oreg" : "theme: defaultg");
     }
 
     private UIElement createDemo() {
@@ -170,7 +170,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         UIElement head = new UIElement();
         head.addClass("gallery-head");
 
-        UIText title = new UIText("CrystalGUI — widget gallery");
+        UIText title = new UIText("CrystalGUI - widget gallery");
         title.addClass("label");
         head.addChild(title);
 
@@ -288,7 +288,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         plainField.addClass("field");
 
         TextField placeholder = new TextField();
-        placeholder.setPlaceholder("placeholder…");
+        placeholder.setPlaceholder("placeholder...");
         placeholder.addClass("field");
 
         // A 0..100 integer range can never be negative, so the mode's keystroke filter drops '-'
@@ -309,7 +309,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         pane.addChild(row(slot("placeholder"), placeholder));
         pane.addChild(row(slot("int 0..100"), number));
         pane.addChild(row(slot("bound"), bound));
-        pane.addChild(row(slot("…mirrors it"), mirror));
+        pane.addChild(row(slot("...mirrors it"), mirror));
     }
 
     private void textPage(UIElement pane) {
@@ -341,6 +341,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         }
         pane.addChild(scroller);
     }
+
 
     private void splitViewPage(UIElement pane) {
         SplitView split = new SplitView();
@@ -423,6 +424,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         if (frame.getFrameNumber() == 5) {
             ctx.getArtifactService().requestCapture("startup");
         }
+
+        // TEMPCHECK
+        long f = frame.getFrameNumber();
+        if (f == 8) pages.selectIndex(1);
+        if (f == 12) ctx.getArtifactService().requestCapture("checkbox");
+        if (f == 16) pages.selectIndex(4);
+        if (f == 20) ctx.getArtifactService().requestCapture("textfield");
+        // END TEMPCHECK
     }
 
     @Override
