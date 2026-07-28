@@ -280,8 +280,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
             perspectiveContext.projection(ctx.getProjection()).updateProjectedSize(modelView, ctx.getProjection(), kanjiFontSizePx);
             renderer.context(perspectiveContext);
 
-           // renderer.draw().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack).submit();
+            renderer.draw().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack).submit();
             renderer.draw().text(getArialPrintableChars()).at(0.0f, 2112.0f).constraints(500,0).font(labelFont).pose(poseStack).submit();
+            renderer.draw().text(getArialPrintableChars()).at(0.0f, 2112.0f).constraints(500,0).font(minecraftFont).pose(poseStack).submit();
         }
 
         if (CgProfiler.isEnabled()) {
@@ -303,9 +304,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 // the same converged state the timings describe, rather than needing the '['
                 // keybind pressed by hand at an arbitrary moment (which makes before/after
                 // packing comparisons non-reproducible).
-                dumpKanjiFontAtlas();
+                dumpAtlases();
                 CgProfiler.setEnabled(false); // fully zero-cost from here on -- see CgProfiler's javadoc
-                // running = false;
+//                 running = false;
             }
         }
 
@@ -448,17 +449,20 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     @Override
     public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
         if (event.pressed() && !event.repeat() && event.key() == CgUiKeyCodes.KEY_LBRACKET) 
-            dumpKanjiFontAtlas();
+            dumpAtlases();
         return true;
     }
 
     /**
-     * Dumps every populated atlas page belonging to {@code jpHelper}'s kanji font via
-     * {@link AtlasDumper#dumpFontAtlas}. Bound to {@code [} — see {@link #consumeKeyboardEvent}.
+     * Dumps every populated atlas page via {@link AtlasDumper#dumpAtlases}. Bound to {@code [} —
+     * see {@link #consumeKeyboardEvent}.
+     *
+     * <p>Covers every font this scene draws, not just the kanji one: the atlases are global and
+     * shared, so a dump is inherently whole-process rather than per-font.
      */
-    private void dumpKanjiFontAtlas() {
+    private void dumpAtlases() {
         File harnessOutputRoot = new File(ctx.getOutputDir()).getParentFile();
-        AtlasDumper.dumpFontAtlas(labelFont, harnessOutputRoot.getPath());
+        AtlasDumper.dumpAtlases(harnessOutputRoot.getPath());
     }
 
     /**
