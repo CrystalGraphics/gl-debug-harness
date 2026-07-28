@@ -35,9 +35,8 @@ public class CgUiSwitchScene implements InteractiveSceneLifecycle, SystemInput.K
     private Switch focused;
     private int toggleCount = 0;
 
+    /* .row and .label come from StyleSheet.DEFAULT now — only the scene-specific slot width is left. */
     private static final String STYLES = """
-            .row   { flex-direction: row; gap-all: 8px; align-items: center; }
-            .label { font-size: 10; color: #FFFFFF; }
             .slot  { width: 74px; }
             """;
 
@@ -45,6 +44,7 @@ public class CgUiSwitchScene implements InteractiveSceneLifecycle, SystemInput.K
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(false);
         this.uiWindow = new UIWindow(Ui.of(createDemo()));
+        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
         this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
         this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLES));
     }

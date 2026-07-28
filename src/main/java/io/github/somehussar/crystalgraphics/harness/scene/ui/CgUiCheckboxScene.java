@@ -145,6 +145,13 @@ public class CgUiCheckboxScene implements InteractiveSceneLifecycle, SystemInput
                 emptyAllowedGroup.getCurrent() == null ? "none" : emptyAllowedGroup.getCurrent().getLabel(),
                 requiredGroup.getCurrent() == null ? "none" : requiredGroup.getCurrent().getLabel());
         context.text().draw().at(0, 0).text(status).font(context.getFont().atSize(16)).submit();
+
+        // Startup capture so this scene contributes to the pixel-regression set. Without it the
+        // scene runs but writes no artifact, and a "scenes diff to zero" check silently covers
+        // nothing here.
+        if (frame.getFrameNumber() == 5) {
+            ctx.getArtifactService().requestCapture("startup");
+        }
     }
 
     @Override

@@ -46,20 +46,16 @@ public class CgUiSliderScene implements InteractiveSceneLifecycle, SystemInput.K
      * scene-local stylesheet, and Slider tags itself with that class purely as a side effect of
      * setStep(). The stepped row below drawing a different fill from the continuous rows is the
      * proof that the discrete-mode hook is reachable from CSS with no engine or element support.
-     *
-     * It swaps the SPRITE rather than setting background-color, because background-color is a tint
-     * MULTIPLIED into the background drawable, not a replacement — over the green fill sprite a
-     * blue tint just comes out dark green, which would make this demo look broken. */
+     */
     private static final String STYLES = """
-            .row   { flex-direction: row; gap-all: 8px; align-items: center; }
-            .label { font-size: 10; color: #FFFFFF; }
             slider.__stepped__ .__fill__ { background: asset("crystalgui:ore", "checkbox-box"); }
             """;
 
     @Override
     public void init(HarnessContext ctx) {
-        org.lwjgl.input.Keyboard.enableRepeatEvents(false);
+        org.lwjgl.input.Keyboard.enableRepeatEvents(true);
         this.uiWindow = new UIWindow(Ui.of(createDemo()));
+        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
         this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
         this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLES));
     }

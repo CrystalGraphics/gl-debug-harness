@@ -63,6 +63,7 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, SystemInput
 
         UIElement root = createDemo();
         this.uiWindow = new UIWindow(Ui.of(root));
+        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
         this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
         // Demo-only rules for the overlay-fit matrix — deliberately NOT in ore.css, which is the
         // shippable theme.

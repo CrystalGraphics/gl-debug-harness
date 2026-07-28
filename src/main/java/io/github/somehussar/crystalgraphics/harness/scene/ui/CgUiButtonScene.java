@@ -118,6 +118,13 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, SystemInput.K
                 "clicks: %d | keyboard activations: %d | sound plays: %d",
                 clickCount, keyboardActivationCount, soundPlayCount);
         context.text().draw().at(0, 0).text(status).font(context.getFont().atSize(16)).submit();
+
+        // Startup capture so this scene contributes to the pixel-regression set. Without it the
+        // scene runs but writes no artifact, and a "scenes diff to zero" check silently covers
+        // nothing here.
+        if (frame.getFrameNumber() == 5) {
+            ctx.getArtifactService().requestCapture("startup");
+        }
     }
 
     @Override

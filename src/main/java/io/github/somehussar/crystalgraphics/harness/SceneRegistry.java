@@ -15,6 +15,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCheckboxScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSliderScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSplitViewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSwitchScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTestScene;
@@ -335,6 +336,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiSliderScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-splitview")
+                .description("CrystalGUI SplitView: draggable divider, both orientations, nested, oversized-pane content")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiSplitViewScene()
         );
 
         // ── Diagnostic modes ──
