@@ -1,10 +1,9 @@
 package io.github.somehussar.crystalgraphics.harness.tool;
 
-import com.crystalgraphics.api.font.CgFont;
-import com.crystalgraphics.api.font.CgFontKey;
 import com.crystalgraphics.api.font.CgGlyphKey;
 import com.crystalgraphics.api.font.CgGlyphPlacement;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
+import com.crystalgraphics.text.atlas.CgGlyphAtlas;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
 import io.github.somehussar.crystalgraphics.harness.util.ScreenshotUtil;
@@ -28,44 +27,39 @@ public final class AtlasDumper {
 
     private static final Logger LOGGER = Logger.getLogger(AtlasDumper.class.getName());
 
-    // ── Whole-font dump ──────────────────────────────────────────────────
+    // ── Whole-atlas dump ─────────────────────────────────────────────────
 
     /**
-     * Dumps every populated atlas page (bitmap and/or MSDF, whichever {@code font} actually has
-     * raster data in right now) to {@code harnessOutputRoot/atlas/{font-name}/}, plus a combined
-     * manifest per raster bucket — for visually auditing an entire font's atlas state (e.g.
-     * checking a many-page CJK atlas renders correctly) without hand-picking pages.
+     * Dumps every populated atlas page to {@code harnessOutputRoot/atlas/}, plus a manifest per
+     * tier — for visually auditing atlas state (e.g. checking a many-page CJK atlas packs and
+     * renders correctly) without hand-picking pages.
      *
-     * <p>Looks pages up via {@link CgFontRegistry#findAllPopulatedBitmapPagesBySize}/
-     * {@link CgFontRegistry#findAllPopulatedMSDFPagesBySize}, grouped by each bucket's
-     * <strong>real</strong> raster size — {@code effectiveTargetPx} for bitmap,
-     * {@code atlasScalePx} for MSDF — not {@code font}'s merely-declared
-     * {@link CgFontKey#getTargetPx()}. A single font can back several raster buckets at once
-     * (e.g. drawn under different {@link com.crystalgraphics.api.PoseStack} scales), each
-     * genuinely a different pixel size, so every filename is labeled with the size that bucket
-     * was actually rasterized at.</p>
+     * <p><strong>This dumps the atlases, not a font.</strong> There is exactly one bitmap atlas and
+     * one distance-field atlas process-wide and every font shares them, so there is no per-font
+     * output to produce: a single page routinely holds glyphs from several faces at once. It used
+     * to take a {@code CgFont} and write to {@code atlas/{font-name}/}, which was accurate while
+     * atlases were keyed per font and became actively misleading once they were merged — the
+     * directory named after one font contained every font's glyphs.
      *
-     * @param font             the font to dump atlas pages for
+     * <p>Filenames are still labelled with the tier's real raster size — {@code atlasScalePx} for
+     * the distance-field atlas, which genuinely has exactly one. The bitmap label is the page
+     * dimension rather than a glyph size, because bitmap glyphs of many sizes now share pages and
+     * no single pixel size describes one.
+     *
      * @param harnessOutputRoot the harness output root (e.g. {@code gl-debug-harness/harness-output}) —
-     *                          pages land under {@code {harnessOutputRoot}/atlas/...}, a sibling of
+     *                          pages land directly in {@code {harnessOutputRoot}/atlas/}, a sibling of
      *                          every scene's own output subdirectory, not inside one
      */
-    public static void dumpFontAtlas(CgFont font, String harnessOutputRoot) {
-        if (font == null) {
-            LOGGER.warning("[AtlasDumper] dumpFontAtlas called with a null font.");
-            return;
-        }
-        CgFontKey fontKey = font.getKey();
-
+    public static void dumpAtlases(String harnessOutputRoot) {
         CgFontRegistry registry = CgFontRegistry.get();
-        Map<Integer, List<CgGlyphAtlasPage>> bitmapBuckets = registry.findAllPopulatedBitmapPagesBySize(fontKey);
-        Map<Integer, List<CgGlyphAtlasPage>> msdfBuckets = registry.findAllPopulatedMSDFPagesBySize(fontKey);
+        Map<Integer, List<CgGlyphAtlasPage>> bitmapBuckets = registry.findAllPopulatedBitmapPagesBySize(null);
+        Map<Integer, List<CgGlyphAtlasPage>> msdfBuckets = registry.findAllPopulatedMSDFPagesBySize(null);
         if (bitmapBuckets.isEmpty() && msdfBuckets.isEmpty()) {
-            LOGGER.warning("[AtlasDumper] No populated pages found for " + fontKey.getFontPath());
+            LOGGER.warning("[AtlasDumper] No populated atlas pages to dump.");
             return;
         }
 
-        String outputDir = new File(new File(harnessOutputRoot, "atlas"), fontFileBaseName(fontKey.getFontPath())).getPath();
+        String outputDir = new File(harnessOutputRoot, "atlas").getPath();
         HarnessOutputDir.ensureExists(outputDir);
 
         int totalBitmapPages = 0;
@@ -78,18 +72,8 @@ public final class AtlasDumper {
             dumpAllPagedPages(bucket.getValue(), "msdf-atlas-dump", bucket.getKey() + "px", outputDir);
             totalMsdfPages += bucket.getValue().size();
         }
-        LOGGER.info("[AtlasDumper] Dumped font atlas: " + totalBitmapPages + " bitmap page(s) across "
-                + bitmapBuckets.size() + " size bucket(s), " + totalMsdfPages + " msdf page(s) across "
-                + msdfBuckets.size() + " size bucket(s) -> " + outputDir);
-    }
-
-    private static String fontFileBaseName(String fontPath) {
-        String name = fontPath.replace('\\', '/');
-        int slash = name.lastIndexOf('/');
-        if (slash >= 0) name = name.substring(slash + 1);
-        int dot = name.lastIndexOf('.');
-        if (dot > 0) name = name.substring(0, dot);
-        return name;
+        LOGGER.info("[AtlasDumper] Dumped atlases: " + totalBitmapPages + " bitmap page(s), "
+                + totalMsdfPages + " msdf page(s) -> " + outputDir);
     }
 
     // ── Multi-page dump support ────────────────────────────────────────
@@ -178,6 +162,23 @@ public final class AtlasDumper {
                     pw.println("  Glyph Count: " + glyphs);
                     pw.println("  Packed Area: " + packedArea + " px");
                     pw.printf("  Utilization: %.1f%%%n", utilization * 100.0f);
+                    // Distinguishes "looks empty in the dump image" from "has space a glyph
+                    // could actually use". A page can read 75% utilised and still hold zero
+                    // regions big enough for a real glyph, in which case the empty pixels are
+                    // an inherent packing remainder rather than an allocator failure.
+                    int avgGlyph = page.getType() == CgGlyphAtlas.Type.BITMAP ? 48 : 86;
+                    pw.printf("  Free regions fitting %dpx: %d  (60px: %d, 40px: %d)%n",
+                            avgGlyph, page.countFreeRegionsFitting(avgGlyph, avgGlyph),
+                            page.countFreeRegionsFitting(60, 60),
+                            page.countFreeRegionsFitting(40, 40));
+                    int[][] freeRegions = page.describeFreeRegions();
+                    StringBuilder fr = new StringBuilder("  Largest free regions (w x h @ x,y):");
+                    for (int r = 0; r < Math.min(6, freeRegions.length); r++) {
+                        int[] q = freeRegions[r];
+                        fr.append(String.format("  %dx%d@%d,%d", q[2], q[3], q[0], q[1]));
+                    }
+                    if (freeRegions.length == 0) fr.append("  (none)");
+                    pw.println(fr);
                     writeGlyphListing(pw, page);
                     pw.println();
 

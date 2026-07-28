@@ -5,8 +5,7 @@ import com.crystalgraphics.msdfgen.MSDFException;
 import com.crystalgraphics.msdfgen.MSDFShape;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
 import com.crystalgraphics.text.msdf.CgMsdfGlyphLayout;
-import com.crystalgraphics.text.atlas.packing.CgGuillotinePacker;
-import com.crystalgraphics.text.atlas.packing.PackedRect;
+import com.crystalgraphics.text.atlas.packing.MaxRectsPacker;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -89,10 +88,12 @@ public final class MsdfAtlasSizeEstimator {
     }
 
     private static boolean fits(int side, java.util.List<CgMsdfGlyphLayout> layouts, int spacingPx) {
-        CgGuillotinePacker packer = new CgGuillotinePacker(side, side);
+        // MaxRects, because that is what real atlases use — an estimate produced by a different
+        // packer than the one that will do the packing is not an estimate of anything.
+        MaxRectsPacker packer = new MaxRectsPacker(side, side);
         for (int i = 0; i < layouts.size(); i++) {
             CgMsdfGlyphLayout layout = layouts.get(i);
-            PackedRect rect = packer.insert(layout.getBoxWidth(), layout.getBoxHeight(), spacingPx, i);
+            MaxRectsPacker.PackedRect rect = packer.insert(layout.getBoxWidth(), layout.getBoxHeight(), spacingPx, i);
             if (rect == null) {
                 return false;
             }

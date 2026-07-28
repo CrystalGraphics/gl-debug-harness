@@ -11,7 +11,7 @@ import com.crystalgraphics.api.font.CgGlyphKey;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
 import com.crystalgraphics.text.msdf.CgMsdfGenerator;
-import com.crystalgraphics.text.render.CgTextRenderContext;
+import com.crystalgraphics.text.render.context.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
 import com.crystalgraphics.text.msdf.CgMsdfGlyphLayout;
@@ -315,10 +315,10 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
     private int countTotalAtlasSlots(CgFontRegistry registry, CgFont font) {
         int total = 0;
 
-        for (CgGlyphAtlasPage page : registry.findAllPopulatedPagedBitmapPages(font.getKey())) {
+        for (CgGlyphAtlasPage page : registry.findAllPopulatedBitmapPages(font.getKey())) {
             total += page.getSlotCount();
         }
-        for (CgGlyphAtlasPage page : registry.findAllPopulatedPagedMsdfPages(font.getKey())) {
+        for (CgGlyphAtlasPage page : registry.findAllPopulatedMsdfPages(font.getKey())) {
             total += page.getSlotCount();
         }
 
@@ -342,7 +342,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
             }
             GlyphPrewarmEntry entry = glyphs.get(i);
             CgGlyphKey glyphKey = new CgGlyphKey(font.getKey(), entry.glyphId, true, 0);
-            registry.queueGlyphPaged(font, glyphKey, font.getKey().getTargetPx(), 0, frame);
+            registry.queueGlyph(font, glyphKey, font.getKey().getTargetPx(), 0, frame);
             queued++;
         }
         registry.awaitAsyncGlyphs(5000L);
@@ -438,7 +438,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
     private void dumpBitmapAtlases(CgFontRegistry registry, CgFont font,
                                      int pxSize, boolean dumpAllPages, String atlasDir) {
         if (dumpAllPages) {
-            List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedPagedBitmapPages(font.getKey());
+            List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedBitmapPages(font.getKey());
             if (!pagedPages.isEmpty()) {
                 AtlasDumper.dumpAllPagedPages(pagedPages,
                         "bitmap-atlas-dump", pxSize + "px", atlasDir);
@@ -447,7 +447,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 LOGGER.warning("[Harness] No bitmap atlas pages found after rendering");
             }
         } else {
-            List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedPagedBitmapPages(font.getKey());
+            List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedBitmapPages(font.getKey());
             if (!pagedPages.isEmpty()) {
                 CgGlyphAtlasPage page = pagedPages.get(0);
                 String filename = "bitmap-atlas-dump-" + pxSize + "px.png";
@@ -467,7 +467,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                                     String typePrefix) {
 
         if (dumpAllPages) {
-            List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedPagedMsdfPages(font.getKey());
+            List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedMsdfPages(font.getKey());
             if (!pagedPages.isEmpty()) {
                 AtlasDumper.dumpAllPagedPages(pagedPages,
                         typePrefix + "-atlas-dump", pxSize + "px", atlasDir);
@@ -477,7 +477,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 LOGGER.warning("[Harness] No " + typePrefix.toUpperCase() + " atlas pages found after rendering");
             }
         } else {
-            List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedPagedMsdfPages(font.getKey());
+            List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedMsdfPages(font.getKey());
             if (!pagedPages.isEmpty()) {
                 CgGlyphAtlasPage page = pagedPages.get(0);
                 String filename = typePrefix + "-atlas-dump-" + pxSize + "px.png";

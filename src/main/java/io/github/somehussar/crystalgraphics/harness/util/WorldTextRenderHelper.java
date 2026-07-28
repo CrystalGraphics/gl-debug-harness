@@ -4,7 +4,7 @@ import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontFamily;
 import com.crystalgraphics.api.font.CgFontStyle;
-import com.crystalgraphics.text.render.CgTextRenderContext;
+import com.crystalgraphics.text.render.context.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
 import io.github.somehussar.crystalgraphics.harness.scene.TextScene3D;
