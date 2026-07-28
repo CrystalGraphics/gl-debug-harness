@@ -3,6 +3,7 @@ package io.github.somehussar.crystalgraphics.harness.tool;
 import com.crystalgraphics.api.font.CgGlyphKey;
 import com.crystalgraphics.api.font.CgGlyphPlacement;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
+import com.crystalgraphics.text.atlas.CgGlyphAtlas;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
 import io.github.somehussar.crystalgraphics.harness.util.ScreenshotUtil;
@@ -165,7 +166,7 @@ public final class AtlasDumper {
                     // could actually use". A page can read 75% utilised and still hold zero
                     // regions big enough for a real glyph, in which case the empty pixels are
                     // an inherent packing remainder rather than an allocator failure.
-                    int avgGlyph = page.getType() == com.crystalgraphics.text.atlas.CgGlyphAtlas.Type.BITMAP ? 48 : 86;
+                    int avgGlyph = page.getType() == CgGlyphAtlas.Type.BITMAP ? 48 : 86;
                     pw.printf("  Free regions fitting %dpx: %d  (60px: %d, 40px: %d)%n",
                             avgGlyph, page.countFreeRegionsFitting(avgGlyph, avgGlyph),
                             page.countFreeRegionsFitting(60, 60),
