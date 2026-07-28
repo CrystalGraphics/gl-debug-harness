@@ -1,0 +1,170 @@
+package io.github.somehussar.crystalgraphics.harness.scene.ui;
+
+import com.crystalgui.core.input.SystemInput;
+import com.crystalgui.render.CgUiPaintContext;
+import com.crystalgui.style.sheet.StyleSheet;
+import com.crystalgui.style.sheet.StyleSheetRegistry;
+import com.crystalgui.ui.UIElement;
+import com.crystalgui.ui.Ui;
+import com.crystalgui.ui.UIWindow;
+import com.crystalgui.ui.elements.Button;
+import com.crystalgui.ui.elements.Checkbox;
+import com.crystalgui.ui.elements.Slider;
+import com.crystalgui.ui.elements.Tab;
+import com.crystalgui.ui.elements.TabView;
+import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.input.FocusPolicy;
+import dev.vfyjxf.taffy.style.FlexDirection;
+import io.github.somehussar.crystalgraphics.harness.FrameInfo;
+import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
+import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
+
+/**
+ * Exercises {@code TabView} — click a tab, or Tab to one and use the arrow keys.
+ *
+ * <p>This scene carries the parts of the widget that {@code TabViewTest} deliberately cannot: a Tab
+ * contains a {@code UIText}, so laying one out needs FreeType and the headless suite skips layout
+ * entirely. Everything geometric therefore has to be verified here.</p>
+ *
+ * <ul>
+ *   <li><b>All four sides.</b> The buttons across the top move the strip; each side changes the root's
+ *       flex-direction and the state class, and {@code tabview.__left__ .__strip__} has to flip the
+ *       strip's own axis from CSS alone.</li>
+ *   <li><b>Strip overflow.</b> The second TabView has more tabs than fit, so the strip must pan on the
+ *       wheel rather than overflowing the widget or squashing the tabs.</li>
+ *   <li><b>Real content, not empty panes.</b> The panes hold actual widgets, because a hidden pane
+ *       whose children are still hit-testable or still in the tab order is invisible in a demo made of
+ *       empty boxes — precisely the bug found while building this (see
+ *       {@code UIElement.hasFocusableDescendant}).</li>
+ * </ul>
+ */
+public class CgUiTabViewScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
+
+    private UIWindow uiWindow;
+    private TabView tabs;
+    private TabView crowded;
+
+    private static final String STYLES = """
+            /* Sized to fit 800x600 at the default uiScale of 2 — 380 logical is 760 physical. */
+            .demo-root  { width: 380px; height: 270px; flex-direction: column; gap-all: 6px;
+                          padding-all: 6px; background: #202020; }
+            .sides      { flex-direction: row; gap-all: 4px; }
+            .side-btn   { width: 44px; }
+            .main       { width: 368px; height: 140px; }
+            .crowded    { width: 180px; height: 64px; }
+            .bottom     { flex-direction: row; gap-all: 6px; }
+            .filler     { background: #4A5A6A; height: 34px; width: 100%; }
+            """;
+
+    @Override
+    public void init(HarnessContext ctx) {
+        org.lwjgl.input.Keyboard.enableRepeatEvents(true);
+        this.uiWindow = new UIWindow(Ui.of(createDemo()));
+        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
+        this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
+        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLES));
+    }
+
+    private UIElement createDemo() {
+        UIElement root = new UIElement()
+                .layout(l -> l.width(380).height(270)
+                        .paddingAll(6).flexDirection(FlexDirection.COLUMN).gapAll(6))
+                .setFocusPolicy(FocusPolicy.NONE);
+        root.addClass("demo-root");
+
+        root.addChild(sideSwitcher());
+
+        tabs = new TabView();
+        tabs.addClass("main");
+        root.addChild(tabs);
+
+        // Focusable content in each pane: switching tabs must take the hidden pane's widgets out of
+        // the tab order, not merely out of sight.
+        Tab first = tabs.addTab("Widgets");
+        first.content().addChild(new Button("a button"));
+        first.content().addChild(new Checkbox("a checkbox"));
+
+        Tab second = tabs.addTab("Slider");
+        second.content().addChild(new Slider());
+
+        Tab third = tabs.addTab("Text");
+        third.content().addChild(new UIText("Just some text in the third pane."));
+
+        UIElement bottom = new UIElement();
+        bottom.addClass("bottom");
+        root.addChild(bottom);
+
+        // More tabs than the strip can show, so the wheel has to pan it.
+        crowded = new TabView();
+        crowded.addClass("crowded");
+        for (int i = 1; i <= 8; i++) {
+            UIElement filler = new UIElement();
+            filler.addClass("filler");
+            crowded.addTab("tab " + i).content().addChild(filler);
+        }
+        bottom.addChild(crowded);
+
+        return root;
+    }
+
+    private UIElement sideSwitcher() {
+        UIElement row = new UIElement();
+        row.addClass("sides");
+        for (TabView.TabSide side : TabView.TabSide.values()) {
+            Button button = new Button(side.name().toLowerCase());
+            button.addClass("side-btn");
+            button.attachListener(() -> tabs.setTabSide(side));
+            row.addChild(button);
+        }
+        return row;
+    }
+
+    @Override
+    public void render(HarnessContext ctx, FrameInfo frame) {
+        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
+        uiWindow.paintFrame();
+
+        var context = CgUiPaintContext.getInstance();
+        Tab selected = tabs.getSelectedTab();
+        context.text().draw().at(0, 0)
+                .text(String.format("TabView — side=%s  selected=%s (%d/%d)  wheel over the small strip pans it",
+                        tabs.getTabSide(),
+                        selected == null ? "none" : selected.getText(),
+                        tabs.getSelectedIndex() + 1, tabs.getTabCount()))
+                .font(context.getFont().atSize(14)).submit();
+
+        if (frame.getFrameNumber() == 5) {
+            ctx.getArtifactService().requestCapture("startup");
+        }
+    }
+
+    @Override
+    public void dispose() {
+        uiWindow = null;
+    }
+
+    @Override
+    public boolean isRunning() {
+        return true;
+    }
+
+    @Override
+    public boolean uses3DCamera() {
+        return false;
+    }
+
+    @Override
+    public boolean shouldShutdownOnComplete() {
+        return false;
+    }
+
+    @Override
+    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+    }
+
+    @Override
+    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+        return uiWindow.getInputHandler().consumeMouseEvent(event);
+    }
+}

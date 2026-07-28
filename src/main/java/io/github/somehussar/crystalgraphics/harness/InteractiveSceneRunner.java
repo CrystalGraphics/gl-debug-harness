@@ -156,8 +156,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // ── Create runtime service collaborators ──
         frameClock = new FrameClock();
         inputPauseHandler = new InputPauseHandler(scene.uses3DCamera());
-        registerInputHandler(inputPauseHandler);
         registerInputHandler(scene);
+        registerInputHandler(inputPauseHandler);
         resizeHandler = new ResizeHandler(ctx, worldPassCoordinator, overlayPipeline);
         overlayCaptureOrchestrator = new OverlayCaptureOrchestrator(ctx, overlayPipeline);
 
