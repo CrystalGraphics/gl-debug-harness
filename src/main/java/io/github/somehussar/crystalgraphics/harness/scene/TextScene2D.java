@@ -6,7 +6,7 @@ import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
-import com.crystalgraphics.text.render.CgTextRenderContext;
+import com.crystalgraphics.text.render.context.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;

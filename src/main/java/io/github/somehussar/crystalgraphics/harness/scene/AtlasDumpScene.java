@@ -11,7 +11,7 @@ import com.crystalgraphics.api.font.CgGlyphKey;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
 import com.crystalgraphics.text.msdf.CgMsdfGenerator;
-import com.crystalgraphics.text.render.CgTextRenderContext;
+import com.crystalgraphics.text.render.context.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
 import com.crystalgraphics.text.msdf.CgMsdfGlyphLayout;
