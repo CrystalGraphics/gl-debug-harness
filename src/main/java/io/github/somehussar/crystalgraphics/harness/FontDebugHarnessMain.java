@@ -89,6 +89,9 @@ public final class FontDebugHarnessMain {
         try {
             PlatformServiceHarness.onPreInit();
             CrystalGuiCore.setAdapter(new InputAdapter());
+            // Real OS cursors for the CSS `cursor` property -- see Lwjgl2CursorService for why this
+            // cannot live in core/ (the import guard bans LWJGL there).
+            CrystalGuiCore.setCursorService(new io.github.somehussar.crystalgraphics.harness.util.Lwjgl2CursorService());
             ctx = HarnessContext.create(config.getWidth(), config.getHeight());
             CgGraphicsLifecycle.initContext(ctx.getScreenWidth(), ctx.getScreenHeight());
             //HarnessDiagnostics.logStartup(ctx);

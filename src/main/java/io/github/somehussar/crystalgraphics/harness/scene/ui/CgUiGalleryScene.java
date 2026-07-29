@@ -229,7 +229,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         transformPage(page("transform", "CSS transform + transform-origin. Layout never sees them; clicks follow."));
         tooltipPage(page("Tooltip", "Top layer: hover a row INSIDE the scroller - the tooltip escapes the clip."));
         dragPage(page("Drag", "Drag a chip onto a bin. Ghost follows the cursor; Escape cancels."));
-        resizePage(page("resize", "CSS resize: drag a panel's corner grabber. min/max clamp it."));
+        resizePage(page("resize", "8 handles: 4 edges + 4 corners. Leading edges move the box too."));
         dialogPage(page("Dialog", "Drag to move, click to raise, X closes. New windows cascade."));
 
         return root;
@@ -565,6 +565,24 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
      *   <li>Resizing does not reflow the content inside the panel: the grabber is out of flow.</li>
      *   <li>Contrary to the spec, these are <b>not scroll containers</b> and it still works — see
      *       {@code Resize}'s javadoc for why we drop that restriction deliberately.</li>
+     * </ul>
+     */
+    /**
+     * CSS {@code resize} with <b>eight</b> handles -- four edges and four corners.
+     *
+     * <p>Not a divergence: CSS UI 4 says only that the UA "presents a bidirectional resizing
+     * mechanism" and never prescribes a single corner grabber. Browsers ship one because theirs is
+     * drawn in the scrollbar gutter and has nowhere else to go.</p>
+     *
+     * <p>What to look for:</p>
+     * <ul>
+     *   <li>Corners are tinted; <b>edges are invisible but grabbable</b> -- a background is not what
+     *       makes something hittable, and four visible bars around every panel would be noise.</li>
+     *   <li><b>Leading edges move the box as well as resizing it.</b> Drag the LEFT edge and the right
+     *       edge stays put. That is the case CSS avoids needing by only ever offering bottom-right.</li>
+     *   <li>{@code horizontal} shows the two side edges and <b>no corners</b> -- a corner would imply
+     *       a vertical resize the mode forbids. Same for {@code vertical}.</li>
+     *   <li>Corners sit above the edge strips they cross, so a corner drag wins the hit test.</li>
      * </ul>
      */
     private void resizePage(UIElement pane) {
