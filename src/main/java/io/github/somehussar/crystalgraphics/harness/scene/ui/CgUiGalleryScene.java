@@ -1,6 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgui.core.input.SystemInput;
+import com.crystalgui.core.input.keyboard.CgUiKeyCodes;
 import com.crystalgui.core.property.Property;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
@@ -79,7 +80,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
             .slot          { width: 86px; }
             .field         { width: 150px; }
 
-            .swatch        { width: 8px; height: 9px; background: #6FA8DC; }
+            .swatch        { width: 14px; height: 14px; background: #6FA8DC; }
             .box           { width: 96px; height: 40px; }
             .box-flat      { background: #4A6E9A; }
             /* `border-radius`, not `border-radius-all` — unlike the box-model shorthands this one
@@ -95,6 +96,28 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
             .pane-c        { background: #3A5A4A; padding-all: 4px; }
             .nested-tabs   { width: 320px; height: 110px; }
             .pane-filler   { width: 100%; height: 30px; background: #45525F; }
+
+            /* transform page. Every one of these is pure CSS — the scene makes no transform calls.
+             *
+             * The two `chain` rules are the same two functions in the two orders, and they must NOT
+             * land in the same place: translate-then-scale moves by 12 and then doubles the moved
+             * space, scale-then-translate doubles first so the same 12 becomes 24. Seeing them line
+             * up would mean the ordered op list has silently collapsed back into a decomposition.
+             *
+             * `transform-origin` is what the middle rows isolate: identical scales, different anchors.
+             * The default is 50% 50%, so tf-scale grows about its centre and tf-origin about its own
+             * top-left corner and drifts right. */
+            .tf-scale      { transform: scale(1.6); }
+            .tf-origin     { transform: scale(1.6); transform-origin: 0 0; }
+            .tf-rotate     { transform: rotate(-8deg); }
+            .tf-skew       { transform: skewX(20deg); }
+            .tf-chain      { transform: translate(12px) scale(2); transform-origin: left center; }
+            .tf-chain-rev  { transform: scale(2) translate(12px); transform-origin: left center; }
+            /* Transitionable like any other interpolatable property, and this is the case CSS's
+             * list-matching rule covers: both ends are a single scale(), so it lerps rather than
+             * snapping at the halfway point. */
+            .tf-hover      { transition: transform 160ms ease; }
+            .tf-hover:hover{ transform: scale(1.35); }
             """;
 
     @Override
@@ -162,6 +185,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         splitViewPage(page("SplitView", "Draggable dividers, nestable."));
         tabViewPage(page("TabView", "A TabView inside a TabView pane."));
         elementPage(page("UIElement", "The styleable div everything else is built from."));
+        transformPage(page("transform", "CSS transform + transform-origin. Layout never sees them; clicks follow."));
 
         return root;
     }
@@ -403,6 +427,33 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         pane.addChild(row(slot("9-slice"), sprite));
     }
 
+    /**
+     * Everything here is driven from the scene stylesheet's {@code .tf-*} rules — no Java transform
+     * calls at all, which is the point: {@code transform} is a cascading property like any other.
+     *
+     * <p>Each row holds a real {@link Button}, so the transformed widgets stay clickable. That is the
+     * thing worth checking by hand: click the rotated one and the scaled one and confirm the counter
+     * moves, because rendering and hit-testing derive their matrices from separate code paths and a
+     * disagreement between them looks perfectly fine on screen.</p>
+     */
+    private void transformPage(UIElement pane) {
+        pane.addChild(row(slot("none"), transformDemo("tf-none")));
+        pane.addChild(row(slot("scale(1.6)"), transformDemo("tf-scale")));
+        pane.addChild(row(slot("origin 0 0"), transformDemo("tf-origin")));
+        pane.addChild(row(slot("rotate(-8deg)"), transformDemo("tf-rotate")));
+        pane.addChild(row(slot("skewX(20deg)"), transformDemo("tf-skew")));
+        pane.addChild(row(slot("translate + scale"), transformDemo("tf-chain")));
+        pane.addChild(row(slot("scale + translate"), transformDemo("tf-chain-rev")));
+        pane.addChild(row(slot("on :hover"), transformDemo("tf-hover")));
+    }
+
+    private UIElement transformDemo(String cssClass) {
+        Button button = new Button("click");
+        button.addClass(cssClass);
+        button.attachListener(() -> buttonClicks++);
+        return button;
+    }
+
     // ── Lifecycle ───────────────────────────────────────────────────────────────────────────────
 
     @Override
@@ -413,25 +464,18 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         var context = CgUiPaintContext.getInstance();
         Tab selected = pages.getSelectedTab();
         context.text().draw().at(0, 0)
-                .text(String.format("Gallery — page=%s   theme=%s   clicks=%d   slider=%.0f   bound=%s",
+                .text(String.format("Gallery — page=%s   theme=%s   uiScale=%.2f ([ ])   clicks=%d   slider=%.0f",
                         selected == null ? "none" : selected.getText(),
                         oreOn ? "ore" : "default",
+                        uiWindow.getUiScale(),
                         buttonClicks,
-                        continuous.getValue(),
-                        boundText.get()))
+                        continuous.getValue()))
                 .font(context.getFont().atSize(14)).submit();
 
         if (frame.getFrameNumber() == 5) {
             ctx.getArtifactService().requestCapture("startup");
         }
 
-        // TEMPCHECK
-        long f = frame.getFrameNumber();
-        if (f == 8) pages.selectIndex(1);
-        if (f == 12) ctx.getArtifactService().requestCapture("checkbox");
-        if (f == 16) pages.selectIndex(4);
-        if (f == 20) ctx.getArtifactService().requestCapture("textfield");
-        // END TEMPCHECK
     }
 
     @Override
@@ -456,7 +500,34 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
 
     @Override
     public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+        if (event.pressed()) {
+            switch (event.key()) {
+                case CgUiKeyCodes.KEY_RBRACKET -> {
+                    setScale(Math.min(4f, uiWindow.getUiScale() + 0.01f));
+                    return true;
+                }
+                case CgUiKeyCodes.KEY_LBRACKET -> {
+                    setScale(Math.max(0.1f, uiWindow.getUiScale() - 0.01f));
+                    return true;
+                }
+                default -> { }
+            }
+        }
         return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+    }
+
+    /**
+     * {@code [} / {@code ]} step {@code uiScale} in quarters — fractional values on purpose, since
+     * those are the ones that expose pixel-alignment bugs and every other cgui scene runs at a fixed
+     * 2. Punctuation rather than letters or arrows: TabView owns the arrows, and a letter would be
+     * swallowed by a focused TextField.
+     *
+     * <p>{@code init(0, 0)} forces the re-init a scale change needs — {@code init} early-returns when
+     * the physical dimensions are unchanged, and they are. Same trick {@code CgUiTextScene} uses.</p>
+     */
+    private void setScale(float scale) {
+        uiWindow.setUiScale(scale);
+        uiWindow.init(0, 0);
     }
 
     @Override
