@@ -8,6 +8,7 @@ import com.crystalgraphics.text.render.context.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.richtext.CgMarkupParser;
 import com.crystalgraphics.util.profiling.CgProfiler;
+import com.crystalgraphics.util.profiling.CgProfilerDump;
 import com.crystalgraphics.util.profiling.CgProfilerReport;
 import com.crystalgui.core.input.SystemInput;
 import com.crystalgui.core.input.keyboard.CgUiKeyCodes;
@@ -140,7 +141,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     public void init(HarnessContext ctx) {
         this.ctx = ctx;
         Camera3D camera = ctx.getCamera3D();
-        camera.moveCamera(0, 0.1f, 0.5F);
+        camera.moveCamera(0, 0.1f, 0.75F);
 
         CgProfiler.setEnabled(true);
 
@@ -692,7 +693,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
             "lbFastPath", "lbReshape", "lbReshapeMs",
             "lbCollectMs", "lbIterCreateMs", "lbFindBoundaryMs", "lbSplitCalls", "lbSegmentChars",
             "lbSafeBoundaryMs", "lbSliceCalls", "lbSlicedGlyphs",
-            "lbSliceMs", "lbFragReshapeMs", "lbFragReshapes", "lbGraphemeCalls", "quadsEmitted", "qlMaxIterUs", "qlMaxIterIdx", "qlSlowIters",
+            "lbSliceMs", "lbFragReshapeMs", "lbFragReshapes", "lbGraphemeCalls", "quadsEmitted", "drawsCulled", "cullTested", "cullRejected", "lbGCollectMs", "lbGFindMs", "lbGBoundaries", "qlMaxIterUs", "qlMaxIterIdx", "qlSlowIters",
             "dbWireMs", "dbStateSaveMs", "dbPropsUpMs", "dbUboBindMs", "dbSamplersMs", "dbRenderStateMs", "dbShaderBindMs"
     };
 
@@ -832,6 +833,14 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 + String.format(Locale.ROOT, ",%d,%d",
                 counterValue(report, "lineBreak.graphemeFallbacks"),
                 counterValue(report, "draw.quadsEmitted"))
+                + String.format(Locale.ROOT, ",%d,%d,%d",
+                counterValue(report, "text.drawsCulled"),
+                counterValue(report, "cull.tested"),
+                counterValue(report, "cull.rejected"))
+                + String.format(Locale.ROOT, ",%.3f,%.3f,%d",
+                anyScopeTotalMillis(report, "lineBreak.graphemeCollect"),
+                anyScopeTotalMillis(report, "lineBreak.graphemeFind"),
+                counterValue(report, "lineBreak.graphemeBoundaries"))
                 + String.format(Locale.ROOT, ",%.1f,%.0f,%.0f",
                 sampleValue(report, "quadLoop.maxIterUs"),
                 sampleValue(report, "quadLoop.maxIterIndex"),
@@ -945,5 +954,23 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         // threads, so this is the only report that shows it at all, and a key binding cannot fire
         // in an automated run — which is exactly when the number is wanted.
         dumpMsdfGenerationProfile();
+
+        // Every scope in the CSV and the tree dumps above is render-thread only, because both come
+        // from CgProfiler.endFrame()/report(), which are thread-local by construction. Work that
+        // happens on the glyph-generation workers -- worker.rasterizeBitmap, msdfgen.prepareGlyph
+        // and everything under them -- therefore appears NOWHERE in them, which reads as "the async
+        // path isn't running" rather than "you are looking at the wrong thread". That misreading is
+        // recorded in PERFORMANCE_TODO; this file is the fix for it.
+        //
+        // Note the totals here are for the WHOLE RUN, not per frame: worker threads never call
+        // endFrame(), so their accumulators are never reset.
+        try {
+            File allThreads = CgProfilerDump.dumpAllThreads(dir, "text-3d-all-threads");
+            if (allThreads != null) {
+                LOGGER.info("[Harness] Cross-thread profile written: " + allThreads.getAbsolutePath());
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to write cross-thread profile", e);
+        }
     }
 }
