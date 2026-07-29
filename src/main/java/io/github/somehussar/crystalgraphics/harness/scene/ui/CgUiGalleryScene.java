@@ -22,6 +22,7 @@ import com.crystalgui.ui.elements.TextField;
 import com.crystalgui.ui.elements.Tooltip;
 import com.crystalgui.ui.elements.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
+import com.crystalgui.ui.input.UIDragController;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -100,6 +101,15 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
              * the widgets it has sprites for, so neither sheet would reach a bare div like these. */
             .box-none-round   { border-radius: 6px; }
             .box-border-only  { border-radius: 6px; border-width: 2px; border-color: #C86464; }
+
+            .chip          { width: 70px; height: 22px; background: #4A6E9A; padding-left: 6px;
+                             align-items: center; }
+            /* Hidden until a drag activates. The controller only learns about a ghost at mousedown
+             * (setGhost), so without this every chip would render a second copy of itself in flow
+             * from the moment the page is built. show/hide use IMPORTANT origin, which outranks this. */
+            .chip-ghost    { display: none; opacity: 0.75; }
+            .bin           { width: 110px; height: 48px; background: #3A4450; padding-all: 6px; }
+            .bin-hot       { background: #3C8527; }
 
             .scroll-demo   { width: 300px; height: 96px; }
             .scroll-row    { height: 22px; width: 100%; background: #3A4450; }
@@ -201,6 +211,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         elementPage(page("UIElement", "The styleable div everything else is built from."));
         transformPage(page("transform", "CSS transform + transform-origin. Layout never sees them; clicks follow."));
         tooltipPage(page("Tooltip", "Top layer: hover a row INSIDE the scroller - the tooltip escapes the clip."));
+        dragPage(page("Drag", "Drag a chip onto a bin. Ghost follows the cursor; Escape cancels."));
 
         return root;
     }
@@ -421,6 +432,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         for (int i = 1; i <= 14; i++) {
             UIElement rowEl = new UIElement();
             rowEl.addClass("scroll-row");
+            if (i % 2 == 0) rowEl.addClass("scroll-row-alt");
             UIText label = new UIText("row " + i + " - hover me");
             label.addClass("label");
             rowEl.addChild(label);
@@ -428,6 +440,96 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
             list.addChild(rowEl);
         }
         pane.addChild(list);
+    }
+
+    /**
+     * Payload drag with drop targets, a ghost, and the cancel path — everything P2 added.
+     *
+     * <p>Drag a chip onto a bin. Things to look for, each of which is a bug if it misbehaves:</p>
+     * <ul>
+     *   <li>The <b>ghost</b> follows the cursor from wherever you grabbed the chip, and draws above
+     *       everything — it is in the top layer, so the scroller below cannot clip it.</li>
+     *   <li>A bin <b>highlights on enter and un-highlights on leave</b>, including when you cancel.
+     *       A bin left lit is the symptom of a missing symmetric leave.</li>
+     *   <li>A small movement is still a <b>click</b>, not a drag — that is the activation threshold.</li>
+     *   <li><b>Escape</b> mid-drag aborts: no drop fires, the ghost disappears, the bin un-highlights.</li>
+     *   <li>Nothing <b>hover-flickers</b> while you drag across the UI. That is pointer capture; before
+     *       it existed, `:hover` fired on everything the cursor crossed.</li>
+     * </ul>
+     */
+    private void dragPage(UIElement pane) {
+        UIText status = new UIText("drag a chip onto a bin");
+        status.addClass("label");
+        pane.addChild(status);
+
+        UIElement chips = new UIElement();
+        chips.addClass("page-row");
+        for (String name : new String[]{"alpha", "beta", "gamma"}) {
+            chips.addChild(draggableChip(name, status));
+        }
+        pane.addChild(chips);
+
+        UIElement bins = new UIElement();
+        bins.addClass("page-row");
+        bins.addChild(dropBin("bin one", status));
+        bins.addChild(dropBin("bin two", status));
+        pane.addChild(bins);
+    }
+
+    private UIElement draggableChip(String name, UIText status) {
+        UIElement chip = new UIElement();
+        chip.addClass("chip");
+        UIText label = new UIText(name);
+        label.addClass("label");
+        label.setHitTest(false);
+        chip.addChild(label);
+
+        // The ghost lives INSIDE the chip on purpose: the drag controller excludes the source and
+        // its descendants from drop targeting, so a ghost parented here can never become the drop
+        // target for its own drag. It is display:none until a drag activates.
+        UIElement ghost = new UIElement();
+        ghost.addClass("chip");
+        ghost.addClass("chip-ghost");
+        UIText ghostLabel = new UIText(name);
+        ghostLabel.addClass("label");
+        ghost.addChild(ghostLabel);
+        chip.addChild(ghost);
+
+        chip.onMouseDown.attachListener((el, event) -> {
+            var handler = chip.getAttachedWindow().getInputHandler();
+            var drag = handler.getDragController();
+            drag.setGhost(ghost);
+            // Payload overload => default activation threshold, so a plain click stays a click.
+            drag.startDrag(chip, event.getPosition().x(), event.getPosition().y(), name,
+                    new UIDragController.DragListener() {
+                        @Override public void onDragUpdate(float mx, float my, float sx, float sy, float dx, float dy) { }
+                        @Override public void onDragEnd(float mx, float my) {
+                            status.setText(drag.getDropTarget() == null ? name + ": dropped on nothing" : status.getText());
+                        }
+                        @Override public void onDragCancel() { status.setText(name + ": cancelled"); }
+                    });
+        }, false, false);
+        return chip;
+    }
+
+    private UIElement dropBin(String name, UIText status) {
+        UIElement bin = new UIElement();
+        bin.addClass("bin");
+        UIText label = new UIText(name);
+        label.addClass("label");
+        label.setHitTest(false);
+        bin.addChild(label);
+
+        // preventDefault() is how a target accepts a drop — HTML5 DnD's one good idea, kept: an
+        // element that never opts in cannot silently become a drop target.
+        bin.onDragOver.attachListener((el, event) -> event.preventDefault(), false, false);
+        bin.onDragEnter.attachListener((el, event) -> bin.addClass("bin-hot"), false, false);
+        bin.onDragLeave.attachListener((el, event) -> bin.removeClass("bin-hot"), false, false);
+        bin.onDrop.attachListener((el, event) -> {
+            bin.removeClass("bin-hot");
+            status.setText(event.getPayload() + " -> " + name);
+        }, false, false);
+        return bin;
     }
 
     private void splitViewPage(UIElement pane) {
@@ -575,11 +677,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         if (event.pressed()) {
             switch (event.key()) {
                 case CgUiKeyCodes.KEY_RBRACKET -> {
-                    setScale(Math.min(4f, uiWindow.getUiScale() + 0.01f));
+                    setScale(Math.min(8f, uiWindow.getUiScale() + 0.1f));
                     return true;
                 }
                 case CgUiKeyCodes.KEY_LBRACKET -> {
-                    setScale(Math.max(0.1f, uiWindow.getUiScale() - 0.01f));
+                    setScale(Math.max(0.1f, uiWindow.getUiScale() - 0.1f));
                     return true;
                 }
                 default -> { }
