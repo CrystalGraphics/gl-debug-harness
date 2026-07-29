@@ -13,6 +13,7 @@ import com.crystalgui.ui.UIWindow;
 import com.crystalgui.ui.elements.Button;
 import com.crystalgui.ui.elements.Checkbox;
 import com.crystalgui.ui.elements.Dialog;
+import com.crystalgui.ui.elements.DialogManager;
 import com.crystalgui.ui.elements.CheckboxGroup;
 import com.crystalgui.ui.elements.ScrollerView;
 import com.crystalgui.ui.elements.Slider;
@@ -229,7 +230,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         tooltipPage(page("Tooltip", "Top layer: hover a row INSIDE the scroller - the tooltip escapes the clip."));
         dragPage(page("Drag", "Drag a chip onto a bin. Ghost follows the cursor; Escape cancels."));
         resizePage(page("resize", "CSS resize: drag a panel's corner grabber. min/max clamp it."));
-        dialogPage(page("Dialog", "Drag a title bar to move; X closes. Clamped to the stage."));
+        dialogPage(page("Dialog", "Drag to move, click to raise, X closes. New windows cascade."));
 
         return root;
     }
@@ -608,43 +609,49 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
     private void dialogPage(UIElement pane) {
         UIElement stage = new UIElement();
         stage.addClass("dlg-stage");
+        pane.addChild(stage);
 
-        Dialog first = new Dialog("panel one");
+        // The manager owns placement and stacking. Everything the page used to do by hand — a z
+        // counter, per-title-bar raise listeners, manual moveTo calls — is now its job.
+        DialogManager manager = new DialogManager(stage);
+
+        Dialog first = manager.manage(new Dialog("panel one"));
         first.addClass("dlg-a");
         UIText firstBody = new UIText("drag my title bar");
         firstBody.addClass("label");
         firstBody.setHitTest(false);
         first.getContent().addChild(firstBody);
-        stage.addChild(first);
-        first.moveTo(10f, 10f);
 
-        Dialog second = new Dialog("panel two (resizable)");
+        Dialog second = manager.manage(new Dialog("panel two (resizable)"));
         second.addClass("dlg-b");
         second.generalStyle(g -> g.resize(Resize.BOTH));
-        Button raise = new Button("raise me");
-        second.getContent().addChild(raise);
-        stage.addChild(second);
-        second.moveTo(150f, 80f);
+        second.getContent().addChild(new Button("a button"));
 
-        // z-index is what orders modeless dialogs — deliberately NOT the top layer.
-        int[] topZ = {6};
-        raise.attachListener(() -> second.generalStyle(g -> g.zIndex(++topZ[0])));
-        first.getTitleBar().onMouseDown.attachListener(
-                (el, e) -> first.generalStyle(g -> g.zIndex(++topZ[0])), false, false);
-        second.getTitleBar().onMouseDown.attachListener(
-                (el, e) -> second.generalStyle(g -> g.zIndex(++topZ[0])), false, false);
-
-        pane.addChild(stage);
+        Dialog third = manager.manage(new Dialog("panel three"));
+        third.addClass("dlg-a");
+        UIText thirdBody = new UIText("click me to raise");
+        thirdBody.addClass("label");
+        thirdBody.setHitTest(false);
+        third.getContent().addChild(thirdBody);
 
         UIElement controls = new UIElement();
         controls.addClass("page-row");
-        Button reopen = new Button("reopen both");
-        reopen.attachListener(() -> { first.show(); second.show(); });
+        Button reopen = new Button("open all");
+        reopen.attachListener(manager::showAll);
         controls.addChild(reopen);
+        Button closeAll = new Button("close all");
+        closeAll.attachListener(manager::closeAll);
+        controls.addChild(closeAll);
+        Button spawn = new Button("new window");
+        spawn.attachListener(() -> {
+            Dialog extra = manager.manage(new Dialog("panel " + (manager.getDialogs().size())));
+            extra.addClass("dlg-a");
+            extra.show();
+        });
+        controls.addChild(spawn);
         pane.addChild(controls);
 
-        first.show();
-        second.show();
+        manager.showAll();
     }
 
     private void splitViewPage(UIElement pane) {
