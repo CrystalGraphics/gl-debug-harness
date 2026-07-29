@@ -87,6 +87,18 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
              * has no `-all` alias; it expands into 8 corner longhands at parse time. */
             .box-round     { background: #9A6E4A; border-radius: 10px; }
             .box-sprite    { background: asset("crystalgui:ore", "panel"); }
+            /* Regression rows for the bug where a radius on a BACKGROUNDLESS element painted an opaque
+             * white box: resolveRoundedFill treated CgUiDrawable.EMPTY as a white fill, and paintSelf's
+             * guard for "no background" sat after the rounded path's early return. Every pre-existing
+             * radius case in every scene paired the radius with a background, which is why nothing
+             * caught it. `.box-none-round` must render NOTHING; `.box-border-only` must render a clean
+             * ring with a transparent middle and no colour fringe on its inner edge.
+             *
+             * Both set their own radius rather than relying on a sheet, so they exercise the rounded
+             * path under either theme — default.css rounds per widget and never `*`, and Ore resets
+             * the widgets it has sprites for, so neither sheet would reach a bare div like these. */
+            .box-none-round   { border-radius: 6px; }
+            .box-border-only  { border-radius: 6px; border-width: 2px; border-color: #C86464; }
 
             .scroll-demo   { width: 300px; height: 96px; }
             .scroll-row    { height: 22px; width: 100%; background: #3A4450; }
@@ -425,6 +437,15 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         pane.addChild(row(slot("colour"), flat));
         pane.addChild(row(slot("border-radius"), rounded));
         pane.addChild(row(slot("9-slice"), sprite));
+        pane.addChild(row(slot("radius, no bg"), box("box-none-round")));
+        pane.addChild(row(slot("border only"), box("box-border-only")));
+    }
+
+    private UIElement box(String cssClass) {
+        UIElement element = new UIElement();
+        element.addClass("box");
+        element.addClass(cssClass);
+        return element;
     }
 
     /**

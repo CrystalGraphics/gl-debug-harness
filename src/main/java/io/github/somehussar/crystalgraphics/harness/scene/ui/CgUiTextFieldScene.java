@@ -37,6 +37,8 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, SystemInpu
 
     private UIWindow uiWindow;
     private TextField plain;
+    /** Focused and unselected so the caret is actually visible — see where it is built. */
+    private TextField caretShowcase;
     private TextField placeholder;
     private TextField number;
     private TextField digitsOnly;
@@ -102,12 +104,36 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, SystemInpu
         root.addClass("panel");
         root.addClass("demo-root");
 
+        // ── The two text-cursor states, both forced ──────────────────────────────────────────────
+        // Only ONE element can hold focus through real input; both rows below are focused anyway, the
+        // same forced state matrix CgUiOreThemeScene uses for its hover/active/focus rows. This scene
+        // is the only place in the harness a selection band or a caret is visible at all, which is why
+        // both being 2px too tall went unnoticed for so long.
+
         plain = new TextField();
         plain.setText("edit me");
-        // Pre-selected so the startup capture shows the selection highlight — that fill is now
-        // `selection-color`, and it is the whole point of the change.
+        // Pre-selected so the startup capture shows the selection highlight — that fill is
+        // `selection-color`. It must ALSO be focused: the band is painted only while focused, so an
+        // unfocused pre-selected field renders nothing and this demo would silently vanish.
         plain.selectAll();
+        plain.setFocused(true);
         root.addChild(row("plain", plain));
+
+        // The caret's counterpart. Three things are all required:
+        //   * focused        — the caret only paints while focused
+        //   * NO selection   — the guard is `isFocused() && !hasSelection()`, so the row above can
+        //                      never show a caret and this one can never show a selection
+        //   * blink disabled — otherwise the capture catches whichever half of the 0.53s cycle it
+        //                      lands in, and the row is only in the screenshot half the time
+        // Height is the font's ascender + descender, NOT the line box — 10 logical px for
+        // MinecraftRegular at size 10 (8 + 2), where the full line box is 12 because it also carries
+        // 2px of lineGap. That gap is leading between lines, and including it was what left both the
+        // caret and the selection hanging into the field sprite's bottom bevel.
+        caretShowcase = new TextField();
+        caretShowcase.setText("caret");
+        caretShowcase.setCaretBlinkSeconds(0f);
+        caretShowcase.setFocused(true);
+        root.addChild(row("caret", caretShowcase));
 
         placeholder = new TextField();
         placeholder.setPlaceholder("type something…");
