@@ -140,7 +140,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     public void init(HarnessContext ctx) {
         this.ctx = ctx;
         Camera3D camera = ctx.getCamera3D();
-        camera.moveCamera(0, 0.1f, 0);
+        camera.moveCamera(0, 0.1f, 0.5F);
 
         CgProfiler.setEnabled(true);
 
@@ -306,7 +306,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 // packing comparisons non-reproducible).
                 // dumpAtlases();
                 CgProfiler.setEnabled(false); // fully zero-cost from here on -- see CgProfiler's javadoc
-                running = false;
+                //running = false;
             }
         }
 
@@ -629,6 +629,16 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
             "vtxMapMs", "vtxWriteMs", "vtxCommitMs", "vtxBytes",
             "ssboMapMs", "ssboCommitMs", "ssboBytes",
             "uboSmallUploads", "gcCount", "gcTimeMs",
+            // The glTexSubImage3D calls themselves, isolated from the surrounding commit
+            // bookkeeping in drainMs (atlas packing/allocation, which dominates it).
+            //
+            // Use texSubImageCalls, NOT asyncGlyphsUploaded, whenever the question is "how much
+            // upload work is this actually doing" — the latter counts commits attempted, and
+            // commitGeneratedGlyph early-returns for glyphs already resident or with no geometry.
+            // They differ by ~16x in practice (61787 vs 3752 in one run), and reading the wrong
+            // one is what justified an upload-batching optimisation that turned out to be worth
+            // 5 us/frame. See CgFontRegistry#drainCompletedGlyphs.
+            "texSubImageMs", "texSubImageCalls",
             "dbWireMs", "dbStateSaveMs", "dbPropsUpMs", "dbUboBindMs", "dbSamplersMs", "dbRenderStateMs", "dbShaderBindMs"
     };
 
@@ -726,6 +736,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 + String.format(Locale.ROOT, ",%d,%d,%.3f",
                 counterValue(report, "streamBuffer.ubo.smallUpload"),
                 frameGcCountDelta, (double) frameGcTimeDelta)
+                + String.format(Locale.ROOT, ",%.3f,%d",
+                anyScopeTotalMillis(report, "texArray.upload.texSubImage"),
+                anyScopeCalls(report, "texArray.upload.texSubImage"))
                 + String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
                 anyScopeTotalMillis(report, "doBind.wire"),
                 anyScopeTotalMillis(report, "doBind.stateSave"),
@@ -755,6 +768,15 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         double total = 0;
         for (CgProfilerReport.ScopeEntry entry : report.scopes()) {
             if (entry.name().equals(name)) total += entry.totalNanos() / 1_000_000.0;
+        }
+        return total;
+    }
+
+    /** Call count for a scope, summed across every path it appears at. */
+    private static long anyScopeCalls(CgProfilerReport report, String name) {
+        long total = 0;
+        for (CgProfilerReport.ScopeEntry entry : report.scopes()) {
+            if (entry.name().equals(name)) total += entry.callCount();
         }
         return total;
     }

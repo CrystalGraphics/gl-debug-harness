@@ -19,6 +19,8 @@ import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
+import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -52,6 +54,10 @@ import java.util.logging.Logger;
  *       rasterisation and therefore bypass any glyph already cached for the regular face.</li>
  *   <li>{@code DECORATIONS} — underline and strikethrough, which add geometry beyond the glyph
  *       quads and take a separate path through decoration resolution.</li>
+ *   <li>{@code ROTATED} / {@code QUARTER_TURN} / {@code SHEARED} — draw-time transforms, which
+ *       decide the raster tier independently of glyph size. All three reuse the
+ *       {@code LATIN_BASELINE} layout and differ only in the PoseStack, so any delta against that
+ *       baseline is attributable to the tier decision alone. See {@link #applyModeTransform}.</li>
  * </ul>
  *
  * <p>Each mode runs the same label count and character count as {@code text-stress} so the
@@ -79,12 +85,20 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
         DECORATIONS("underline + strikethrough geometry"),
         MARKUP_HTML("tag markup parsed per label (CgTagMarkupParser)"),
         MARKUP_MINECRAFT("MC color codes parsed per label (the common case in a MC mod)"),
-        ELLIPSIS("maxLines truncation + ellipsis marker append");
+        ELLIPSIS("maxLines truncation + ellipsis marker append"),
+        ROTATED("off-axis rotation — must force the distance-field tier"),
+        QUARTER_TURN("90 deg rotation — texel-exact, must stay on the bitmap tier"),
+        SHEARED("shear — must force the distance-field tier");
 
         final String description;
 
         Mode(String description) {
             this.description = description;
+        }
+
+        /** Whether this mode applies a transform in {@link #render}; all others draw at identity. */
+        boolean isTransformed() {
+            return this == ROTATED || this == QUARTER_TURN || this == SHEARED;
         }
     }
 
@@ -130,7 +144,8 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
                 + "shapeRunsMs,shapeBidiMs,shapeResolveRunsMs,shapeHarfbuzzMs,hbShapeMs,"
                 + "wrapBreakLinesMs,resolveGlyphsMs,submitQuadsMs,resolveDecorationsMs,glyphCount,"
                 + "hbCreateMs,hbFillMs,hbReadBackMs,shapeCalls,runCount,"
-                + "markupHtmlMs,markupMcMs,ellipsisMs,orthoResolves,perspResolves");
+                + "markupHtmlMs,markupMcMs,ellipsisMs,orthoResolves,perspResolves,"
+                + "msdfForcedByTransform,msdfAtlasHits,bitmapAtlasHits");
         LOGGER.info("[text-feature] " + LABEL_COUNT + " labels/mode, GPU timing "
                 + (CgGpuProfiler.isAvailable() ? "on" : "unavailable"));
         rebuildLayouts();
@@ -169,6 +184,11 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
             // actually runs -- otherwise shape.ellipsis measures an untaken branch.
             case ELLIPSIS -> CgTextLayout.of(latinText(i), latinOnly)
                     .maxLines(1).ellipsis("…").shape().layout(WRAP_WIDTH, 0f);
+            // The transform modes deliberately reuse the baseline layout: the transform is applied
+            // at draw time via the PoseStack, so shaping is identical to LATIN_BASELINE and any
+            // delta between them belongs entirely to the tier decision and its consequences.
+            case ROTATED, QUARTER_TURN, SHEARED ->
+                    CgTextLayout.of(latinText(i), latinOnly).shape().layout(WRAP_WIDTH, 0f);
         };
     }
 
@@ -253,9 +273,22 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
                     context.getScreenWidth(), context.getScreenHeight()));
             renderer.beginBatch();
             for (int i = 0; i < layouts.size(); i++) {
-                renderer.draw().layout(layouts.get(i)).font(latinFont)
-                        .at(8f + (i % 8) * 90f, 8f + (i / 8) * 14f)
-                        .color(0xFFFFFF).pose(poseStack).submit();
+                float x = 8f + (i % 8) * 90f;
+                float y = 8f + (i / 8) * 14f;
+                if (mode.isTransformed()) {
+                    // Rotate/shear about the label's own origin rather than the screen origin,
+                    // so the text stays where it would otherwise be and the effect is legible
+                    // instead of flinging every label off-screen.
+                    poseStack.pushPose();
+                    poseStack.translate(x, y, 0f);
+                    applyModeTransform();
+                    renderer.draw().layout(layouts.get(i)).font(latinFont)
+                            .at(0f, 0f).color(0xFFFFFF).pose(poseStack).submit();
+                    poseStack.popPose();
+                } else {
+                    renderer.draw().layout(layouts.get(i)).font(latinFont)
+                            .at(x, y).color(0xFFFFFF).pose(poseStack).submit();
+                }
             }
             renderer.endBatch();
         }
@@ -268,6 +301,31 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
         if (measured) samples.add(frame.getDeltaTime() * 1000.0);
         if (inMode >= MODE_SECONDS) advanceMode();
         CgProfiler.reset();
+    }
+
+    /**
+     * Applies the current transform mode to {@link #poseStack}, which must already be pushed and
+     * translated to the label origin.
+     *
+     * <p>The three cases map onto the branches of
+     * {@code OrthographicScaleResolver#isAxisAligned}: {@code QUARTER_TURN} is accepted
+     * (anti-diagonal basis — texel-exact), while {@code ROTATED} and {@code SHEARED} are rejected
+     * and therefore force the distance-field tier. The {@code msdfForcedByTransform} CSV column is
+     * what proves which way each went: it should be 0 for {@code QUARTER_TURN} and equal to the
+     * label count for the other two.</p>
+     */
+    private void applyModeTransform() {
+        switch (mode) {
+            case ROTATED -> poseStack.mulPose(new Quaternionf().rotateZ((float) Math.toRadians(23)));
+            case QUARTER_TURN -> poseStack.mulPose(new Quaternionf().rotateZ((float) Math.toRadians(90)));
+            // No PoseStack helper for shear -- it is not a rigid transform -- so build it directly.
+            case SHEARED -> {
+                Matrix4f shear = new Matrix4f();
+                shear.m10(0.36f);
+                poseStack.mulPoseMatrix(shear);
+            }
+            default -> { }
+        }
     }
 
     private void advanceMode() {
@@ -292,7 +350,7 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
         csvRows.add(String.format(Locale.ROOT,
                 "%d,%.3f,%s,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.0f,"
                         + "%.3f,%.3f,%.3f,%d,%d,"
-                        + "%.3f,%.3f,%.3f,%d,%d",
+                        + "%.3f,%.3f,%.3f,%d,%d,%d,%d,%d",
                 frame.getFrameNumber(), frame.getElapsedTime(), mode.name(), measured ? 1 : 0,
                 frame.getDeltaTime() * 1000.0,
                 scope(report, "text.reshape"), scope(report, "text.draw"),
@@ -311,7 +369,10 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
                 scope(report, "markup.parseMinecraft"),
                 scope(report, "shape.ellipsis"),
                 counter(report, "scaleResolver.ortho"),
-                counter(report, "scaleResolver.perspective")));
+                counter(report, "scaleResolver.perspective"),
+                counter(report, "text.msdfForcedByTransform"),
+                counter(report, "glyph.msdf.atlasHit"),
+                counter(report, "glyph.bitmap.atlasHit")));
     }
 
     private static long counter(CgProfilerReport report, String name) {
