@@ -1,6 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgui.core.input.SystemInput;
+import com.crystalgui.core.input.keyboard.CgUiKeyCodes;
 import com.crystalgui.core.property.Property;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
@@ -413,25 +414,18 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         var context = CgUiPaintContext.getInstance();
         Tab selected = pages.getSelectedTab();
         context.text().draw().at(0, 0)
-                .text(String.format("Gallery — page=%s   theme=%s   clicks=%d   slider=%.0f   bound=%s",
+                .text(String.format("Gallery — page=%s   theme=%s   uiScale=%.2f ([ ])   clicks=%d   slider=%.0f",
                         selected == null ? "none" : selected.getText(),
                         oreOn ? "ore" : "default",
+                        uiWindow.getUiScale(),
                         buttonClicks,
-                        continuous.getValue(),
-                        boundText.get()))
+                        continuous.getValue()))
                 .font(context.getFont().atSize(14)).submit();
 
         if (frame.getFrameNumber() == 5) {
             ctx.getArtifactService().requestCapture("startup");
         }
 
-        // TEMPCHECK
-        long f = frame.getFrameNumber();
-        if (f == 8) pages.selectIndex(1);
-        if (f == 12) ctx.getArtifactService().requestCapture("checkbox");
-        if (f == 16) pages.selectIndex(4);
-        if (f == 20) ctx.getArtifactService().requestCapture("textfield");
-        // END TEMPCHECK
     }
 
     @Override
@@ -456,7 +450,34 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
 
     @Override
     public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+        if (event.pressed()) {
+            switch (event.key()) {
+                case CgUiKeyCodes.KEY_RBRACKET -> {
+                    setScale(Math.min(4f, uiWindow.getUiScale() + 0.01f));
+                    return true;
+                }
+                case CgUiKeyCodes.KEY_LBRACKET -> {
+                    setScale(Math.max(0.1f, uiWindow.getUiScale() - 0.01f));
+                    return true;
+                }
+                default -> { }
+            }
+        }
         return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+    }
+
+    /**
+     * {@code [} / {@code ]} step {@code uiScale} in quarters — fractional values on purpose, since
+     * those are the ones that expose pixel-alignment bugs and every other cgui scene runs at a fixed
+     * 2. Punctuation rather than letters or arrows: TabView owns the arrows, and a letter would be
+     * swallowed by a focused TextField.
+     *
+     * <p>{@code init(0, 0)} forces the re-init a scale change needs — {@code init} early-returns when
+     * the physical dimensions are unchanged, and they are. Same trick {@code CgUiTextScene} uses.</p>
+     */
+    private void setScale(float scale) {
+        uiWindow.setUiScale(scale);
+        uiWindow.init(0, 0);
     }
 
     @Override
