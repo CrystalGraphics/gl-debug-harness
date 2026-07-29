@@ -18,6 +18,8 @@ import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import com.crystalgraphics.mc.CgAssetReloader;
+import com.crystalgraphics.util.profiling.CgGpuProfiler;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
@@ -86,16 +88,101 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
         }
     }
 
-    private static final String[] CSV_HEADER = {
-            "frame", "elapsedSec", "mode", "measured", "frameDtMs",
-            "reshapeMs", "drawMs",
-            "shapeRunsMs", "shapeBidiMs", "shapeCollectMs", "shapeResolveRunsMs", "shapeHarfbuzzMs",
-            "hbCreateMs", "hbFillMs", "hbShapeMs", "hbReadBackMs", "hbDestroyMs",
-            "shapeReshaperMs", "shapeEllipsisMs",
-            "wrapBreakLinesMs", "wrapBoundariesMs", "wrapJustifyMs", "wrapBakeMs",
-            "resolveGlyphsMs", "submitQuadsMs", "quadLoopMs", "sortKeysMs",
-            "matDoBindMs", "dbStateSaveMs", "glyphCount", "materialTransitions"
+    /**
+     * Every CSV column, as (header, kind, profiler-name) triples.
+     *
+     * <p>Declared as one table rather than a header array plus a positional format string, because
+     * that split silently drifts. Two real bugs came from it: two declared columns were never
+     * written, shifting every later value one place left and making unrelated scopes look free; and
+     * {@code submitQuadsMs} read a scope named {@code submitBatchedQuads} while the code emits
+     * {@code submitSortedQuads}, so the column reported 0.000 rather than its real cost. Here a
+     * column's name and its source are the same entry and cannot disagree.
+     */
+    private enum Kind { SCOPE, SAMPLE, COUNTER }
+
+    private record Column(String header, Kind kind, String profilerName) {
+        static Column scope(String header, String name) { return new Column(header, Kind.SCOPE, name); }
+        static Column sample(String header, String name) { return new Column(header, Kind.SAMPLE, name); }
+        static Column counter(String header, String name) { return new Column(header, Kind.COUNTER, name); }
+    }
+
+    private static final Column[] COLUMNS = {
+            // ── reshape ────────────────────────────────────────────────────────────────────
+            Column.scope("reshapeMs", "text.reshape"),
+            Column.scope("shapeRunsMs", "shape.runs"),
+            Column.scope("shapeBidiMs", "shape.bidi"),
+            Column.scope("shapeCollectMs", "shape.collectRuns"),
+            Column.scope("shapeResolveRunsMs", "shape.resolveRuns"),
+            Column.scope("shapeHarfbuzzMs", "shape.harfbuzz"),
+            Column.scope("hbCreateMs", "hb.bufferCreate"),
+            Column.scope("hbFillMs", "hb.bufferFill"),
+            Column.scope("hbShapeMs", "hb.shape"),
+            Column.scope("hbReadBackMs", "hb.readBack"),
+            Column.scope("hbDestroyMs", "hb.bufferDestroy"),
+            Column.scope("shapeReshaperMs", "shape.reshaper"),
+            Column.scope("shapeEllipsisMs", "shape.ellipsis"),
+            Column.scope("wrapBreakLinesMs", "wrap.breakLines"),
+            Column.scope("wrapBoundariesMs", "wrap.breakBoundaries"),
+            Column.scope("wrapJustifyMs", "wrap.justify"),
+            Column.scope("wrapBakeMs", "wrap.bakeGlyphs"),
+
+            // ── draw: glyph resolution ─────────────────────────────────────────────────────
+            Column.scope("drawMs", "text.draw"),
+            Column.scope("resolveGlyphsMs", "resolveGlyphs"),
+            Column.scope("placementLookupMs", "placementCache.lookup"),
+            Column.scope("flattenMs", "flatten"),
+            Column.scope("resolvePlacementsMs", "resolvePlacements"),
+            Column.scope("placementPutMs", "placementCache.put"),
+
+            // ── draw: quad submission ──────────────────────────────────────────────────────
+            Column.scope("submitQuadsMs", "submitSortedQuads"),
+            Column.scope("quadLoopMs", "quadLoop"),
+            Column.scope("sortKeysMs", "sortKeys"),
+            Column.scope("visibilityScanMs", "visibilityScan"),
+            Column.scope("resolveDecorMs", "resolveDecorations"),
+            Column.scope("syncProjectionMs", "syncProjection"),
+            Column.scope("matDoBindMs", "material.doBind"),
+            Column.scope("dbStateSaveMs", "doBind.stateSave"),
+
+            // ── draw: the batch path (previously unmeasured entirely) ──────────────────────
+            // Text draws through CgQuadRenderer (instanced), so these are the real GPU tail.
+            Column.scope("qrFlushMs", "quadRenderer.flush"),
+            Column.scope("qrUploadMs", "quadRenderer.upload"),
+            Column.scope("qrBindBufMs", "quadRenderer.bindBuffer"),
+            Column.scope("qrDrawInstMs", "quadRenderer.drawInstanced"),
+            Column.counter("qrFlushes", "quadRenderer.flush.count"),
+            Column.sample("qrInstances", "quadRenderer.instances"),
+            Column.scope("ssboMapMs", "streamBuffer.ssbo.map"),
+            Column.scope("ssboWriteMs", "streamBuffer.ssbo.write"),
+            Column.scope("ssboCommitMs", "streamBuffer.ssbo.commit"),
+            // CgBatchRenderer is a different (non-text) path; kept for when it is exercised.
+            Column.scope("batchFlushMs", "batch.flush"),
+            Column.scope("batchMapMs", "batch.map"),
+            Column.scope("batchCopyMs", "batch.copyToMapped"),
+            Column.scope("batchCommitMs", "batch.commit"),
+            Column.scope("batchBindVaoMs", "batch.bindVao"),
+            Column.scope("batchRebindPtrMs", "batch.rebindPointers"),
+            Column.scope("batchIndexBufMs", "batch.indexBuffer"),
+            Column.scope("batchDrawElemMs", "batch.drawElements"),
+            Column.scope("batchAfterSubmitMs", "batch.afterSubmit"),
+            Column.scope("batchStagingResetMs", "batch.stagingReset"),
+            Column.scope("glFlushMs", "glFlush"),
+
+            // ── counts and cache behaviour ─────────────────────────────────────────────────
+            Column.sample("glyphCount", "draw.glyphCount"),
+            Column.counter("materialTransitions", "materialTransition"),
+            Column.counter("batchFlushes", "batch.flush.count"),
+            Column.sample("batchQuads", "batch.flush.quads"),
+            Column.sample("batchBytes", "batch.flush.bytes"),
+            Column.counter("layoutCacheHit", "layoutCache.hit"),
+            Column.counter("layoutCacheMiss", "layoutCache.miss"),
+            Column.counter("placementCacheHit", "placementCache.hit"),
+            Column.counter("placementCacheMiss", "placementCache.miss"),
+            Column.counter("freetypeRasterized", "glyph.bitmap.syncRasterized"),
+            Column.scope("freetypeRasterizeMs", "freetype.rasterize"),
     };
+
+    private static final String[] FIXED_HEADER = {"frame", "elapsedSec", "mode", "measured", "frameDtMs"};
 
     /** One "label": its text plus the retained shape/layout, mirroring what UIText holds. */
     private static final class Label {
@@ -120,6 +207,10 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
     private final List<String> csvRows = new ArrayList<>();
     private boolean running = true;
 
+    /** Late enough that the atlas has converged, early enough to land inside the run. */
+    private static final double ASSET_RELOAD_AT_SECONDS = 7.0;
+    private boolean assetReloadDone = false;
+
     @Override
     public void init(HarnessContext ctx) {
         this.ctx = ctx;
@@ -139,7 +230,12 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
             label.y = 8f + (i / 8) * 14f;
             labels.add(label);
         }
-        csvRows.add(String.join(",", CSV_HEADER));
+        StringBuilder header = new StringBuilder(String.join(",", FIXED_HEADER));
+        for (Column column : COLUMNS) header.append(',').append(column.header());
+        csvRows.add(header.toString());
+        CgGpuProfiler.enable();
+        LOGGER.info("[text-stress] GPU timing " + (CgGpuProfiler.isAvailable()
+                ? "enabled (GL_TIME_ELAPSED)" : "UNAVAILABLE on this context"));
         LOGGER.info("[text-stress] " + LABEL_COUNT + " labels x " + LABEL_CHARS
                 + " chars, draw=" + DRAW_LABELS);
     }
@@ -185,6 +281,10 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
         }
 
         if (DRAW_LABELS) {
+            // GPU timing wraps the whole text draw. Results arrive some frames later (see
+            // CgGpuProfiler), so this is a per-run average rather than a per-frame figure — which is
+            // the only honest way to read it without stalling the pipeline being measured.
+            CgGpuProfiler.begin("gpu.textDraw");
             try (CgProfiler.Scope ignored = CgProfiler.scope("text.draw")) {
                 renderer.context(CgTextRenderContext.orthographic(ctx.getScreenWidth(), ctx.getScreenHeight()));
                 renderer.beginBatch();
@@ -196,7 +296,11 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
                 }
                 renderer.endBatch();
             }
+            CgGpuProfiler.end();
         }
+        CgGpuProfiler.endFrame();
+
+        maybeMeasureAssetReload(now);
 
         double inMode = now - modeStartedAt;
         boolean measured = inMode >= WARMUP_SECONDS;
@@ -206,6 +310,26 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
         if (measured) samples.add(frame.getDeltaTime() * 1000.0);
         if (inMode >= MODE_SECONDS) advanceMode();
         CgProfiler.reset();
+    }
+
+    /**
+     * Fires one asset reload (the F3+T path) mid-run and reports what it cost.
+     *
+     * <p>Hot-reload drops and rebuilds every texture, shader and material on the render thread, so
+     * it can only be measured with a live context — not from a unit test. Triggered once, late,
+     * after the atlas has converged, so it neither perturbs the warmup numbers nor measures a
+     * half-populated cache. One shot only: the interesting cost is rebuilding a warm set of
+     * resources, and repeating it would just measure rebuilding what it already rebuilt.
+     */
+    private void maybeMeasureAssetReload(double now) {
+        if (assetReloadDone || now < ASSET_RELOAD_AT_SECONDS) return;
+        assetReloadDone = true;
+
+        long start = System.nanoTime();
+        CgAssetReloader.reload();
+        double ms = (System.nanoTime() - start) / 1_000_000.0;
+        System.out.printf(Locale.ROOT,
+                "[text-stress] asset reload (F3+T path) took %.2f ms%n", ms);
     }
 
     private void advanceMode() {
@@ -226,29 +350,21 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
 
     private void recordRow(FrameInfo frame, boolean measured, CgProfilerReport report) {
         if (report == null) return;
-        csvRows.add(String.format(Locale.ROOT,
-                "%d,%.3f,%s,%d,%.3f,%.3f,%.3f,"
-                        + "%.3f,%.3f,%.3f,%.3f,%.3f,"
-                        + "%.3f,%.3f,%.3f,%.3f,%.3f,"
-                        + "%.3f,%.3f,"
-                        + "%.3f,%.3f,%.3f,%.3f,"
-                        + "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.0f,%d",
-                frame.getFrameNumber(), frame.getElapsedTime(), mode.name(), measured ? 1 : 0,
-                frame.getDeltaTime() * 1000.0,
-                scope(report, "text.reshape"), scope(report, "text.draw"),
-                scope(report, "shape.runs"), scope(report, "shape.bidi"),
-                scope(report, "shape.collectRuns"), scope(report, "shape.resolveRuns"),
-                scope(report, "shape.harfbuzz"),
-                scope(report, "hb.bufferCreate"), scope(report, "hb.bufferFill"),
-                scope(report, "hb.shape"), scope(report, "hb.readBack"),
-                scope(report, "hb.bufferDestroy"),
-                scope(report, "shape.reshaper"), scope(report, "shape.ellipsis"),
-                scope(report, "wrap.breakLines"), scope(report, "wrap.breakBoundaries"),
-                scope(report, "wrap.justify"), scope(report, "wrap.bakeGlyphs"),
-                scope(report, "resolveGlyphs"), scope(report, "submitBatchedQuads"),
-                scope(report, "quadLoop"), scope(report, "sortKeys"),
-                scope(report, "material.doBind"), scope(report, "doBind.stateSave"),
-                sample(report, "draw.glyphCount"), counter(report, "materialTransition")));
+        StringBuilder row = new StringBuilder(512);
+        row.append(frame.getFrameNumber()).append(',')
+                .append(String.format(Locale.ROOT, "%.3f", frame.getElapsedTime())).append(',')
+                .append(mode.name()).append(',')
+                .append(measured ? 1 : 0).append(',')
+                .append(String.format(Locale.ROOT, "%.3f", frame.getDeltaTime() * 1000.0));
+        for (Column column : COLUMNS) {
+            row.append(',');
+            switch (column.kind()) {
+                case SCOPE -> row.append(String.format(Locale.ROOT, "%.3f", scope(report, column.profilerName())));
+                case SAMPLE -> row.append(String.format(Locale.ROOT, "%.0f", sample(report, column.profilerName())));
+                case COUNTER -> row.append(counter(report, column.profilerName()));
+            }
+        }
+        csvRows.add(row.toString());
     }
 
     private static double scope(CgProfilerReport report, String name) {
@@ -285,6 +401,19 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
         System.out.println("=== CrystalGraphics text stress: " + LABEL_COUNT + " labels x "
                 + LABEL_CHARS + " chars, draw=" + DRAW_LABELS + " ===");
         for (String row : summary) System.out.println("  " + row);
+        System.out.println();
+
+        // GPU time, averaged over the whole run: results come back some frames after the work, so
+        // per-frame attribution is not available without stalling the pipeline being measured.
+        if (CgGpuProfiler.isAvailable()) {
+            System.out.println("  --- GPU time (GL_TIME_ELAPSED, run average) ---");
+            for (var e : CgGpuProfiler.report().entrySet()) {
+                System.out.printf(Locale.ROOT, "  %-22s %8.3f ms/frame over %d samples%n",
+                        e.getKey(), e.getValue().avgMillis(), e.getValue().samples());
+            }
+        } else {
+            System.out.println("  --- GPU timing unavailable on this context ---");
+        }
         System.out.println();
 
         File dir = new File(ctx.getOutputDir());

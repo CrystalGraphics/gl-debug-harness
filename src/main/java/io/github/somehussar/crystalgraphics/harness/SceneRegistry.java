@@ -296,6 +296,18 @@ public final class SceneRegistry {
         );
 
         reg.register(
+            SceneDescriptor.builder("text-feature-stress")
+                .description("Text paths no other benchmark exercises: RTL/BiDi, font fallback chains, synthetic bold/italic, decorations")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgTextFeatureStressScene()
+        );
+
+        reg.register(
             SceneDescriptor.builder("cgui-button")
                 .description("CrystalGUI Button: press/release-over-same-element activation, Space/Enter keyboard activation, sound-hook logging")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)

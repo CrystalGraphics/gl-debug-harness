@@ -448,9 +448,12 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
 
     @Override
     public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
-        if (event.pressed() && !event.repeat() && event.key() == CgUiKeyCodes.KEY_LBRACKET) 
+        // Braced deliberately: without them only dumpAtlases() was guarded, and
+        // dumpMsdfGenerationProfile() ran on *every* keyboard event including key-up and repeats.
+        if (event.pressed() && !event.repeat() && event.key() == CgUiKeyCodes.KEY_LBRACKET) {
             dumpAtlases();
             dumpMsdfGenerationProfile();
+        }
         return true;
     }
 

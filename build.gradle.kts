@@ -91,4 +91,10 @@ tasks.register<JavaExec>("runHarness") {
     (project.findProperty("harness.hotswapAgent") as String?)?.let { agentPath ->
         jvmArgs("-javaagent:$agentPath")
     }
+
+    // Extra JVM flags for one-off diagnostics — e.g. GC logging while chasing a frame spike:
+    //   ./gradlew :gl-debug-harness:runHarness --args="--mode=text-3d" -Pharness.jvmArgs="-Xlog:gc"
+    (project.findProperty("harness.jvmArgs") as String?)?.let { extra ->
+        jvmArgs(extra.split(" ").filter { it.isNotBlank() })
+    }
 }

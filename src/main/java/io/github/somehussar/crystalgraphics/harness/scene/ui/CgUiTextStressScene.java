@@ -121,7 +121,8 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, SystemInp
             "matDoBindMs", "dbStateSaveMs", "glFlushMs", "visScanMs",
             "glyphCount", "materialTransitions", "glFlushCount",
             "shapeRunsMs", "shapeReshaperMs", "shapeEllipsisMs", "shapeBidiMs", "shapeCollectMs", "shapeResolveRunsMs", "shapeHarfbuzzMs",
-            "hbCreateMs", "hbFillMs", "hbShapeMs", "hbReadBackMs", "hbDestroyMs"
+            "hbCreateMs", "hbFillMs", "hbShapeMs", "hbReadBackMs", "hbDestroyMs",
+            "paragraphLayoutHit", "paragraphLayoutMiss"
     };
 
     private HarnessContext ctx;
@@ -301,7 +302,10 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, SystemInp
                 scope(report, "hb.bufferFill"),
                 scope(report, "hb.shape"),
                 scope(report, "hb.readBack"),
-                scope(report, "hb.bufferDestroy")));
+                scope(report, "hb.bufferDestroy"))
+                + String.format(Locale.ROOT, ",%d,%d",
+                counter(report, "paragraphLayout.hit"),
+                counter(report, "paragraphLayout.miss")));
     }
 
     /** Totals a scope by bare name — UI text draws do not sit under one fixed parent path. */
