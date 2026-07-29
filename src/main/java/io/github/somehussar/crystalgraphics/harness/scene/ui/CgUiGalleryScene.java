@@ -19,6 +19,7 @@ import com.crystalgui.ui.elements.Switch;
 import com.crystalgui.ui.elements.Tab;
 import com.crystalgui.ui.elements.TabView;
 import com.crystalgui.ui.elements.TextField;
+import com.crystalgui.ui.elements.Tooltip;
 import com.crystalgui.ui.elements.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -102,6 +103,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
 
             .scroll-demo   { width: 300px; height: 96px; }
             .scroll-row    { height: 22px; width: 100%; background: #3A4450; }
+            .scroll-row-alt{ height: 22px; width: 100%; background: #FFAAAA; }
             .split-demo    { width: 320px; height: 110px; }
             .pane-a        { background: #3A4A6A; padding-all: 4px; }
             .pane-b        { background: #4A3A5A; padding-all: 4px; }
@@ -198,6 +200,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         tabViewPage(page("TabView", "A TabView inside a TabView pane."));
         elementPage(page("UIElement", "The styleable div everything else is built from."));
         transformPage(page("transform", "CSS transform + transform-origin. Layout never sees them; clicks follow."));
+        tooltipPage(page("Tooltip", "Top layer: hover a row INSIDE the scroller - the tooltip escapes the clip."));
 
         return root;
     }
@@ -370,6 +373,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         for (int i = 1; i <= 14; i++) {
             UIElement rowEl = new UIElement();
             rowEl.addClass("scroll-row");
+            if (i % 2 == 0) rowEl.addClass("scroll-row-alt");
             UIText label = new UIText("row " + i);
             label.addClass("label");
             rowEl.addChild(label);
@@ -378,6 +382,53 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         pane.addChild(scroller);
     }
 
+    /**
+     * The <b>top layer</b> — CSS Position 4 §top-layer, the machinery behind {@code <dialog>} and
+     * popovers.
+     *
+     * <p>The scrolling list is the whole demo and the reason the feature exists. Hover any row: the
+     * tooltip is anchored to a row <em>inside</em> an {@code overflow} container, yet draws outside
+     * it. Before the top layer that was impossible — {@code drawSubtree} paints depth-first under
+     * every ancestor's scissor, so the tooltip was clipped to the list. Scroll while hovering and it
+     * tracks its row, because placement is recomputed per frame rather than cached.</p>
+     *
+     * <p>The other two rows are the placement fallbacks: one hard against the right edge (clamps
+     * instead of overflowing) and one near the bottom (flips above its anchor).</p>
+     */
+    private void tooltipPage(UIElement pane) {
+        Button plain = new Button("hover me");
+        Tooltip.attach(plain, "A tooltip in the top layer.");
+
+        Button multi = new Button("longer text");
+        Tooltip.attach(multi, "Long enough to wrap against the tooltip's max-width from default.css.");
+
+        pane.addChild(row(slot("basic"), plain));
+        pane.addChild(row(slot("wrapping"), multi));
+
+        // Right edge: a left-aligned tooltip would overflow, so placement clamps it inward.
+        UIElement edgeRow = row(slot("clamps"), new UIElement());
+        Button atEdge = new Button("near right edge");
+        Tooltip.attach(atEdge, "Clamped inside the window instead of overflowing.");
+        UIElement pusher = new UIElement();
+        pusher.addClass("spacer");
+        edgeRow.addChild(pusher);
+        edgeRow.addChild(atEdge);
+        pane.addChild(edgeRow);
+
+        // The one that matters: anchors inside a clipping, scrolling container.
+        ScrollerView list = new ScrollerView();
+        list.addClass("scroll-demo");
+        for (int i = 1; i <= 14; i++) {
+            UIElement rowEl = new UIElement();
+            rowEl.addClass("scroll-row");
+            UIText label = new UIText("row " + i + " - hover me");
+            label.addClass("label");
+            rowEl.addChild(label);
+            Tooltip.attach(rowEl, "Row " + i + ": anchored inside the scroller, drawn outside it.");
+            list.addChild(rowEl);
+        }
+        pane.addChild(list);
+    }
 
     private void splitViewPage(UIElement pane) {
         SplitView split = new SplitView();
