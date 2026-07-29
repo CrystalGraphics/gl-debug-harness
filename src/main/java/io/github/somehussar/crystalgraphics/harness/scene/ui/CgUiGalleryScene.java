@@ -5,6 +5,7 @@ import com.crystalgui.core.input.keyboard.CgUiKeyCodes;
 import com.crystalgui.core.property.Property;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
+import com.crystalgui.style.property.visual.Resize;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
 import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.Ui;
@@ -101,6 +102,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
              * the widgets it has sprites for, so neither sheet would reach a bare div like these. */
             .box-none-round   { border-radius: 6px; }
             .box-border-only  { border-radius: 6px; border-width: 2px; border-color: #C86464; }
+
+            /* overflow: hidden, because a resizable box should contain its content. Without it the
+             * label spills once you shrink the panel below the text -- which is correct CSS for
+             * overflow: visible, and is also the second (better) reason the spec restricts `resize`
+             * to scroll containers. We keep the divergence; the clipping is the demo's job. */
+            .rz            { width: 110px; height: 60px; background: #3A4450; padding-all: 6px;
+                             overflow: hidden; }
+            .rz-capped     { max-width: 160px; max-height: 90px; min-width: 0px; min-height: 0px; }
 
             .chip          { width: 70px; height: 22px; background: #4A6E9A; padding-left: 6px;
                              align-items: center; }
@@ -212,6 +221,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         transformPage(page("transform", "CSS transform + transform-origin. Layout never sees them; clicks follow."));
         tooltipPage(page("Tooltip", "Top layer: hover a row INSIDE the scroller - the tooltip escapes the clip."));
         dragPage(page("Drag", "Drag a chip onto a bin. Ghost follows the cursor; Escape cancels."));
+        resizePage(page("resize", "CSS resize: drag a panel's corner grabber. min/max clamp it."));
 
         return root;
     }
@@ -530,6 +540,42 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
             status.setText(event.getPayload() + " -> " + name);
         }, false, false);
         return bin;
+    }
+
+    /**
+     * The CSS {@code resize} property (CSS UI 4) — drag a panel's corner grabber.
+     *
+     * <p>What to look for:</p>
+     * <ul>
+     *   <li>Each panel has a {@code __resizer__} grabber in its bottom-right corner. It appears purely
+     *       because the cascade says {@code resize:} — nothing here constructs a widget.</li>
+     *   <li><b>both</b> resizes freely; <b>horizontal</b> and <b>vertical</b> move one axis only.</li>
+     *   <li>The <b>capped</b> panel refuses to grow past its {@code max-width}/{@code max-height} or
+     *       shrink below its {@code min-*}. That clamping is Taffy's, not the resizer's — the spec
+     *       says min/max are the <em>only</em> constraints on a resize.</li>
+     *   <li>Resizing does not reflow the content inside the panel: the grabber is out of flow.</li>
+     *   <li>Contrary to the spec, these are <b>not scroll containers</b> and it still works — see
+     *       {@code Resize}'s javadoc for why we drop that restriction deliberately.</li>
+     * </ul>
+     */
+    private void resizePage(UIElement pane) {
+        pane.addChild(row(slot("both"), resizablePanel("resize: both", Resize.BOTH, false)));
+        pane.addChild(row(slot("horizontal"), resizablePanel("width only", Resize.HORIZONTAL, false)));
+        pane.addChild(row(slot("vertical"), resizablePanel("height only", Resize.VERTICAL, false)));
+        pane.addChild(row(slot("min/max"), resizablePanel("clamped 70-160 x 40-90", Resize.BOTH, true)));
+    }
+
+    private UIElement resizablePanel(String label, Resize mode, boolean capped) {
+        UIElement panel = new UIElement();
+        panel.addClass("rz");
+        if (capped) panel.addClass("rz-capped");
+        panel.generalStyle(g -> g.resize(mode));
+
+        UIText text = new UIText(label);
+        text.addClass("label");
+        text.setHitTest(false);
+        panel.addChild(text);
+        return panel;
     }
 
     private void splitViewPage(UIElement pane) {
