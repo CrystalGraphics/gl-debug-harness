@@ -159,6 +159,46 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
              * snapping at the halfway point. */
             .tf-hover      { transition: transform 160ms ease; }
             .tf-hover:hover{ transform: scale(1.35); }
+
+            /* text-css page (5.2). Every one of these is pure CSS — the scene sets no text properties
+             * from Java, which is the point: they cascade, they inherit (all but text-overflow), and
+             * they theme.
+             *
+             * The `.tx-box` width is load-bearing. A UIText self-sizes only while nothing has
+             * constrained it, so an unconstrained label would have no leftover space and every
+             * alignment would look identical — the wrapper is what gives alignment something to
+             * align WITHIN. Same reason `.desc` above carries a width. */
+            .tx-box        { width: 190px; background: #2E3540; padding-all: 4px; }
+            .tx-left       { text-align: left; }
+            .tx-center     { text-align: center; }
+            .tx-right      { text-align: right; }
+            /* nowrap collapses to one line and OVERFLOWS the 190px box rather than widening it —
+             * max-width caps the box, which is exactly CSS and exactly why ellipsis exists. Paired
+             * with overflow: hidden so the spill is clipped instead of painting over the next row. */
+            .tx-nowrap     { white-space: nowrap; overflow: hidden; }
+            /* ...and the same line with the ellipsis.
+             *
+             * NOTE the `.label` descendant: `text-overflow` must sit on the UIText ITSELF, because it
+             * does not inherit (CSS UI 4 — the property belongs to the block container that owns the
+             * line, and here that container IS the UIText, not this wrapper). `white-space` DOES inherit,
+             * which is what made the first version of this page so misleading: the nowrap half arrived
+             * on the label from the wrapper, the truncation half silently did not, and the row rendered
+             * as a plain clipped line that looked exactly like the row above it.
+             *
+             * The wrapper still owns `overflow: hidden` — clipping is the box's job either way. */
+            .tx-ellipsis   { white-space: nowrap; overflow: hidden; }
+            .tx-ellipsis .label { text-overflow: ellipsis; }
+            /* Registered long before anything drew it. Second pass at +1px in a quarter-brightness
+             * copy of the colour, alpha preserved — the MC convention. Inherits, so setting it on the
+             * wrapper reaches the label. */
+            .tx-shadow     { text-shadow: true; }
+            .tx-inherit    { white-space: nowrap; overflow: hidden; text-align: right; }
+
+            /* focus page (5.3). The strip is a real TabView; the buttons on either side of it are what
+             * make the roving tabindex visible — Tab must go before -> the SELECTED tab -> after,
+             * skipping the other tabs entirely, and arrows must still move between them. */
+            .fc-strip      { width: 300px; height: 78px; }
+            .fc-btn        { width: 96px; }
             """;
 
     @Override
@@ -231,6 +271,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         dragPage(page("Drag", "Drag a chip onto a bin. Ghost follows the cursor; Escape cancels."));
         resizePage(page("resize", "8 handles: 4 edges + 4 corners. Leading edges move the box too."));
         dialogPage(page("Dialog", "Drag to move, click to raise, X closes. New windows cascade."));
+        textCssPage(page("text-css", "text-align, white-space, text-overflow, text-shadow. All CSS."));
+        focusPage(page("focus", "Tab enters the tablist ONCE. Arrows move inside it."));
 
         return root;
     }
@@ -670,6 +712,70 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         pane.addChild(controls);
 
         manager.showAll();
+    }
+
+    /**
+     * 5.2 — the four CSS text properties, every one of them applied from a stylesheet rather than Java.
+     *
+     * <p>What to look for: the three alignments must land at the left edge, the centre and the right
+     * edge of the same 190px box; {@code nowrap} must be one clipped line where the wrapping row above
+     * it is several; the ellipsis row must be that same line ending in a real "…"; and the shadowed row
+     * must show a dark offset copy one pixel down-right. The last row sets {@code white-space} and
+     * {@code text-align} on the <em>wrapper</em>, so it also proves both inherit.</p>
+     */
+    private void textCssPage(UIElement pane) {
+        pane.addChild(row(slot("wrapping"), txBox("this label wraps because its box is narrower than the text", null)));
+        pane.addChild(row(slot("align left"), txBox("aligned left", "tx-left")));
+        pane.addChild(row(slot("align center"), txBox("aligned center", "tx-center")));
+        pane.addChild(row(slot("align right"), txBox("aligned right", "tx-right")));
+        pane.addChild(row(slot("nowrap"), txBox("one long line that will not wrap and so overflows", "tx-nowrap")));
+        pane.addChild(row(slot("ellipsis"), txBox("one long line that gets cut short with an ellipsis", "tx-ellipsis")));
+        pane.addChild(row(slot("shadow"), txBox("drop shadow behind me", "tx-shadow")));
+        pane.addChild(row(slot("inherited"), txBox("set on the WRAPPER, not the text", "tx-inherit")));
+    }
+
+    /** A fixed-width box around a label — the label alone would self-size and leave nothing to align in. */
+    private UIElement txBox(String text, String extraClass) {
+        UIElement box = new UIElement();
+        box.addClass("tx-box");
+        if (extraClass != null) box.addClass(extraClass);
+        UIText label = new UIText(text);
+        label.addClass("label");
+        box.addChild(label);
+        return box;
+    }
+
+    /**
+     * 5.3 — a tablist is one Tab stop, however many tabs it has.
+     *
+     * <p>What to look for, all by keyboard: click "before", then press <b>Tab</b>. Focus must land on the
+     * <em>selected</em> tab and on no other — one press, not three. <b>Left/Right</b> then move between
+     * the tabs (they are still focusable, just not tabbable), and the stop <em>roves</em>: whichever tab
+     * you leave selected is the one Tab returns to. Another <b>Tab</b> must leave the strip entirely for
+     * "after", and <b>Shift+Tab</b> must retrace the same three stops backwards — asymmetry there would
+     * be a keyboard trap.</p>
+     *
+     * <p>Clicking any tab must still focus it. That is the trap this page exists to catch: the click path
+     * used to compare the policy for equality with {@code CLICK}, which would leave every unselected tab
+     * dead to the mouse the moment it stopped being the selected one.</p>
+     */
+    private void focusPage(UIElement pane) {
+        Button before = new Button("before");
+        before.addClass("fc-btn");
+        pane.addChild(before);
+
+        TabView strip = new TabView();
+        strip.addClass("fc-strip");
+        for (String name : new String[] { "one", "two", "three" }) {
+            UIText body = new UIText("pane " + name);
+            body.addClass("label");
+            strip.addTab(name).content().addChild(body);
+        }
+        pane.addChild(strip);
+
+        Button after = new Button("after");
+        after.addClass("fc-btn");
+        pane.addChild(after);
     }
 
     private void splitViewPage(UIElement pane) {
