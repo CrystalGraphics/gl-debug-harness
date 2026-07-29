@@ -236,6 +236,21 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     float scrollDelta;
     float scrollScale = 1;
 
+    /**
+     * The full printable-Arial string, built once.
+     *
+     * <p>{@link #getArialPrintableChars()} walks all 65,504 non-surrogate BMP codepoints calling
+     * {@code java.awt.Font.canDisplay} on each, and it was being invoked <em>twice per frame from
+     * inside the profiled draw scope</em>. Measured: 59 ms on the first call and 3.2 ms warm, per
+     * invocation — so ~62 ms of frame 1 and ~6 ms of every steady-state frame was AWT font
+     * introspection being billed to the text engine.
+     *
+     * <p>It also set the scale of everything downstream: the string is 3363 characters, which is
+     * where {@code queried = 3406} (3363 + 43 kanji glyphs) came from. Any per-frame cost read off
+     * this scene before this was hoisted is inflated.
+     */
+    private static final String ARIAL_PRINTABLE_CHARS = getArialPrintableChars();
+
     public static String getArialPrintableChars() {
         // Initialize the Arial font
         Font arial = new Font("Arial", Font.PLAIN, 12);
@@ -281,8 +296,8 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
             renderer.context(perspectiveContext);
 
             renderer.draw().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack).submit();
-            renderer.draw().text(getArialPrintableChars()).at(0.0f, 2112.0f).constraints(500,0).font(labelFont).pose(poseStack).submit();
-            renderer.draw().text(getArialPrintableChars()).at(0.0f, 2112.0f).constraints(500,0).font(minecraftFont).pose(poseStack).submit();
+            renderer.draw().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(labelFont).pose(poseStack).submit();
+            renderer.draw().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(minecraftFont).pose(poseStack).submit();
         }
 
         if (CgProfiler.isEnabled()) {
@@ -291,22 +306,6 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
             if (PROFILE_AUTO_ORBIT) {
                 float dz = (float) Math.sin(frame.getElapsedTime() * 0.7) * 0.01f;
                 //ctx.getCamera3D().moveCamera(0f, 0f, dz);
-            }
-
-            sampleGc();
-            int pendingAsync = CgFontRegistry.get().getPendingAsyncGlyphCount();
-            CgProfiler.sample("async.pendingGlyphs", pendingAsync);
-            recordProfileFrame(frame, CgProfiler.endFrame(), pendingAsync);
-
-            if (frame.getElapsedTime() >= PROFILE_WINDOW_SECONDS) {
-                dumpProfile(ctx);
-                // Dump the atlases alongside the profile so packing efficiency is captured from
-                // the same converged state the timings describe, rather than needing the '['
-                // keybind pressed by hand at an arbitrary moment (which makes before/after
-                // packing comparisons non-reproducible).
-                // dumpAtlases();
-                CgProfiler.setEnabled(false); // fully zero-cost from here on -- see CgProfiler's javadoc
-                //running = false;
             }
         }
 
@@ -394,6 +393,40 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
             renderer.draw().text(String.format("Scale: %.1fx ", scrollScale)).font(labelFont).at(10, 0).pose(pose).submit();
 
             renderer.endBatch();
+        }
+    }
+
+    /**
+     * Captures this frame's profile row. Deliberately runs here rather than at the end of
+     * {@link #render}, because at that point the frame is only partly done: the HUD/overlay pass,
+     * {@code onFrameRendered} (which runs the glyph-commit drain), the buffer swap and the sync
+     * sleep all still lie ahead, and closing the profiler frame before them pushed their cost into
+     * the following row. {@code FrameInfo}'s delta is likewise the <em>previous</em> frame's when
+     * read inside {@code render()}.
+     *
+     * <p>Both were live defects, not theoretical: a row could show a 117 ms {@code drawTotal}
+     * against a 7 ms delta, and the 40x-380x stall that produced it got read as belonging to the
+     * next frame. The {@code frame} passed here carries the true wall duration of the frame whose
+     * scopes are being recorded, so a row is now internally consistent.</p>
+     */
+    @Override
+    public void onFrameEnd(HarnessContext ctx, FrameInfo frame) {
+        if (!CgProfiler.isEnabled()) return;
+
+        sampleGc();
+        int pendingAsync = CgFontRegistry.get().getPendingAsyncGlyphCount();
+        CgProfiler.sample("async.pendingGlyphs", pendingAsync);
+        recordProfileFrame(frame, CgProfiler.endFrame(), pendingAsync);
+
+        if (frame.getElapsedTime() >= PROFILE_WINDOW_SECONDS) {
+            dumpProfile(ctx);
+            // Dump the atlases alongside the profile so packing efficiency is captured from
+            // the same converged state the timings describe, rather than needing the '['
+            // keybind pressed by hand at an arbitrary moment (which makes before/after
+            // packing comparisons non-reproducible).
+            // dumpAtlases();
+            CgProfiler.setEnabled(false); // fully zero-cost from here on -- see CgProfiler's javadoc
+            running = false;
         }
     }
 
@@ -639,6 +672,27 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
             // one is what justified an upload-batching optimisation that turned out to be worth
             // 5 us/frame. See CgFontRegistry#drainCompletedGlyphs.
             "texSubImageMs", "texSubImageCalls",
+            // Whole-frame accounting. Before these existed the only instrumented part of the frame
+            // was kanjiWorldDraw, so 60-110 ms of a warmup frame belonged to no scope at all and
+            // could not be argued about. worldPass/textContext/scene/overlay/onFrameRendered/swap
+            // should now sum to roughly frameMs; whatever gap remains is real unmeasured time.
+            //
+            // swap vs. sync is the load-bearing distinction: swap blocking means the GPU is behind
+            // the CPU, while a large sync means the frame finished EARLY and is sleeping to hold
+            // TARGET_FPS. Summing them would make an idle frame indistinguishable from a stalled one.
+            "worldPassMs", "textContextMs", "sceneMs", "overlayMs", "onFrameRenderedMs",
+            "swapMs", "syncMs", "accountedMs", "unaccountedMs",
+            // Second-level accounting, for the same reason as the first: drawTotal has exactly two
+            // child scopes (resolveGlyphs, submitSortedQuads), and on a cold frame they accounted
+            // for only 34 of its 110 ms. The residue is layout work -- the draw builds a
+            // CgTextLayout from raw text for the two printable-ASCII strings, so shaping and line
+            // breaking run inside the draw call rather than ahead of it.
+            "drawResidueMs", "shapeRunsMs", "shapeBidiMs", "shapeHarfbuzzMs", "hbShapeMs",
+            "wrapBreakLinesMs", "layoutCacheHit", "layoutCacheMiss",
+            "lbFastPath", "lbReshape", "lbReshapeMs",
+            "lbCollectMs", "lbIterCreateMs", "lbFindBoundaryMs", "lbSplitCalls", "lbSegmentChars",
+            "lbSafeBoundaryMs", "lbSliceCalls", "lbSlicedGlyphs",
+            "lbSliceMs", "lbFragReshapeMs", "lbFragReshapes", "lbGraphemeCalls", "quadsEmitted", "qlMaxIterUs", "qlMaxIterIdx", "qlSlowIters",
             "dbWireMs", "dbStateSaveMs", "dbPropsUpMs", "dbUboBindMs", "dbSamplersMs", "dbRenderStateMs", "dbShaderBindMs"
     };
 
@@ -654,10 +708,16 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
             profileCsvRows.add(String.join(",", PROFILE_CSV_HEADER));
         }
 
-        String draw = "kanjiWorldDraw";
+        // Paths, not bare names -- and they are one level deeper than they look: the runner now
+        // wraps scene.render() in "frame.scene" and onFrameRendered() in "frame.onFrameRendered",
+        // so every path below is prefixed accordingly. Getting this wrong does not fail, it
+        // silently reads 0.000 for a column that has a real cost in it, which has already
+        // inverted one conclusion in this file (see the gcCount/gcTimeMs comment below).
+        String draw = "frame.scene/kanjiWorldDraw";
         String resolveGlyphs = draw + "/resolveGlyphs";
         String resolvePlacements = resolveGlyphs + "/resolvePlacements";
         String submitQuads = draw + "/submitSortedQuads";
+        String tickFrame = "frame.onFrameRendered/registry.tickFrame";
 
         profileCsvRows.add(String.format(Locale.ROOT,
                 "%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,"
@@ -672,8 +732,8 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 scopeTotalMillis(report, submitQuads),
                 scopeTotalMillis(report, submitQuads + "/glFlush"),
                 scopeTotalMillis(report, submitQuads + "/materialTransition"),
-                scopeTotalMillis(report, "registry.tickFrame"),
-                scopeTotalMillis(report, "registry.tickFrame/drainCompletedGlyphs"),
+                scopeTotalMillis(report, tickFrame),
+                scopeTotalMillis(report, tickFrame + "/drainCompletedGlyphs"),
                 sampleValue(report, "draw.glyphCount"),
                 counterValue(report, "glFlush.count"),
                 counterValue(report, "materialTransition"),
@@ -739,6 +799,43 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 + String.format(Locale.ROOT, ",%.3f,%d",
                 anyScopeTotalMillis(report, "texArray.upload.texSubImage"),
                 anyScopeCalls(report, "texArray.upload.texSubImage"))
+                + formatFrameAccounting(report, frame)
+                + String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%d",
+                scopeTotalMillis(report, draw)
+                        - scopeTotalMillis(report, resolveGlyphs)
+                        - scopeTotalMillis(report, submitQuads),
+                anyScopeTotalMillis(report, "shape.runs"),
+                anyScopeTotalMillis(report, "shape.bidi"),
+                anyScopeTotalMillis(report, "shape.harfbuzz"),
+                anyScopeTotalMillis(report, "hb.shape"),
+                anyScopeTotalMillis(report, "wrap.breakLines"),
+                counterValue(report, "layoutCache.hit"),
+                counterValue(report, "layoutCache.miss"))
+                + String.format(Locale.ROOT, ",%d,%d,%.3f",
+                counterValue(report, "lineBreak.measureFastPath"),
+                counterValue(report, "lineBreak.measureReshape"),
+                anyScopeTotalMillis(report, "lineBreak.reshape"))
+                + String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%d,%d",
+                anyScopeTotalMillis(report, "lineBreak.collectBoundaries"),
+                anyScopeTotalMillis(report, "lineBreak.iteratorCreate"),
+                anyScopeTotalMillis(report, "lineBreak.findBoundary"),
+                counterValue(report, "lineBreak.splitCalls"),
+                counterValue(report, "lineBreak.segmentChars"))
+                + String.format(Locale.ROOT, ",%.3f,%d,%d",
+                anyScopeTotalMillis(report, "lineBreak.safeGlyphBoundary"),
+                counterValue(report, "lineBreak.sliceCalls"),
+                counterValue(report, "lineBreak.slicedGlyphs"))
+                + String.format(Locale.ROOT, ",%.3f,%.3f,%d",
+                anyScopeTotalMillis(report, "lineBreak.sliceRun"),
+                anyScopeTotalMillis(report, "lineBreak.fragmentReshape"),
+                counterValue(report, "lineBreak.fragmentReshapes"))
+                + String.format(Locale.ROOT, ",%d,%d",
+                counterValue(report, "lineBreak.graphemeFallbacks"),
+                counterValue(report, "draw.quadsEmitted"))
+                + String.format(Locale.ROOT, ",%.1f,%.0f,%.0f",
+                sampleValue(report, "quadLoop.maxIterUs"),
+                sampleValue(report, "quadLoop.maxIterIndex"),
+                sampleValue(report, "quadLoop.slowIters"))
                 + String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
                 anyScopeTotalMillis(report, "doBind.wire"),
                 anyScopeTotalMillis(report, "doBind.stateSave"),
@@ -770,6 +867,29 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
             if (entry.name().equals(name)) total += entry.totalNanos() / 1_000_000.0;
         }
         return total;
+    }
+
+    /**
+     * The whole-frame accounting block: each top-level loop step, their sum, and the residue
+     * against the frame's true wall duration.
+     *
+     * <p>{@code unaccounted} is the column to watch. It is the honest answer to "is the profiler
+     * actually seeing this frame?" — a large value means time is going somewhere with no scope on
+     * it, and any conclusion drawn from the other columns is unsupported until it is explained.
+     * It should sit near zero; a few tenths of a ms is loop overhead and input polling.</p>
+     */
+    private String formatFrameAccounting(CgProfilerReport report, FrameInfo frame) {
+        double world = anyScopeTotalMillis(report, "frame.worldPass");
+        double textCtx = anyScopeTotalMillis(report, "frame.textContext");
+        double scene = anyScopeTotalMillis(report, "frame.scene");
+        double overlay = anyScopeTotalMillis(report, "frame.overlay");
+        double tick = anyScopeTotalMillis(report, "frame.onFrameRendered");
+        double swap = anyScopeTotalMillis(report, "frame.swap");
+        double sync = anyScopeTotalMillis(report, "frame.sync");
+        double accounted = world + textCtx + scene + overlay + tick + swap + sync;
+        return String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
+                world, textCtx, scene, overlay, tick, swap, sync,
+                accounted, frame.getDeltaTime() * 1000.0 - accounted);
     }
 
     /** Call count for a scope, summed across every path it appears at. */

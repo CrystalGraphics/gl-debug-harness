@@ -2,6 +2,7 @@ package io.github.somehussar.crystalgraphics.harness;
 
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.util.profiling.CgProfiler;
 import com.crystalgui.core.input.SystemInput;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.camera.FloorRenderer;
@@ -226,33 +227,68 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // Pass ordering: world → scene → post-scene reset → overlays → capture
             // Each pass uses RenderPassState to declare its GL state requirements.
 
+            // Every step below carries a CgProfiler scope. Before they did, a profiling scene
+            // could only see its own render() call -- typically a third of the frame -- and the
+            // rest showed up as time belonging to no scope at all. On text-3d that unattributed
+            // remainder was 60-110 ms on individual warmup frames, i.e. larger than everything
+            // that WAS measured, which makes "the draw is fast" an unsupportable claim no matter
+            // how good the draw numbers look. The scopes are no-ops unless a scene enabled the
+            // profiler.
+            long frameStartNanos = System.nanoTime();
+
             // 6. Pre-render: set world pass state (depth ON, blend OFF, depth writes ON)
             RenderPassState.beginWorldPass();
 
-            worldPassCoordinator.executeWorldPass(ctx, camera, scene.uses3DCamera());
-            
+            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.worldPass")) {
+                worldPassCoordinator.executeWorldPass(ctx, camera, scene.uses3DCamera());
+            }
+
             // Text context
-            ctx.getTextContext().update(ctx);
+            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.textContext")) {
+                ctx.getTextContext().update(ctx);
+            }
 
             // 9. Scene pass: set baseline state, then let the scene render freely
             RenderPassState.beginScenePass();
-            scene.render(ctx, new FrameInfo(frameClock.getDeltaTime(),
-                    frameClock.getElapsedTime(), frameClock.getFrameNumber()));
+            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.scene")) {
+                scene.render(ctx, new FrameInfo(frameClock.getDeltaTime(),
+                        frameClock.getElapsedTime(), frameClock.getFrameNumber()));
+            }
 
             // 10-13. Post-scene sequence: GL reset → pause overlay → HUD → capture callback
             //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
-            overlayCaptureOrchestrator.executePostSceneSequence(
-                    inputPauseHandler.isPaused(), scene.uses3DCamera());
+            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.overlay")) {
+                overlayCaptureOrchestrator.executePostSceneSequence(
+                        inputPauseHandler.isPaused(), scene.uses3DCamera());
+            }
 
             // 13b. Whole frame (world + scene + HUD overlay) is now fully rendered — the
             //      canonical per-frame tick point (ticks CgFontRegistry's frame clock via
             //      the platform lifecycle service, not called directly by feature code
             //      like HUDRenderer/CgUiPaintContext).
-            CgPlatform.lifecycle().onFrameRendered();
+            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.onFrameRendered")) {
+                CgPlatform.lifecycle().onFrameRendered();
+            }
 
-            // 14. Buffer swap + frame sync
-            Display.update();
-            Display.sync(TARGET_FPS);
+            // 14. Buffer swap + frame sync.
+            //
+            // Separately scoped, and the distinction matters: Display.update() is the swap, where
+            // a GPU that has fallen behind the CPU shows up as a block; Display.sync() is a
+            // deliberate sleep to hold TARGET_FPS and being large there means the frame finished
+            // EARLY. Lumping them together would make an idle frame look like a stalled one.
+            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.swap")) {
+                Display.update();
+            }
+            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.sync")) {
+                Display.sync(TARGET_FPS);
+            }
+
+            // 15. Frame is genuinely over -- hand the scene its true wall duration. See
+            //     InteractiveSceneLifecycle#onFrameEnd for why profiling from inside render()
+            //     misattributes both the duration and every post-render step.
+            scene.onFrameEnd(ctx, new FrameInfo(
+                    (float) ((System.nanoTime() - frameStartNanos) / 1_000_000_000.0),
+                    frameClock.getElapsedTime(), frameClock.getFrameNumber()));
         }
 
         LOGGER.info("[InteractiveSceneRunner] Render loop exited after "

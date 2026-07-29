@@ -1,5 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness;
 
+import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
+
 /**
  * Extended lifecycle contract for interactive scenes with continuous render loops.
  *
@@ -58,4 +60,30 @@ public interface InteractiveSceneLifecycle extends HarnessSceneLifecycle {
      * @return true if the program should exit after this scene
      */
     boolean shouldShutdownOnComplete();
+
+    /**
+     * Called once per iteration after the frame is <em>completely</em> finished — after overlays,
+     * the post-render tick, the buffer swap and the frame-rate sync.
+     *
+     * <h3>Why this exists: profiling from inside {@link #render} is off by one</h3>
+     * <p>A scene that ends its profiler frame inside {@code render()} is only a third of the way
+     * through the loop iteration. Everything after it — HUD/overlay drawing,
+     * {@code CgPlatform.lifecycle().onFrameRendered()} (which runs the glyph-commit drain), the
+     * swap, and the sync sleep — is still to come, and lands in the <em>next</em> frame's report.
+     * Read naively that attributes each frame's drain and swap cost to its successor.</p>
+     *
+     * <p>{@code frame.getDeltaTime()} has the same problem from the other direction: it is
+     * computed when the frame <em>starts</em>, so it measures the previous frame. A row that
+     * combines "this frame's scopes" with "last frame's duration" will happily show a 117 ms draw
+     * on a frame reporting a 7 ms delta, which is how a real 40x-380x stall got attributed to the
+     * wrong frame entirely.</p>
+     *
+     * <p>The {@link FrameInfo} passed here carries the <strong>true wall duration of the frame
+     * that just ended</strong> as its delta, so a row recorded from this hook is internally
+     * consistent: scopes and duration describe the same frame.</p>
+     *
+     * <p>Default no-op — scenes that do not profile need not implement it.</p>
+     */
+    default void onFrameEnd(HarnessContext ctx, FrameInfo frame) {
+    }
 }
