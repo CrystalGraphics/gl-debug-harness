@@ -12,6 +12,7 @@ import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.UIWindow;
 import com.crystalgui.ui.elements.Button;
 import com.crystalgui.ui.elements.Checkbox;
+import com.crystalgui.ui.elements.Dialog;
 import com.crystalgui.ui.elements.CheckboxGroup;
 import com.crystalgui.ui.elements.ScrollerView;
 import com.crystalgui.ui.elements.Slider;
@@ -110,6 +111,12 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
             .rz            { width: 110px; height: 60px; background: #3A4450; padding-all: 6px;
                              overflow: hidden; }
             .rz-capped     { max-width: 160px; max-height: 90px; min-width: 0px; min-height: 0px; }
+
+            /* Dialogs are position:absolute, so they resolve left/top against their containing
+             * block -- this stage, not the whole page. It also gives the clamp something to bite. */
+            .dlg-stage     { width: 340px; height: 190px; background: #23272E; }
+            .dlg-a         { width: 150px; height: 90px; }
+            .dlg-b         { width: 160px; height: 80px; }
 
             .chip          { width: 70px; height: 22px; background: #4A6E9A; padding-left: 6px;
                              align-items: center; }
@@ -222,6 +229,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         tooltipPage(page("Tooltip", "Top layer: hover a row INSIDE the scroller - the tooltip escapes the clip."));
         dragPage(page("Drag", "Drag a chip onto a bin. Ghost follows the cursor; Escape cancels."));
         resizePage(page("resize", "CSS resize: drag a panel's corner grabber. min/max clamp it."));
+        dialogPage(page("Dialog", "Drag a title bar to move; X closes. Clamped to the stage."));
 
         return root;
     }
@@ -576,6 +584,67 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         text.setHitTest(false);
         panel.addChild(text);
         return panel;
+    }
+
+    /**
+     * {@link Dialog} — the web's {@code <dialog>}, modeless form, plus movement.
+     *
+     * <p>What to look for:</p>
+     * <ul>
+     *   <li>Drag a <b>title bar</b> to move a dialog. It tracks from the first pixel — no activation
+     *       threshold, unlike a payload drag.</li>
+     *   <li>Dialogs <b>clamp to the stage</b>, so neither can be dragged out of reach. That clamping
+     *       is ours: no spec covers a movable window.</li>
+     *   <li>They <b>stack against each other by z-index</b>, not by being in the top layer — a
+     *       modeless dialog stays in ordinary stacking, and only {@code showModal()} would promote.
+     *       Click "raise" to bring one forward.</li>
+     *   <li><b>The X closes</b> it, and focus returns to whatever held it before. <b>Escape does
+     *       NOT</b> close a modeless dialog — only showModal() establishes a close watcher, so
+     *       browsers do not either. Escape mid-drag cancels the drag instead.</li>
+     *   <li>Resizing works on them too: the second dialog sets {@code resize: both}, so the two
+     *       features compose.</li>
+     * </ul>
+     */
+    private void dialogPage(UIElement pane) {
+        UIElement stage = new UIElement();
+        stage.addClass("dlg-stage");
+
+        Dialog first = new Dialog("panel one");
+        first.addClass("dlg-a");
+        UIText firstBody = new UIText("drag my title bar");
+        firstBody.addClass("label");
+        firstBody.setHitTest(false);
+        first.getContent().addChild(firstBody);
+        stage.addChild(first);
+        first.moveTo(10f, 10f);
+
+        Dialog second = new Dialog("panel two (resizable)");
+        second.addClass("dlg-b");
+        second.generalStyle(g -> g.resize(Resize.BOTH));
+        Button raise = new Button("raise me");
+        second.getContent().addChild(raise);
+        stage.addChild(second);
+        second.moveTo(150f, 80f);
+
+        // z-index is what orders modeless dialogs — deliberately NOT the top layer.
+        int[] topZ = {6};
+        raise.attachListener(() -> second.generalStyle(g -> g.zIndex(++topZ[0])));
+        first.getTitleBar().onMouseDown.attachListener(
+                (el, e) -> first.generalStyle(g -> g.zIndex(++topZ[0])), false, false);
+        second.getTitleBar().onMouseDown.attachListener(
+                (el, e) -> second.generalStyle(g -> g.zIndex(++topZ[0])), false, false);
+
+        pane.addChild(stage);
+
+        UIElement controls = new UIElement();
+        controls.addClass("page-row");
+        Button reopen = new Button("reopen both");
+        reopen.attachListener(() -> { first.show(); second.show(); });
+        controls.addChild(reopen);
+        pane.addChild(controls);
+
+        first.show();
+        second.show();
     }
 
     private void splitViewPage(UIElement pane) {
