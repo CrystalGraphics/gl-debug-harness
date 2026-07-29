@@ -24,6 +24,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSwitchScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextStressScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiVisualLayersScene;
 import io.github.somehussar.crystalgraphics.harness.tool.CapabilityReport;
 import io.github.somehussar.crystalgraphics.harness.tool.GlStateDumper;
@@ -268,6 +269,30 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiTextScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-text-stress")
+                .description("CrystalGUI UIText load benchmark: 100 labels, three update patterns (static / same-length / varying-length), prints a summary table")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiTextStressScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("text-stress")
+                .description("CrystalGraphics text engine benchmark: 1000 shaped labels, no CrystalGUI — pure CgTextRenderer + FreeType/HarfBuzz")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgTextStressScene()
         );
 
         reg.register(

@@ -83,7 +83,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     // ── CgProfiler instrumentation for the kanji world-text draw call (see class javadoc's
     // "Kanji warmup profiling" section) — scoped strictly to this one draw call and everything
     // it calls into; nothing else in this scene is instrumented. ──
-    private static final double PROFILE_WINDOW_SECONDS = 5;
+    private static final double PROFILE_WINDOW_SECONDS = 10;
 
     /**
      * {@code -Dcrystalgraphics.profile.autoOrbit=true} slowly dollies the camera during the
@@ -304,9 +304,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 // the same converged state the timings describe, rather than needing the '['
                 // keybind pressed by hand at an arbitrary moment (which makes before/after
                 // packing comparisons non-reproducible).
-                dumpAtlases();
+                // dumpAtlases();
                 CgProfiler.setEnabled(false); // fully zero-cost from here on -- see CgProfiler's javadoc
-//                 running = false;
+                running = false;
             }
         }
 
@@ -450,6 +450,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
         if (event.pressed() && !event.repeat() && event.key() == CgUiKeyCodes.KEY_LBRACKET) 
             dumpAtlases();
+            dumpMsdfGenerationProfile();
         return true;
     }
 
@@ -460,6 +461,56 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
      * <p>Covers every font this scene draws, not just the kanji one: the atlases are global and
      * shared, so a dump is inherently whole-process rather than per-font.
      */
+    /**
+     * Dumps MSDF generation cost across <em>every</em> thread, not just the render thread.
+     *
+     * <p>Glyph generation runs on the background executor, so a render-thread-only report shows
+     * none of it — the whole reason this path has never been measured despite being what made
+     * warmup slow in the first place. Totals are divided by the number of glyphs actually
+     * generated, which is the number that matters: it sets how long the atlas takes to converge.
+     */
+    private void dumpMsdfGenerationProfile() {
+        java.util.Map<String, CgProfilerReport> all = CgProfiler.reportAllThreads();
+        double prepareTotal = 0;
+        long prepareCalls = 0;
+        java.util.Map<String, double[]> stages = new java.util.LinkedHashMap<>();
+
+        for (java.util.Map.Entry<String, CgProfilerReport> entry : all.entrySet()) {
+            for (CgProfilerReport.ScopeEntry scope : entry.getValue().scopes()) {
+                if (!scope.name().startsWith("msdfgen.")) continue;
+                double ms = scope.totalNanos() / 1_000_000.0;
+                double[] acc = stages.computeIfAbsent(scope.name(), k -> new double[2]);
+                acc[0] += ms;
+                acc[1] += scope.callCount();
+                if (scope.name().equals("msdfgen.prepareGlyph")) {
+                    prepareTotal += ms;
+                    prepareCalls += scope.callCount();
+                }
+            }
+        }
+
+        if (prepareCalls == 0) {
+            LOGGER.info("[msdfgen] no glyphs generated this run");
+            return;
+        }
+
+        StringBuilder out = new StringBuilder();
+        out.append(String.format(Locale.ROOT,
+                "%n=== MSDF generation: %d glyphs across %d thread(s), %.1f ms total, %.2f ms/glyph ===%n",
+                prepareCalls, all.size(), prepareTotal, prepareTotal / prepareCalls));
+        out.append(String.format(Locale.ROOT, "  %-24s %10s %8s %12s %8s%n",
+                "stage", "total ms", "calls", "ms/glyph", "% "));
+        final long calls = prepareCalls;
+        final double total = prepareTotal;
+        stages.entrySet().stream()
+                .sorted((a, b) -> Double.compare(b.getValue()[0], a.getValue()[0]))
+                .forEach(e -> out.append(String.format(Locale.ROOT, "  %-24s %10.1f %8.0f %12.3f %7.1f%%%n",
+                        e.getKey(), e.getValue()[0], e.getValue()[1],
+                        e.getValue()[0] / Math.max(1, calls),
+                        100.0 * e.getValue()[0] / total)));
+        System.out.println(out);
+    }
+
     private void dumpAtlases() {
         File harnessOutputRoot = new File(ctx.getOutputDir()).getParentFile();
         AtlasDumper.dumpAtlases(harnessOutputRoot.getPath());
@@ -662,7 +713,16 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
                 anyScopeTotalMillis(report, "streamBuffer.ssbo.map"),
                 anyScopeTotalMillis(report, "streamBuffer.ssbo.commit"),
                 counterValue(report, "streamBuffer.ssbo.bytes"))
-                + String.format(Locale.ROOT, ",%d", counterValue(report, "streamBuffer.ubo.smallUpload"))
+                // gcCount/gcTimeMs MUST be emitted here, between uboSmallUploads and the doBind
+                // block, to match PROFILE_CSV_HEADER. They were once omitted, which silently
+                // shifted every later column left by two: the field labelled gcTimeMs actually
+                // carried doBind.stateSave, and the two doBind columns at the end read empty.
+                // That inverted a real conclusion -- stateSave (0.96ms, 96% of doBind) was read
+                // as 0.001ms and dismissed, while a GC cost that does not exist was investigated.
+                // If you add a column, add it to BOTH lists and check the field counts match.
+                + String.format(Locale.ROOT, ",%d,%d,%.3f",
+                counterValue(report, "streamBuffer.ubo.smallUpload"),
+                frameGcCountDelta, (double) frameGcTimeDelta)
                 + String.format(Locale.ROOT, ",%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
                 anyScopeTotalMillis(report, "doBind.wire"),
                 anyScopeTotalMillis(report, "doBind.stateSave"),
@@ -735,5 +795,10 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, "Failed to write kanji warmup profile", e);
         }
+
+        // Also emitted here, not only from the '[' key binding: generation runs on background
+        // threads, so this is the only report that shows it at all, and a key binding cannot fire
+        // in an automated run — which is exactly when the number is wanted.
+        dumpMsdfGenerationProfile();
     }
 }
