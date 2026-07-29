@@ -70,7 +70,6 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
         // and QUAD_DATA must already be attached by then or that first compile fails with an
         // undefined-symbol error (it then "self-heals" on the next real bind(), but there's no
         // reason to trigger the pointless failed compile at all — just attach first).
-        renderer.attachTo(material);
         // The shader's "Properties { _MainTex (...) = "white" }" default string is NOT
         // automatically resolved to a real bound texture (CgMaterialProperty.samplerTexture
         // stays null until explicitly set) — every real 2D consumer (e.g. CgUiPaintContext)
