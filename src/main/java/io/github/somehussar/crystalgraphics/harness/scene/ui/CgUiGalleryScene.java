@@ -29,6 +29,8 @@ import com.crystalgui.ui.elements.TabView;
 import com.crystalgui.ui.elements.TextField;
 import com.crystalgui.ui.elements.Tooltip;
 import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.core.command.Command;
+import com.crystalgui.ui.input.keymap.KeyEventType;
 import com.crystalgui.ui.text.TextRange;
 import com.crystalgui.ui.input.FocusPolicy;
 import com.crystalgui.ui.input.UIDragController;
@@ -93,10 +95,12 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
              * only at large ones. Setting `flex-shrink: 1` would work too, but only after content already
              * exceeded the box; this never lets it get there. */
             .gallery-tabs  { flex-grow: 1; height: 0; width: 100%; }
-            /* Twenty pages in a sidebar. Compacting them so they all fit is a comfort change, not the
-             * fix — the overflow above is what actually broke. The wider strip bar matters though: at
-             * default.css's deliberate 2px nothing is grabbable, so a twenty-first page would overflow
-             * invisibly rather than showing a scrollbar. */
+            /* Twenty pages in a sidebar. The rail scrolls correctly — its max scroll covers the whole
+             * content, verified — but default.css deliberately gives the strip a 2px scrollbar, which is
+             * below the size at which anything is grabbable. Its own comment says a theme wanting more
+             * thickens it, so: compact the tabs enough that twenty fit without scrolling at the harness's
+             * default window size, AND widen the bar so the moment a twenty-first is added the overflow
+             * is visible and draggable rather than silently unreachable. */
             .gallery-tabs tab            { height: 13px; font-size: 7; }
             .gallery-tabs .__strip-bar__ { width: 5px; }
             .theme-btn     { width: 118px; }
@@ -260,6 +264,24 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             .tx-shadow     { text-shadow: true; }
             .tx-inherit    { white-space: nowrap; overflow: hidden; text-align: right; }
 
+            /* keymap page (6.1.2).
+             *
+             * Sizes are small on purpose: a pane's content box is only ~230 logical px at the harness's
+             * default window size, and the first version of this page put two 230px panels in one row.
+             * They did not wrap, they overflowed and the second one was clipped away entirely — the same
+             * trap as the sidebar, since nothing shrinks below its content here.
+             *
+             * Two focusable panels so scoping is visible: the SAME chord is bound in both, to different
+             * commands, and which fires depends only on where focus is. */
+            .km-panel      { width: 62px; height: 30px; background: #2E3540; padding-all: 4px;
+                             outline: 1px solid #46505E; font-size: 7; }
+            .km-panel:focus{ outline: 2px solid #61AFEF; }
+            .km-log        { width: 140px; height: 18px; background: #1B1F25; padding-all: 3px;
+                             color: #98C379; font-size: 7; }
+            .km-pending    { width: 140px; height: 18px; padding-all: 3px; color: #E5C07B; font-size: 7; }
+            .km-field      { width: 140px; }
+            .km-hint       { color: #7F848E; font-size: 7; }
+
             /* focus page (5.3). The strip is a real TabView; the buttons on either side of it are what
              * make the roving tabindex visible — Tab must go before -> the SELECTED tab -> after,
              * skipping the other tabs entirely, and arrows must still move between them. */
@@ -298,6 +320,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         engine.addStylesheet(StyleSheet.DEFAULT);   // USER_AGENT origin — stays through every toggle
         engine.addStylesheet(oreSheet);
         engine.addStylesheet(sceneSheet);
+
+        // After the window exists, because commands live on it — see installKeymap.
+        installKeymap(uiWindow);
     }
 
     /**
@@ -359,6 +384,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         focusPage(page("focus", "Tab enters the tablist ONCE. Arrows move inside it."));
         modalPage(page("modal", "showModal(): backdrop, focus trap, Escape. Everything else inert."));
         menuPage(page("menus", "Dropdown, context menu, submenu. Click outside or Escape to dismiss."));
+        keymapPage(page("keymap", "Bindings are scoped to the focused subtree. Grey text says what to press."));
 
         return root;
     }
@@ -912,6 +938,146 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         box.addChild(label);
         build.accept(new HighlightBuilder(text, label));
         return box;
+    }
+
+    /**
+     * 6.1.2 — the keymap.
+     *
+     * <p><b>What to look for.</b> Click "editor", then press <b>Mod+A</b>: the log says
+     * {@code editor.selectAll}. Click "canvas" and press the same chord: {@code canvas.selectAll}. Neither
+     * panel knows the other exists — resolution walks the focus path outward and takes the innermost
+     * match, which is what VS Code needs a {@code when} clause to express and we get from having a
+     * tree.</p>
+     *
+     * <p><b>Mod+Shift+P</b> works from anywhere, because it is bound on the page root rather than on a
+     * panel. Application-wide is not a special case; it is just an outer scope.</p>
+     *
+     * <p><b>Mod+K</b> then <b>Mod+S</b> is a chord: the amber line shows the pending prefix, and it
+     * clears on completion, on an unrelated key, on a focus change, or after five seconds. Without that
+     * feedback a half-entered chord is indistinguishable from a dead keyboard.</p>
+     *
+     * <p><b>The trap row.</b> {@code B} is bound as a tool shortcut on the root. Press it with a panel
+     * focused and the log fires; type it in the text field and it must type a "b" and fire nothing. That
+     * guard is why every single-key shortcut in Photoshop does not corrupt every filename box.</p>
+     *
+     * <p><b>Space</b> is bound twice — press and release — which is the axis space-to-pan is built on.</p>
+     */
+    private void keymapPage(UIElement pane) {
+        UIText log = new UIText("(nothing yet)");
+        // Never blank. An empty line is indistinguishable from a broken one, and this row exists
+        // precisely to prove that a half-entered chord is visible — so it has to say what to press.
+        UIText pending = new UIText("press Mod+K");
+
+        // The tree is built before any window exists, so commands and bindings are installed later —
+        // see installKeymap.
+        pendingLabel = pending;
+        keymapLog = log;
+
+        pane.addChild(row(slot("scoped"), focusPanel("editor"), focusPanel("canvas"),
+                hint("same chord, two panels")));
+
+        UIElement logBox = new UIElement();
+        logBox.addClass("km-log");
+        logBox.addChild(log);
+        pane.addChild(row(slot("last command"), logBox, hint("Mod+A in a panel")));
+
+        UIElement pendingBox = new UIElement();
+        pendingBox.addClass("km-pending");
+        pendingBox.addChild(pending);
+        pane.addChild(row(slot("chord"), pendingBox, hint("then Mod+S -> saveAll (page-scoped)")));
+
+        TextField typing = new TextField();
+        typing.addClass("km-field");
+        typing.setPlaceholder("click, then type b");
+        // Spelled out as a two-step check, because the interesting outcome here is a NON-event: the
+        // point is that `last command` does NOT change. A hint that only names the rule leaves the
+        // reader with nothing to look at.
+        pane.addChild(row(slot("B vs typing"), typing,
+                hint("1. press B in a panel -> tool.brush")));
+        pane.addChild(row(slot(""), hint("2. type b in the box -> last command must NOT change")));
+
+        pane.addChild(row(slot("global"), hint("Mod+Shift+P - bound on the window root, so it needs no focus")));
+        pane.addChild(row(slot("hold"), hint("Space fires on press AND release")));
+
+        keymapRoot = pane;
+    }
+
+    /** Grey annotation text. The bindings are invisible by nature, so the page has to say what to press —
+     * a demo nobody can operate proves nothing. */
+    private UIElement hint(String text) {
+        UIText label = new UIText(text);
+        label.addClass("km-hint");
+        return label;
+    }
+
+    /** A focusable panel that owns its own binding for a chord the other panel also binds. */
+    private UIElement focusPanel(String name) {
+        UIElement panel = new UIElement();
+        panel.addClass("km-panel");
+        panel.setFocusPolicy(FocusPolicy.CLICK);
+        UIText label = new UIText(name);
+        // pointer-events: none, and it is REQUIRED, not tidiness.
+        //
+        // Click-focus tests the hit TARGET's own policy — it does not walk up to a focusable
+        // ancestor (see UIInputHandler, and Dialog's title bar, which calls requestFocus
+        // explicitly for exactly this reason). A label filling its panel therefore swallows every
+        // click, the panel never focuses, and since no binding can resolve without a focused
+        // element the whole page goes dead.
+        //
+        // It looked fine while the panels were large, because there was bare panel left to click
+        // around the text. Shrinking them to fit the pane is what exposed it — and Tab still
+        // focused them perfectly throughout, which is the clue separating "not focusable" from
+        // "unclickable".
+        label.setHitTest(false);
+        panel.addChild(label);
+        keymapPanels.put(name, panel);
+        return panel;
+    }
+
+    private final java.util.Map<String, UIElement> keymapPanels = new java.util.LinkedHashMap<>();
+    private UIElement keymapRoot;
+    private UIText keymapLog;
+    private UIText pendingLabel;
+
+    /**
+     * Registers the commands and bindings once a window exists.
+     *
+     * <p>Separate from page construction because commands live on the {@code UIWindow} — deliberately,
+     * rather than in a global static, so two windows can disagree about what an id means and so tests do
+     * not leak registrations into each other.</p>
+     */
+    private void installKeymap(UIWindow window) {
+        var commands = window.getCommands();
+        for (var entry : keymapPanels.entrySet()) {
+            String id = entry.getKey() + ".selectAll";
+            commands.register(Command.of(id, "Select All in " + entry.getKey()).run(() -> logCommand(id)));
+            entry.getValue().keymap().bind("Mod+A", id);
+        }
+        commands.register(Command.of("palette.open", "Command Palette").run(() -> logCommand("palette.open")));
+        commands.register(Command.of("edit.saveAll", "Save All").run(() -> logCommand("edit.saveAll")));
+        commands.register(Command.of("tool.brush", "Brush").run(() -> logCommand("tool.brush")));
+        commands.register(Command.of("pan.begin", "Pan").run(() -> logCommand("pan.begin")));
+        commands.register(Command.of("pan.end", "Pan end").run(() -> logCommand("pan.end")));
+
+        // On the WINDOW ROOT, not on this page's pane — and the difference is the whole point of the
+        // scoping model, so getting it wrong here made the demo lie.
+        //
+        // The resolver walks the focus path OUTWARD. A binding on the page pane is reachable only from
+        // inside that pane, so with nothing focused the walk starts at the window root and never
+        // descends into the page: descendants are not ancestors. "Works from anywhere" therefore has to
+        // mean "bound on the outermost scope there is", which is exactly what the root is.
+        window.ui.rootElement.keymap().bind("Mod+Shift+P", "palette.open");
+        keymapRoot.keymap().bind("Mod+K Mod+S", "edit.saveAll");
+        keymapRoot.keymap().bind("B", "tool.brush");
+        keymapRoot.keymap().bind("Space", "pan.begin");
+        keymapRoot.keymap().bind("Space", "pan.end").on(KeyEventType.RELEASE);
+
+        window.getInputHandler().getKeymapResolver().onPendingChanged.connect(chord ->
+                pendingLabel.setText(chord == null ? "press Mod+K" : chord + " ... waiting"));
+    }
+
+    private void logCommand(String id) {
+        keymapLog.setText(id);
     }
 
     /**
