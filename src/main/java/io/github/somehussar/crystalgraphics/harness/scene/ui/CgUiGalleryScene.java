@@ -80,7 +80,25 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             .gallery-root  { width: 100%; height: 100%; flex-direction: column;
                              padding-all: 8px; gap-all: 6px; }
             .gallery-head  { flex-direction: row; align-items: center; gap-all: 8px; }
-            .gallery-tabs  { flex-grow: 1; width: 100%; }
+            /* `height: 0` is load-bearing, and it is the fix for a real overflow.
+             *
+             * flex-shrink defaults to ZERO in this engine (a deliberate Taffy divergence — see AGENTS.md),
+             * so a flex item can never shrink below its content. With twenty ore-themed tabs the strip's
+             * content is ~360px against ~284 available, and the tabview simply overflowed its parent: the
+             * `__panes__` background stretches to the tabview's height, so the dark pane spilled past the
+             * frame that contains it, and the rail never scrolled because it was never constrained.
+             *
+             * `height: 0` + `flex-grow: 1` is the classic flexbox answer — basis zero, then grow into
+             * exactly the space that is left — and it makes the row robust at any window size instead of
+             * only at large ones. Setting `flex-shrink: 1` would work too, but only after content already
+             * exceeded the box; this never lets it get there. */
+            .gallery-tabs  { flex-grow: 1; height: 0; width: 100%; }
+            /* Twenty pages in a sidebar. Compacting them so they all fit is a comfort change, not the
+             * fix — the overflow above is what actually broke. The wider strip bar matters though: at
+             * default.css's deliberate 2px nothing is grabbable, so a twenty-first page would overflow
+             * invisibly rather than showing a scrollbar. */
+            .gallery-tabs tab            { height: 13px; font-size: 7; }
+            .gallery-tabs .__strip-bar__ { width: 5px; }
             .theme-btn     { width: 118px; }
 
             .page          { flex-direction: column; gap-all: 6px; padding-all: 4px; }
