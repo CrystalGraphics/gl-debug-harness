@@ -28,6 +28,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextStressScene
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiVisualLayersScene;
 import io.github.somehussar.crystalgraphics.harness.tool.CapabilityReport;
 import io.github.somehussar.crystalgraphics.harness.tool.GlStateDumper;
+import io.github.somehussar.crystalgraphics.harness.tool.ShaderCompileAuditScene;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -487,6 +488,16 @@ public final class SceneRegistry {
                 .needsFbo(false)
                 .build(),
                 () -> new GlStateDumper()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("shader-compile-audit")
+                .description("Compile every shipped .shader + keyword variant on this driver; one report, no crash on first failure")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.DIAGNOSTIC)
+                .category(SceneDescriptor.Category.DIAGNOSTIC_TOOL)
+                .needsFbo(false)
+                .build(),
+                () -> new ShaderCompileAuditScene()
         );
 
         reg.register(
