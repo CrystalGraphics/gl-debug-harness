@@ -5,7 +5,7 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import com.crystalgraphics.platform.gl.CgGlState;
+import com.crystalgraphics.platform.gl.state.CgGlState;
 
 /**
  * Shared GL state reset helper for the harness render pipeline.
