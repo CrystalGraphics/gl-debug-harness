@@ -18,6 +18,11 @@ import com.crystalgui.ui.elements.CheckboxGroup;
 import com.crystalgui.ui.elements.ScrollerView;
 import com.crystalgui.ui.elements.Slider;
 import com.crystalgui.ui.elements.SplitView;
+import com.crystalgui.core.input.mouse.CgUiMouseCodes;
+import com.crystalgui.ui.AnchoredPlacement;
+import com.crystalgui.ui.elements.Dropdown;
+import com.crystalgui.ui.elements.Menu;
+import com.crystalgui.ui.elements.MenuItem;
 import com.crystalgui.ui.elements.Switch;
 import com.crystalgui.ui.elements.Tab;
 import com.crystalgui.ui.elements.TabView;
@@ -199,6 +204,24 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
              * skipping the other tabs entirely, and arrows must still move between them. */
             .fc-strip      { width: 300px; height: 78px; }
             .fc-btn        { width: 96px; }
+
+            /* modal page. `.md-stage` is the containing block, so the backdrop covers IT rather than the
+             * whole gallery -- the dialog is promoted, and `100%` on the backdrop resolves against the
+             * initial containing block, which is the root. That means the scrim dims the entire window,
+             * which is correct for a real modal and worth seeing here rather than a tidy inset rectangle. */
+            .md-stage      { width: 340px; height: 120px; background: #23272E; padding-all: 8px;
+                             gap-all: 6px; }
+            .md-dialog     { width: 190px; height: 96px; }
+            .md-btn        { width: 150px; }
+
+            /* menus page. Nothing here positions anything -- AnchoredPlacement owns left/top, and a rule
+             * setting either would fight it every frame. Widths only. */
+            .mn-stage      { width: 340px; height: 130px; background: #23272E; padding-all: 8px;
+                             gap-all: 6px; }
+            .mn-drop       { width: 130px; }
+            /* The right-click surface. Deliberately tall enough to aim at, and it reports where the menu
+             * was opened so pointer->root conversion is visibly correct rather than merely plausible. */
+            .mn-canvas     { width: 300px; height: 56px; background: #31363F; padding-all: 6px; }
             """;
 
     @Override
@@ -273,6 +296,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         dialogPage(page("Dialog", "Drag to move, click to raise, X closes. New windows cascade."));
         textCssPage(page("text-css", "text-align, white-space, text-overflow, text-shadow. All CSS."));
         focusPage(page("focus", "Tab enters the tablist ONCE. Arrows move inside it."));
+        modalPage(page("modal", "showModal(): backdrop, focus trap, Escape. Everything else inert."));
+        menuPage(page("menus", "Dropdown, context menu, submenu. Click outside or Escape to dismiss."));
 
         return root;
     }
@@ -776,6 +801,141 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         Button after = new Button("after");
         after.addClass("fc-btn");
         pane.addChild(after);
+    }
+
+    /**
+     * {@code showModal()} — the inert primitive and the top layer doing their jobs together.
+     *
+     * <p>What to look for, in this order:</p>
+     * <ol>
+     *   <li>Open it. A <b>scrim</b> covers the whole window, not just this page — a modal blocks the
+     *       document, and the backdrop resolves against the initial containing block like the dialog
+     *       itself does.</li>
+     *   <li><b>Click the buttons behind it.</b> Nothing happens, and the counter does not move: everything
+     *       outside the modal is inert, so hit-testing passes straight over it.</li>
+     *   <li><b>Press Tab repeatedly.</b> Focus cycles inside the dialog forever and never reaches the
+     *       page behind. There is no trap code — that is inertness.</li>
+     *   <li><b>Press Escape.</b> It closes, because a modal establishes a close watcher. Then reopen and
+     *       tick "veto Escape": {@code preventDefault()} on the cancel event keeps it open, and only the
+     *       X still closes it.</li>
+     *   <li>Compare with the <b>modeless</b> button: no scrim, the page stays live, Escape does nothing.
+     *       That asymmetry is the spec, not an oversight.</li>
+     * </ol>
+     */
+    private void modalPage(UIElement pane) {
+        UIElement stage = new UIElement();
+        stage.addClass("md-stage");
+        pane.addChild(stage);
+
+        UIText counter = new UIText("clicks behind the modal: 0");
+        counter.addClass("label");
+        stage.addChild(counter);
+
+        int[] behindClicks = { 0 };
+        Button behind = new Button("click me (should be blocked)");
+        behind.addClass("md-btn");
+        behind.attachListener(() -> counter.setText("clicks behind the modal: " + (++behindClicks[0])));
+        stage.addChild(behind);
+
+        Dialog modal = new Dialog("a modal dialog");
+        modal.addClass("md-dialog");
+        // Two focusables, so the Tab cycle is visibly a cycle rather than a single stuck stop.
+        modal.getContent().addChild(new Button("first"));
+        modal.getContent().addChild(new Button("second"));
+        stage.addChild(modal);
+
+        Checkbox veto = new Checkbox("veto Escape");
+        modal.onCancel.attachListener((el, event) -> {
+            if (veto.isChecked()) event.preventDefault();
+        }, false, false);
+        modal.getContent().addChild(veto);
+
+        UIElement controls = new UIElement();
+        controls.addClass("page-row");
+        Button openModal = new Button("showModal()");
+        openModal.attachListener(() -> {
+            modal.moveTo(60f, 20f);
+            modal.showModal();
+        });
+        controls.addChild(openModal);
+        Button openModeless = new Button("show()");
+        openModeless.attachListener(() -> {
+            modal.moveTo(60f, 20f);
+            modal.show();
+        });
+        controls.addChild(openModeless);
+        pane.addChild(controls);
+    }
+
+    /**
+     * Menus — one widget, three shapes: a dropdown, a context menu, and a submenu.
+     *
+     * <p>What to look for:</p>
+     * <ol>
+     *   <li>Open the <b>dropdown</b>. Pick an option — the button's label follows the selection. Press the
+     *       button again while it is open: it <b>closes</b> rather than flickering, which is the invoker
+     *       carve-out in light dismiss doing its job.</li>
+     *   <li><b>Right-click the dark canvas.</b> The same {@code Menu} class opens at the pointer instead of
+     *       under an element — a context menu is not a second widget. The label reports the point it was
+     *       opened at, so the pointer-to-root conversion is visible rather than assumed.</li>
+     *   <li>With a menu open, <b>click anywhere else</b>: it dismisses, and the thing you clicked still
+     *       reacts. <b>Escape</b> also closes it, innermost first.</li>
+     *   <li>Open the dropdown and hover <b>"More..."</b> then press it — a <b>submenu</b> opens to the
+     *       right and its parent <em>stays open</em>. Clicking back in the parent closes only the submenu.
+     *       Those two behaviours are opposites and both have to hold.</li>
+     *   <li><b>Arrow keys</b> walk the items and wrap; the whole menu is a single Tab stop.</li>
+     * </ol>
+     */
+    private void menuPage(UIElement pane) {
+        UIElement stage = new UIElement();
+        stage.addClass("mn-stage");
+        pane.addChild(stage);
+
+        UIText report = new UIText("nothing chosen yet");
+        report.addClass("label");
+        stage.addChild(report);
+
+        Dropdown quality = new Dropdown("quality...");
+        quality.addClass("mn-drop");
+        quality.addOptions("Low", "Medium", "High", "Ultra");
+        quality.attachSelectionListener(index -> report.setText("chose " + quality.getSelectedOption()));
+        stage.addChild(quality);
+
+        // A submenu of the dropdown's own menu. addSubmenu wires all of it: the item does not close its
+        // parent, the child anchors to the row, and it prefers Side.RIGHT so it sits beside rather than over.
+        Menu more = new Menu();
+        more.addItem("Ultra+");
+        more.addItem("Ridiculous");
+        more.onItemActivated.connect(item -> report.setText("chose " + item.getText()));
+        stage.addChild(more);
+
+        quality.getMenu().addSubmenu("More...", more);
+
+        UIElement canvas = new UIElement();
+        canvas.addClass("mn-canvas");
+        UIText hint = new UIText("right-click me");
+        hint.addClass("label");
+        hint.setHitTest(false);
+        canvas.addChild(hint);
+        stage.addChild(canvas);
+
+        Menu context = new Menu();
+        context.addItem("Add node");
+        context.addItem("Paste");
+        context.addItem("Select all");
+        context.onItemActivated.connect(item -> report.setText(item.getText() + " (context)"));
+        stage.addChild(context);
+
+        canvas.onMouseDown.attachListener((el, event) -> {
+            if (event.getButtonId() != CgUiMouseCodes.RIGHT_BUTTON) return;
+            var pos = event.getPosition();
+            var at = AnchoredPlacement.pointerToRoot(canvas.getAttachedWindow(), pos.x(), pos.y());
+            // Passing the pressed element as the invoker is the web's own mechanism for sparing a
+            // popover from the press that opened it. The engine no longer depends on it, but it is
+            // still the correct thing for a caller to do.
+            context.showAt(at.x(), at.y(), canvas);
+            report.setText(String.format("context menu at %.0f, %.0f", at.x(), at.y()));
+        }, false, false);
     }
 
     private void splitViewPage(UIElement pane) {
