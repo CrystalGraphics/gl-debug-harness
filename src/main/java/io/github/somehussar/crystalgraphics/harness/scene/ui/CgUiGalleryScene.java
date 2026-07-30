@@ -292,7 +292,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         transformPage(page("transform", "CSS transform + transform-origin. Layout never sees them; clicks follow."));
         tooltipPage(page("Tooltip", "Top layer: hover a row INSIDE the scroller - the tooltip escapes the clip."));
         dragPage(page("Drag", "Drag a chip onto a bin. Ghost follows the cursor; Escape cancels."));
-        resizePage(page("resize", "8 handles: 4 edges + 4 corners. Leading edges move the box too."));
+        resizePage(page("resize", "In-flow boxes get 3 handles, like CSS. The Dialog page has all 8."));
         dialogPage(page("Dialog", "Drag to move, click to raise, X closes. New windows cascade."));
         textCssPage(page("text-css", "text-align, white-space, text-overflow, text-shadow. All CSS."));
         focusPage(page("focus", "Tab enters the tablist ONCE. Arrows move inside it."));

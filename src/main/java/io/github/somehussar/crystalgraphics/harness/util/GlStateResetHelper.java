@@ -5,6 +5,7 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
+import com.crystalgraphics.gl.state.CgGlState;
 
 /**
  * Shared GL state reset helper for the harness render pipeline.
@@ -68,5 +69,20 @@ public final class GlStateResetHelper {
 
         // Ensure we're rendering to the default framebuffer (backbuffer)
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+
+        // MANDATORY, and the reason is not obvious: everything above is raw LWJGL, so
+        // CgGlStateManager cannot observe any of it. It keeps a CPU-side shadow of GL state and skips
+        // calls it believes are already current, so a wholesale reset behind its back makes it confidently
+        // elide calls that were genuinely needed.
+        //
+        // Concretely: this method disables blending, the shadow still read "blend enabled with alpha", and
+        // the next text draw's blend setup was eliminated as redundant. Blending stayed off, and
+        // bitmap-tier glyphs rendered as opaque quads — while MSDF looked fine, because its near-binary
+        // alpha still discards cleanly without blending. Nothing threw; it just drew wrongly.
+        //
+        // Any code that resets GL state wholesale must say so. This is called mid-frame (after the scene,
+        // before overlays), so the frame-boundary invalidation in CgGraphicsLifecycle.tickFrame() is not
+        // sufficient on its own.
+        CgGlState.invalidateAllIfPresent();
     }
 }
