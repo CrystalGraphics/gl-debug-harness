@@ -930,10 +930,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
             if (event.getButtonId() != CgUiMouseCodes.RIGHT_BUTTON) return;
             var pos = event.getPosition();
             var at = AnchoredPlacement.pointerToRoot(canvas.getAttachedWindow(), pos.x(), pos.y());
-            // Passing the pressed element as the invoker is the web's own mechanism for sparing a
-            // popover from the press that opened it. The engine no longer depends on it, but it is
-            // still the correct thing for a caller to do.
-            context.showAt(at.x(), at.y(), canvas);
+            // NO invoker: an invoker is spared by light dismiss, which is what a toggle button needs and
+            // what a context menu must not have. Naming the canvas here made the whole canvas unable to
+            // dismiss the menu, so left-clicking the area you had just right-clicked did nothing.
+            context.showAt(at.x(), at.y(), null);
             report.setText(String.format("context menu at %.0f, %.0f", at.x(), at.y()));
         }, false, false);
     }
