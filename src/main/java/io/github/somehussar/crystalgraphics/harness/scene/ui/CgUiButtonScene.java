@@ -1,8 +1,8 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
-import com.crystalgui.core.CrystalGuiCore;
-import com.crystalgui.core.input.SystemInput;
-import com.crystalgui.core.sound.UISoundSystem;
+import io.github.somehussar.crystalgraphics.platform.PlatformServiceHarness;
+import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgraphics.platform.service.CgSoundService;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.ui.UIElement;
@@ -26,13 +26,13 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  *   <li>Press over "Click Me", drag off, release elsewhere — counter must NOT increment (press
  *       cancelled, no {@code ButtonEvent.Pressed}).</li>
  *   <li>Press over "Click Me", release back over it — counter increments, and the sound log below
- *       gains a "button_click" entry (via a test {@link UISoundSystem} that just counts calls, since
+ *       gains a "button_click" entry (via a test {@link CgSoundService} that just counts calls, since
  *       the harness has no real audio backend).</li>
  *   <li>Tab to "Keyboard Test" (focus ring should show via the {@code :focus} pseudo-class), then
  *       press Space (hold + release) or Enter — both should activate it exactly like a mouse click.</li>
  * </ul>
  */
-public class CgUiButtonScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
+public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
     private UIWindow uiWindow;
     private int clickCount = 0;
@@ -73,7 +73,7 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, SystemInput.K
     @Override
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(false);
-        CrystalGuiCore.setSoundSystem(soundId -> soundPlayCount++);
+        PlatformServiceHarness.getInstance().soundImpl = soundId -> soundPlayCount++;
 
         UIElement root = createButtonDemo();
         this.uiWindow = new UIWindow(Ui.of(root));
@@ -148,12 +148,12 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, SystemInput.K
     }
 
     @Override
-    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         return uiWindow.getInputHandler().consumeKeyboardEvent(event);
     }
 
     @Override
-    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+    public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         return uiWindow.getInputHandler().consumeMouseEvent(event);
     }
 }

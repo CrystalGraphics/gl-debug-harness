@@ -1,6 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
-import com.crystalgui.core.input.SystemInput;
+import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
@@ -38,7 +38,7 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  *       {@code UIElement.hasFocusableDescendant}).</li>
  * </ul>
  */
-public class CgUiTabViewScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
+public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
     private UIWindow uiWindow;
     private TabView tabs;
@@ -159,12 +159,12 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, SystemInput.
     }
 
     @Override
-    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         return uiWindow.getInputHandler().consumeKeyboardEvent(event);
     }
 
     @Override
-    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+    public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         return uiWindow.getInputHandler().consumeMouseEvent(event);
     }
 }

@@ -4,7 +4,7 @@ import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.UIWindow;
-import com.crystalgui.core.input.SystemInput;
+import com.crystalgraphics.platform.input.CgSystemInput;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -43,7 +43,7 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  * <p>Register in {@link io.github.somehussar.crystalgraphics.harness.SceneRegistry}
  * under scene id {@code "cgui-visual-layers"}.</p>
  */
-public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
+public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
     private UIWindow uiWindow;
     // TEMP diagnostic (Item 4a corner hit-test) — set only by the isolated corner-test branch in createDemo().
@@ -603,7 +603,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
         // capture frames 3-40 (~600ms of a ~60fps run) to sample the mask mid-transition.
         if (crossfadeMaskBox != null && frame.getFrameNumber() == 2) {
             uiWindow.getInputHandler().consumeMouseEvent(
-                    new SystemInput.Mouse.Event(400, 300, 0, 0, -1, false, 0f, System.currentTimeMillis()));
+                    new CgSystemInput.Mouse.Event(400, 300, 0, 0, -1, false, 0f, System.currentTimeMillis()));
         }
         if (crossfadeMaskBox != null && frame.getFrameNumber() >= 3 && frame.getFrameNumber() <= 40) {
             ctx.getArtifactService().requestCapture("crossfade" + frame.getFrameNumber());
@@ -649,12 +649,12 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, SystemI
     }
 
     @Override
-    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         return uiWindow.getInputHandler().consumeKeyboardEvent(event);
     }
 
     @Override
-    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+    public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         return uiWindow.getInputHandler().consumeMouseEvent(event);
     }
 }

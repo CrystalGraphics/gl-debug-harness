@@ -1,11 +1,9 @@
 package io.github.somehussar.crystalgraphics.harness;
 
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
-import com.crystalgui.core.CrystalGuiCore;
 import io.github.somehussar.crystalgraphics.harness.config.*;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
 import io.github.somehussar.crystalgraphics.platform.PlatformServiceHarness;
-import io.github.somehussar.crystalgraphics.platform.input.InputAdapter;
 
 import java.io.File;
 import java.util.List;
@@ -87,11 +85,9 @@ public final class FontDebugHarnessMain {
         HarnessContext ctx = null;
         boolean shouldShutdown = true;
         try {
+            // Registers input, sound and cursor along with the GL services -- one bundle, so the UI
+            // cannot come up with a working backend and no keyboard.
             PlatformServiceHarness.onPreInit();
-            CrystalGuiCore.setAdapter(new InputAdapter());
-            // Real OS cursors for the CSS `cursor` property -- see Lwjgl2CursorService for why this
-            // cannot live in core/ (the import guard bans LWJGL there).
-            CrystalGuiCore.setCursorService(new io.github.somehussar.crystalgraphics.harness.util.Lwjgl2CursorService());
             ctx = HarnessContext.create(config.getWidth(), config.getHeight());
             CgGraphicsLifecycle.initContext(ctx.getScreenWidth(), ctx.getScreenHeight());
             //HarnessDiagnostics.logStartup(ctx);

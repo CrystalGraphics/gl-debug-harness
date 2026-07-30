@@ -4,12 +4,17 @@ import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.CgPlatformService;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
+import com.crystalgraphics.platform.service.CgCursorService;
+import com.crystalgraphics.platform.service.CgInputService;
 import com.crystalgraphics.platform.service.CgLifecycleService;
 import com.crystalgraphics.platform.service.CgReloadService;
 import com.crystalgraphics.platform.service.CgRenderingService;
 import com.crystalgraphics.platform.service.CgResourceService;
+import com.crystalgraphics.platform.service.CgSoundService;
+import io.github.somehussar.crystalgraphics.harness.util.Lwjgl2CursorService;
 import io.github.somehussar.crystalgraphics.platform.gl.Lwjgl2GLBackend;
 import io.github.somehussar.crystalgraphics.platform.gl.Lwjgl2GLContext;
+import io.github.somehussar.crystalgraphics.platform.input.InputAdapter;
 import io.github.somehussar.crystalgraphics.platform.service.LifecycleServiceHarness;
 import io.github.somehussar.crystalgraphics.platform.service.ReloadServiceHarness;
 import io.github.somehussar.crystalgraphics.platform.service.RenderingServiceHarness;
@@ -21,6 +26,14 @@ import io.github.somehussar.crystalgraphics.platform.service.ResourceServiceHarn
  *
  * <p>{@link RenderingServiceHarness} and {@link LifecycleServiceHarness} instances are exposed
  * via package-visible accessors if needed.</p>
+ *
+ * <h3>Sound is a mutable field, and the input adapter carries a swappable clipboard</h3>
+ * <p>{@link CgPlatform} reads services only through the registered bundle and has no per-service setter,
+ * which is right for a real loader — it has everything to hand at once, and half-registration is the
+ * failure mode that shape rules out. Harness scenes are the awkward case: {@code CgUiButtonScene} counts
+ * sound calls, {@code CgUiTextFieldScene} wants the AWT system clipboard. Since there is exactly one
+ * bundle and it is a singleton, those scenes reach in and set the piece they care about via
+ * {@link #getInstance()} rather than standing up a bundle of their own.</p>
  */
 public final class PlatformServiceHarness implements CgPlatformService {
     
@@ -38,6 +51,16 @@ public final class PlatformServiceHarness implements CgPlatformService {
     public final ReloadServiceHarness reloadImpl = new ReloadServiceHarness();
     public final Lwjgl2GLBackend glDispatchImpl = new Lwjgl2GLBackend();
     public final Lwjgl2GLContext glContextImpl = new Lwjgl2GLContext();
+    public final InputAdapter inputImpl = new InputAdapter();
+    public final Lwjgl2CursorService cursorImpl = new Lwjgl2CursorService();
+    /**
+     * Swappable — see the class javadoc. Silent unless a scene installs a counter.
+     *
+     * <p>The harness has no audio backend at all, so this is the "empty method body" case the platform
+     * SPI expects rather than a shared no-op borrowed from it — there is deliberately no
+     * {@code CgSoundService.NOOP} to reach for.</p>
+     */
+    public CgSoundService soundImpl = soundId -> {};
 
     @Override public CgGLBackend       gl()           { return glDispatchImpl; }
     @Override public CgGLContext         capabilities() { return glContextImpl; }
@@ -45,6 +68,9 @@ public final class PlatformServiceHarness implements CgPlatformService {
     @Override public CgRenderingService rendering()    { return renderingImpl; }
     @Override public CgLifecycleService lifecycle()    { return lifecycleImpl; }
     @Override public CgReloadService    reload()       { return reloadImpl; }
+    @Override public CgInputService     input()        { return inputImpl; }
+    @Override public CgSoundService     sound()        { return soundImpl; }
+    @Override public CgCursorService    cursor()       { return cursorImpl; }
     
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 

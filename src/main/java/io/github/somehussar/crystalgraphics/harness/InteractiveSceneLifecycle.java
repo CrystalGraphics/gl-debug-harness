@@ -1,6 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness;
 
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.platform.CgPlatform;
 
 /**
  * Extended lifecycle contract for interactive scenes with continuous render loops.

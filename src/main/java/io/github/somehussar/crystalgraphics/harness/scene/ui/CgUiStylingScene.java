@@ -5,7 +5,7 @@ import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.UIWindow;
-import com.crystalgui.core.input.SystemInput;
+import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
@@ -32,7 +32,7 @@ import org.lwjgl.input.Keyboard;
  * <p>Register in {@link io.github.somehussar.crystalgraphics.harness.SceneRegistry}
  * under scene id {@code "cgui-styling"}.</p>
  */
-public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
+public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
     private UIWindow uiWindow;
 
@@ -326,7 +326,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
     }
 
     @Override
-    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         final var styleEngine = uiWindow.getStyleEngine();
         if (!styleEngine.getSheets().isEmpty())
             styleEngine.removeStylesheet(styleEngine.getSheets().getFirst());
@@ -334,7 +334,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, SystemInput.
     }
 
     @Override
-    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+    public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         return uiWindow.getInputHandler().consumeMouseEvent(event);
     }
 }

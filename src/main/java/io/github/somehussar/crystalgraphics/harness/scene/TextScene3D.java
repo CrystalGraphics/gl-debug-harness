@@ -10,8 +10,8 @@ import com.crystalgraphics.text.richtext.CgMarkupParser;
 import com.crystalgraphics.util.profiling.CgProfiler;
 import com.crystalgraphics.util.profiling.CgProfilerDump;
 import com.crystalgraphics.util.profiling.CgProfilerReport;
-import com.crystalgui.core.input.SystemInput;
-import com.crystalgui.core.input.keyboard.CgUiKeyCodes;
+import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgraphics.platform.input.CgKeyCodes;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
@@ -66,7 +66,7 @@ import java.util.logging.Logger;
  *
  * @see WorldTextRenderHelper
  */
-public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse, SystemInput.Keyboard {
+public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mouse, CgSystemInput.Keyboard {
 
     private static final Logger LOGGER = Logger.getLogger(TextScene3D.class.getName());
     
@@ -472,7 +472,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     public boolean uses3DCamera() {return true;}
 
     @Override
-    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+    public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         scrollDelta = event.wheelDelta();
          if (scrollDelta > 0) scrollScale -= 0.1f;
          else if (scrollDelta < 0) scrollScale += 0.1f;
@@ -481,10 +481,10 @@ public class TextScene3D implements InteractiveSceneLifecycle, SystemInput.Mouse
     }
 
     @Override
-    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         // Braced deliberately: without them only dumpAtlases() was guarded, and
         // dumpMsdfGenerationProfile() ran on *every* keyboard event including key-up and repeats.
-        if (event.pressed() && !event.repeat() && event.key() == CgUiKeyCodes.KEY_LBRACKET) {
+        if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_LBRACKET) {
             dumpAtlases();
             dumpMsdfGenerationProfile();
         }

@@ -1,7 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
-import com.crystalgui.core.input.SystemInput;
-import com.crystalgui.core.input.keyboard.CgUiKeyCodes;
+import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgui.core.property.Property;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
@@ -18,7 +18,7 @@ import com.crystalgui.ui.elements.CheckboxGroup;
 import com.crystalgui.ui.elements.ScrollerView;
 import com.crystalgui.ui.elements.Slider;
 import com.crystalgui.ui.elements.SplitView;
-import com.crystalgui.core.input.mouse.CgUiMouseCodes;
+import com.crystalgraphics.platform.input.CgMouseCodes;
 import com.crystalgui.ui.AnchoredPlacement;
 import com.crystalgui.ui.elements.Dropdown;
 import com.crystalgui.ui.elements.Menu;
@@ -56,7 +56,7 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  * constructed during {@code init}. That is fine at this size; a page heavy enough to matter should
  * populate itself from an {@code onTabSelected} listener instead.</p>
  */
-public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
+public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
     private UIWindow uiWindow;
     private TabView pages;
@@ -927,7 +927,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
         stage.addChild(context);
 
         canvas.onMouseDown.attachListener((el, event) -> {
-            if (event.getButtonId() != CgUiMouseCodes.RIGHT_BUTTON) return;
+            if (event.getButtonId() != CgMouseCodes.RIGHT_BUTTON) return;
             var pos = event.getPosition();
             var at = AnchoredPlacement.pointerToRoot(canvas.getAttachedWindow(), pos.x(), pos.y());
             // NO invoker: an invoker is spared by light dismiss, which is what a toggle button needs and
@@ -1079,14 +1079,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
     }
 
     @Override
-    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         if (event.pressed()) {
             switch (event.key()) {
-                case CgUiKeyCodes.KEY_RBRACKET -> {
+                case CgKeyCodes.KEY_RBRACKET -> {
                     setScale(Math.min(8f, uiWindow.getUiScale() + 0.1f));
                     return true;
                 }
-                case CgUiKeyCodes.KEY_LBRACKET -> {
+                case CgKeyCodes.KEY_LBRACKET -> {
                     setScale(Math.max(0.1f, uiWindow.getUiScale() - 0.1f));
                     return true;
                 }
@@ -1111,7 +1111,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, SystemInput.
     }
 
     @Override
-    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+    public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         return uiWindow.getInputHandler().consumeMouseEvent(event);
     }
 }

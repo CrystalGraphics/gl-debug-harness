@@ -1,8 +1,8 @@
 package io.github.somehussar.crystalgraphics.harness.util;
 
-import com.crystalgui.core.input.CursorBitmaps;
-import com.crystalgui.core.input.UICursorService;
-import com.crystalgui.style.property.visual.Cursor;
+import com.crystalgraphics.platform.input.CgCursorBitmaps;
+import com.crystalgraphics.platform.service.CgCursorService;
+import com.crystalgraphics.platform.input.CgCursor;
 import org.lwjgl.LWJGLException;
 import org.lwjgl.input.Mouse;
 
@@ -14,19 +14,19 @@ import java.util.Map;
  * Presents real OS cursors via LWJGL2, for the CSS {@code cursor} property the engine resolves.
  *
  * <p>Lives in the harness because {@code core/} may not import LWJGL at all — the import guard fails
- * the build on it. This is the reference implementation of {@link UICursorService}; MC 1.7.10 is also
+ * the build on it. This is the reference implementation of {@link CgCursorService}; MC 1.7.10 is also
  * LWJGL2 and can reuse it almost verbatim, while an LWJGL3/GLFW loader has a much easier job
  * (<code>glfwCreateStandardCursor</code> covers the whole resize set).</p>
  *
  * <h3>Three LWJGL2 details that are easy to get wrong</h3>
  * <ol>
  *   <li><b>Images are bottom-up, and the hotspot's Y is measured from the bottom.</b> Every drawing
- *       function in {@link CursorBitmaps} works top-down like the rest of this codebase, so the flip
+ *       function in {@link CgCursorBitmaps} works top-down like the rest of this codebase, so the flip
  *       happens here, once, in {@link #toCursor}. Getting this wrong produces a vertically mirrored
  *       cursor whose hotspot is at the wrong end — and for a symmetric double-arrow the mirroring is
  *       invisible, so only the hotspot would give it away.</li>
  *   <li><b>Cursors must be a size the platform accepts</b>, which in practice means 32×32 on Windows.
- *       {@code Cursor.getMinCursorSize()}/{@code getMaxCursorSize()} are checked rather than assumed,
+ *       {@code org.lwjgl.input.Cursor.getMinCursorSize()}/{@code getMaxCursorSize()} are checked rather than assumed,
  *       and a platform outside that range gets the system arrow instead of a crash.</li>
  *   <li><b>Native cursors need the capability bit.</b> Without
  *       {@code CURSOR_ONE_BIT_TRANSPARENCY} there is no cursor support at all, and creating one
@@ -38,34 +38,34 @@ import java.util.Map;
  * to {@code null}, which is LWJGL2's way of restoring the system arrow — a better answer than a wrong
  * picture, and the right one for most of the keyword set.</p>
  */
-public final class Lwjgl2CursorService implements UICursorService {
+public final class Lwjgl2CursorService implements CgCursorService {
 
     /**
      * The distinct pictures, as opposed to the CSS keywords that ask for them.
      *
      * <p><b>Caching by shape rather than by keyword is the point.</b> Eighteen keywords map onto these
      * six — {@code ew-resize}, {@code col-resize}, {@code e-resize} and {@code w-resize} all want the
-     * same horizontal arrow. Keying the cache on {@link Cursor} instead allocated a separate native
+     * same horizontal arrow. Keying the cache on {@link CgCursor} instead allocated a separate native
      * cursor object per keyword: seventeen natives for six images, each one a real OS handle.</p>
      */
     private enum Shape {
-        HORIZONTAL_ARROW(CursorBitmaps::horizontalDoubleArrow),
-        VERTICAL_ARROW(CursorBitmaps::verticalDoubleArrow),
-        DIAGONAL_NWSE(CursorBitmaps::diagonalNwseArrow),
-        DIAGONAL_NESW(CursorBitmaps::diagonalNeswArrow),
-        FOUR_WAY(CursorBitmaps::fourWayArrow),
-        TEXT_BEAM(CursorBitmaps::textBeam),
+        HORIZONTAL_ARROW(CgCursorBitmaps::horizontalDoubleArrow),
+        VERTICAL_ARROW(CgCursorBitmaps::verticalDoubleArrow),
+        DIAGONAL_NWSE(CgCursorBitmaps::diagonalNwseArrow),
+        DIAGONAL_NESW(CgCursorBitmaps::diagonalNeswArrow),
+        FOUR_WAY(CgCursorBitmaps::fourWayArrow),
+        TEXT_BEAM(CgCursorBitmaps::textBeam),
         // The one shape whose hotspot is not its centre: a hand points, and the click must land on the
         // fingertip rather than half a cursor below it.
-        POINTING_HAND(CursorBitmaps::pointingHand,
-                CursorBitmaps.HAND_HOTSPOT_X, CursorBitmaps.HAND_HOTSPOT_Y);
+        POINTING_HAND(CgCursorBitmaps::pointingHand,
+                CgCursorBitmaps.HAND_HOTSPOT_X, CgCursorBitmaps.HAND_HOTSPOT_Y);
 
         private final java.util.function.Supplier<int[]> draw;
         private final int hotspotX;
         private final int hotspotY;
 
         Shape(java.util.function.Supplier<int[]> draw) {
-            this(draw, CursorBitmaps.HOTSPOT, CursorBitmaps.HOTSPOT);
+            this(draw, CgCursorBitmaps.HOTSPOT, CgCursorBitmaps.HOTSPOT);
         }
 
         Shape(java.util.function.Supplier<int[]> draw, int hotspotX, int hotspotY) {
@@ -83,7 +83,7 @@ public final class Lwjgl2CursorService implements UICursorService {
     private Boolean cursorsAvailable;
 
     @Override
-    public void setCursor(Cursor cursor) {
+    public void setCursor(CgCursor cursor) {
         if (!supported) return;
         try {
             Mouse.setNativeCursor(resolve(cursor));
@@ -95,7 +95,7 @@ public final class Lwjgl2CursorService implements UICursorService {
     }
 
     /** @return the native cursor for {@code cursor}, or {@code null} to use the system arrow. */
-    private org.lwjgl.input.Cursor resolve(Cursor cursor) {
+    private org.lwjgl.input.Cursor resolve(CgCursor cursor) {
         Shape shape = shapeFor(cursor);
         if (shape == null) return null; // no artwork — the system arrow beats a wrong picture
         if (cache.containsKey(shape)) return cache.get(shape);
@@ -114,10 +114,10 @@ public final class Lwjgl2CursorService implements UICursorService {
 
     /**
      * Which CSS keywords we have artwork for. Everything else falls through to the system arrow, which
-     * is a better answer than a wrong shape — and that is most of the set, deliberately: {@link Cursor}
+     * is a better answer than a wrong shape — and that is most of the set, deliberately: {@link CgCursor}
      * ports all of CSS's keywords while only a handful matter to this UI.
      */
-    private static Shape shapeFor(Cursor cursor) {
+    private static Shape shapeFor(CgCursor cursor) {
         switch (cursor) {
             case EW_RESIZE: case COL_RESIZE: case E_RESIZE: case W_RESIZE:
                 return Shape.HORIZONTAL_ARROW;
@@ -146,8 +146,8 @@ public final class Lwjgl2CursorService implements UICursorService {
         if (cursorsAvailable == null) {
             cursorsAvailable = (org.lwjgl.input.Cursor.getCapabilities()
                     & org.lwjgl.input.Cursor.CURSOR_ONE_BIT_TRANSPARENCY) != 0
-                    && CursorBitmaps.SIZE >= org.lwjgl.input.Cursor.getMinCursorSize()
-                    && CursorBitmaps.SIZE <= org.lwjgl.input.Cursor.getMaxCursorSize();
+                    && CgCursorBitmaps.SIZE >= org.lwjgl.input.Cursor.getMinCursorSize()
+                    && CgCursorBitmaps.SIZE <= org.lwjgl.input.Cursor.getMaxCursorSize();
         }
         return cursorsAvailable;
     }
@@ -158,12 +158,12 @@ public final class Lwjgl2CursorService implements UICursorService {
      * <p>The vertical flip and the hotspot conversion are the whole reason this is a separate method:
      * they are one line each and both are silently wrong if omitted.</p>
      *
-     * <p>The hotspot is passed in rather than read from {@code CursorBitmaps.HOTSPOT}, because it is not the
+     * <p>The hotspot is passed in rather than read from {@code CgCursorBitmaps.HOTSPOT}, because it is not the
      * centre for every shape — a pointing hand's is its fingertip. Reading the constant here would put the
      * click point half a cursor away from where the picture says it is.</p>
      */
     private org.lwjgl.input.Cursor toCursor(int[] topDown, int hotspotX, int hotspotY) throws LWJGLException {
-        final int size = CursorBitmaps.SIZE;
+        final int size = CgCursorBitmaps.SIZE;
         IntBuffer pixels = org.lwjgl.BufferUtils.createIntBuffer(size * size);
         for (int y = size - 1; y >= 0; y--) {
             for (int x = 0; x < size; x++) {

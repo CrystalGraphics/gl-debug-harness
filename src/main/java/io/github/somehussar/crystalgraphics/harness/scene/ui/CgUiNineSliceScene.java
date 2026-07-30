@@ -1,6 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
-import com.crystalgui.core.input.SystemInput;
+import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.ui.UIElement;
@@ -34,7 +34,7 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  *   <li>{@code scale2} — borders and tiles at double size from the same source texture.</li>
  * </ul>
  */
-public class CgUiNineSliceScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
+public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
     private UIWindow uiWindow;
 
@@ -143,12 +143,12 @@ public class CgUiNineSliceScene implements InteractiveSceneLifecycle, SystemInpu
     }
 
     @Override
-    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         return uiWindow.getInputHandler().consumeKeyboardEvent(event);
     }
 
     @Override
-    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+    public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         return uiWindow.getInputHandler().consumeMouseEvent(event);
     }
 }

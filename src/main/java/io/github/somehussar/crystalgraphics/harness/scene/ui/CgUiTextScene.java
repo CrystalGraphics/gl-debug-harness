@@ -1,7 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
-import com.crystalgui.core.input.SystemInput;
-import com.crystalgui.core.input.keyboard.CgUiKeyCodes;
+import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgui.core.property.Property;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
@@ -47,7 +47,7 @@ import org.lwjgl.input.Keyboard;
  * <p>Register in {@link io.github.somehussar.crystalgraphics.harness.SceneRegistry} under scene id
  * {@code "cgui-text"}.</p>
  */
-public class CgUiTextScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
+public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
     private UIWindow uiWindow;
     private final Property<String> liveText = new Property<>("Short.");
@@ -173,18 +173,18 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, SystemInput.Key
     }
 
     @Override
-    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         if (event.pressed() && !event.repeat()) {
             switch(event.key()) {
-                case CgUiKeyCodes.KEY_SPACE:
+                case CgKeyCodes.KEY_SPACE:
                     liveIndex = (liveIndex + 1) % LIVE_STRINGS.length;
                     liveText.set(LIVE_STRINGS[liveIndex]);
                     return true;
-                case CgUiKeyCodes.KEY_UP:
+                case CgKeyCodes.KEY_UP:
                     uiWindow.setUiScale(Math.min(4, uiWindow.getUiScale() + 0.5f));
                     uiWindow.init(0, 0);
                     return true;
-                case CgUiKeyCodes.KEY_DOWN:
+                case CgKeyCodes.KEY_DOWN:
                     uiWindow.setUiScale(Math.max(0.5f, uiWindow.getUiScale() - 0.5f));
                     uiWindow.init(0, 0);
                     return true;
@@ -194,7 +194,7 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, SystemInput.Key
     }
 
     @Override
-    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+    public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         return uiWindow.getInputHandler().consumeMouseEvent(event);
     }
 }

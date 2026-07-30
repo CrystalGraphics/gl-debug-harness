@@ -1,8 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
-import com.crystalgui.core.CrystalGuiCore;
-import com.crystalgui.core.input.SystemInput;
-import com.crystalgui.core.input.UIClipboard;
+import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.core.property.Property;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
@@ -18,9 +16,6 @@ import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 
-import java.awt.Toolkit;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.StringSelection;
 
 /**
  * Exercises {@code TextField} — type, select, copy/paste, and the validation layers.
@@ -33,7 +28,7 @@ import java.awt.datatransfer.StringSelection;
  * field leaves it {@code :invalid} but still editable (you have to be able to get to {@code -5}), and
  * the letters row simply refuses non-digit keystrokes outright.</p>
  */
-public class CgUiTextFieldScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
+public class CgUiTextFieldScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
     private UIWindow uiWindow;
     private TextField plain;
@@ -62,34 +57,8 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, SystemInpu
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
 
-        // Real system clipboard, via AWT. LWJGL2's Sys.getClipboard() can only read; AWT is the one
-        // that can also write, which Ctrl+X/C need.
-        CrystalGuiCore.setClipboard(new UIClipboard() {
-            @Override
-            public String get() {
-                try {
-                    var contents = Toolkit.getDefaultToolkit().getSystemClipboard()
-                            .getContents(null);
-                    if (contents != null && contents.isDataFlavorSupported(DataFlavor.stringFlavor)) {
-                        return (String) contents.getTransferData(DataFlavor.stringFlavor);
-                    }
-                } catch (Exception ignored) {
-                    // Clipboard access can fail for reasons entirely outside our control (another app
-                    // owning it, a headless/locked session). An empty read is the right degradation.
-                }
-                return "";
-            }
-
-            @Override
-            public void set(String text) {
-                try {
-                    Toolkit.getDefaultToolkit().getSystemClipboard()
-                            .setContents(new StringSelection(text), null);
-                } catch (Exception ignored) {
-                }
-            }
-        });
-
+        // The real system clipboard comes from the harness's InputAdapter (AWT-backed), so Ctrl+X/C/V
+        // in this scene exercise the same path a loader would provide.
         this.uiWindow = new UIWindow(Ui.of(createDemo()));
         this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
         this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
@@ -233,12 +202,12 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, SystemInpu
     }
 
     @Override
-    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         return uiWindow.getInputHandler().consumeKeyboardEvent(event);
     }
 
     @Override
-    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+    public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         return uiWindow.getInputHandler().consumeMouseEvent(event);
     }
 }

@@ -9,7 +9,7 @@ import com.crystalgui.render.texture.CgUiSprite;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.*;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
-import com.crystalgui.core.input.SystemInput;
+import com.crystalgraphics.platform.input.CgSystemInput;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import org.lwjgl.input.Keyboard;
@@ -30,7 +30,7 @@ import org.lwjgl.input.Keyboard;
  * <p>Register in {@link io.github.somehussar.crystalgraphics.harness.SceneRegistry}
  * under scene id {@code "cgui-test"}.</p>
  */
-public class CgUiTestScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
+public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
     private UIWindow uiWindow;
 
@@ -222,7 +222,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, SystemInput.Key
     }
 
     @Override
-    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
 
 //        if (event.pressed()) {
 //            uiWindow.ui.rootElement.generalStyle(s -> {
@@ -247,7 +247,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, SystemInput.Key
     }
 
     @Override
-    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+    public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         return uiWindow.getInputHandler().consumeMouseEvent(event);
     }
 }

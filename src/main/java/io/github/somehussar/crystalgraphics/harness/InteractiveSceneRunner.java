@@ -3,7 +3,7 @@ package io.github.somehussar.crystalgraphics.harness;
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.util.profiling.CgProfiler;
-import com.crystalgui.core.input.SystemInput;
+import com.crystalgraphics.platform.input.CgSystemInput;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.camera.FloorRenderer;
 import io.github.somehussar.crystalgraphics.harness.camera.HUDRenderer;
@@ -118,8 +118,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private OverlayPipeline overlayPipeline;
     private WorldPassCoordinator worldPassCoordinator;
 
-    private List<SystemInput.Mouse> mouseListeners = new ArrayList<>();
-    private List<SystemInput.Keyboard> keyboardListeners = new ArrayList<>();
+    private List<CgSystemInput.Mouse> mouseListeners = new ArrayList<>();
+    private List<CgSystemInput.Keyboard> keyboardListeners = new ArrayList<>();
 
     public InteractiveSceneRunner(InteractiveSceneLifecycle scene, HarnessContext ctx) {
         this.scene = scene;
@@ -311,13 +311,13 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             while (Mouse.next()) {
                 int buttonId = Mouse.getEventButton();
                 long millisTimestamp = buttonId == -1 ? -1 : Mouse.getEventNanoseconds() / NANOS_IN_MILLIS;
-                SystemInput.Mouse.Event event = new SystemInput.Mouse.Event(
+                CgSystemInput.Mouse.Event event = new CgSystemInput.Mouse.Event(
                         Mouse.getEventX(), ctx.getScreenHeight()-Mouse.getEventY(),
                         Mouse.getEventDX(), Mouse.getEventDY() * NORMALIZE_TOP_LEFT_ORIGIN,
                         buttonId, Mouse.getEventButtonState(),
                         Mouse.getEventDWheel() * MOUSE_SCROLL_NORMALIZE, millisTimestamp
                 );
-                for (SystemInput.Mouse listener : mouseListeners) {
+                for (CgSystemInput.Mouse listener : mouseListeners) {
                     if (!listener.consumeMouseEvent(event)) break;
                 }
             }
@@ -325,12 +325,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
         if (!keyboardListeners.isEmpty()) {
             while (Keyboard.next()) {
-                SystemInput.Keyboard.Event event = new SystemInput.Keyboard.Event(
+                CgSystemInput.Keyboard.Event event = new CgSystemInput.Keyboard.Event(
                         Keyboard.getEventCharacter(), Keyboard.getEventKey(),
                         Keyboard.getEventKeyState(), Keyboard.isRepeatEvent(),
                         Keyboard.getEventNanoseconds() / NANOS_IN_MILLIS
                 );
-                for (SystemInput.Keyboard listener : keyboardListeners) {
+                for (CgSystemInput.Keyboard listener : keyboardListeners) {
                     if (!listener.consumeKeyboardEvent(event)) break;
                 }
             }
@@ -338,10 +338,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     }
 
     private void registerInputHandler(Object objectToProcess) {
-        if (objectToProcess instanceof SystemInput.Mouse mouseHandler)
+        if (objectToProcess instanceof CgSystemInput.Mouse mouseHandler)
             this.mouseListeners.add(mouseHandler);
 
-        if (objectToProcess instanceof SystemInput.Keyboard keyboardHandler)
+        if (objectToProcess instanceof CgSystemInput.Keyboard keyboardHandler)
             this.keyboardListeners.add(keyboardHandler);
     }
 

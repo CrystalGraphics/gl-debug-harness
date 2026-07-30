@@ -1,6 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.runtime;
 
-import com.crystalgui.core.input.SystemInput;
+import com.crystalgraphics.platform.input.CgSystemInput;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -32,7 +32,7 @@ import java.util.logging.Logger;
  * called once per frame BEFORE camera input processing, so the camera
  * skips updates while paused.</p>
  */
-public final class InputPauseHandler implements SystemInput.Keyboard, SystemInput.Mouse {
+public final class InputPauseHandler implements CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
     private static final Logger LOGGER = Logger.getLogger(InputPauseHandler.class.getName());
     private final boolean grabCursorOnUnpause;
@@ -96,7 +96,7 @@ public final class InputPauseHandler implements SystemInput.Keyboard, SystemInpu
     }
 
     @Override
-    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         if (event.repeat())
             return !isPaused();
 
@@ -112,7 +112,7 @@ public final class InputPauseHandler implements SystemInput.Keyboard, SystemInpu
     }
 
     @Override
-    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+    public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         return true;
     }
 }

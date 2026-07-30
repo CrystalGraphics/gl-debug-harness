@@ -2,7 +2,7 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.util.profiling.CgProfiler;
 import com.crystalgraphics.util.profiling.CgProfilerReport;
-import com.crystalgui.core.input.SystemInput;
+import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.ui.UIElement;
@@ -62,7 +62,7 @@ import java.util.logging.Logger;
  * of elements and specific visual cases (fallback fonts, wrapping, binding). Folding a stress panel
  * into it would make both jobs worse.
  */
-public class CgUiTextStressScene implements InteractiveSceneLifecycle, SystemInput.Keyboard, SystemInput.Mouse {
+public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
     private static final Logger LOGGER = Logger.getLogger(CgUiTextStressScene.class.getName());
 
@@ -388,12 +388,12 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, SystemInp
     }
 
     @Override
-    public boolean consumeKeyboardEvent(SystemInput.Keyboard.Event event) {
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         return uiWindow.getInputHandler().consumeKeyboardEvent(event);
     }
 
     @Override
-    public boolean consumeMouseEvent(SystemInput.Mouse.Event event) {
+    public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         return uiWindow.getInputHandler().consumeMouseEvent(event);
     }
 }
