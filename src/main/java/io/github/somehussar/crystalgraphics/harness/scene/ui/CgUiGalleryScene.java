@@ -29,6 +29,7 @@ import com.crystalgui.ui.elements.TabView;
 import com.crystalgui.ui.elements.TextField;
 import com.crystalgui.ui.elements.Tooltip;
 import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.text.TextRange;
 import com.crystalgui.ui.input.FocusPolicy;
 import com.crystalgui.ui.input.UIDragController;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -174,6 +175,48 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
              * alignment would look identical — the wrapper is what gives alignment something to
              * align WITHIN. Same reason `.desc` above carries a width. */
             .tx-box        { width: 190px; background: #2E3540; padding-all: 4px; }
+            /* 6.1.1 — the CSS Custom Highlight API.
+             *
+             * Java registers WHERE (named TextRanges on the element); CSS says WHAT. That split is the
+             * whole point of the mechanism on the web, and it is why none of these colours live in the
+             * scene any more: a theme can restyle every highlight below without touching a line of Java.
+             *
+             * ::highlight() accepts only properties that cannot affect layout — colour, background,
+             * text-decoration-line, text-shadow. CSS Pseudo-Elements 4 restricts it that way so a
+             * highlight can never reflow the text it highlights, and the engine drops anything else with
+             * a warning rather than accepting a rule that does nothing. */
+            .tx-rich       { width: 300px; background: #23282F; padding-all: 5px; color: #D6DEE8; }
+
+            /* A syntax theme, in CSS, exactly as it should be. One Dark's palette. */
+            .tx-rich ::highlight(keyword)  { color: #C678DD; }
+            .tx-rich ::highlight(function) { color: #61AFEF; }
+            .tx-rich ::highlight(variable) { color: #E06C75; }
+
+            /* Decoration-only: no colour at all, so the text keeps its own and stays readable. This is
+             * what a spell-check mark or a search hit actually wants. */
+            .tx-rich ::highlight(spelling) { text-decoration-line: underline; }
+            .tx-rich ::highlight(removed)  { text-decoration-line: line-through; color: #7F848E; }
+            /* A search hit, recoloured and underlined rather than banded.
+             *
+             * `background-color` IS valid on ::highlight() per CSS, and is deliberately not used here
+             * because this engine cannot paint it yet: a band behind a character range needs per-range
+             * rects from the text layout, and CgStyleSpan carries colour and decorations only. The engine
+             * logs that distinction rather than silently dropping the declaration. */
+            .tx-rich ::highlight(search)   { color: #E5C07B; text-decoration-line: underline; }
+
+            /* Light on purpose, and the only row here that is.
+             *
+             * A text shadow is a quarter-brightness copy offset by 1px. On this page's dark background
+             * that is very nearly the background colour, so the row rendered identically whether the
+             * shadow was right, wrong or absent — a demo that cannot fail is not a demo. Against a light
+             * panel the bug this row guards against (a highlight colour painting its shadow at FULL
+             * brightness, because a span colour beats the draw colour downstream) shows up unmistakably
+             * as a bright halo. */
+            .tx-shadow-row { text-shadow: true; background: #C9D2DD; color: #14181D; }
+            .tx-shadow-row ::highlight(red)   { color: #CC0000; }
+            .tx-shadow-row ::highlight(green) { color: #00892B; }
+            .tx-shadow-row ::highlight(blue)  { color: #1240D0; }
+
             .tx-left       { text-align: left; }
             .tx-center     { text-align: center; }
             .tx-right      { text-align: right; }
@@ -294,7 +337,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         dragPage(page("Drag", "Drag a chip onto a bin. Ghost follows the cursor; Escape cancels."));
         resizePage(page("resize", "In-flow boxes get 3 handles, like CSS. The Dialog page has all 8."));
         dialogPage(page("Dialog", "Drag to move, click to raise, X closes. New windows cascade."));
-        textCssPage(page("text-css", "text-align, white-space, text-overflow, text-shadow. All CSS."));
+        textCssPage(page("text-css", "CSS text properties, plus ::highlight() ranges styled from CSS."));
         focusPage(page("focus", "Tab enters the tablist ONCE. Arrows move inside it."));
         modalPage(page("modal", "showModal(): backdrop, focus trap, Escape. Everything else inert."));
         menuPage(page("menus", "Dropdown, context menu, submenu. Click outside or Escape to dismiss."));
@@ -757,6 +800,74 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.addChild(row(slot("ellipsis"), txBox("one long line that gets cut short with an ellipsis", "tx-ellipsis")));
         pane.addChild(row(slot("shadow"), txBox("drop shadow behind me", "tx-shadow")));
         pane.addChild(row(slot("inherited"), txBox("set on the WRAPPER, not the text", "tx-inherit")));
+
+        // ── 6.1.1: ::highlight() ──────────────────────────────────────────────
+        //
+        // The CSS Custom Highlight API — the web's own way of styling ranges of text WITHOUT wrapping
+        // them in elements, which exists on the web for our exact reason: an editor cannot afford a
+        // <span> per token, and here every element is a real Taffy node. Java says where, CSS says what.
+        //
+        // The first row is a line of GLSL because that is the real consumer waiting downstream: the
+        // shader graph's node inspector, and 6.1.7's code editor after it.
+        pane.addChild(row(slot("syntax"), highlightBox("vec3 n = normalize(pos);", null, hl -> hl
+                .mark("keyword", "vec3")
+                .mark("function", "normalize")
+                .mark("variable", "pos"))));
+
+        // Decoration and background WITHOUT a colour: the text keeps its own, which is what makes a
+        // search hit or a spelling mark readable rather than merely visible.
+        pane.addChild(row(slot("decoration"), highlightBox("a misspelled word, and a deleted one", null,
+                hl -> hl
+                        .mark("spelling", "misspelled")
+                        .mark("removed", "deleted"))));
+
+        // Two ranges under ONE name — what a search actually produces, and the case that makes the
+        // registry's sorted/disjoint rule worth having.
+        pane.addChild(row(slot("search hits"), highlightBox("find the needle, then the next needle", null,
+                hl -> hl.mark("search", "needle").mark("search", "needle"))));
+
+        // Compare against the rows above: each coloured word's shadow must be a DARKER version of that
+        // word, never the same brightness and never uniformly grey.
+        pane.addChild(row(slot("+shadow"), highlightBox("red green blue, each with its own shadow",
+                "tx-shadow-row", hl -> hl
+                        .mark("red", "red")
+                        .mark("green", "green")
+                        .mark("blue", "blue"))));
+
+        // The crash path: truncation paints a PREFIX, so a range reaching past the cut would fail the
+        // backend's validation mid-paint. This one deliberately straddles the ellipsis.
+        //
+        // `.tx-ellipsis`, NOT `.tx-nowrap` — they differ by one declaration and render almost
+        // identically, which is exactly the trap the stylesheet comment above `.tx-nowrap` warns about.
+        pane.addChild(row(slot("+ellipsis"), highlightBox(
+                "a highlighted range that runs straight past where this line gets cut", "tx-ellipsis",
+                hl -> hl.mark("search", "runs straight past where this line gets cut"))));
+    }
+
+    /**
+     * Registers ranges by <b>substring search</b> rather than by literal indices.
+     *
+     * <p>Hand-counted offsets in a demo rot the moment anybody edits the string, and silently: the wrong
+     * word lights up, or the range no longer exists. Searching forward from the previous match also
+     * keeps the ranges under one name sorted and disjoint, which {@code HighlightRegistry} requires.</p>
+     */
+    private static final class HighlightBuilder {
+        private final String text;
+        private final UIText label;
+        private int cursor;
+
+        HighlightBuilder(String text, UIText label) {
+            this.text = text;
+            this.label = label;
+        }
+
+        HighlightBuilder mark(String name, String needle) {
+            int at = text.indexOf(needle, cursor);
+            if (at < 0) throw new IllegalArgumentException("gallery: '" + needle + "' is not in " + text);
+            cursor = at + needle.length();
+            label.highlights().add(name, TextRange.of(at, cursor));
+            return this;
+        }
     }
 
     /** A fixed-width box around a label — the label alone would self-size and leave nothing to align in. */
@@ -767,6 +878,21 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         UIText label = new UIText(text);
         label.addClass("label");
         box.addChild(label);
+        return box;
+    }
+
+    /** A `.tx-rich` box whose label carries named highlight ranges, styled entirely from the sheet. */
+    private UIElement highlightBox(String text, String extraClass,
+                                   java.util.function.Consumer<HighlightBuilder> build) {
+        UIElement box = new UIElement();
+        box.addClass("tx-box");
+        box.addClass("tx-rich");
+        if (extraClass != null) box.addClass(extraClass);
+
+        UIText label = new UIText(text);
+        label.addClass("label");
+        box.addChild(label);
+        build.accept(new HighlightBuilder(text, label));
         return box;
     }
 
