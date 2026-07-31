@@ -43,6 +43,7 @@ import com.crystalgui.ui.elements.list.SelectionMode;
 import com.crystalgui.ui.elements.tree.TreeDataSource;
 import com.crystalgui.ui.elements.tree.TreeRenderer;
 import com.crystalgui.ui.elements.tree.TreeRow;
+import com.crystalgui.ui.elements.editor.TextEditor;
 import com.crystalgui.ui.elements.tree.TreeView;
 import com.crystalgui.ui.text.TextRange;
 import com.crystalgui.ui.input.FocusPolicy;
@@ -345,6 +346,21 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             .tv-twisty:hover { color: #FFFFFF; }
             .tv-status     { color: #E5C07B; font-size: 7; }
 
+            /* editor page (6.1.6). The editor paints its own caret and selection bands from
+             * default.css, and forces its own font onto its lines -- so the letterforms follow whichever
+             * theme is loaded. Everything here is the frame around it.
+             *
+             * font-size is 11 rather than 8 on purpose: at 8 every font in the atlas looks blocky, which
+             * reads as "the theme did not apply" when it had. */
+            .ed            { width: 560px; height: 340px; background: #1E2228; outline: 1px solid #46505E;
+                             font-size: 11; line-height: 1.5; color: #D7DAE0;
+                             /* CSS UI 4 resize, implemented by UIResizer -- drag the bottom-right
+                              * corner. min-* stops it being collapsed to nothing. */
+                             resize: both; min-width: 200px; min-height: 90px; }
+            .ed .__caret__ { background-color: #61AFEF; }
+            .ed .__selection__ { background-color: #2C5A8C; }
+            .ed-status     { color: #7F8C99; font-size: 7; }
+
             /* focus page (5.3). The strip is a real TabView; the buttons on either side of it are what
              * make the roving tabindex visible — Tab must go before -> the SELECTED tab -> after,
              * skipping the other tabs entirely, and arrows must still move between them. */
@@ -456,6 +472,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         keymapPage(page("keymap", "Bindings are scoped to the focused subtree. Grey text says what to press."));
         listPage(page("list", "100,000 rows. Watch the realised count while you scroll - it does not grow."));
         treePage(page("tree", "Right opens without moving focus; Left closes, or goes to the parent."));
+        editorPage(page("editor", "Type. Ctrl+Z undoes a whole run of typing, not one character."));
         curvePage(page("curve", "ctx.curve() Bezier strokes - scroll for all 15 rows. The last two are the correctness checks."));
         graphPage(page("graph", "Drag a port onto another to wire it. Drag a node to move it. Wheel zooms at the cursor."));
 
@@ -1592,6 +1609,64 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         button.addClass(cssClass);
         button.attachListener(() -> buttonClicks++);
         return button;
+    }
+
+    /**
+     * 6.1.6 — the multi-line editor.
+     *
+     * <p><b>What to look for.</b> Type a few words and press Ctrl+Z: the whole run disappears in one
+     * step rather than one character at a time, because a run of keystrokes composes into a single
+     * {@code ChangeSet}. Pause for half a second mid-sentence and the pause becomes an undo boundary.
+     * Backspace ends a run of typing rather than joining it.</p>
+     *
+     * <p>Hold a column and press Down through the short line: the caret comes back out at the column it
+     * started from rather than being dragged inward — the {@code preferredColumn} every editor keeps and
+     * every naive one forgets.</p>
+     *
+     * <p>The document is 400 lines and only the visible ones exist as elements. Scroll and watch the
+     * realised count in the status line stay flat.</p>
+     */
+    private void editorPage(UIElement pane) {
+        String[] preamble = {
+                "// P6.1.6 - rope-backed multi-line editor",
+                "// Ctrl+Z undoes a run of typing, not one character.",
+                "//",
+                "// Down through the next short line and back up:",
+                "// the caret returns to the column it started from.",
+                "x",
+        };
+        StringBuilder document = new StringBuilder();
+        for (String line : preamble) document.append(line).append('\n');
+        for (int i = 0; i < 400; i++) {
+            document.append("line ").append(i).append(" - edit me, undo me, scroll past me").append('\n');
+        }
+
+        TextEditor editor = new TextEditor(document.toString());
+        editor.addClass("ed");
+
+        UIText status = new UIText("");
+        status.addClass("ed-status");
+        Runnable refresh = () -> {
+            long realised = editor.getChildren().stream()
+                    .filter(child -> child.hasClass(TextEditor.LINE_CLASS))
+                    .count();
+            status.setText("caret " + editor.caretPoint()
+                    + "   sel " + (editor.hasSelection() ? editor.getSelectedText().length() : 0)
+                    + "   lines realised " + realised + " of " + editor.buffer().lineCount()
+                    + "   undo depth " + editor.buffer().undoDepth());
+        };
+        editor.onSelectionChanged.connect(refresh::run);
+        editor.onChanged.connect(text -> refresh.run());
+        // Also on scroll, so the realised count is visibly flat while moving through 400 lines rather
+        // than only updating when something is typed.
+        editor.onWindowChanged.connect(refresh::run);
+        refresh.run();
+
+        pane.addChild(row(slot("editor"), editor));
+        pane.addChild(row(slot(""), status));
+        pane.addChild(row(slot(""), hint("Ctrl+Arrow by word; Ctrl+Backspace/Delete by word; Home toggles indent/col 0")));
+        pane.addChild(row(slot(""), hint("Ctrl+A selects all; Ctrl+C/X/V; double-click selects a word")));
+        pane.addChild(row(slot(""), hint("Drag the bottom-right corner to resize; no soft wrap yet (needs 6.1.3 variable rows)")));
     }
 
     /**
