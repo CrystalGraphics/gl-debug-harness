@@ -156,7 +156,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                but also a fixed 560x340 — and `.ed` sits LATER in this sheet, so at equal specificity it
                would win and the editor would ignore its pane. A descendant selector weighs 20 against
                its 10 and settles it without reordering rules that have nothing to do with each other. */
-            .shader-split .shader-source { width: 100%; height: 100%; font-size: 7; }
+            .shader-split .shader-source { width: 100%; height: 300px; font-size: 7; }
             /* The split takes the pane's slack; SplitView owns the divider, its drag and its cursor. */
             .shader-split  { width: 100%; height: 0; flex-grow: 1; }
             /* .graph-view's own `height: 0; flex-grow: 1` is written for a COLUMN parent, where grow
@@ -394,7 +394,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             .ed text::highlight(comment)  { color: #5C6370; }
             .ed text::highlight(function) { color: #61AFEF; }
             .ed text::highlight(search)   { background-color: #4E5B2A; }
-            .ed text::highlight(bracket)  { background-color: #3E4A5A; }
+            .ed text::highlight(bracket)  { color: #4EC9A0; }
             .ed-status     { color: #7F8C99; font-size: 7; }
             /* Content-sized, not a fixed 54px. These labels report their own state -- "Whitespace:
              * boundary", "Scroll past end: on" -- so a fixed width truncates whichever one happens to be
@@ -1838,6 +1838,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.addChild(row(slot(""), hint("Ctrl+D next occurrence; Ctrl+Alt+Up/Down caret above/below; Ctrl+/ comment")));
         pane.addChild(row(slot(""), hint("Alt+Up/Down move line; Shift+Alt+Up/Down duplicate; Ctrl+Shift+K delete")));
         pane.addChild(row(slot(""), hint("Soft wrap: Up/Down follow VISUAL rows, Home/End the visual line")));
+        pane.addChild(row(slot(""), hint("Ctrl+= / Ctrl+- zoom, Ctrl+0 resets -- the size pops up at the bottom")));
     }
 
     private static String join(String[] lines) {
@@ -2346,6 +2347,13 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
+        // Deferred to the first frame because attaching registers a frame ticker on the window, which
+        // does not exist while the pages are being built.
+        if (shaderPreviews != null && !shaderPreviewsAttached) {
+            shaderPreviews.attach();
+            shaderPreviewsAttached = true;
+        }
+
         uiWindow.paintFrame();
 
         var context = CgUiPaintContext.getInstance();
@@ -2367,6 +2375,13 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     @Override
     public void dispose() {
+        // The preview pool's targets are createOwned framebuffers, so no registry sweep reaches them —
+        // this is the only thing that ever frees them.
+        if (shaderPreviews != null) {
+            shaderPreviews.delete();
+            shaderPreviews = null;
+            shaderPreviewsAttached = false;
+        }
         uiWindow = null;
     }
 
@@ -2479,6 +2494,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     private GraphView shaderGraph;
     private TextEditor shaderSource;
+    private com.crystalgui.graph.shader.ShaderGraphPreviews shaderPreviews;
+    private com.crystalgraphics.shadergraph.CgShaderEmitter.Result shaderLineOwners;
+    private boolean shaderPreviewsAttached;
+
     private UIText shaderStatus;
 
     /**
@@ -2518,6 +2537,18 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // shown as plain text — the same pair the editor page's GLSL button sets.
         shaderSource.setTokenizer(KeywordTokenizer.glsl());
         shaderSource.setLanguage(com.crystalgui.text.syntax.Language.glsl());
+        // The payoff of the line map: put the caret anywhere in the generated source and the status line
+        // names the NODE that emitted it. A driver reports a line in code the user never wrote, and this
+        // is the lookup that turns that into somewhere to go and look.
+        shaderSource.onSelectionChanged.connect(() -> {
+            if (shaderLineOwners == null || shaderStatus == null) return;
+            int line = shaderSource.caretPoint().row() + 1;
+            String owner = shaderLineOwners.ownerOfLine(line);
+            if (owner == null) return;
+            var node = shaderGraph.getDocument().node(owner);
+            shaderStatus.setText("line " + line + " emitted by "
+                    + (node == null ? owner : node.typeId() + "  (" + owner + ")"));
+        });
 
         Button compile = new Button("compile");
         compile.addClass("canvas-btn");
@@ -2553,8 +2584,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // A starter graph: Color * Time, into the master. Small enough to read at a glance and it
         // exercises dynamic widening (vec4 * float) plus an engine builtin, so the generated source
         // shows a compiler-emitted cast rather than a straight copy.
-        var colour = library.get("cg:input/color");
-        var time = library.get("cg:input/time");
+        var colour = library.get("cg:input/basic/color");
+        var time = library.get("cg:input/basic/time");
         var multiply = library.get("cg:math/multiply");
         var outputType = library.get(com.crystalgui.graph.shader.ShaderGraphBridge.MASTER_TYPE);
 
@@ -2567,10 +2598,25 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         shaderGraph.connect(timeNode.getOutputPorts().get(0), multiplyNode.getInputPorts().get(1));
         shaderGraph.connect(multiplyNode.getOutputPorts().get(0), outputNode.getInputPorts().get(1));
 
+        // Left unconnected on purpose. These are the three nodes a preview system exists to show —
+        // UV's red/green gradient on a quad, Position and Normal on a sphere — and none of them needs
+        // to be wired to anything for its thumbnail to be the point.
+        addShaderNode(library, library.get("cg:input/geometry/uv"), 20f, 330f);
+        addShaderNode(library, library.get("cg:input/geometry/position"), 240f, 330f);
+        addShaderNode(library, library.get("cg:input/geometry/normal"), 460f, 330f);
+
         // Recompile whenever the graph's shape changes. Debounced only by the fact that a connection is
         // a discrete user action; a per-keystroke trigger would want real debouncing (6.3.8).
         shaderGraph.onConnectionsChanged.connect(this::recompileShaderGraph);
         recompileShaderGraph();
+
+        // 6.3.7 — live thumbnails. Constructed here but NOT attached: attaching registers a frame
+        // ticker, and there is no window yet at page-build time. render() does it on the first frame.
+        shaderPreviews = new com.crystalgui.graph.shader.ShaderGraphPreviews(
+                shaderGraph, shaderNodes, master);
+        // A Space dropdown changes the emitted GLSL but not the graph's shape, so onConnectionsChanged
+        // never fires for it — without this the source pane silently shows the previous variant.
+        shaderPreviews.onPropertyChanged.connect(this::recompileShaderGraph);
 
     }
 
@@ -2600,11 +2646,17 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 ? "// nothing to compile yet\n" + String.join("\n", result.errors())
                 : result.source());
         shaderStatus.setText(result.ok()
-                ? String.format("compiled  %dn/%de  %d chars  %d varyings",
+                ? String.format("compiled  %dn/%de  %d chars  %d varyings  %d mapped lines",
                         shaderGraph.getDocument().nodeCount(),
                         shaderGraph.getDocument().edges().size(),
-                        result.source().length(), result.varyings().size())
+                        result.source().length(), result.varyings().size(),
+                        result.lineOwners().size())
                 : result.errors().size() + " error(s): " + result.errors().get(0));
+
+        // The point of the line map: put the caret anywhere in the generated source and the status line
+        // names the NODE that emitted it. A driver error reports a line in code the user never wrote, and
+        // this is the lookup that turns that into somewhere to go and look.
+        shaderLineOwners = result;
     }
 
     private void graphPage(UIElement pane) {
