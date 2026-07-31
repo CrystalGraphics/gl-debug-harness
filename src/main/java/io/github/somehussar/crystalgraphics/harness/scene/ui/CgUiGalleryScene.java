@@ -12,7 +12,10 @@ import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.UIWindow;
 import com.crystalgui.ui.elements.Button;
+import com.crystalgui.graph.NodeType;
+import com.crystalgui.graph.NodeTypeRegistry;
 import com.crystalgui.ui.elements.graph.GraphNode;
+import com.crystalgui.ui.elements.graph.NodeWidgetFactory;
 import com.crystalgui.ui.elements.graph.GraphView;
 import com.crystalgui.ui.elements.graph.NodePort;
 import com.crystalgui.ui.elements.graph.PortType;
@@ -502,7 +505,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         treePage(page("tree", "Right opens without moving focus; Left closes, or goes to the parent."));
         editorPage(page("editor", "Java and GLSL. Alt+Click for multiple carets; find/replace below."));
         curvePage(page("curve", "ctx.curve() Bezier strokes - scroll for all 15 rows. The last two are the correctness checks."));
-        graphPage(page("graph", "Drag to wire or marquee-select. Shift adds, Alt subtracts. Delete removes. F frames, A frames all."));
+        graphPage(page("graph", "Drag a wire onto empty space to add a node. Space opens the menu. Shift/Alt marquee. F frames."));
 
         return root;
     }
@@ -1661,6 +1664,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // the same fallback a platform whose native will not load gets. The tree-sitter backend has its
         // own suite in :syntax-treesitter, against the real Java grammar.
         editor.setTokenizer(KeywordTokenizer.java());
+        // The tokenizer colours it; the Language tells the editor how to EDIT it -- comment
+        // tokens, bracket pairs. Two different questions about the same language.
+        editor.setLanguage(com.crystalgui.text.syntax.Language.java());
 
         UIText status = new UIText("");
         status.addClass("ed-status");
@@ -1687,6 +1693,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         javaButton.addClass("ed-lang-on");
         javaButton.attachListener(() -> {
             editor.setTokenizer(KeywordTokenizer.java());
+            editor.setLanguage(com.crystalgui.text.syntax.Language.java());
             editor.setText(join(JAVA_SAMPLE));
             javaButton.addClass("ed-lang-on");
             glslButton.removeClass("ed-lang-on");
@@ -1694,6 +1701,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         });
         glslButton.attachListener(() -> {
             editor.setTokenizer(KeywordTokenizer.glsl());
+            editor.setLanguage(com.crystalgui.text.syntax.Language.glsl());
             editor.setText(join(GLSL_SAMPLE));
             glslButton.addClass("ed-lang-on");
             javaButton.removeClass("ed-lang-on");
@@ -1736,6 +1744,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.addChild(row(slot(""), hint("Ctrl+Arrow and Ctrl+Backspace by word; Home toggles indent/col 0")));
         pane.addChild(row(slot(""), hint("Tab indents a selection, Shift+Tab outdents; Enter keeps the indent")));
         pane.addChild(row(slot(""), hint("Put the caret on a bracket to match it; drag the corner to resize")));
+        pane.addChild(row(slot(""), hint("Ctrl+D next occurrence; Ctrl+Alt+Up/Down caret above/below; Ctrl+/ comment")));
+        pane.addChild(row(slot(""), hint("Alt+Up/Down move line; Shift+Alt+Up/Down duplicate; Ctrl+Shift+K delete")));
     }
 
     private static String join(String[] lines) {
@@ -2338,6 +2348,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     }
 
     private static final PortType T_FLOAT = new GlslType("float", 1);
+
+    /** The same promotion rule the ports use, in the form the library and document want: a scalar feeds
+     * anything. Declared once so the menu offers exactly what a drag would accept. */
+    private static final com.crystalgui.graph.TypeCompatibility GALLERY_TYPES =
+            (from, to) -> from.equals("float") || from.equals(to);
     private static final PortType T_VEC3 = new GlslType("vec3", 3);
 
     /**
@@ -2394,47 +2409,86 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.addChild(row(slot("view"), fit, reset, graphCullToggle, graphStatus));
         pane.addChild(graph);
 
+        // The library the create-node menu offers from -- and the same descriptions the four nodes below
+        // are built from, so what you can add and what is already there cannot drift apart.
+        NodeTypeRegistry library = new NodeTypeRegistry();
+        library.register(NodeType.of("shader.Position").label("Position").category("Input/Geometry")
+                .synonyms("world", "vertex")
+                .out("Out", "vec3").defaultProperty("Space", "World"));
+        library.register(NodeType.of("shader.NormalVector").label("Normal Vector").category("Input/Geometry")
+                .synonyms("normal")
+                .out("Out", "vec3").defaultProperty("Space", "World"));
+        library.register(NodeType.of("shader.PerlinNoise3D").label("Perlin noise 3D").category("Procedural")
+                .synonyms("noise", "random")
+                .in("Sampling Coordinates", "vec3").in("Noise Scale", "float").out("Value", "float"));
+        library.register(NodeType.of("shader.Add").label("Add").category("Math")
+                .synonyms("plus", "sum")
+                .in("A", "vec3").in("B", "vec3").out("Out", "vec3"));
+        library.register(NodeType.of("shader.Multiply").label("Multiply").category("Math")
+                .synonyms("times", "product")
+                .in("A", "vec3").in("B", "vec3").out("Out", "vec3"));
+        library.register(NodeType.of("shader.Step").label("Step").category("Math")
+                .synonyms("threshold", "cutoff")
+                .in("Edge", "float").in("In", "float").out("Out", "float"));
+
+        // The widget half. Only the two nodes with a Space dropdown need a custom builder; everything
+        // else comes out of the placeholder path, which is exactly the point -- a library is usable
+        // before anybody writes a single factory.
+        NodeWidgetFactory factory = NodeWidgetFactory.of(library)
+                .register("shader.Position", data -> spaceNode("Position"))
+                .register("shader.NormalVector", data -> spaceNode("Normal Vector"))
+                .build();
+        graph.setNodeLibrary(library, factory, GALLERY_TYPES);
+
         // The reference graph, rebuilt: Position and Normal Vector feed a noise node and an add.
-        GraphNode position = new GraphNode("Position");
-        NodePort positionOut = position.addOutput(T_VEC3, "Out");
-        position.addControl("Space", spaceDropdown());
-        // Asking for the slot is what creates it — a node that never asks is the height of its ports,
-        // which is why only two of these four have one. It stays empty until 6.2.7 puts a render in it.
+        GraphNode position = spaceNode("Position");
+        NodePort positionOut = position.getOutputPorts().get(0);
         position.preview();
         graph.addNode(position, 20f, 30f);
 
-        GraphNode normal = new GraphNode("Normal Vector");
-        NodePort normalOut = normal.addOutput(T_VEC3, "Out");
-        normal.addControl("Space", spaceDropdown());
+        GraphNode normal = spaceNode("Normal Vector");
+        NodePort normalOut = normal.getOutputPorts().get(0);
         graph.addNode(normal, 20f, 210f);
 
-        GraphNode noise = new GraphNode("Perlin noise 3D");
-        NodePort noiseCoords = noise.addInput(T_VEC3, "Sampling Coordinates");
-        noise.addInput(T_FLOAT, "Noise Scale");
-        NodePort noiseValue = noise.addOutput(T_FLOAT, "Value");
+        GraphNode noise = factory.create(library.get("shader.PerlinNoise3D"),
+                library.get("shader.PerlinNoise3D").create(250f, 200f));
+        NodePort noiseCoords = noise.getInputPorts().get(0);
+        NodePort noiseValue = noise.getOutputPorts().get(0);
         graph.addNode(noise, 250f, 200f);
 
-        GraphNode add = new GraphNode("Add");
-        NodePort addA = add.addInput(T_VEC3, "A");
-        NodePort addB = add.addInput(T_VEC3, "B");
-        add.addOutput(T_VEC3, "Out");
+        GraphNode add = factory.create(library.get("shader.Add"),
+                library.get("shader.Add").create(480f, 40f));
+        NodePort addA = add.getInputPorts().get(0);
+        NodePort addB = add.getInputPorts().get(1);
         add.preview();
         graph.addNode(add, 480f, 40f);
 
         graph.connect(positionOut, addA);
         graph.connect(normalOut, noiseCoords);
-        // float -> vec3: legal by promotion, and the one wire on the page drawn as a two-colour
-        // gradient. Left unconnected it would also be the one input still showing its inline editor.
+        // float -> vec3: legal by promotion, and the one wire on the page drawn as a two-colour gradient.
         graph.connect(noiseValue, addB);
 
-        // Selected, so the page opens showing what selection looks like — the cyan ring is the single
-        // most recognisable thing about the reference, and nothing else here would reveal it.
-        position.setSelected(true);
+        // Selected, so the page opens showing what selection looks like.
+        //
+        // Through the SELECTION, never GraphNode.setSelected: that only flips the node's own flag, so the
+        // page opened with a node that looked selected and that the selection model had never heard of.
+        // Nothing could then deselect it — clearSilently() only walks the nodes it knows about — so the
+        // ring survived every click and only a marquee (which adds the node, then drops it properly)
+        // cleared it. setSelected is package-private now, so this line no longer compiles.
+        graph.getSelection().selectOnly(position);
 
         graph.onViewChanged.connect(this::updateGraphStatus);
         graph.onConnectionsChanged.connect(this::updateGraphStatus);
         graph.getSelection().onChanged.connect(this::updateGraphStatus);
         updateGraphStatus();
+    }
+
+    /** The two nodes that need more than their ports: a title, an Out, and the Space dropdown. */
+    private GraphNode spaceNode(String title) {
+        GraphNode node = new GraphNode(title);
+        node.addOutput(T_VEC3, "Out");
+        node.addControl("Space", spaceDropdown());
+        return node;
     }
 
     private Dropdown spaceDropdown() {
