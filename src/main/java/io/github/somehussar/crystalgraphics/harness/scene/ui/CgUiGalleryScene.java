@@ -31,6 +31,10 @@ import com.crystalgui.ui.elements.Tooltip;
 import com.crystalgui.ui.elements.UIText;
 import com.crystalgui.core.command.Command;
 import com.crystalgui.ui.input.keymap.KeyEventType;
+import com.crystalgui.core.property.ObservableList;
+import com.crystalgui.ui.elements.list.ListRenderer;
+import com.crystalgui.ui.elements.list.ListView;
+import com.crystalgui.ui.elements.list.SelectionMode;
 import com.crystalgui.ui.text.TextRange;
 import com.crystalgui.ui.input.FocusPolicy;
 import com.crystalgui.ui.input.UIDragController;
@@ -282,6 +286,16 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             .km-field      { width: 140px; }
             .km-hint       { color: #7F848E; font-size: 7; }
 
+            /* list page (6.1.3). The row height here MUST match ListView.setItemHeight -- the strategy
+             * decides where a row is positioned, the sheet decides how it looks, and if they disagree the
+             * rows overlap or leave gaps. A future measured strategy is what removes the duplication. */
+            .lv            { width: 200px; height: 130px; background: #23282F; outline: 1px solid #46505E; }
+            .lv-row        { padding-left: 4px; font-size: 7; }
+            .lv-row:hover  { background: #2E3540; }
+            .lv-row:focus  { background: #3A4553; }
+            .lv-row.__selected__ { background: #2C5A8C; }
+            .lv-stat       { color: #98C379; font-size: 7; }
+
             /* focus page (5.3). The strip is a real TabView; the buttons on either side of it are what
              * make the roving tabindex visible — Tab must go before -> the SELECTED tab -> after,
              * skipping the other tabs entirely, and arrows must still move between them. */
@@ -323,6 +337,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         // After the window exists, because commands live on it — see installKeymap.
         installKeymap(uiWindow);
+        installListStats(uiWindow);
     }
 
     /**
@@ -385,6 +400,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         modalPage(page("modal", "showModal(): backdrop, focus trap, Escape. Everything else inert."));
         menuPage(page("menus", "Dropdown, context menu, submenu. Click outside or Escape to dismiss."));
         keymapPage(page("keymap", "Bindings are scoped to the focused subtree. Grey text says what to press."));
+        listPage(page("list", "100,000 rows. Watch the realised count while you scroll - it does not grow."));
 
         return root;
     }
@@ -1078,6 +1094,79 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     private void logCommand(String id) {
         keymapLog.setText(id);
+    }
+
+    /**
+     * 6.1.3 — the virtualised list.
+     *
+     * <p><b>What to look for.</b> The model has a hundred thousand rows. The "realised" counter is the
+     * only way to see that virtualisation is happening at all: scroll as far and as fast as you like and
+     * it stays in the mid-teens, while "created" stops climbing the moment the pool reaches its steady
+     * size. A list that built an element per row would show 100,000 and take a while getting there.</p>
+     *
+     * <p>"pooled" is the recycling bench — elements that have left the window and are waiting to be
+     * re-bound. Together the three numbers say the whole story: bounded window, bounded allocation,
+     * everything else reused.</p>
+     *
+     * <p>Click a row, then scroll it far out of view and back. Focus returns to <em>the same row index</em>
+     * rather than to whatever element inherited its slot — the view tracks the index, because a recycled
+     * element is not a stable identity.</p>
+     */
+    private void listPage(UIElement pane) {
+        ObservableList<String> model = new ObservableList<>();
+        for (int i = 0; i < 100_000; i++) model.add("row " + i);
+
+        ListView<String> list = new ListView<>(model);
+        list.addClass("lv");
+        list.setItemHeight(12f);
+        list.setSelectionMode(SelectionMode.MULTIPLE);
+        list.setRenderer(new ListRenderer<String>() {
+            @Override
+            public UIElement createTemplate() {
+                // Structure and listeners ONCE. There is deliberately nowhere to put a listener in
+                // bind(), which is what stops a recycled row accumulating one per scroll step.
+                UIElement row = new UIElement();
+                row.addClass("lv-row");
+                row.setFocusPolicy(FocusPolicy.CLICK);
+                UIText label = new UIText("");
+                label.setHitTest(false);   // or the label eats the click and the row never focuses
+                row.addChild(label);
+                return row;
+            }
+
+            @Override
+            public void bind(String item, int index, UIElement template) {
+                ((UIText) template.getChildren().get(0)).setText(item);
+            }
+        });
+        pane.addChild(row(slot("100k rows"), list));
+
+        UIText stats = new UIText("...");
+        stats.addClass("lv-stat");
+        pane.addChild(row(slot("counts"), stats));
+        pane.addChild(row(slot(""), hint("realised stays bounded; created stops growing")));
+        pane.addChild(row(slot(""), hint("click a row, scroll far away and back - focus returns")));
+        pane.addChild(row(slot(""), hint("arrows / Home / End / PageUp / PageDown all navigate")));
+        pane.addChild(row(slot(""), hint("Shift+arrow extends, Ctrl+arrow moves without selecting")));
+        pane.addChild(row(slot(""), hint("then Space ADDS that row; Enter replaces with just it")));
+
+        listView = list;
+        listStats = stats;
+    }
+
+    private ListView<String> listView;
+    private UIText listStats;
+
+    /** Live counters. A ticker rather than a per-frame poll in render(), because the numbers are UI state
+     * and the engine already has a place for that. */
+    private void installListStats(UIWindow window) {
+        window.registerTicker(delta -> {
+            if (listView == null || listStats == null) return false;
+            listStats.setText("realised " + listView.realisedCount()
+                    + "   pooled " + listView.pooledCount()
+                    + "   of " + listView.getModel().size());
+            return true;
+        });
     }
 
     /**
