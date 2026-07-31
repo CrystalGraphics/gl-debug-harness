@@ -835,6 +835,25 @@ public final class Lwjgl2GLBackend extends CgGLBackend {
     }
 
     @Override
+    public void glRenderbufferStorageMultisample(int target, int samples, int internalFormat,
+                                                 int width, int height) {
+        if (coreGl30()) {
+            GL30.glRenderbufferStorageMultisample(target, samples, internalFormat, width, height);
+        } else if (arbFbo()) {
+            ARBFramebufferObject.glRenderbufferStorageMultisample(target, samples, internalFormat, width, height);
+        } else {
+            // No EXT multisample path — a single-sampled attachment is correct, just not antialiased.
+            EXTFramebufferObject.glRenderbufferStorageEXT(target, internalFormat, width, height);
+        }
+    }
+
+    @Override
+    public void glTexImage2DMultisample(int target, int samples, int internalFormat,
+                                        int width, int height, boolean fixedSampleLocations) {
+        GL32.glTexImage2DMultisample(target, samples, internalFormat, width, height, fixedSampleLocations);
+    }
+
+    @Override
     public void glFramebufferRenderbuffer(int target, int attachment,
                                           int renderbufferTarget, int renderbuffer) {
         if (coreGl30()) {
