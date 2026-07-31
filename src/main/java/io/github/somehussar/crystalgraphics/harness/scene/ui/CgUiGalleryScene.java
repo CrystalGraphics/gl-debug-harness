@@ -43,6 +43,7 @@ import com.crystalgui.ui.elements.list.SelectionMode;
 import com.crystalgui.ui.elements.tree.TreeDataSource;
 import com.crystalgui.ui.elements.tree.TreeRenderer;
 import com.crystalgui.ui.elements.tree.TreeRow;
+import com.crystalgui.text.syntax.KeywordTokenizer;
 import com.crystalgui.ui.elements.editor.TextEditor;
 import com.crystalgui.ui.elements.tree.TreeView;
 import com.crystalgui.ui.text.TextRange;
@@ -143,7 +144,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             /* The node's look comes entirely from `crystalgui:graph`, which is the point — this page
              * adds only the dropdown's width, a fact about this demo rather than about graphs. */
             .graph-dropdown { width: 62px; height: 12px; font-size: 7; }
-            .canvas-status { color: #A8B0B8; font-size: 8; width: 190px; }
+            .canvas-status { color: #A8B0B8; font-size: 8; width: 300px; }
             .canvas-btn    { width: 62px; }
             /* The curve page holds far more than a pane's worth, so it scrolls. `height: 0` +
              * `flex-grow: 1` for the same reason .gallery-tabs needs it: flex-shrink is 0 in this
@@ -359,7 +360,27 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                              resize: both; min-width: 200px; min-height: 90px; }
             .ed .__caret__ { background-color: #61AFEF; }
             .ed .__selection__ { background-color: #2C5A8C; }
+            .ed .__gutter__ { background-color: #191C21; }
+            .ed .__line-number__ { color: #4B5058; }
+            .ed .__current-line__ { background-color: #242A33; }
+            /* Syntax highlighting: the tokenizer publishes capture names, the sheet decides what they
+             * look like. Same mechanism as a search hit -- the Custom Highlight API from 6.1.1.
+             *
+             * THE SELECTOR MUST NAME THE TEXT ELEMENT, not the editor. A HighlightRegistry belongs to a
+             * UIText and StyleEngine resolves ::highlight() against THAT element, so `.ed::highlight(x)`
+             * matches an element which owns no ranges and silently colours nothing. */
+            .ed text::highlight(keyword)  { color: #C678DD; }
+            .ed text::highlight(type)     { color: #E5C07B; }
+            .ed text::highlight(string)   { color: #98C379; }
+            .ed text::highlight(number)   { color: #D19A66; }
+            .ed text::highlight(comment)  { color: #5C6370; }
+            .ed text::highlight(function) { color: #61AFEF; }
+            .ed text::highlight(search)   { background-color: #4E5B2A; }
+            .ed text::highlight(bracket)  { background-color: #3E4A5A; }
             .ed-status     { color: #7F8C99; font-size: 7; }
+            .ed-lang       { width: 54px; }
+            .ed-lang-on    { background-color: #3E5A7A; }
+            .ed-find       { width: 110px; }
 
             /* focus page (5.3). The strip is a real TabView; the buttons on either side of it are what
              * make the roving tabindex visible — Tab must go before -> the SELECTED tab -> after,
@@ -397,6 +418,13 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         this.uiWindow = new UIWindow(Ui.of(createDemo()));
         var engine = uiWindow.getStyleEngine();
         engine.addStylesheet(StyleSheet.DEFAULT);   // USER_AGENT origin — stays through every toggle
+        // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y, as commands bound on the root. Opt-in like the sheet above:
+        // the engine injects neither. Inside the editor page its own handler consumes the key first, so
+        // the two coexist; on the graph page this is the only route.
+        com.crystalgui.core.undo.UndoCommands.install(uiWindow);
+        // Delete / Ctrl+A / Escape / F / A. Every one is disabled unless a GraphView is in scope from
+        // the focused element, which is what makes the two bare letters tolerable as root bindings.
+        com.crystalgui.ui.elements.graph.GraphCommands.install(uiWindow);
         // The graph theme. Added once and never toggled: the Ore toggle is about Minecraft chrome, and
         // a node graph has no Ore look to switch to — without it the nodes are unstyled boxes and the
         // port palette, which is the whole readability of the page, is missing.
@@ -472,9 +500,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         keymapPage(page("keymap", "Bindings are scoped to the focused subtree. Grey text says what to press."));
         listPage(page("list", "100,000 rows. Watch the realised count while you scroll - it does not grow."));
         treePage(page("tree", "Right opens without moving focus; Left closes, or goes to the parent."));
-        editorPage(page("editor", "Type. Ctrl+Z undoes a whole run of typing, not one character."));
+        editorPage(page("editor", "Java and GLSL. Alt+Click for multiple carets; find/replace below."));
         curvePage(page("curve", "ctx.curve() Bezier strokes - scroll for all 15 rows. The last two are the correctness checks."));
-        graphPage(page("graph", "Drag a port onto another to wire it. Drag a node to move it. Wheel zooms at the cursor."));
+        graphPage(page("graph", "Drag to wire or marquee-select. Shift adds, Alt subtracts. Delete removes. F frames, A frames all."));
 
         return root;
     }
@@ -1627,47 +1655,158 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * realised count in the status line stay flat.</p>
      */
     private void editorPage(UIElement pane) {
-        String[] preamble = {
-                "// P6.1.6 - rope-backed multi-line editor",
-                "// Ctrl+Z undoes a run of typing, not one character.",
-                "//",
-                "// Down through the next short line and back up:",
-                "// the caret returns to the column it started from.",
-                "x",
-        };
-        StringBuilder document = new StringBuilder();
-        for (String line : preamble) document.append(line).append('\n');
-        for (int i = 0; i < 400; i++) {
-            document.append("line ").append(i).append(" - edit me, undo me, scroll past me").append('\n');
-        }
-
-        TextEditor editor = new TextEditor(document.toString());
+        TextEditor editor = new TextEditor(join(JAVA_SAMPLE));
         editor.addClass("ed");
+        // The built-in lexer, not tree-sitter: the harness must build without the local fork, and this is
+        // the same fallback a platform whose native will not load gets. The tree-sitter backend has its
+        // own suite in :syntax-treesitter, against the real Java grammar.
+        editor.setTokenizer(KeywordTokenizer.java());
 
         UIText status = new UIText("");
         status.addClass("ed-status");
-        Runnable refresh = () -> {
-            long realised = editor.getChildren().stream()
-                    .filter(child -> child.hasClass(TextEditor.LINE_CLASS))
-                    .count();
-            status.setText("caret " + editor.caretPoint()
-                    + "   sel " + (editor.hasSelection() ? editor.getSelectedText().length() : 0)
-                    + "   lines realised " + realised + " of " + editor.buffer().lineCount()
-                    + "   undo depth " + editor.buffer().undoDepth());
-        };
+        Runnable refresh = () -> status.setText("caret " + editor.caretPoint()
+                + "   carets " + editor.caretCount()
+                + "   sel " + editor.getSelectedText().length()
+                + "   matches " + (editor.matchCount() == 0 ? "-"
+                        : editor.currentMatchNumber() + "/" + editor.matchCount())
+                + "   lines " + editor.buffer().lineCount()
+                + "   undo " + editor.buffer().undoDepth());
         editor.onSelectionChanged.connect(refresh::run);
         editor.onChanged.connect(text -> refresh.run());
-        // Also on scroll, so the realised count is visibly flat while moving through 400 lines rather
-        // than only updating when something is typed.
         editor.onWindowChanged.connect(refresh::run);
         refresh.run();
 
+        // ── Language toggle ────────────────────────────────────────────────────────────────────
+        // Two samples, because the two tokenizers know different words: GLSL's `vec4` and `uniform`
+        // are not Java's, and switching between them is the quickest way to see that the editor itself
+        // knows about neither -- it asks for named ranges and the sheet colours them.
+        Button javaButton = new Button("Java");
+        Button glslButton = new Button("GLSL");
+        javaButton.addClass("ed-lang");
+        glslButton.addClass("ed-lang");
+        javaButton.addClass("ed-lang-on");
+        javaButton.attachListener(() -> {
+            editor.setTokenizer(KeywordTokenizer.java());
+            editor.setText(join(JAVA_SAMPLE));
+            javaButton.addClass("ed-lang-on");
+            glslButton.removeClass("ed-lang-on");
+            refresh.run();
+        });
+        glslButton.attachListener(() -> {
+            editor.setTokenizer(KeywordTokenizer.glsl());
+            editor.setText(join(GLSL_SAMPLE));
+            glslButton.addClass("ed-lang-on");
+            javaButton.removeClass("ed-lang-on");
+            refresh.run();
+        });
+
+        // ── Find and replace ───────────────────────────────────────────────────────────────────
+        TextField findField = new TextField();
+        findField.addClass("ed-find");
+        TextField replaceField = new TextField();
+        replaceField.addClass("ed-find");
+        Button next = new Button("Next");
+        Button previous = new Button("Prev");
+        Button replaceAll = new Button("Replace all");
+
+        findField.attachListener(query -> {
+            editor.find(query, false);
+            refresh.run();
+        });
+        next.attachListener(() -> {
+            editor.findNext();
+            refresh.run();
+        });
+        previous.attachListener(() -> {
+            editor.findPrevious();
+            refresh.run();
+        });
+        replaceAll.attachListener(() -> {
+            editor.replaceAll(replaceField.getText());
+            refresh.run();
+        });
+
+        pane.addChild(row(slot("language"), javaButton, glslButton,
+                hint("the editor knows neither -- it publishes capture names and the sheet colours them")));
         pane.addChild(row(slot("editor"), editor));
         pane.addChild(row(slot(""), status));
-        pane.addChild(row(slot(""), hint("Ctrl+Arrow by word; Ctrl+Backspace/Delete by word; Home toggles indent/col 0")));
-        pane.addChild(row(slot(""), hint("Ctrl+A selects all; Ctrl+C/X/V; double-click selects a word")));
-        pane.addChild(row(slot(""), hint("Drag the bottom-right corner to resize; no soft wrap yet (needs 6.1.3 variable rows)")));
+        pane.addChild(row(slot("find"), findField, previous, next, replaceField, replaceAll,
+                hint("replace all is ONE undo step")));
+        pane.addChild(row(slot(""), hint("Alt+Click adds a caret - type at several at once, then one Ctrl+Z")));
+        pane.addChild(row(slot(""), hint("Ctrl+Arrow and Ctrl+Backspace by word; Home toggles indent/col 0")));
+        pane.addChild(row(slot(""), hint("Tab indents a selection, Shift+Tab outdents; Enter keeps the indent")));
+        pane.addChild(row(slot(""), hint("Put the caret on a bracket to match it; drag the corner to resize")));
     }
+
+    private static String join(String[] lines) {
+        StringBuilder out = new StringBuilder();
+        for (String line : lines) out.append(line).append('\n');
+        return out.toString();
+    }
+
+    /** Deliberately ordinary Java: keywords, types, a call, a string, a number and both comment forms. */
+    private static final String[] JAVA_SAMPLE = {
+            "// P6.1.7 - the code editor. Everything here is highlighted by",
+            "// KeywordTokenizer; :syntax-treesitter does the same with a real parse.",
+            "package com.crystalgui.demo;",
+            "",
+            "/* A block comment, which spans",
+            "   more than one line on purpose. */",
+            "public final class Shader {",
+            "",
+            "    private static final int MAX_PASSES = 8;",
+            "    private final String name;",
+            "",
+            "    public Shader(String name) {",
+            "        this.name = name;",
+            "    }",
+            "",
+            "    public boolean compile(int passes) {",
+            "        if (passes > MAX_PASSES) {",
+            "            return false;",
+            "        }",
+            "        for (int i = 0; i < passes; i++) {",
+            "            emit(\"pass \" + i);",
+            "        }",
+            "        return true;",
+            "    }",
+            "",
+            "    void emit(String line) {",
+            "        // try Alt+Click on a few of these lines at once",
+            "    }",
+            "}",
+    };
+
+    /** GLSL, because it is what the shader graph will actually edit. */
+    private static final String[] GLSL_SAMPLE = {
+            "// GLSL - the language the node graph will generate.",
+            "#version 330 core",
+            "",
+            "#pragma cg_use quad",
+            "",
+            "uniform sampler2D _MainTex;",
+            "uniform vec4 _Color;",
+            "uniform float _Time;",
+            "",
+            "in vec2 uv;",
+            "out vec4 fragColor;",
+            "",
+            "/* A tapered edge, the same maths the",
+            "   curve renderer uses for a stroke. */",
+            "float coverage(float dist, float feather) {",
+            "    return 1.0 - smoothstep(-feather, feather, dist);",
+            "}",
+            "",
+            "void main() {",
+            "    vec4 base = texture(_MainTex, uv);",
+            "    float wave = sin(uv.x * 12.0 + _Time * 2.0) * 0.5 + 0.5;",
+            "    vec3 tint = mix(base.rgb, _Color.rgb, wave);",
+            "    if (base.a < 0.01) {",
+            "        discard;",
+            "    }",
+            "    fragColor = vec4(tint, base.a);",
+            "}",
+    };
 
     /**
      * {@code CgUiPaintContext.curve()} — Bézier strokes as an ordinary painting capability, available
@@ -2294,6 +2433,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         graph.onViewChanged.connect(this::updateGraphStatus);
         graph.onConnectionsChanged.connect(this::updateGraphStatus);
+        graph.getSelection().onChanged.connect(this::updateGraphStatus);
         updateGraphStatus();
     }
 
@@ -2309,8 +2449,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * cannot see, so the counter is the only evidence it is running at all. */
     private void updateGraphStatus() {
         if (graphStatus == null) return;
-        graphStatus.setText(String.format("zoom %.2f  wires %d  culled %d",
-                graph.getZoom(), graph.getConnections().size(), graph.culledCount()));
+        // The selection is in the status line because a command that "does nothing" is indistinguishable
+        // from a selection that was silently lost — and only one of those is a bug in the command.
+        var selection = graph.getSelection();
+        String selected = selection.isEmpty()
+                ? "none"
+                : (selection.nodes().size() + " node(s)" + (selection.wire() != null ? " + wire" : ""));
+        graphStatus.setText(String.format("zoom %.2f  wires %d  culled %d  sel: %s",
+                graph.getZoom(), graph.getConnections().size(), graph.culledCount(), selected));
         if (graphCullToggle != null) {
             graphCullToggle.setText(graph.isCullingEnabled() ? "cull: on" : "cull: off");
         }
