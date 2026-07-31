@@ -2329,6 +2329,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private UIText graphStatus;
     private Button graphCullToggle;
 
+    /** The last "save" — the encoded document, held as bytes rather than as an object so the reload
+     * genuinely goes through decode rather than handing the same instance back. */
+    private Object savedGraph;
+
     /**
      * GLSL-ish port types for the demo, with <b>promotion</b>: a float feeds anything.
      *
@@ -2406,7 +2410,28 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             updateGraphStatus();
         });
 
-        pane.addChild(row(slot("view"), fit, reset, graphCullToggle, graphStatus));
+        // 6.2.5's whole point, made visible: the graph on screen IS a document, and a document is bytes.
+        // Save encodes through PlainOps (the server path, no Gson), reload decodes and rebuilds the view
+        // from scratch. Draw anything, save, move things about, reload -- you get the saved graph back,
+        // including node ids, so the wires reattach to the ports they were on rather than by position.
+        Button save = new Button("save");
+        save.addClass("canvas-btn");
+        save.attachListener(() -> {
+            savedGraph = com.crystalgui.graph.GraphCodecs.DOCUMENT
+                    .encode(com.crystalgui.serialization.PlainOps.INSTANCE, graph.getDocument());
+            updateGraphStatus();
+        });
+
+        Button reload = new Button("reload");
+        reload.addClass("canvas-btn");
+        reload.attachListener(() -> {
+            if (savedGraph == null) return;
+            graph.load(com.crystalgui.graph.GraphCodecs.DOCUMENT
+                    .decode(com.crystalgui.serialization.PlainOps.INSTANCE, savedGraph));
+            updateGraphStatus();
+        });
+
+        pane.addChild(row(slot("view"), fit, reset, graphCullToggle, save, reload, graphStatus));
         pane.addChild(graph);
 
         // The library the create-node menu offers from -- and the same descriptions the four nodes below
@@ -2435,18 +2460,30 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // else comes out of the placeholder path, which is exactly the point -- a library is usable
         // before anybody writes a single factory.
         NodeWidgetFactory factory = NodeWidgetFactory.of(library)
-                .register("shader.Position", data -> spaceNode("Position"))
+                .register("shader.Position", data -> withPreview(spaceNode("Position")))
                 .register("shader.NormalVector", data -> spaceNode("Normal Vector"))
+                // Registered ONLY so the preview survives a reload. A preview is part of what the node
+                // is, so calling .preview() at the call site meant the rebuilt node came back without
+                // one; the ports still come from the placeholder path underneath.
+                .register("shader.Add", data -> withPreview(NodeWidgetFactory
+                        .placeholder(library.get("shader.Add"), data,
+                                NodeWidgetFactory.PortTypeRegistryLookup.DEFAULT)))
                 .build();
         graph.setNodeLibrary(library, factory, GALLERY_TYPES);
 
         // The reference graph, rebuilt: Position and Normal Vector feed a noise node and an add.
-        GraphNode position = spaceNode("Position");
+        //
+        // Every one of the four goes through the FACTORY rather than being newed up directly, even the
+        // two with custom builders. That is what binds each widget to a library typeId — build one by
+        // hand and the document can only file it as "authored as a widget", so a reload brings it back
+        // as a placeholder with no controls. Which is exactly what this page did until it was noticed.
+        GraphNode position = factory.create(library.get("shader.Position"),
+                library.get("shader.Position").create(20f, 30f));
         NodePort positionOut = position.getOutputPorts().get(0);
-        position.preview();
         graph.addNode(position, 20f, 30f);
 
-        GraphNode normal = spaceNode("Normal Vector");
+        GraphNode normal = factory.create(library.get("shader.NormalVector"),
+                library.get("shader.NormalVector").create(20f, 210f));
         NodePort normalOut = normal.getOutputPorts().get(0);
         graph.addNode(normal, 20f, 210f);
 
@@ -2460,7 +2497,6 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 library.get("shader.Add").create(480f, 40f));
         NodePort addA = add.getInputPorts().get(0);
         NodePort addB = add.getInputPorts().get(1);
-        add.preview();
         graph.addNode(add, 480f, 40f);
 
         graph.connect(positionOut, addA);
@@ -2484,6 +2520,12 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     }
 
     /** The two nodes that need more than their ports: a title, an Out, and the Space dropdown. */
+    /** {@code preview()} hands back the slot, not the node, so this keeps the builders one expression. */
+    private static GraphNode withPreview(GraphNode node) {
+        node.preview();
+        return node;
+    }
+
     private GraphNode spaceNode(String title) {
         GraphNode node = new GraphNode(title);
         node.addOutput(T_VEC3, "Out");
@@ -2509,8 +2551,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         String selected = selection.isEmpty()
                 ? "none"
                 : (selection.nodes().size() + " node(s)" + (selection.wire() != null ? " + wire" : ""));
-        graphStatus.setText(String.format("zoom %.2f  wires %d  culled %d  sel: %s",
-                graph.getZoom(), graph.getConnections().size(), graph.culledCount(), selected));
+        graphStatus.setText(String.format("zoom %.2f  wires %d  culled %d  sel: %s  doc: %dn/%de%s",
+                graph.getZoom(), graph.getConnections().size(), graph.culledCount(), selected,
+                graph.getDocument().nodeCount(), graph.getDocument().edges().size(),
+                savedGraph == null ? "" : "  saved"));
         if (graphCullToggle != null) {
             graphCullToggle.setText(graph.isCullingEnabled() ? "cull: on" : "cull: off");
         }
