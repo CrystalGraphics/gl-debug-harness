@@ -12,6 +12,10 @@ import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.UIWindow;
 import com.crystalgui.ui.elements.Button;
+import com.crystalgui.ui.elements.graph.GraphNode;
+import com.crystalgui.ui.elements.graph.GraphView;
+import com.crystalgui.ui.elements.graph.NodePort;
+import com.crystalgui.ui.elements.graph.PortType;
 import com.crystalgui.ui.elements.Checkbox;
 import com.crystalgui.ui.elements.Dialog;
 import com.crystalgui.ui.elements.DialogManager;
@@ -130,6 +134,16 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             .curve-canvas  { width: 420px; height: 74px; background: #23262E; border-radius: 4px; }
             .curve-mid     { height: 104px; }
             .curve-tall    { height: 150px; }
+
+            /* The graph page. `height: 0` + `flex-grow: 1` for exactly the reason .gallery-tabs
+             * needs it: flex-shrink is 0 in this engine, so without a zero basis the canvas sizes to
+             * its content — which is an unbounded plane — and spills straight out of the pane. */
+            .graph-view    { width: 100%; height: 0; flex-grow: 1; border-radius: 4px; }
+            /* The node's look comes entirely from `crystalgui:graph`, which is the point — this page
+             * adds only the dropdown's width, a fact about this demo rather than about graphs. */
+            .graph-dropdown { width: 62px; height: 12px; font-size: 7; }
+            .canvas-status { color: #A8B0B8; font-size: 8; width: 190px; }
+            .canvas-btn    { width: 62px; }
             /* The curve page holds far more than a pane's worth, so it scrolls. `height: 0` +
              * `flex-grow: 1` for the same reason .gallery-tabs needs it: flex-shrink is 0 in this
              * engine, so without a zero basis the scroller sizes to its content and never scrolls. */
@@ -367,6 +381,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         this.uiWindow = new UIWindow(Ui.of(createDemo()));
         var engine = uiWindow.getStyleEngine();
         engine.addStylesheet(StyleSheet.DEFAULT);   // USER_AGENT origin — stays through every toggle
+        // The graph theme. Added once and never toggled: the Ore toggle is about Minecraft chrome, and
+        // a node graph has no Ore look to switch to — without it the nodes are unstyled boxes and the
+        // port palette, which is the whole readability of the page, is missing.
+        engine.addStylesheet(StyleSheetRegistry.of("crystalgui:graph"));
         engine.addStylesheet(oreSheet);
         engine.addStylesheet(sceneSheet);
 
@@ -439,6 +457,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         listPage(page("list", "100,000 rows. Watch the realised count while you scroll - it does not grow."));
         treePage(page("tree", "Right opens without moving focus; Left closes, or goes to the parent."));
         curvePage(page("curve", "ctx.curve() Bezier strokes - scroll for all 15 rows. The last two are the correctness checks."));
+        graphPage(page("graph", "Drag a port onto another to wire it. Drag a node to move it. Wheel zooms at the cursor."));
 
         return root;
     }
@@ -2078,6 +2097,148 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private void setScale(float scale) {
         uiWindow.setUiScale(scale);
         uiWindow.init(0, 0);
+    }
+
+    // ── graph page (P6.2.2 canvas + P6.2.3 nodes, ports and wires) ──────────────────────────────
+
+    private GraphView graph;
+    private UIText graphStatus;
+    private Button graphCullToggle;
+
+    /**
+     * GLSL-ish port types for the demo, with <b>promotion</b>: a float feeds anything.
+     *
+     * <p>Defined here rather than in {@code core/} deliberately, and it is the point of the whole
+     * {@link PortType} interface — the types a shader graph carries are GLSL's, and CrystalGUI has no
+     * business knowing them. It also gives the page something only a real type system shows: a
+     * {@code float -> vec3} wire is drawn as a gradient from light blue to yellow, because a wire takes
+     * a colour from each end.</p>
+     */
+    private record GlslType(String id, int arity) implements PortType {
+        @Override
+        public boolean isCompatibleWith(PortType other) {
+            // GLSL promotes a scalar into any vector; it does not demote. An "are these equal?" rule
+            // would forbid the useful half of a shader graph.
+            return arity == 1 || (other != null && id.equals(other.id()));
+        }
+    }
+
+    private static final PortType T_FLOAT = new GlslType("float", 1);
+    private static final PortType T_VEC3 = new GlslType("vec3", 3);
+
+    /**
+     * {@code GraphView} — the pan/zoom plane from 6.2.2 with 6.2.3's nodes, ports and wires on it,
+     * styled to Unity Shader Graph's spec by {@code crystalgui:graph}.
+     *
+     * <p><b>Five things here are visual by nature</b>, which is why the widgets' thirty-one unit tests
+     * are not the whole story:</p>
+     * <ul>
+     *   <li><b>Wires stay attached at every zoom.</b> Endpoints are read live from each port dot's
+     *       layout, so if the {@code PoseStack} and the layout ever disagreed about where a port is, a
+     *       wire would visibly detach from its dot — and only at some zoom levels, which is the tell.</li>
+     *   <li><b>Type colour runs from the port into the wire.</b> The {@code float -> vec3} wire into
+     *       {@code Add.B} is a gradient from light blue to yellow: both ends come from the cascade, via
+     *       the dot's computed {@code border-color}, so a theme owns the palette and Java owns none of
+     *       it.</li>
+     *   <li><b>Drag a port onto another.</b> A compatible target accepts, an incompatible one refuses —
+     *       and dropping on an already-wired input <em>replaces</em> its wire rather than refusing it.</li>
+     *   <li><b>Collapse a node with the chevron.</b> Unconnected ports go; wired ones stay, or the wires
+     *       would end in mid-air.</li>
+     *   <li><b>Zoom out a long way.</b> The wires must stay visible: stroke width is pose-scaled, so it
+     *       is clamped against the zoom, and without the clamp the graph empties out.</li>
+     * </ul>
+     */
+    private void graphPage(UIElement pane) {
+        graph = new GraphView();
+        graph.addClass("graph-view");
+
+        graphStatus = new UIText("");
+        graphStatus.addClass("canvas-status");
+
+        Button fit = new Button("fit");
+        fit.addClass("canvas-btn");
+        fit.attachListener(() -> {
+            graph.fitToContent(24f);
+            updateGraphStatus();
+        });
+
+        Button reset = new Button("reset");
+        reset.addClass("canvas-btn");
+        reset.attachListener(() -> {
+            graph.setZoom(1f);
+            graph.setPan(0f, 0f);
+            updateGraphStatus();
+        });
+
+        graphCullToggle = new Button("cull: on");
+        graphCullToggle.addClass("canvas-btn");
+        graphCullToggle.attachListener(() -> {
+            graph.setCullingEnabled(!graph.isCullingEnabled());
+            updateGraphStatus();
+        });
+
+        pane.addChild(row(slot("view"), fit, reset, graphCullToggle, graphStatus));
+        pane.addChild(graph);
+
+        // The reference graph, rebuilt: Position and Normal Vector feed a noise node and an add.
+        GraphNode position = new GraphNode("Position");
+        NodePort positionOut = position.addOutput(T_VEC3, "Out");
+        position.addControl("Space", spaceDropdown());
+        // Asking for the slot is what creates it — a node that never asks is the height of its ports,
+        // which is why only two of these four have one. It stays empty until 6.2.7 puts a render in it.
+        position.preview();
+        graph.addNode(position, 20f, 30f);
+
+        GraphNode normal = new GraphNode("Normal Vector");
+        NodePort normalOut = normal.addOutput(T_VEC3, "Out");
+        normal.addControl("Space", spaceDropdown());
+        graph.addNode(normal, 20f, 210f);
+
+        GraphNode noise = new GraphNode("Perlin noise 3D");
+        NodePort noiseCoords = noise.addInput(T_VEC3, "Sampling Coordinates");
+        noise.addInput(T_FLOAT, "Noise Scale");
+        NodePort noiseValue = noise.addOutput(T_FLOAT, "Value");
+        graph.addNode(noise, 250f, 200f);
+
+        GraphNode add = new GraphNode("Add");
+        NodePort addA = add.addInput(T_VEC3, "A");
+        NodePort addB = add.addInput(T_VEC3, "B");
+        add.addOutput(T_VEC3, "Out");
+        add.preview();
+        graph.addNode(add, 480f, 40f);
+
+        graph.connect(positionOut, addA);
+        graph.connect(normalOut, noiseCoords);
+        // float -> vec3: legal by promotion, and the one wire on the page drawn as a two-colour
+        // gradient. Left unconnected it would also be the one input still showing its inline editor.
+        graph.connect(noiseValue, addB);
+
+        // Selected, so the page opens showing what selection looks like — the cyan ring is the single
+        // most recognisable thing about the reference, and nothing else here would reveal it.
+        position.setSelected(true);
+
+        graph.onViewChanged.connect(this::updateGraphStatus);
+        graph.onConnectionsChanged.connect(this::updateGraphStatus);
+        updateGraphStatus();
+    }
+
+    private Dropdown spaceDropdown() {
+        Dropdown space = new Dropdown("World");
+        space.addOptions("World", "Object", "View", "Tangent");
+        space.select(0);
+        space.addClass("graph-dropdown");
+        return space;
+    }
+
+    /** Wire and culled counts included deliberately: a correct cull is by definition something you
+     * cannot see, so the counter is the only evidence it is running at all. */
+    private void updateGraphStatus() {
+        if (graphStatus == null) return;
+        graphStatus.setText(String.format("zoom %.2f  wires %d  culled %d",
+                graph.getZoom(), graph.getConnections().size(), graph.culledCount()));
+        if (graphCullToggle != null) {
+            graphCullToggle.setText(graph.isCullingEnabled() ? "cull: on" : "cull: off");
+        }
     }
 
     @Override
