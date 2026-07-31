@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgraphics.gl.render.CgCurveRenderer;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgui.core.property.Property;
@@ -35,6 +36,10 @@ import com.crystalgui.core.property.ObservableList;
 import com.crystalgui.ui.elements.list.ListRenderer;
 import com.crystalgui.ui.elements.list.ListView;
 import com.crystalgui.ui.elements.list.SelectionMode;
+import com.crystalgui.ui.elements.tree.TreeDataSource;
+import com.crystalgui.ui.elements.tree.TreeRenderer;
+import com.crystalgui.ui.elements.tree.TreeRow;
+import com.crystalgui.ui.elements.tree.TreeView;
 import com.crystalgui.ui.text.TextRange;
 import com.crystalgui.ui.input.FocusPolicy;
 import com.crystalgui.ui.input.UIDragController;
@@ -119,6 +124,16 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
             .swatch        { width: 14px; height: 14px; background: #6FA8DC; }
             .box           { width: 96px; height: 40px; }
+            /* Canvas for the curve page. A plain element with a background — everything drawn on it
+             * comes from ctx.curve() in paintSelf, so its only job is to give the strokes a box with
+             * a known origin and a visible backdrop to sit on. */
+            .curve-canvas  { width: 420px; height: 74px; background: #23262E; border-radius: 4px; }
+            .curve-mid     { height: 104px; }
+            .curve-tall    { height: 150px; }
+            /* The curve page holds far more than a pane's worth, so it scrolls. `height: 0` +
+             * `flex-grow: 1` for the same reason .gallery-tabs needs it: flex-shrink is 0 in this
+             * engine, so without a zero basis the scroller sizes to its content and never scrolls. */
+            .curve-scroll  { flex-grow: 1; height: 0; width: 100%; }
             .box-flat      { background: #4A6E9A; }
             /* `border-radius`, not `border-radius-all` — unlike the box-model shorthands this one
              * has no `-all` alias; it expands into 8 corner longhands at parse time. */
@@ -296,6 +311,26 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             .lv-row.__selected__ { background: #2C5A8C; }
             .lv-stat       { color: #98C379; font-size: 7; }
 
+            /* tree page (6.1.4). Indentation is applied by the VIEW from each row's depth, so the row
+             * template is identical at every level — the sheet only styles the twisty, which the view
+             * marks with __expanded__ / __collapsed__ / __leaf__. */
+            /* 300 wide matches `.desc` and `.tx-rich`, so this row is no wider than ones the page
+             * already has — deliberately, since nothing shrinks below its content here and a row wider
+             * than the pane is clipped rather than wrapped. Height is the free axis: the page scrolls. */
+            .tv            { width: 300px; height: 280px; background: #23282F; outline: 1px solid #46505E; }
+            .tv-row        { flex-direction: row; align-items: center; gap-all: 3px; font-size: 7; }
+            .tv-row:hover  { background: #2E3540; }
+            .tv-row.__selected__ { background: #2C5A8C; }
+            /* Focus and selection are different things in a tree — the APG says so explicitly — and
+             * without a separate focus style there is no way to tell which row the arrows will act on. */
+            .tv-row:focus  { outline: 1px solid #61AFEF; }
+            /* padding on the TWISTY, not on the panel: rows are absolutely positioned and TreeView owns
+             * their padding-left (it is the depth indent), so a sheet rule there would out-specify the
+             * indent and flatten the whole tree. Insetting the glyph inside its own box cannot collide. */
+            .tv-twisty     { width: 11px; padding-left: 3px; color: #98C379; font-size: 7; }
+            .tv-twisty:hover { color: #FFFFFF; }
+            .tv-status     { color: #E5C07B; font-size: 7; }
+
             /* focus page (5.3). The strip is a real TabView; the buttons on either side of it are what
              * make the roving tabindex visible — Tab must go before -> the SELECTED tab -> after,
              * skipping the other tabs entirely, and arrows must still move between them. */
@@ -338,6 +373,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // After the window exists, because commands live on it — see installKeymap.
         installKeymap(uiWindow);
         installListStats(uiWindow);
+        installTreeStats(uiWindow);
     }
 
     /**
@@ -401,6 +437,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         menuPage(page("menus", "Dropdown, context menu, submenu. Click outside or Escape to dismiss."));
         keymapPage(page("keymap", "Bindings are scoped to the focused subtree. Grey text says what to press."));
         listPage(page("list", "100,000 rows. Watch the realised count while you scroll - it does not grow."));
+        treePage(page("tree", "Right opens without moving focus; Left closes, or goes to the parent."));
+        curvePage(page("curve", "ctx.curve() Bezier strokes - scroll for all 15 rows. The last two are the correctness checks."));
 
         return root;
     }
@@ -1170,6 +1208,110 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     }
 
     /**
+     * 6.1.4 — the tree.
+     *
+     * <p><b>What to look for.</b> Click a folder, then use the arrows. <b>Right</b> on a closed node
+     * opens it and the focus ring <em>stays where it is</em> — press it again to step into the first
+     * child. <b>Left</b> closes an open node, and on an already-closed one jumps to the parent. That
+     * asymmetry is the ARIA tree contract, and it is the part implementations usually get wrong.</p>
+     *
+     * <p><b>*</b> opens every sibling at the current level.</p>
+     *
+     * <p>The synthetic tree is 20 roots of 20 of 20 — eight thousand nodes if fully opened — and children
+     * are generated on demand, so nothing exists until you ask for it. Everything else (virtualisation,
+     * recycling, selection, focus surviving a scroll) is inherited from the list and is not tree code.</p>
+     */
+    private void treePage(UIElement pane) {
+        TreeDataSource<String> source = new TreeDataSource<>() {
+            @Override
+            public java.util.List<String> roots() {
+                java.util.List<String> out = new java.util.ArrayList<>();
+                for (int i = 0; i < 20; i++) out.add("folder " + i);
+                return out;
+            }
+
+            @Override
+            public java.util.List<String> children(String parent) {
+                java.util.List<String> out = new java.util.ArrayList<>();
+                for (int i = 0; i < 20; i++) out.add(parent + "/" + i);
+                return out;
+            }
+
+            @Override
+            public boolean hasChildren(String item) {
+                // Three levels deep, then leaves — enough to show nesting without being endless.
+                return item.chars().filter(c -> c == '/').count() < 2;
+            }
+        };
+
+        TreeView<String> tree = new TreeView<>(source);
+        tree.addClass("tv");
+        tree.setItemHeight(12f);
+        tree.setSelectionMode(SelectionMode.MULTIPLE);
+        tree.setRenderer(new TreeRenderer<String>() {
+            @Override
+            public UIElement createTemplate() {
+                UIElement row = new UIElement();
+                row.addClass("tv-row");
+                row.setFocusPolicy(FocusPolicy.CLICK);
+                UIText twisty = new UIText("");
+                twisty.addClass("tv-twisty");
+                // The twisty is HITTABLE, unlike the label. Clicking it toggles; clicking anywhere else
+                // in the row just focuses and selects. Without this the tree can only be opened from the
+                // keyboard, which is how the first version of this page came out looking completely inert.
+                //
+                // The listener is attached ONCE per pooled element and reads the row's CURRENT index at
+                // click time — it cannot capture an index, because this element represents a different
+                // row every time it is recycled. That is exactly the split createTemplate/bind exists for.
+                twisty.onMouseDown.attachListener((el, event) -> {
+                    int index = treeView.indexOfRowElement(el.getParent());
+                    if (index >= 0) treeView.toggleExpandedAt(index);
+                }, false, false);
+                row.addChild(twisty);
+                UIText label = new UIText("");
+                label.setHitTest(false);
+                row.addChild(label);
+                return row;
+            }
+
+            @Override
+            public void bind(String item, TreeRow<String> row, int index, UIElement template) {
+                ((UIText) template.getChildren().get(0))
+                        .setText(!row.expandable() ? " " : row.expanded() ? "v" : ">");
+                String name = item.substring(item.lastIndexOf('/') + 1);
+                ((UIText) template.getChildren().get(1)).setText(row.depth() == 0 ? item : name);
+            }
+        });
+        treeView = tree;
+        pane.addChild(row(slot("tree"), tree));
+
+        treeStatus = new UIText("...");
+        treeStatus.addClass("tv-status");
+        pane.addChild(row(slot("state"), treeStatus));
+
+        pane.addChild(row(slot(""), hint("click the > to open, or use the arrows")));
+        pane.addChild(row(slot(""), hint("Right opens WITHOUT moving focus; again steps in")));
+        pane.addChild(row(slot(""), hint("Left closes, or jumps to the parent when closed")));
+        pane.addChild(row(slot(""), hint("* opens every sibling at this level")));
+        pane.addChild(row(slot(""), hint("8,000 nodes if fully opened; children made on demand")));
+    }
+
+    private TreeView<String> treeView;
+    private UIText treeStatus;
+
+    /** Live tree state. The focused index is the one the arrows act on, and seeing it is the difference
+     * between "Right is broken" and "nothing was focused". */
+    private void installTreeStats(UIWindow window) {
+        window.registerTicker(delta -> {
+            if (treeView == null || treeStatus == null) return false;
+            treeStatus.setText("focus " + treeView.getFocusedIndex()
+                    + "   rows " + treeView.visibleRows().size()
+                    + "   realised " + treeView.realisedCount());
+            return true;
+        });
+    }
+
+    /**
      * 5.3 — a tablist is one Tab stop, however many tabs it has.
      *
      * <p>What to look for, all by keyboard: click "before", then press <b>Tab</b>. Focus must land on the
@@ -1431,6 +1573,435 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         button.addClass(cssClass);
         button.attachListener(() -> buttonClicks++);
         return button;
+    }
+
+    /**
+     * {@code CgUiPaintContext.curve()} — Bézier strokes as an ordinary painting capability, available
+     * to any element's {@code paintSelf} exactly as {@code fillRect} is.
+     *
+     * <p>The renderer itself is covered against a raw GL surface by the harness's
+     * {@code curve-renderer-test} scene. What this page covers is what the UI layer adds:</p>
+     * <ul>
+     *   <li><b>Pose</b> — strokes are placed in element-local coordinates. Were the {@code PoseStack}
+     *       not applied they would land at raw screen coordinates, which reads as a layout bug rather
+     *       than a missing matrix, and would drift with {@code uiScale} rather than being obviously
+     *       wrong at 1.</li>
+     *   <li><b>Interleaving</b> — the load-bearing row. Quads and curves use different materials and
+     *       different instance buffers, so alternating them forces a material switch each way, and
+     *       painter's order has to survive it. A switch that failed to flush the outgoing path would
+     *       draw geometry in material order instead of submission order, putting every stroke on top.</li>
+     *   <li><b>Layer opacity</b> — {@code _LayerOpacity} is a material property, so it must be applied
+     *       to {@code gui_curve.shader} in its own right; a curve that stayed opaque inside
+     *       {@code withLayerOpacity} would mean it was only ever synced onto the quad material.</li>
+     * </ul>
+     */
+    private void curvePage(UIElement pane) {
+        // More rows than a pane can hold, deliberately — this is the one page where the interesting
+        // cases are visual rather than interactive, so it is worth showing all of them and scrolling.
+        ScrollerView scroll = new ScrollerView();
+        scroll.addClass("curve-scroll");
+        pane.addChild(scroll);
+
+        for (CurveCanvas.Mode mode : CurveCanvas.Mode.values()) {
+            scroll.addChild(row(slot(mode.label), new CurveCanvas(mode)));
+        }
+    }
+
+    /**
+     * A plain {@link UIElement} that paints strokes through {@code ctx.curve()} in its own local
+     * space — deliberately not a new widget, since the point is that no setup and no material
+     * handling is required of the caller.
+     */
+    private static final class CurveCanvas extends UIElement {
+
+        /** Wall-clock origin for the animated rows. Static so every canvas shares one phase. */
+        private static final long START_NANOS = System.nanoTime();
+
+        private enum Mode {
+            BASICS("basics", ""),
+            CAPS("caps", ""),
+            FEATHER("feather", ""),
+            WIDTH("width", ""),
+            GRADIENT("gradient", ""),
+            NEON("neon", ""),
+            CUBIC("cubic", ""),
+            WAVE("wave", ""),
+            RIBBON("ribbon", "curve-mid"),
+            NODE_GRAPH("node wires", "curve-mid"),
+            FAN("fan", "curve-tall"),
+            SPIRAL("spiral", "curve-tall"),
+            LISSAJOUS("lissajous", "curve-tall"),
+            INTERLEAVED("over/under", ""),
+            OPACITY("layer opacity", "");
+
+            final String label;
+            /** Extra height class, or empty for the default 74px canvas. */
+            final String sizeClass;
+
+            Mode(String label, String sizeClass) {
+                this.label = label;
+                this.sizeClass = sizeClass;
+            }
+        }
+
+        private final Mode mode;
+
+        CurveCanvas(Mode mode) {
+            this.mode = mode;
+            addClass("curve-canvas");
+            if (!mode.sizeClass.isEmpty()) addClass(mode.sizeClass);
+            setFocusPolicy(FocusPolicy.NONE);
+        }
+
+        @Override
+        protected void paintSelf(CgUiPaintContext ctx) {
+            super.paintSelf(ctx);
+            // Absolute layout origin, the same pair UIElement.paintSelf itself paints its background
+            // from. The strokes below are offset from it, so they follow the element wherever the
+            // gallery's layout puts it rather than being pinned to screen coordinates — which also
+            // means they stay correct while the page scrolls, with no scroll-aware code here at all.
+            float x = getRuntimeCache().getX();
+            float y = getRuntimeCache().getY();
+            float t = (System.nanoTime() - START_NANOS) / 1_000_000_000f;
+
+            switch (mode) {
+                case BASICS -> paintBasics(ctx, x, y);
+                case CAPS -> paintCaps(ctx, x, y);
+                case FEATHER -> paintFeather(ctx, x, y);
+                case WIDTH -> paintWidth(ctx, x, y);
+                case GRADIENT -> paintGradient(ctx, x, y);
+                case NEON -> paintNeon(ctx, x, y, t);
+                case CUBIC -> paintCubic(ctx, x, y, t);
+                case WAVE -> paintWave(ctx, x, y, t);
+                case RIBBON -> paintRibbon(ctx, x, y, t);
+                case NODE_GRAPH -> paintNodeGraph(ctx, x, y, t);
+                case FAN -> paintFan(ctx, x, y, t);
+                case SPIRAL -> paintSpiral(ctx, x, y, t);
+                case LISSAJOUS -> paintLissajous(ctx, x, y, t);
+                case INTERLEAVED -> paintInterleaved(ctx, x, y);
+                case OPACITY -> paintOpacity(ctx, x, y);
+            }
+            ctx.flush();
+        }
+
+        /** Line, arc, taper, gradient — the four things one stroke can vary. */
+        private void paintBasics(CgUiPaintContext ctx, float x, float y) {
+            ctx.curve().line(x + 12, y + 16, x + 96, y + 16).width(1.5f).color(0xFFE0E0E0).submit();
+            ctx.curve().from(x + 12, y + 60).via(x + 54, y + 28).to(x + 96, y + 60)
+                    .width(2.5f).color(0xFF6CC4FF).submit();
+            ctx.curve().from(x + 120, y + 58).via(x + 162, y + 22).to(x + 204, y + 58)
+                    .width(7f, 1f).color(0xFF6CC4FF).submit();
+            ctx.curve().from(x + 228, y + 58).via(x + 270, y + 22).to(x + 312, y + 58)
+                    .width(4f).colors(0xFFFF4D6D, 0xFF4DFFC3).submit();
+            ctx.curve().from(x + 336, y + 20).via(x + 336, y + 62).to(x + 404, y + 50)
+                    .width(3f).colors(0xFFFFC24D, 0xFFB36CFF).submit();
+        }
+
+        /**
+         * The three caps at a width where they actually differ, against ticks at the nominal
+         * endpoints — the diagonal group matters because a square cap's corner reaches
+         * halfWidth*sqrt(2) along one axis only when the stroke is not axis-aligned.
+         */
+        private void paintCaps(CgUiPaintContext ctx, float x, float y) {
+            int[] caps = { CgCurveRenderer.CAP_BUTT, CgCurveRenderer.CAP_ROUND, CgCurveRenderer.CAP_SQUARE };
+            for (int i = 0; i < caps.length; i++) {
+                float cy = y + 16 + i * 21;
+                ctx.curve().line(x + 40, cy, x + 150, cy).width(7f).cap(caps[i]).color(0xFFFFC24D).submit();
+                for (int e = 0; e < 2; e++) {
+                    float tx = x + 40 + e * 110;
+                    ctx.curve().line(tx, cy - 12, tx, cy + 12).width(0.5f).color(0xFF7A7A7A).submit();
+                }
+            }
+            for (int i = 0; i < caps.length; i++) {
+                float cx = x + 210 + i * 62;
+                ctx.curve().line(cx, y + 16, cx + 34, y + 50)
+                        .width(9f).cap(caps[i]).color(0xFFFFC24D).submit();
+            }
+            ctx.curve().line(x + 330, y + 16, x + 330, y + 58).width(0.5f).color(0xFF3A3F48).submit();
+        }
+
+        /** Feather sweep: a hard edge at 0, a soft glow by 12. Same width and colour throughout. */
+        private void paintFeather(CgUiPaintContext ctx, float x, float y) {
+            for (int i = 0; i < 8; i++) {
+                float cx = x + 26 + i * 50;
+                float feather = i * 1.7f;
+                ctx.curve().line(cx, y + 14, cx, y + 60)
+                        .width(6f).feather(feather).cap(CgCurveRenderer.CAP_ROUND)
+                        .color(0xFF6CC4FF).submit();
+            }
+        }
+
+        /** Width sweep, hairline to slab — the range a graph editor actually spans. */
+        private void paintWidth(CgUiPaintContext ctx, float x, float y) {
+            for (int i = 0; i < 9; i++) {
+                float cx = x + 10 + i * 46;
+                float w = 0.4f + i * 1.5f;
+                ctx.curve().from(cx, y + 58).via(cx + 12, y + 18).to(cx + 24, y + 58)
+                        .width(w).cap(CgCurveRenderer.CAP_ROUND).color(hue(i / 9f)).submit();
+            }
+        }
+
+        /** Gradients, including taper and gradient together — near-free once the record exists. */
+        private void paintGradient(CgUiPaintContext ctx, float x, float y) {
+            for (int i = 0; i < 5; i++) {
+                float cy = y + 14 + i * 12;
+                float h0 = i / 5f;
+                ctx.curve().from(x + 16, cy).via(x + 210, cy + (i - 2) * 9).to(x + 404, cy)
+                        .width(1f + i * 1.6f, 1f + (4 - i) * 1.6f)
+                        .colors(hue(h0), hue(h0 + 0.4f))
+                        .cap(CgCurveRenderer.CAP_ROUND)
+                        .submit();
+            }
+        }
+
+        /**
+         * Neon: the same curve three times — wide and heavily feathered for the halo, then medium,
+         * then a thin bright core. Feather is what makes this work at all; without a per-instance
+         * softness the halo would be a hard-edged slab.
+         */
+        private void paintNeon(CgUiPaintContext ctx, float x, float y, float t) {
+            float bow = 22f + 10f * (float) Math.sin(t * 1.3f);
+            int tint = hue(t * 0.12f);
+            float[] widths = { 13f, 6f, 2f };
+            float[] feathers = { 16f, 7f, 1.5f };
+            int[] alphas = { 0x30, 0x60, 0xFF };
+            for (int pass = 0; pass < 3; pass++) {
+                int argb = (alphas[pass] << 24) | (tint & 0x00FFFFFF);
+                ctx.curve().from(x + 20, y + 52).via(x + 210, y + 52 - bow * 2f).to(x + 400, y + 52)
+                        .width(widths[pass]).feather(feathers[pass])
+                        .cap(CgCurveRenderer.CAP_ROUND).color(argb).submit();
+            }
+        }
+
+        /** Cubics — one submit() each, split CPU-side into 1-4 quadratics. Gradient must not band. */
+        private void paintCubic(CgUiPaintContext ctx, float x, float y, float t) {
+            for (int i = 0; i < 3; i++) {
+                float cx = x + 16 + i * 136;
+                float wob = 26f + 16f * (float) Math.sin(t * 0.9f + i * 1.1f);
+                ctx.curve()
+                        .cubic(cx, y + 38,
+                                cx + 40, y + 38 - wob,
+                                cx + 84, y + 38 + wob,
+                                cx + 124, y + 38)
+                        .width(6f, 2f)
+                        .colors(hue(i / 3f), hue(i / 3f + 0.35f))
+                        .cap(CgCurveRenderer.CAP_ROUND)
+                        .submit();
+            }
+        }
+
+        /** A travelling sine, built from a run of quadratics — the polyline case. */
+        private void paintWave(CgUiPaintContext ctx, float x, float y, float t) {
+            final int segments = 34;
+            float span = 396f;
+            float midY = y + 37;
+            for (int i = 0; i < segments; i++) {
+                float t0 = i / (float) segments;
+                float t1 = (i + 1) / (float) segments;
+                float x0 = x + 12 + span * t0;
+                float x1 = x + 12 + span * t1;
+                float y0 = midY + waveAt(t0, t);
+                float y1 = midY + waveAt(t1, t);
+                float xm = (x0 + x1) * 0.5f;
+                // Control point placed so the quadratic passes THROUGH the true midpoint of the sine
+                // rather than chording between the endpoints: B = 2*M - (P0 + P2)/2. Visibly smoother
+                // at this segment count, and the same construction the lissajous row uses.
+                float trueMidY = midY + waveAt((t0 + t1) * 0.5f, t);
+                float ym = 2f * trueMidY - (y0 + y1) * 0.5f;
+                ctx.curve().from(x0, y0).via(xm, ym).to(x1, y1)
+                        .width(3.5f).colors(hue(t0 + t * 0.1f), hue(t1 + t * 0.1f))
+                        .cap(CgCurveRenderer.CAP_ROUND).submit();
+            }
+        }
+
+        private static float waveAt(float u, float t) {
+            return (float) (Math.sin(u * Math.PI * 4 + t * 2.2) * 20 + Math.sin(u * Math.PI * 7 - t * 1.4) * 7);
+        }
+
+        /** Stacked tapered arcs — taper plus gradient plus overlap, the "does it look good" row. */
+        private void paintRibbon(CgUiPaintContext ctx, float x, float y, float t) {
+            final int strands = 14;
+            for (int i = 0; i < strands; i++) {
+                float p = i / (float) (strands - 1);
+                float phase = t * 0.7f + p * 2.4f;
+                float lift = 34f + 26f * (float) Math.sin(phase);
+                ctx.curve()
+                        .from(x + 18, y + 84)
+                        .via(x + 210, y + 84 - lift * 2f)
+                        .to(x + 402, y + 84)
+                        .width(6f * (1f - p) + 0.6f, 0.6f + 6f * p)
+                        .colors(hue(p * 0.5f + t * 0.05f), hue(p * 0.5f + 0.3f + t * 0.05f))
+                        .cap(CgCurveRenderer.CAP_ROUND)
+                        .submit();
+            }
+        }
+
+        /**
+         * A mock node graph — the actual thing 6.2 is being built toward. Ports are quads, wires are
+         * cubics tinted from source port to destination port, which is the standard idiom and the
+         * reason gradient was worth having in the instance record at all.
+         */
+        private void paintNodeGraph(CgUiPaintContext ctx, float x, float y, float t) {
+            float[] srcY = { y + 26, y + 52, y + 78 };
+            float[] dstY = { y + 34, y + 70 };
+            int[] srcColor = { 0xFFFF6B6B, 0xFF6CC4FF, 0xFFFFC24D };
+            int[] dstColor = { 0xFF4DFFC3, 0xFFB36CFF };
+
+            float srcX = x + 78;
+            float dstX = x + 342;
+
+            // Node bodies first, so the wires cross over them — submission order is the z-order.
+            ctx.fillRect(x + 16, y + 14, 62, 78, 0xFF2E333D);
+            ctx.fillRect(x + 342, y + 22, 62, 60, 0xFF2E333D);
+
+            for (int s = 0; s < srcY.length; s++) {
+                for (int d = 0; d < dstY.length; d++) {
+                    if ((s + d) % 2 == 1) continue;   // a subset, so the wires stay readable
+                    float sag = 10f * (float) Math.sin(t * 1.1f + s * 0.8f + d);
+                    ctx.curve()
+                            .cubic(srcX, srcY[s],
+                                    srcX + 96, srcY[s] + sag,
+                                    dstX - 96, dstY[d] - sag,
+                                    dstX, dstY[d])
+                            .width(2.5f)
+                            .colors(srcColor[s], dstColor[d])
+                            .cap(CgCurveRenderer.CAP_ROUND)
+                            .submit();
+                }
+            }
+            ctx.flush();
+
+            for (int s = 0; s < srcY.length; s++) ctx.fillRect(srcX - 4, srcY[s] - 4, 8, 8, srcColor[s]);
+            for (int d = 0; d < dstY.length; d++) ctx.fillRect(dstX - 4, dstY[d] - 4, 8, 8, dstColor[d]);
+        }
+
+        /** Rotating spokes, each a tapered gradient arc. The harness scene's crowd-pleaser. */
+        private void paintFan(CgUiPaintContext ctx, float x, float y, float t) {
+            float cx = x + 210;
+            float cy = y + 75;
+            final int spokes = 18;
+            float radius = 58f + 8f * (float) Math.sin(t * 0.9f);
+            for (int i = 0; i < spokes; i++) {
+                double a = (i / (double) spokes) * Math.PI * 2 + t * 0.35;
+                float ex = cx + (float) Math.cos(a) * radius;
+                float ey = cy + (float) Math.sin(a) * radius;
+                float bx = cx + (float) Math.cos(a - 0.5) * radius * 0.55f;
+                float by = cy + (float) Math.sin(a - 0.5) * radius * 0.55f;
+                ctx.curve().from(cx, cy).via(bx, by).to(ex, ey)
+                        .width(4.5f, 1f)
+                        .colors(0xFFFFFFFF, hue(i / (float) spokes + t * 0.08f))
+                        .cap(CgCurveRenderer.CAP_ROUND)
+                        .submit();
+            }
+        }
+
+        /** An expanding spiral in quadratic segments — many strokes, one draw call. */
+        private void paintSpiral(CgUiPaintContext ctx, float x, float y, float t) {
+            float cx = x + 210;
+            float cy = y + 75;
+            final int steps = 70;
+            float turns = 3.2f;
+            float maxR = 66f;
+            float spin = t * 0.5f;
+            for (int i = 0; i < steps; i++) {
+                float u0 = i / (float) steps;
+                float u1 = (i + 1) / (float) steps;
+                double a0 = u0 * turns * Math.PI * 2 + spin;
+                double a1 = u1 * turns * Math.PI * 2 + spin;
+                double am = (a0 + a1) * 0.5;
+                float r0 = maxR * u0, r1 = maxR * u1, rm = maxR * (u0 + u1) * 0.5f;
+                // Radius of the control point pushed out so the quadratic bulges onto the arc rather
+                // than chording it — the same trick the wave row uses, in polar form.
+                float bulge = 1f / (float) Math.cos((a1 - a0) * 0.5);
+                ctx.curve()
+                        .from(cx + (float) Math.cos(a0) * r0, cy + (float) Math.sin(a0) * r0)
+                        .via(cx + (float) Math.cos(am) * rm * bulge, cy + (float) Math.sin(am) * rm * bulge)
+                        .to(cx + (float) Math.cos(a1) * r1, cy + (float) Math.sin(a1) * r1)
+                        .width(0.8f + 5f * u0, 0.8f + 5f * u1)
+                        .colors(hue(u0 + t * 0.1f), hue(u1 + t * 0.1f))
+                        .cap(CgCurveRenderer.CAP_ROUND)
+                        .submit();
+            }
+        }
+
+        /** A Lissajous figure — long, self-crossing, and the best look at antialiasing quality. */
+        private void paintLissajous(CgUiPaintContext ctx, float x, float y, float t) {
+            float cx = x + 210;
+            float cy = y + 75;
+            float rx = 180f, ry = 60f;
+            final int steps = 90;
+            float phase = t * 0.4f;
+            for (int i = 0; i < steps; i++) {
+                float u0 = i / (float) steps;
+                float u1 = (i + 1) / (float) steps;
+                float um = (u0 + u1) * 0.5f;
+                float x0 = cx + rx * lx(u0, phase), y0 = cy + ry * ly(u0, phase);
+                float x1 = cx + rx * lx(u1, phase), y1 = cy + ry * ly(u1, phase);
+                float xm = cx + rx * lx(um, phase), ym = cy + ry * ly(um, phase);
+                // Control point that makes the quadratic pass through the true midpoint:
+                // B = 2*M - (P0 + P2)/2.
+                ctx.curve()
+                        .from(x0, y0)
+                        .via(2f * xm - (x0 + x1) * 0.5f, 2f * ym - (y0 + y1) * 0.5f)
+                        .to(x1, y1)
+                        .width(2.6f)
+                        .colors(hue(u0 * 2f + t * 0.07f), hue(u1 * 2f + t * 0.07f))
+                        .cap(CgCurveRenderer.CAP_ROUND)
+                        .submit();
+            }
+        }
+
+        private static float lx(float u, float phase) {
+            return (float) Math.sin(u * Math.PI * 2 * 3 + phase);
+        }
+
+        /** Second axis at a 2:3 ratio against {@link #lx}, drifting so the figure keeps reshaping. */
+        private static float ly(float u, float phase) {
+            return (float) Math.sin(u * Math.PI * 2 * 2 + phase * 0.6);
+        }
+
+        /**
+         * Stroke, then a panel over it, then a stroke over that — submitted in that order, so the
+         * correct result is a sandwich. Mirrored on the right so an ordering rule that only holds one
+         * way round still fails visibly.
+         */
+        private void paintInterleaved(CgUiPaintContext ctx, float x, float y) {
+            // Both strokes must cross the panel's VERTICAL span, not just its horizontal one — a
+            // stroke that merely grazes the panel's edge proves nothing about ordering, because
+            // "hidden behind it" and "drawn over it" look identical when they barely touch.
+            ctx.curve().line(x + 12, y + 26, x + 190, y + 26).width(8f).color(0xFFFF4D6D).submit();
+            ctx.fillRect(x + 70, y + 14, 70, 40, 0xFF4D8CFF);
+            ctx.curve().line(x + 12, y + 44, x + 190, y + 44).width(6f).color(0xFF4DFFC3).submit();
+
+            ctx.fillRect(x + 250, y + 14, 70, 40, 0xFF4D8CFF);
+            ctx.curve().line(x + 220, y + 34, x + 400, y + 34).width(8f).color(0xFFFFC24D).submit();
+        }
+
+        /** The lower stroke and the lower bar must fade by the same amount. */
+        private void paintOpacity(CgUiPaintContext ctx, float x, float y) {
+            ctx.curve().line(x + 12, y + 24, x + 180, y + 24).width(6f).color(0xFF6CC4FF).submit();
+            ctx.flush();
+            ctx.withLayerOpacity(0.35f, () -> {
+                ctx.curve().line(x + 12, y + 52, x + 180, y + 52).width(6f).color(0xFF6CC4FF).submit();
+                ctx.flush();
+            });
+
+            ctx.fillRect(x + 220, y + 18, 180, 12, 0xFF6CC4FF);
+            ctx.withLayerOpacity(0.35f, () -> ctx.fillRect(x + 220, y + 46, 180, 12, 0xFF6CC4FF));
+        }
+
+        /** Opaque ARGB from a hue phase — deterministic, and only ever used for demo colour. */
+        private static int hue(float phase) {
+            float h = (phase % 1f + 1f) % 1f;
+            float r = clamp01(Math.abs(h * 6f - 3f) - 1f);
+            float g = clamp01(2f - Math.abs(h * 6f - 2f));
+            float b = clamp01(2f - Math.abs(h * 6f - 4f));
+            return 0xFF000000 | ((int) (r * 255f) << 16) | ((int) (g * 255f) << 8) | (int) (b * 255f);
+        }
+
+        private static float clamp01(float v) {
+            return v < 0f ? 0f : (v > 1f ? 1f : v);
+        }
     }
 
     // ── Lifecycle ───────────────────────────────────────────────────────────────────────────────
