@@ -149,21 +149,6 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             .graph-dropdown { width: 62px; height: 12px; font-size: 7; }
             .canvas-status { color: #A8B0B8; font-size: 8; width: 300px; }
             .canvas-btn    { width: 62px; }
-            /* The shadergraph page is a split: the graph takes the slack, the generated source is a
-               fixed column beside it. Both need a zero basis for the same flex-shrink reason the
-               graph-view rule above spells out. */
-            /* Two classes deep, deliberately. `.ed` gives this editor its syntax colours and its look,
-               but also a fixed 560x340 — and `.ed` sits LATER in this sheet, so at equal specificity it
-               would win and the editor would ignore its pane. A descendant selector weighs 20 against
-               its 10 and settles it without reordering rules that have nothing to do with each other. */
-            .shader-split .shader-source { width: 100%; height: 100%; font-size: 7; }
-            /* The split takes the pane's slack; SplitView owns the divider, its drag and its cursor. */
-            .shader-split  { width: 100%; height: 0; flex-grow: 1; }
-            /* .graph-view's own `height: 0; flex-grow: 1` is written for a COLUMN parent, where grow
-               means height. Inside a SplitView pane it must fill both axes instead — the axes swap with
-               the container, and a rule written for one is actively wrong in the other. Getting this
-               wrong made the canvas full-width and zero-tall, i.e. invisible. */
-            .shader-split .graph-view { width: 100%; height: 100%; }
             /* The curve page holds far more than a pane's worth, so it scrolls. `height: 0` +
              * `flex-grow: 1` for the same reason .gallery-tabs needs it: flex-shrink is 0 in this
              * engine, so without a zero basis the scroller sizes to its content and never scrolls. */
@@ -524,7 +509,6 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         editorPage(page("editor", "Java and GLSL. Alt+Click for multiple carets; find/replace below."));
         curvePage(page("curve", "ctx.curve() Bezier strokes - scroll for all 15 rows. The last two are the correctness checks."));
         graphPage(page("graph", "Drag a wire onto empty space to add a node. Space opens the menu. Shift/Alt marquee. F frames."));
-        shaderGraphPage(page("shadergraph", "P6.3 end to end: wire nodes, watch the .shader compile live. Space adds a node."));
 
         return root;
     }
@@ -2475,138 +2459,6 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      *       is clamped against the zoom, and without the clamp the graph empties out.</li>
      * </ul>
      */
-    // ── P6.3: the shader graph, end to end ──────────────────────────────────
-
-    private GraphView shaderGraph;
-    private TextEditor shaderSource;
-    private UIText shaderStatus;
-
-    /**
-     * The whole P6.3 stack on one page: a node graph whose document is mapped to
-     * {@code CgShaderGraph}, compiled to {@code .shader} source, and shown as it is typed.
-     *
-     * <p>Everything visible here is the real thing rather than a mock — the same
-     * {@code CgGraphCompiler} a material would use, the same emitter, and the same five built-in nodes.
-     * The only step not taken is handing the source to a driver, which needs a GL context this page does
-     * not own.</p>
-     */
-    private void shaderGraphPage(UIElement pane) {
-        var shaderNodes = com.crystalgraphics.shadergraph.CgShaderNodeRegistry.builtins();
-        var master = new com.crystalgraphics.shadergraph.CgMasterNode();
-
-        shaderGraph = new GraphView();
-        shaderGraph.addClass("graph-view");
-
-        // The library IS the shader node set — the create menu, its search and the widget factory all
-        // come from one bridge call, with no shader-specific UI code anywhere on this page.
-        var library = com.crystalgui.graph.shader.ShaderGraphBridge.asNodeLibrary(shaderNodes);
-        shaderGraph.setNodeLibrary(library, NodeWidgetFactory.of(library).build(),
-                com.crystalgui.graph.shader.ShaderGraphBridge.GLSL_PROMOTION);
-
-        shaderStatus = new UIText("");
-        shaderStatus.addClass("canvas-status");
-
-        shaderSource = new TextEditor();
-        // `ed` is this page's code-editor look, and it is not cosmetic here: the syntax colours are
-        // `.ed text::highlight(keyword)` and friends, scoped to that class. Without it the tokenizer
-        // runs, publishes every range correctly, and nothing is coloured — which reads as "the
-        // tokenizer is not working" when the tokenizer is fine and the selector simply never matched.
-        shaderSource.addClass("ed");
-        shaderSource.addClass("shader-source");
-        shaderSource.setReadOnly(true);
-        // The generated file IS GLSL, so it gets the GLSL tokenizer and language rather than being
-        // shown as plain text — the same pair the editor page's GLSL button sets.
-        shaderSource.setTokenizer(KeywordTokenizer.glsl());
-        shaderSource.setLanguage(com.crystalgui.text.syntax.Language.glsl());
-
-        Button compile = new Button("compile");
-        compile.addClass("canvas-btn");
-        compile.attachListener(this::recompileShaderGraph);
-
-        Button frame = new Button("fit");
-        frame.addClass("canvas-btn");
-        frame.attachListener(() -> shaderGraph.fitToContent(24f));
-
-        pane.addChild(row(slot("view"), compile, frame, shaderStatus));
-        // Hints BEFORE the split: the split takes the pane's slack, so anything after it is pushed off
-        // the bottom.
-        pane.addChild(row(slot(""), hint("Space opens the create menu - all five built-in nodes are in it")));
-        pane.addChild(row(slot(""), hint("Wire into Output's BaseColor and watch the source recompile")));
-
-        // A real SplitView rather than a fixed-width column, so the divider can be dragged: a generated
-        // shader is sometimes the thing you are reading and sometimes just confirmation, and which one
-        // it is changes minute to minute. 6.1's widget already owns the drag, the clamping and the
-        // cursor — this only has to say where to start and how far it may go.
-        SplitView split = new SplitView();
-        split.addClass("shader-split");
-        // PERCENTAGES, 0..100 — not a 0..1 fraction. Passing 0.62 meant 0.62%, so the graph came out a
-        // three-pixel sliver, and setLimits(0.2, 0.85) then capped the drag at 0.85% so it could never
-        // be recovered. The name says percentage and the API means it.
-        split.setPercentage(60f);
-        // Either pane collapsed to nothing is a state with no way back — the divider would have no
-        // width left to grab.
-        split.setLimits(20f, 85f);
-        split.first().addChild(shaderGraph);
-        split.second().addChild(shaderSource);
-        pane.addChild(split);
-
-        // A starter graph: Color * Time, into the master. Small enough to read at a glance and it
-        // exercises dynamic widening (vec4 * float) plus an engine builtin, so the generated source
-        // shows a compiler-emitted cast rather than a straight copy.
-        var colour = library.get("cg:input/color");
-        var time = library.get("cg:input/time");
-        var multiply = library.get("cg:math/multiply");
-        var outputType = library.get(com.crystalgui.graph.shader.ShaderGraphBridge.MASTER_TYPE);
-
-        GraphNode colourNode = addShaderNode(library, colour, 20f, 30f);
-        GraphNode timeNode = addShaderNode(library, time, 20f, 150f);
-        GraphNode multiplyNode = addShaderNode(library, multiply, 240f, 60f);
-        GraphNode outputNode = addShaderNode(library, outputType, 470f, 60f);
-
-        shaderGraph.connect(colourNode.getOutputPorts().get(0), multiplyNode.getInputPorts().get(0));
-        shaderGraph.connect(timeNode.getOutputPorts().get(0), multiplyNode.getInputPorts().get(1));
-        shaderGraph.connect(multiplyNode.getOutputPorts().get(0), outputNode.getInputPorts().get(1));
-
-        // Recompile whenever the graph's shape changes. Debounced only by the fact that a connection is
-        // a discrete user action; a per-keystroke trigger would want real debouncing (6.3.8).
-        shaderGraph.onConnectionsChanged.connect(this::recompileShaderGraph);
-        recompileShaderGraph();
-
-    }
-
-    /** Builds a widget for a library type and places it, keeping the document binding the factory does. */
-    private GraphNode addShaderNode(com.crystalgui.graph.NodeTypeRegistry library,
-                                    com.crystalgui.graph.NodeType type, float x, float y) {
-        GraphNode node = shaderGraph.getNodeFactory().create(type, type.create(x, y));
-        shaderGraph.addNode(node, x, y);
-        return node;
-    }
-
-    /**
-     * Maps the document to the compiler's IR, emits, and shows the result.
-     *
-     * <p>Errors go to the status line rather than being swallowed: a graph that cannot compile is the
-     * normal state while one is being built, and the message names the node responsible.</p>
-     */
-    private void recompileShaderGraph() {
-        if (shaderGraph == null || shaderSource == null) return;
-        var shaderNodes = com.crystalgraphics.shadergraph.CgShaderNodeRegistry.builtins();
-        var master = new com.crystalgraphics.shadergraph.CgMasterNode();
-
-        var result = com.crystalgui.graph.shader.ShaderGraphBridge.compile(
-                shaderGraph.getDocument(), shaderNodes, master);
-
-        shaderSource.setText(result.source().isEmpty()
-                ? "// nothing to compile yet\n" + String.join("\n", result.errors())
-                : result.source());
-        shaderStatus.setText(result.ok()
-                ? String.format("compiled  %dn/%de  %d chars  %d varyings",
-                        shaderGraph.getDocument().nodeCount(),
-                        shaderGraph.getDocument().edges().size(),
-                        result.source().length(), result.varyings().size())
-                : result.errors().size() + " error(s): " + result.errors().get(0));
-    }
-
     private void graphPage(UIElement pane) {
         graph = new GraphView();
         graph.addClass("graph-view");
