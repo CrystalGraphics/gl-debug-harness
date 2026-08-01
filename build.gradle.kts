@@ -105,6 +105,13 @@ tasks.register<JavaExec>("runHarness") {
         ).filter { it.isDirectory }
         systemProperty("crystalgraphics.resourceOverrideDirs",
             roots.joinToString(File.pathSeparator) { it.absolutePath })
+        // Also under the ORIGINAL name, with the single most useful root. A CgIO built before multi-root
+        // support ignores the plural property entirely and would then have no override at all -- i.e. hot
+        // reload would silently stop working, with nothing on screen to say why. The old name takes one
+        // path, so it gets CrystalGUI's: the stylesheets are what this is for.
+        project(":core").file("src/main/resources").takeIf { it.isDirectory }?.let {
+            systemProperty("crystalgraphics.shader.resourceOverrideDir", it.absolutePath)
+        }
     }
 
     if (project.hasProperty("harness.debug")) {
