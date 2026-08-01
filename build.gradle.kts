@@ -79,6 +79,24 @@ tasks.register<JavaExec>("runHarness") {
         .filter { it.startsWith("crystalgraphics.") }
         .forEach { systemProperty(it, System.getProperty(it)) }
 
+    // Read assets from the SOURCE tree, so Ctrl+R (stylesheet hot reload) sees the file you just saved.
+    //
+    // Without this CgIO resolves from the classpath, which for a Gradle run is core/build/resources/main
+    // -- a COPY that processResources made at build time. Editing core/src/main/resources/... would then
+    // change nothing the running harness can see, and Ctrl+R would faithfully re-read the stale copy and
+    // look broken.
+    //
+    // Only set when the caller has not chosen their own: -Dcrystalgraphics.shader.resourceOverrideDir=...
+    // still wins, which is how a CrystalGraphics shader session already points this elsewhere. The
+    // override is a single root, so it cannot serve both projects at once -- pointing it at CrystalGUI is
+    // the useful default here because that is where the stylesheets are. Anything it does not contain
+    // (assets/crystalgraphics/**) simply misses and falls through to the classpath, so this is additive.
+    if (!System.getProperties().stringPropertyNames()
+            .contains("crystalgraphics.shader.resourceOverrideDir")) {
+        systemProperty("crystalgraphics.shader.resourceOverrideDir",
+            project(":core").file("src/main/resources").absolutePath)
+    }
+
     if (project.hasProperty("harness.debug")) {
         debugOptions {
             enabled.set(true)

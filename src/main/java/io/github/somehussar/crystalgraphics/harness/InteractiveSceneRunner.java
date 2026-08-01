@@ -323,17 +323,56 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             }
         }
 
-        if (!keyboardListeners.isEmpty()) {
-            while (Keyboard.next()) {
-                CgSystemInput.Keyboard.Event event = new CgSystemInput.Keyboard.Event(
-                        Keyboard.getEventCharacter(), Keyboard.getEventKey(),
-                        Keyboard.getEventKeyState(), Keyboard.isRepeatEvent(),
-                        Keyboard.getEventNanoseconds() / NANOS_IN_MILLIS
-                );
-                for (CgSystemInput.Keyboard listener : keyboardListeners) {
-                    if (!listener.consumeKeyboardEvent(event)) break;
-                }
+        // DRAINED UNCONDITIONALLY, not only when a scene is listening. The queue used to be polled only
+        // if keyboardListeners was non-empty, so in a scene with no keyboard handler nothing was ever
+        // read -- which would make the global binding below work in some scenes and not others, for a
+        // reason nothing on screen explains.
+        while (Keyboard.next()) {
+            CgSystemInput.Keyboard.Event event = new CgSystemInput.Keyboard.Event(
+                    Keyboard.getEventCharacter(), Keyboard.getEventKey(),
+                    Keyboard.getEventKeyState(), Keyboard.isRepeatEvent(),
+                    Keyboard.getEventNanoseconds() / NANOS_IN_MILLIS
+            );
+            // Ctrl+R: re-read every stylesheet from disk and restyle every live window.
+            //
+            // Handled HERE rather than in a scene, and consumed, for two reasons. It works in every
+            // scene rather than only the ones that remembered to implement it; and `r` is an ordinary
+            // character that a focused TextEditor would otherwise type into the document.
+            //
+            // Ignores auto-repeat, or holding the key re-reads the files once a frame.
+            if (event.pressed() && !event.repeat() && event.key() == Keyboard.KEY_R && isCtrlDown()) {
+                reloadStyleSheets();
+                continue;
             }
+            for (CgSystemInput.Keyboard listener : keyboardListeners) {
+                if (!listener.consumeKeyboardEvent(event)) break;
+            }
+        }
+    }
+
+    private static boolean isCtrlDown() {
+        return Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL);
+    }
+
+    /**
+     * Re-reads {@code default.css} and every other loaded stylesheet, then restyles what is on screen.
+     *
+     * <p>Where the files are read FROM is {@code CgIO}'s business, and that is the part worth knowing:
+     * without an override directory it resolves from the classpath, which for a Gradle run means
+     * {@code core/build/resources/main} — a <em>copy</em> made by {@code processResources}, so editing
+     * {@code core/src/main/resources/...} changes nothing this can see. {@code runHarness} therefore
+     * defaults {@code crystalgraphics.shader.resourceOverrideDir} to CrystalGUI's source resources, which
+     * puts the file you are editing first in {@code CgIO}'s waterfall.</p>
+     */
+    private void reloadStyleSheets() {
+        try {
+            int reloaded = com.crystalgui.style.StyleEngine.reloadStylesheets();
+            LOGGER.info("[InteractiveSceneRunner] Ctrl+R: reloaded " + reloaded + " stylesheet(s)");
+        } catch (Throwable t) {
+            // Never let a bad stylesheet take the harness down -- a half-written file mid-save is the
+            // normal case for this key, not an exceptional one.
+            LOGGER.log(java.util.logging.Level.SEVERE,
+                    "[InteractiveSceneRunner] Ctrl+R: stylesheet reload failed", t);
         }
     }
 
