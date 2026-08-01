@@ -1011,7 +1011,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 UIElement row = new UIElement();
                 row.addClass("tv-row");
                 row.setFocusPolicy(FocusPolicy.CLICK);
-                UIText twisty = new UIText("");
+                // A real vector chevron (overlay: shape("chevron-right"), rotated when expanded)
+                // rather than the "v"/">" glyph this used to be — the bundled Minecraft font has
+                // no triangle character at all. Stays hittable, unlike NodeCreationMenu's twisty:
+                // this page's own comment explains why (clicking anywhere else only focuses/selects).
+                UIElement twisty = new UIElement();
                 twisty.addClass("tv-twisty");
                 // The twisty is HITTABLE, unlike the label. Clicking it toggles; clicking anywhere else
                 // in the row just focuses and selects. Without this the tree can only be opened from the
@@ -1033,8 +1037,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
             @Override
             public void bind(String item, TreeRow<String> row, int index, UIElement template) {
-                ((UIText) template.getChildren().get(0))
-                        .setText(!row.expandable() ? " " : row.expanded() ? "v" : ">");
+                // The twisty's own look is driven entirely by the __expanded__/__collapsed__/
+                // __leaf__ classes TreeView already applies to `template` — see gallery.css's
+                // .tv-twisty rules. No Java decision needed here any more.
                 String name = item.substring(item.lastIndexOf('/') + 1);
                 ((UIText) template.getChildren().get(1)).setText(row.depth() == 0 ? item : name);
             }

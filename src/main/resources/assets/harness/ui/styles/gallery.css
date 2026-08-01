@@ -315,9 +315,12 @@
 .tv-row:focus  { outline: 1px solid #61AFEF; }
 /* padding on the TWISTY, not on the panel: rows are absolutely positioned and TreeView owns
  * their padding-left (it is the depth indent), so a sheet rule there would out-specify the
- * indent and flatten the whole tree. Insetting the glyph inside its own box cannot collide. */
-.tv-twisty     { width: 11px; padding-left: 3px; color: #98C379; font-size: 7; }
-.tv-twisty:hover { color: #FFFFFF; }
+ * indent and flatten the whole tree. Insetting the shape inside its own box cannot collide. */
+.tv-twisty     { width: 11px; height: 11px; flex-shrink: 0; padding-left: 3px;
+                 color: #98C379; overlay: shape("chevron-right"); }
+.tv-row:hover .tv-twisty { color: #FFFFFF; }
+.tv-row.__expanded__ > .tv-twisty { transform: rotate(90deg); }
+.tv-row.__leaf__ > .tv-twisty { overlay: none; }
 .tv-status     { color: #E5C07B; font-size: 7; }
 
 /* editor page (6.1.6). The editor paints its own caret and selection bands from
