@@ -8,7 +8,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.ReviewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ShaderLibTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgAttachedBufferStressScene;
-import io.github.somehussar.crystalgraphics.harness.scene.test.CgCurveRendererTestScene;
+import io.github.somehussar.crystalgraphics.harness.scene.test.CgVectorRendererTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
@@ -215,7 +215,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("curve-renderer-test")
-                .description("CgCurveRenderer: instanced quadratic Bezier strokes — lines, taper, gradient, caps, split cubics, posed fan")
+                .description("CgVectorRenderer: instanced quadratic Bezier strokes — lines, taper, gradient, caps, split cubics, posed fan")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
@@ -224,7 +224,7 @@ public final class SceneRegistry {
                 .defaultHeight(760)
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
-            () -> new CgCurveRendererTestScene()
+            () -> new CgVectorRendererTestScene()
         );
 
         reg.register(

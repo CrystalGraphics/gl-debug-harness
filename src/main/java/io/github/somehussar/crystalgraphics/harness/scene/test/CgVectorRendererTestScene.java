@@ -3,7 +3,7 @@ package io.github.somehussar.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.render.CgFrameData;
 import com.crystalgraphics.api.render.CgRenderPipeline;
-import com.crystalgraphics.gl.render.CgCurveRenderer;
+import com.crystalgraphics.gl.render.CgVectorRenderer;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -13,7 +13,7 @@ import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
 
 /**
- * Interactive visual test for {@link CgCurveRenderer} — the instanced quadratic-Bézier stroke
+ * Interactive visual test for {@link CgVectorRenderer} — the instanced quadratic-Bézier stroke
  * renderer, and the one true engine gap that the node-graph view (P6.2) is blocked on.
  *
  * <p>Every row below lands in the <strong>same</strong> begin/flush/end window, so the whole scene
@@ -35,14 +35,14 @@ import org.joml.Matrix4f;
  *       than staying fixed while the geometry grows.</li>
  * </ol>
  */
-public class CgCurveRendererTestScene implements InteractiveSceneLifecycle {
+public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
 
-    private static final Logger LOG = LogManager.getLogger("CrystalGraphics.CgCurveRendererTest");
+    private static final Logger LOG = LogManager.getLogger("CrystalGraphics.CgVectorRendererTest");
 
     private static final int FAN_SPOKES = 12;
 
     private CgMaterial material;
-    private CgCurveRenderer renderer;
+    private CgVectorRenderer renderer;
 
     /** Reused every frame — mutated in place, never reallocated. */
     private final Matrix4f scratchPose = new Matrix4f();
@@ -52,7 +52,7 @@ public class CgCurveRendererTestScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        renderer = CgCurveRenderer.create();
+        renderer = CgVectorRenderer.create();
         // The shipped reference material — no Properties to bind, since a stroke's colour, width and
         // softness are all per-instance data rather than material state.
         material = CgMaterial.load("crystalgraphics:shaders/curve.shader");
@@ -126,7 +126,7 @@ public class CgCurveRendererTestScene implements InteractiveSceneLifecycle {
         // are hard to tell apart by eye, and the first cap implementation shipped broken for exactly
         // that reason. Against the ticks it is unambiguous — butt stops ON the tick, round bulges a
         // half-disc past it, square overhangs it by the same amount with square corners.
-        int[] caps = { CgCurveRenderer.CAP_BUTT, CgCurveRenderer.CAP_ROUND, CgCurveRenderer.CAP_SQUARE };
+        int[] caps = { CgVectorRenderer.CAP_BUTT, CgVectorRenderer.CAP_ROUND, CgVectorRenderer.CAP_SQUARE };
         for (int i = 0; i < caps.length; i++) {
             float x = 60f + i * 240f;
             renderer.curve().line(x, 410f, x + 160f, 410f)
@@ -140,7 +140,7 @@ public class CgCurveRendererTestScene implements InteractiveSceneLifecycle {
                 float tx = x + e * 160f;
                 renderer.curve().line(tx, 386f, tx, 434f)
                         .width(0.5f)
-                        .cap(CgCurveRenderer.CAP_BUTT)
+                        .cap(CgVectorRenderer.CAP_BUTT)
                         .color(0xFF7A7A7A)
                         .submit();
                 count++;
@@ -201,10 +201,10 @@ public class CgCurveRendererTestScene implements InteractiveSceneLifecycle {
         renderer.flush();
         renderer.end();
 
-        boolean hadErrors = GlErrorChecker.checkAndLog("CgCurveRenderer-test");
+        boolean hadErrors = GlErrorChecker.checkAndLog("CgVectorRenderer-test");
         if (!reportedOnce) {
             reportedOnce = true;
-            LOG.info("CgCurveRenderer test scene: {} submit() calls in one flush() "
+            LOG.info("CgVectorRenderer test scene: {} submit() calls in one flush() "
                     + "(cubics expand to more instances than that), glError={}", count, hadErrors);
         }
     }
