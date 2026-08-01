@@ -20,6 +20,7 @@ import com.crystalgui.ui.elements.graph.GraphView;
 import com.crystalgui.ui.elements.graph.NodePort;
 import com.crystalgui.ui.elements.graph.PortType;
 import com.crystalgui.ui.elements.Checkbox;
+import com.crystalgui.ui.elements.ColorSelector;
 import com.crystalgui.ui.elements.Dialog;
 import com.crystalgui.ui.elements.DialogManager;
 import com.crystalgui.ui.elements.CheckboxGroup;
@@ -158,6 +159,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                its 10 and settles it without reordering rules that have nothing to do with each other. */
             .shader-split .shader-source { width: 100%; height: 300px; font-size: 7; }
             /* The split takes the pane's slack; SplitView owns the divider, its drag and its cursor. */
+            /* Draggable by its title bar, but NOT resizable — no `resize`, so no handles. The picker is
+               a fixed composition of fixed-size controls, so a bigger box only ever meant more empty
+               space around it; scaling it instead needed a transform, which a promoted dropdown does
+               not inherit. Dragging is Dialog's own and costs nothing. */
+            .color-dialog  { }
+            .color-row     { flex-direction: row; gap-all: 16px; }
+            .color-side    { flex-direction: column; gap-all: 8px; width: 260px; }
+            .color-swatch  { width: 100%; height: 40px; border-radius: 4px; border-width: 1px; border-color: #1A1A1A; }
             .shader-split  { width: 100%; height: 0; flex-grow: 1; }
             /* .graph-view's own `height: 0; flex-grow: 1` is written for a COLUMN parent, where grow
                means height. Inside a SplitView pane it must fill both axes instead — the axes swap with
@@ -525,6 +534,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         curvePage(page("curve", "ctx.curve() Bezier strokes - scroll for all 15 rows. The last two are the correctness checks."));
         graphPage(page("graph", "Drag a wire onto empty space to add a node. Space opens the menu. Shift/Alt marquee. F frames."));
         shaderGraphPage(page("shadergraph", "P6.3 end to end: wire nodes, watch the .shader compile live. Space adds a node."));
+        colorSelectorPage(page("colorselector", "The general colour picker: hue ring, SV square, live channel tracks."));
 
         return root;
     }
@@ -2354,6 +2364,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             shaderPreviewsAttached = true;
         }
 
+        // Drag the dialog's corner and the picker SCALES rather than being cropped. `resize` writes an
+        // explicit width/height — that is what CSS resize means — so turning that into a scale is the
+        // host's job: read the box the dialog now offers and hand the picker a multiple of its natural
+        // size. Done per frame because a resize is a drag; setScale ignores an unchanged value.
         uiWindow.paintFrame();
 
         var context = CgUiPaintContext.getInstance();
@@ -2402,7 +2416,16 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        if (event.pressed()) {
+        // BARE brackets only. The keyboard Event carries no modifier state, so this reads the live mask --
+        // without it, Ctrl+Shift+[ changes uiScale and returns true, and the editor's own fold binding
+        // never sees the key at all. Any accelerator built on a bracket is invisible in this scene
+        // otherwise, which is exactly how it presented: the binding was correct and untestable.
+        int mods = com.crystalgraphics.platform.CgPlatform.input().getCurrentModifiers();
+        boolean bare = !com.crystalgraphics.platform.input.CgModifiers.hasCtrl(mods)
+                && !com.crystalgraphics.platform.input.CgModifiers.hasShift(mods)
+                && !com.crystalgraphics.platform.input.CgModifiers.hasAlt(mods)
+                && !com.crystalgraphics.platform.input.CgModifiers.hasSuper(mods);
+        if (event.pressed() && bare) {
             switch (event.key()) {
                 case CgKeyCodes.KEY_RBRACKET -> {
                     setScale(Math.min(8f, uiWindow.getUiScale() + 0.1f));
@@ -2509,6 +2532,61 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * The only step not taken is handing the source to a driver, which needs a GL context this page does
      * not own.</p>
      */
+    /**
+     * The colour picker on its own, so its layout can be judged without a node around it.
+     *
+     * <p>A live swatch and a hex readout sit beside it, because the thing worth checking is that every
+     * control is a <em>view of one colour</em> — drag any slider and the ring, the square and the
+     * readout must all move together.</p>
+     */
+    private void colorSelectorPage(UIElement pane) {
+        ColorSelector picker = new ColorSelector();
+        // setInitialColor, not setColor: this opens an editing session, so it sets the "original" the
+        // left swatch shows and restores. setColor moves only the current colour, which would leave the
+        // swatch showing the constructor's white and make the reset undo to a colour nobody chose.
+        picker.setInitialColor(0xFFB00DDB);
+
+        UIElement swatch = new UIElement();
+        swatch.addClass("color-swatch");
+        UIText readout = new UIText("");
+
+        Runnable show = () -> {
+            int argb = picker.getColor();
+            swatch.generalStyle(g -> g.background(new com.crystalgui.render.texture.CgUiQuad(argb)));
+            readout.setText(String.format("#%08X   alpha %d", argb, (argb >>> 24) & 0xFF));
+        };
+        picker.onColorChanged.connect(c -> show.run());
+        show.run();
+
+        UIElement side = new UIElement();
+        side.addClass("color-side");
+        side.addChild(swatch);
+        side.addChild(readout);
+        side.addChild(hint("Every control edits ONE colour — the ring, square and sliders are all views"));
+        side.addChild(hint("Mode changes how the channels are shown, never the colour"));
+
+        // In a Dialog, which already owns a draggable title bar and its own position — so the picker
+        // stays a plain content widget rather than growing a second identity as a window.
+        Dialog window = new Dialog("Color");
+        window.addClass("color-dialog");
+        window.getContent().addChild(picker);
+
+        Button open = new Button("open picker");
+        open.addClass("canvas-btn");
+        open.attachListener(() -> window.show().moveTo(40f, 90f));
+
+
+
+
+        UIElement row = new UIElement();
+        row.addClass("color-row");
+        row.addChild(side);
+        pane.addChild(row(slot("picker"), open));
+        pane.addChild(row);
+        pane.addChild(window);
+        window.show().moveTo(40f, 90f);
+    }
+
     private void shaderGraphPage(UIElement pane) {
         var shaderNodes = com.crystalgraphics.shadergraph.CgShaderNodeRegistry.builtins();
         var master = new com.crystalgraphics.shadergraph.CgMasterNode();
