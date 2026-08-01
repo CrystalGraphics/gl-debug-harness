@@ -2600,6 +2600,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         ConfiguratorPanel panel = new ConfiguratorPanel();
         panel.addClass("cfg-panel");
 
+        // A plain section header: full-width band, no arrow, nothing to collapse — Unity's
+        // "Target Settings" caption in 07-full-window.png, unlike the collapsible group below.
+        panel.add(ConfigDescriptor.header("Node Settings"), null);
         panel.add(ConfigDescriptor.text("name", "Name").tooltip("Free text"), "Untitled");
         panel.add(ConfigDescriptor.number("scale", "Scale"), 1.0);
         panel.add(ConfigDescriptor.number("opacity", "Opacity").range(0f, 1f), 0.5);
@@ -2622,6 +2625,17 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         panel.add(ConfigDescriptor.of("entries", "Entries", ConfigDescriptor.Kind.ARRAY)
                 .element(ConfigDescriptor.text("entries.e", "")), java.util.List.of("alpha", "beta"));
+
+        // Step 6's four remaining leaves — a group of their own so they're easy to find and compare
+        // side by side rather than scattered through the page.
+        ConfiguratorGroup leaves = new ConfiguratorGroup("Step 6");
+        panel.addChild(leaves);
+        panel.addTo(leaves.content(), ConfigDescriptor.color("tint", "Tint"), 0xFF3C8CFF);
+        panel.addTo(leaves.content(), ConfigDescriptor.mask("layers", "Layers",
+                java.util.List.of("Default", "Water", "UI", "PostProcessing")),
+                java.util.Set.of("Default", "Water"));
+        panel.addTo(leaves.content(), ConfigDescriptor.matrix("transform", "Transform", 4), null);
+        panel.addTo(leaves.content(), ConfigDescriptor.asset("shader", "Shader"), "Shaders/Lit.shader");
 
         // A COLUMN of one-line labels rather than one label with newlines in it: UIText wraps, and
         // whether it also honours an explicit line break is a question this page has no business
