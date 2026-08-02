@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.gl.render.CgVectorRenderer;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.platform.input.CgKeyCodes;
@@ -2023,6 +2024,16 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
+        // `CgPreviewRenderer` deliberately reuses the shared `CgRenderPipeline` singleton's ONE
+        // `CgFrameData` rather than owning a separate one — that's what lets a Time node's preview
+        // thumbnail animate for free, inheriting whatever clock the app already drives. But nothing
+        // else in this scene ever touches that clock, so `timeSecs` sat at its `0f` default for the
+        // whole life of the gallery: every Time-node preview (and anything downstream of it, like a
+        // Multiply node fed by Time) rendered as if CG_TIME were permanently zero. Every OTHER
+        // interactive harness scene that uses the pipeline sets this per frame (see
+        // CgForwardRendererScene/CgAttachedBufferStressScene) — this one just never had a reason to
+        // until node previews existed.
+        CgRenderPipeline.getInstance().getFrameData().timeSecs = (float) frame.getElapsedTime();
         // Deferred to the first frame because attaching registers a frame ticker on the window, which
         // does not exist while the pages are being built.
         if (shaderPreviews != null && !shaderPreviewsAttached) {
