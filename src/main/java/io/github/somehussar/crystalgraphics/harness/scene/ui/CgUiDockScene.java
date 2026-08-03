@@ -169,7 +169,10 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 mismatches.append(" [no group]");
                 continue;
             }
-            int tabs = group.tabView().getTabCount();
+            // Tab ELEMENTS, not getTabCount(). The first version of this readout trusted the tab list
+            // and printed "strips OK" while three dead tabs sat in the rails -- markAsInternal() recurses,
+            // so removeChild had been silently refusing them and the list stayed correct throughout.
+            int tabs = countTabs(group);
             if (tabs != leaf.panelCount()) {
                 mismatches.append(String.format(" [%s: %d tabs vs %d panels]",
                         leaf.panelCount() > 0 ? leaf.panel(0).typeId() : "empty", tabs, leaf.panelCount()));
@@ -182,6 +185,12 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private static int countGroups(UIElement element) {
         int count = element instanceof com.crystalgui.ui.elements.dock.DockGroup ? 1 : 0;
         for (UIElement child : element.getChildren()) count += countGroups(child);
+        return count;
+    }
+
+    private static int countTabs(UIElement element) {
+        int count = element instanceof com.crystalgui.ui.elements.Tab ? 1 : 0;
+        for (UIElement child : element.getChildren()) count += countTabs(child);
         return count;
     }
 
