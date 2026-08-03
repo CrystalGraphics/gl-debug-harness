@@ -12,3 +12,7 @@
 /out/
 /harness-output/
 /logs/
+
+# The cgui-workspace scene's scratch project. Real files the user edits; not build output,
+# which is why it is not under harness-output/ -- but not source either.
+workspace/

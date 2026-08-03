@@ -19,6 +19,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiScrollerScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSliderScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTabViewScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiWorkspaceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextFieldScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSplitViewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
@@ -441,6 +442,21 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiTabViewScene()
+        );
+
+        // P6.1.10: a server-hosted project workspace, both halves in this process. The files are real
+        // and live in harness-output/workspace -- edit one on disk, then save here, to see the conflict
+        // path the whole etag mechanism exists for.
+        reg.register(
+            SceneDescriptor.builder("cgui-workspace")
+                .description("CrystalGUI remote workspace: project tree, editor tabs, save conflicts")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiWorkspaceScene()
         );
 
         // The front door: every widget, one page each, with a live Ore <-> default theme toggle.
