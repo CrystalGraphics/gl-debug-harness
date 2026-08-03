@@ -77,6 +77,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
 
     // ── The server half ─────────────────────────────────────────────────────────────────────────
     private ServerUiSession<Object> server;
+    private WorkspaceRpc<Object> rpc;
     private InMemoryTransport<Object> fromServer;
     private InMemoryTransport<Object> fromClient;
 
@@ -94,6 +95,12 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     /** Open documents, by path, so a second click on a file focuses its tab rather than opening another. */
     private final Map<CgPath, Tab> openTabs = new LinkedHashMap<>();
     private final Map<CgPath, TextEditor> editors = new HashMap<>();
+
+    /** What each document held when it was last loaded or saved — what makes "dirty" answerable. */
+    private final Map<CgPath, String> baseline = new HashMap<>();
+
+    /** Seconds until the next watcher poll. Files are stat'd, so this is not free. */
+    private float untilPoll;
 
     /** Which item each pooled tree row currently shows — see the renderer for why it is not captured. */
     private final Map<UIElement, CgPath> rowItems = new HashMap<>();
@@ -121,11 +128,13 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
         fromClient = pair[1];
 
         server = new ServerUiSession<>(1, new UIElement(), fromServer, PlainOps.INSTANCE);
-        new WorkspaceRpc<Object>(service, WorkspaceActor.LOCAL).installOn(server::onCall);
+        rpc = new WorkspaceRpc<>(service, WorkspaceActor.LOCAL);
+        rpc.installOn(server::onCall);
         server.open();
 
         session = new ClientUiSession<>(fromClient, PlainOps.INSTANCE);
         workspace = new WorkspaceClient<>(session, PlainOps.INSTANCE);
+        workspace.onFileChanged(this::onFileChangedOnServer);
         tree = new WorkspaceTree(workspace);
 
         uiWindow = new UIWindow(Ui.of(buildUi()));
@@ -308,6 +317,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
             tabs.selectTab(tab);
             openTabs.put(path, tab);
             editors.put(path, editor);
+            baseline.put(path, document.text());
             note = "opened " + path;
         }, failure -> note = "open failed: " + failure.code());
     }
@@ -329,6 +339,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
         TextEditor editor = editors.get(path);
         workspace.save(path, editor.getText().getBytes(StandardCharsets.UTF_8),
                 etag -> {
+                    baseline.put(path, editor.getText());
                     note = "saved " + path;
                     showBanner(null);
                 },
@@ -348,11 +359,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     private void reloadConflicted() {
         CgPath path = conflicted;
         if (path == null) return;
-        workspace.read(path, document -> {
-            editors.get(path).setText(document.text());
-            showBanner(null);
-            note = "reloaded " + path;
-        }, failure -> note = "reload failed: " + failure.code());
+        reloadFromServer(path, "reloaded ");
     }
 
     /**
@@ -366,10 +373,51 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
         if (path == null) return;
         workspace.overwrite(path, editors.get(path).getText().getBytes(StandardCharsets.UTF_8),
                 etag -> {
+                    baseline.put(path, editors.get(path).getText());
                     showBanner(null);
                     note = "kept local changes to " + path;
                 },
                 failure -> note = "keep failed: " + failure.code());
+    }
+
+    private void reloadFromServer(CgPath path, String verb) {
+        workspace.read(path, document -> {
+            editors.get(path).setText(document.text());
+            baseline.put(path, document.text());
+            showBanner(null);
+            note = verb + path;
+        }, failure -> note = "reload failed: " + failure.code());
+    }
+
+    private boolean isDirty(CgPath path) {
+        TextEditor editor = editors.get(path);
+        return editor != null && !editor.getText().equals(baseline.get(path));
+    }
+
+    /**
+     * The server says a file we have open moved.
+     *
+     * <p>VS Code's rule, and the reason {@code fs.changed} is worth having: a document with no unsaved
+     * edits is <b>reloaded silently</b>, because prompting about a file the user has not touched is noise.
+     * Only a dirty one raises the banner — which is the case where something would genuinely be lost.</p>
+     */
+    private void onFileChangedOnServer(WorkspaceClient.FileChanged change) {
+        CgPath path = change.path();
+        if (!editors.containsKey(path)) return;
+
+        if (change.isDeleted()) {
+            conflicted = null;
+            showBanner("'" + path.name() + "' has been deleted on disk.");
+            note = "deleted on disk: " + path;
+            return;
+        }
+        if (isDirty(path)) {
+            conflicted = path;
+            showBanner("Changes have been made to '" + path.name() + "' in memory and on disk.");
+            note = "changed on disk: " + path;
+            return;
+        }
+        reloadFromServer(path, "auto-reloaded ");
     }
 
     // ── Frame ───────────────────────────────────────────────────────────────────────────────────
@@ -388,6 +436,14 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
             projectsRequested = true;
             tree.loadProjects(() -> treeView.refresh());
         }
+        // The watcher's cadence is the HOST's call, not the engine's -- every poll stats each open file,
+        // so a per-frame poll would be a stat storm at 60 Hz for no benefit a human could perceive.
+        untilPoll -= frame.getDeltaTime();
+        if (untilPoll <= 0f) {
+            untilPoll = 0.5f;
+            rpc.pollAndNotify((method, args) -> server.call(method, args, null, null), PlainOps.INSTANCE);
+        }
+
         if (tree.drainRefresh()) treeView.refresh();
 
         uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
