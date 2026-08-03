@@ -5,6 +5,7 @@ import com.crystalgraphics.gl.render.CgVectorRenderer;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgui.core.property.Property;
+import com.crystalgui.graph.shader.ShaderGraphBridge;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.property.visual.Resize;
@@ -2341,8 +2342,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // shows a compiler-emitted cast rather than a straight copy.
         var colour = library.get("cg:input/basic/color");
         var time = library.get("cg:input/basic/time");
-        var multiply = library.get("cg:math/multiply");
-        var outputType = library.get(com.crystalgui.graph.shader.ShaderGraphBridge.MASTER_TYPE);
+        var multiply = library.get("cg:math/basic/multiply");
+        var outputType = library.get(ShaderGraphBridge.MASTER_TYPE);
 
         GraphNode colourNode = addShaderNode(library, colour, 20f, 30f);
         GraphNode timeNode = addShaderNode(library, time, 20f, 150f);
