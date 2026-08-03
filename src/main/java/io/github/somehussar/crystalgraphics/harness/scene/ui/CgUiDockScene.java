@@ -10,6 +10,7 @@ import com.crystalgui.ui.UIWindow;
 import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.elements.UIText;
 import com.crystalgui.ui.elements.dock.DockArea;
+import com.crystalgui.ui.elements.dock.DockBranch;
 import com.crystalgui.ui.elements.dock.DockCommands;
 import com.crystalgui.ui.elements.dock.DockDropZone;
 import com.crystalgui.ui.elements.dock.DockLayout;
@@ -45,7 +46,8 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
     private static final String STYLES = """
-            .demo-root { width: 100%; height: 100%; padding-all: 8px; }
+            /* Room for the harness's own status line, which is painted at y=0 over everything. */
+            .demo-root { width: 100%; height: 100%; padding-all: 8px; padding-top: 22px; }
             .panel-body { flex-grow: 1; padding-all: 6px; }
             .p-graph  { background-color: #2F4858; }
             .p-code   { background-color: #33475B; }
@@ -103,6 +105,23 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         layout.drop(centre, DockDropZone.SPLIT_LEFT, new DockLeaf(new DockPanelRef("nodes")));
         layout.drop(centre, DockDropZone.SPLIT_RIGHT, new DockLeaf(new DockPanelRef("props")));
         layout.drop(centre, DockDropZone.SPLIT_DOWN, new DockLeaf(new DockPanelRef("console")));
+
+        // Weights, explicitly -- and worth understanding rather than copying.
+        //
+        // A split halves the TARGET's share and gives the other half to the newcomer, which is right (every
+        // OTHER pane keeps the proportion the user gave it) and means three splits off the same centre pane
+        // leave it at an eighth. Insertion order then decides the picture: the first thing split off is the
+        // biggest, so building an IDE layout in the obvious order hands half the screen to the node library.
+        //
+        // The lesson is that a DEFAULT layout is authored, not accumulated. A user's layout comes out of
+        // their drags and needs no help; a starting one has to state what it wants.
+        layout.root().child(0).size(0.20f);   // node library
+        layout.root().child(1).size(0.62f);   // the work column
+        layout.root().child(2).size(0.18f);   // inspector
+
+        DockBranch workColumn = (DockBranch) layout.root().child(1);
+        workColumn.child(0).size(0.75f);      // documents
+        workColumn.child(1).size(0.25f);      // console
         return layout;
     }
 
