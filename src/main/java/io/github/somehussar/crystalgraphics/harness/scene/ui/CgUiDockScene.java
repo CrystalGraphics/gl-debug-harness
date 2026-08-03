@@ -138,6 +138,9 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         uiWindow.paintFrame();
 
         var context = CgUiPaintContext.getInstance();
+        context.text().draw().at(0, 14)
+                .text(diagnose())
+                .font(context.getFont().atSize(12)).submit();
         context.text().draw().at(0, 0)
                 .text(String.format("Dock — %d panes.  Ctrl+S save · Ctrl+O restore · Ctrl+\\ split · "
                                 + "Ctrl+W close · Ctrl+M maximize · Ctrl+K next group   [%s]",
@@ -147,6 +150,39 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         if (frame.getFrameNumber() == 5) {
             ctx.getArtifactService().requestCapture("startup");
         }
+    }
+
+    /**
+     * Reports the view against the model, every frame.
+     *
+     * <p>Here rather than in a test because the failure has not reproduced headlessly: a two-group drag
+     * and a drag in this exact layout both come out clean, so whatever differs is something only the real
+     * loop does. This says what is actually true on screen instead of what a screenshot suggests.</p>
+     */
+    private String diagnose() {
+        int leaves = area.layout().leaves().size();
+        int attached = countGroups(area);
+        StringBuilder mismatches = new StringBuilder();
+        for (var leaf : area.layout().leaves()) {
+            var group = area.groupFor(leaf);
+            if (group == null) {
+                mismatches.append(" [no group]");
+                continue;
+            }
+            int tabs = group.tabView().getTabCount();
+            if (tabs != leaf.panelCount()) {
+                mismatches.append(String.format(" [%s: %d tabs vs %d panels]",
+                        leaf.panelCount() > 0 ? leaf.panel(0).typeId() : "empty", tabs, leaf.panelCount()));
+            }
+        }
+        return String.format("groups attached=%d leaves=%d%s", attached, leaves,
+                mismatches.length() == 0 ? "  strips OK" : "  MISMATCH" + mismatches);
+    }
+
+    private static int countGroups(UIElement element) {
+        int count = element instanceof com.crystalgui.ui.elements.dock.DockGroup ? 1 : 0;
+        for (UIElement child : element.getChildren()) count += countGroups(child);
+        return count;
     }
 
     @Override
