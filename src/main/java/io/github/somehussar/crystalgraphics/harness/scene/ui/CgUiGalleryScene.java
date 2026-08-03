@@ -2041,6 +2041,12 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             shaderPreviews.attach();
             shaderPreviewsAttached = true;
         }
+        // Retried until it takes, rather than attempted once: the panel lives inside a tab page, and
+        // registerTicker is idempotent, so the cheap correct thing is to keep asking until there is a
+        // window to ask. One-shot attachment is a panel that silently never draws.
+        if (shaderMainPreview != null && !shaderMainPreviewAttached) {
+            shaderMainPreviewAttached = shaderMainPreview.attach();
+        }
 
         // Drag the dialog's corner and the picker SCALES rather than being cropped. `resize` writes an
         // explicit width/height — that is what CSS resize means — so turning that into a scale is the
@@ -2196,6 +2202,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private GraphView shaderGraph;
     private TextEditor shaderSource;
     private com.crystalgui.graph.shader.ShaderGraphPreviews shaderPreviews;
+    /** P6.3.12 — the finished shader on a mesh. Right-click it for the shape menu, drag to orbit. */
+    private com.crystalgui.graph.shader.MainPreviewPanel shaderMainPreview;
+    private boolean shaderMainPreviewAttached;
     private com.crystalgraphics.shadergraph.CgShaderEmitter.Result shaderLineOwners;
     private boolean shaderPreviewsAttached;
 
@@ -2374,6 +2383,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // never fires for it — without this the source pane silently shows the previous variant.
         shaderPreviews.onPropertyChanged.connect(this::recompileShaderGraph);
 
+        // 6.3.12 — the Main Preview. Parented to the graph's own pane rather than promoted into the top
+        // layer: Unity's floats over the canvas, but a top-layer panel would sit above the create menu
+        // and every dialog in the gallery too, which is a different claim than "above the graph".
+        shaderMainPreview = new com.crystalgui.graph.shader.MainPreviewPanel(
+                shaderGraph.getDocument(), shaderNodes, master);
+        // Over the canvas, not beside it: addOverlay puts it in the viewport rather than on the plane,
+        // so it stays put while the graph pans underneath — which is what "floating preview" means.
+        shaderGraph.addOverlay(shaderMainPreview);
     }
 
     /** Builds a widget for a library type and places it, keeping the document binding the factory does. */
