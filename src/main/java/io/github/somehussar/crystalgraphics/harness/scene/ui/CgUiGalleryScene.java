@@ -2277,9 +2277,6 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         var library = com.crystalgui.graph.shader.ShaderGraphBridge.asNodeLibrary(shaderNodes);
         shaderGraph.setNodeLibrary(library, NodeWidgetFactory.of(library).build(),
                 com.crystalgui.graph.shader.ShaderGraphBridge.GLSL_PROMOTION);
-        // Unity's A(1) B(1) Out(1), widening to (3) when a vec3 lands — a dynamic port's width is
-        // per-port and changes with the wiring, so it cannot come from the shared PortType.
-        com.crystalgui.graph.shader.ShaderPortArity.install(shaderGraph);
 
         shaderStatus = new UIText("");
         shaderStatus.addClass("canvas-status");
@@ -2332,10 +2329,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // PERCENTAGES, 0..100 — not a 0..1 fraction. Passing 0.62 meant 0.62%, so the graph came out a
         // three-pixel sliver, and setLimits(0.2, 0.85) then capped the drag at 0.85% so it could never
         // be recovered. The name says percentage and the API means it.
-        split.setPercentage(60f);
+        split.setPercentage(80f);
         // Either pane collapsed to nothing is a state with no way back — the divider would have no
         // width left to grab.
-        split.setLimits(20f, 85f);
+        split.setLimits(20f, 95f);
         split.first().addChild(shaderGraph);
         split.second().addChild(shaderSource);
         pane.addChild(split);
@@ -2343,9 +2340,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // A starter graph: Color * Time, into the master. Small enough to read at a glance and it
         // exercises dynamic widening (vec4 * float) plus an engine builtin, so the generated source
         // shows a compiler-emitted cast rather than a straight copy.
-        var colour = library.get("cg:input/basic/color");
-        var time = library.get("cg:input/basic/time");
-        var multiply = library.get("cg:math/basic/multiply");
+        var colour = library.get("cg:Input/Basic/color");
+        var time = library.get("cg:Input/Basic/time");
+        var multiply = library.get("cg:Math/Basic/multiply");
         var outputType = library.get(ShaderGraphBridge.MASTER_TYPE);
 
         GraphNode colourNode = addShaderNode(library, colour, 20f, 30f);
@@ -2360,9 +2357,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // Left unconnected on purpose. These are the three nodes a preview system exists to show —
         // UV's red/green gradient on a quad, Position and Normal on a sphere — and none of them needs
         // to be wired to anything for its thumbnail to be the point.
-        addShaderNode(library, library.get("cg:input/geometry/uv"), 20f, 330f);
-        addShaderNode(library, library.get("cg:input/geometry/position"), 240f, 330f);
-        addShaderNode(library, library.get("cg:input/geometry/normal"), 460f, 330f);
+        addShaderNode(library, library.get("cg:Input/Geometry/uv"), 20f, 330f);
+        addShaderNode(library, library.get("cg:Input/Geometry/position"), 240f, 330f);
+        addShaderNode(library, library.get("cg:Input/Geometry/normal"), 460f, 330f);
 
         // Recompile whenever the graph's shape changes. Debounced only by the fact that a connection is
         // a discrete user action; a per-keystroke trigger would want real debouncing (6.3.8).
