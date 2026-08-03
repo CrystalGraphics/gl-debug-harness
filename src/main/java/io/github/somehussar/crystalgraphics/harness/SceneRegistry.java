@@ -21,6 +21,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSliderScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTabViewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiWorkspaceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextFieldScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiDockScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSplitViewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSwitchScene;
@@ -394,6 +395,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiSliderScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-dock")
+                .description("CrystalGUI docking: drag tabs to split/merge/reorder, outer-edge drops, save and restore")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiDockScene()
         );
 
         reg.register(
