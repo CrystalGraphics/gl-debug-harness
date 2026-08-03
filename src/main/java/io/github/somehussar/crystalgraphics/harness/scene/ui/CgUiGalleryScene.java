@@ -2277,6 +2277,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         var library = com.crystalgui.graph.shader.ShaderGraphBridge.asNodeLibrary(shaderNodes);
         shaderGraph.setNodeLibrary(library, NodeWidgetFactory.of(library).build(),
                 com.crystalgui.graph.shader.ShaderGraphBridge.GLSL_PROMOTION);
+        // Unity's A(1) B(1) Out(1), widening to (3) when a vec3 lands — a dynamic port's width is
+        // per-port and changes with the wiring, so it cannot come from the shared PortType.
+        com.crystalgui.graph.shader.ShaderPortArity.install(shaderGraph);
 
         shaderStatus = new UIText("");
         shaderStatus.addClass("canvas-status");
