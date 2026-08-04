@@ -12,7 +12,6 @@ import com.crystalgui.ui.Ui;
 import com.crystalgui.text.TextPoint;
 import com.crystalgui.text.diagnostic.Diagnostic;
 import com.crystalgui.text.diagnostic.DiagnosticSeverity;
-import com.crystalgui.graph.shader.ShaderGraphEditor;
 import com.crystalgui.text.syntax.LanguageRegistry;
 import com.crystalgui.ui.elements.UIText;
 import com.crystalgui.ui.elements.chrome.ProblemsPanel;
@@ -105,10 +104,6 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      * carries the diagnostics the Problems panel is bound to. */
     private TextEditor editor;
     private ProblemsPanel problems;
-    private ShaderGraphEditor shaderGraph;
-
-    /** What the shader graph last reported -- a compile summary, or which node owns the caret's line. */
-    private String shaderNote = "";
 
     /** Both halves of a real workspace, in this process. */
     private final HarnessWorkspace workspace = new HarnessWorkspace();
@@ -126,9 +121,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
 
         registry = new DockPanelRegistry<>();
-        // THE REAL SHADER GRAPH, not a coloured box. One widget now owns the canvas, the GLSL it emits
-        // and the previews -- so a second consumer is a constructor call rather than a copy of a scene.
-        registry.register(DockPanelDescriptor.document("graph", "Shader Graph"), ref -> shaderGraphPanel());
+        registry.register(DockPanelDescriptor.document("graph", "Shader Graph"), ref -> body("p-graph"));
         // A REAL editor, carrying real diagnostics. The other panels are coloured boxes on purpose -- what
         // they exercise is the layout tree, and a broken split among real widgets reads as a broken widget.
         // This one is the exception because squiggles, the error stripe and the inspection widget have no
@@ -392,18 +385,6 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
                         : "save failed: " + target.name());
     }
 
-    /** The shader graph, seeded with a small working starter so the tab is not an empty canvas. */
-    private UIElement shaderGraphPanel() {
-        if (shaderGraph == null) {
-            shaderGraph = new ShaderGraphEditor().addStarterGraph();
-            shaderGraph.onStatusChanged.connect(status -> shaderNote = status);
-            // The line map, wired to the same status line: click anywhere in the generated source and it
-            // names the node that emitted that line.
-            shaderGraph.onLineOwnerChanged.connect(owner -> shaderNote = owner);
-        }
-        return shaderGraph;
-    }
-
     /** Nonsense GLSL, chosen so the diagnostics below have somewhere plausible to point. */
     private static final String SHADER_SOURCE = String.join("\n",
             "#version 330 core",
@@ -509,8 +490,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         context.text().draw().at(0, 0)
                 .text(String.format("Dock — %d panes.  Ctrl+S save file · Ctrl+Shift+P palette · "
                                 + "Ctrl+Shift+S save layout · Ctrl+O restore · Ctrl+\\ split · F2 next problem   [%s]",
-                        area.layout().leaves().size(),
-                        shaderNote.isEmpty() ? note : note + " · " + shaderNote))
+                        area.layout().leaves().size(), note))
                 .font(context.getFont().atSize(14)).submit();
 
         if (frame.getFrameNumber() == 5) {

@@ -2035,9 +2035,18 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // CgForwardRendererScene/CgAttachedBufferStressScene) — this one just never had a reason to
         // until node previews existed.
         CgRenderPipeline.getInstance().getFrameData().timeSecs = (float) frame.getElapsedTime();
-        // Preview attachment used to be two booleans and a per-frame check here. ShaderGraphEditor now
-        // does it from its own onLayoutChanged: by then the element is attached by definition, which is
-        // exactly what the deferral was waiting for.
+        // Deferred to the first frame because attaching registers a frame ticker on the window, which
+        // does not exist while the pages are being built.
+        if (shaderPreviews != null && !shaderPreviewsAttached) {
+            shaderPreviews.attach();
+            shaderPreviewsAttached = true;
+        }
+        // Retried until it takes, rather than attempted once: the panel lives inside a tab page, and
+        // registerTicker is idempotent, so the cheap correct thing is to keep asking until there is a
+        // window to ask. One-shot attachment is a panel that silently never draws.
+        if (shaderMainPreview != null && !shaderMainPreviewAttached) {
+            shaderMainPreviewAttached = shaderMainPreview.attach();
+        }
 
         // Drag the dialog's corner and the picker SCALES rather than being cropped. `resize` writes an
         // explicit width/height — that is what CSS resize means — so turning that into a scale is the
@@ -2066,7 +2075,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     public void dispose() {
         // The preview pool's targets are createOwned framebuffers, so no registry sweep reaches them —
         // this is the only thing that ever frees them.
-        if (shaderGraph != null) shaderGraph.delete();
+        if (shaderPreviews != null) {
+            shaderPreviews.delete();
+            shaderPreviews = null;
+            shaderPreviewsAttached = false;
+        }
         uiWindow = null;
     }
 
@@ -2186,18 +2199,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      */
     // ── P6.3: the shader graph, end to end ──────────────────────────────────
 
-    /**
-     * The whole editor, as one widget.
-     *
-     * <p>This page used to own the canvas, the generated-source editor, the split, both preview systems,
-     * the compile loop and the line-owner lookup — roughly 120 lines, none of it demonstration. It moved
-     * to {@link com.crystalgui.graph.shader.ShaderGraphEditor} in {@code core/} because a harness scene is
-     * the wrong owner for the only assembled shader graph in the project: a second consumer would have had
-     * to copy all of it, and the copy is where the two start disagreeing about what a shader graph is.</p>
-     *
-     * <p>What is left here is genuinely scene-shaped — two buttons, two hints, and a status line.</p>
-     */
-    private com.crystalgui.graph.shader.ShaderGraphEditor shaderGraph;
+    private GraphView shaderGraph;
+    private TextEditor shaderSource;
+    private com.crystalgui.graph.shader.ShaderGraphPreviews shaderPreviews;
+    /** P6.3.12 — the finished shader on a mesh. Right-click it for the shape menu, drag to orbit. */
+    private com.crystalgui.graph.shader.MainPreviewPanel shaderMainPreview;
+    private boolean shaderMainPreviewAttached;
+    private com.crystalgraphics.shadergraph.CgShaderEmitter.Result shaderLineOwners;
+    private boolean shaderPreviewsAttached;
 
     private UIText shaderStatus;
 
@@ -2266,31 +2275,161 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     }
 
     private void shaderGraphPage(UIElement pane) {
-        shaderGraph = new com.crystalgui.graph.shader.ShaderGraphEditor().addStarterGraph();
-        shaderGraph.addClass("shader-graph-editor");
+        var shaderNodes = com.crystalgraphics.shadergraph.CgShaderNodeRegistry.builtins();
+        var master = new com.crystalgraphics.shadergraph.CgMasterNode();
+
+        shaderGraph = new GraphView();
+        shaderGraph.addClass("graph-view");
+
+        // The library IS the shader node set — the create menu, its search and the widget factory all
+        // come from one bridge call, with no shader-specific UI code anywhere on this page.
+        var library = com.crystalgui.graph.shader.ShaderGraphBridge.asNodeLibrary(shaderNodes);
+        shaderGraph.setNodeLibrary(library, NodeWidgetFactory.of(library).build(),
+                com.crystalgui.graph.shader.ShaderGraphBridge.GLSL_PROMOTION);
 
         shaderStatus = new UIText("");
         shaderStatus.addClass("canvas-status");
-        // The widget reports; the scene decides where that goes. Both signals feed the one status line:
-        // a compile summary, and -- once you click into the generated source -- which node emitted the
-        // line the caret is on.
-        shaderGraph.onStatusChanged.connect(shaderStatus::setText);
-        shaderGraph.onLineOwnerChanged.connect(shaderStatus::setText);
+
+        shaderSource = new TextEditor();
+        // `ed` is this page's code-editor look, and it is not cosmetic here: the syntax colours are
+        // `.ed text::highlight(keyword)` and friends, scoped to that class. Without it the tokenizer
+        // runs, publishes every range correctly, and nothing is coloured — which reads as "the
+        // tokenizer is not working" when the tokenizer is fine and the selector simply never matched.
+        shaderSource.addClass("ed");
+        shaderSource.addClass("shader-source");
+        shaderSource.setReadOnly(true);
+        // The generated file IS GLSL, so it gets the GLSL tokenizer and language rather than being
+        // shown as plain text — the same pair the editor page's GLSL button sets.
+        shaderSource.setTokenizer(KeywordTokenizer.glsl());
+        shaderSource.setLanguage(com.crystalgui.text.syntax.Language.glsl());
+        // The payoff of the line map: put the caret anywhere in the generated source and the status line
+        // names the NODE that emitted it. A driver reports a line in code the user never wrote, and this
+        // is the lookup that turns that into somewhere to go and look.
+        shaderSource.onSelectionChanged.connect(() -> {
+            if (shaderLineOwners == null || shaderStatus == null) return;
+            int line = shaderSource.caretPoint().row() + 1;
+            String owner = shaderLineOwners.ownerOfLine(line);
+            if (owner == null) return;
+            var node = shaderGraph.getDocument().node(owner);
+            shaderStatus.setText("line " + line + " emitted by "
+                    + (node == null ? owner : node.typeId() + "  (" + owner + ")"));
+        });
 
         Button compile = new Button("compile");
         compile.addClass("canvas-btn");
-        compile.attachListener(shaderGraph::recompile);
+        compile.attachListener(this::recompileShaderGraph);
 
         Button frame = new Button("fit");
         frame.addClass("canvas-btn");
-        frame.attachListener(shaderGraph::fitToContent);
+        frame.attachListener(() -> shaderGraph.fitToContent(24f));
 
         pane.addChild(row(slot("view"), compile, frame, shaderStatus));
-        // Hints BEFORE the editor: it takes the pane's slack, so anything after it is pushed off the
-        // bottom.
+        // Hints BEFORE the split: the split takes the pane's slack, so anything after it is pushed off
+        // the bottom.
         pane.addChild(row(slot(""), hint("Space opens the create menu - all five built-in nodes are in it")));
         pane.addChild(row(slot(""), hint("Wire into Output's BaseColor and watch the source recompile")));
-        pane.addChild(shaderGraph);
+
+        // A real SplitView rather than a fixed-width column, so the divider can be dragged: a generated
+        // shader is sometimes the thing you are reading and sometimes just confirmation, and which one
+        // it is changes minute to minute. 6.1's widget already owns the drag, the clamping and the
+        // cursor — this only has to say where to start and how far it may go.
+        SplitView split = new SplitView();
+        split.addClass("shader-split");
+        // PERCENTAGES, 0..100 — not a 0..1 fraction. Passing 0.62 meant 0.62%, so the graph came out a
+        // three-pixel sliver, and setLimits(0.2, 0.85) then capped the drag at 0.85% so it could never
+        // be recovered. The name says percentage and the API means it.
+        split.setPercentage(80f);
+        // Either pane collapsed to nothing is a state with no way back — the divider would have no
+        // width left to grab.
+        split.setLimits(20f, 95f);
+        split.first().addChild(shaderGraph);
+        split.second().addChild(shaderSource);
+        pane.addChild(split);
+
+        // A starter graph: Color * Time, into the master. Small enough to read at a glance and it
+        // exercises dynamic widening (vec4 * float) plus an engine builtin, so the generated source
+        // shows a compiler-emitted cast rather than a straight copy.
+        var colour = library.get("cg:Input/Basic/color");
+        var time = library.get("cg:Input/Basic/time");
+        var multiply = library.get("cg:Math/Basic/multiply");
+        var outputType = library.get(ShaderGraphBridge.MASTER_TYPE);
+
+        GraphNode colourNode = addShaderNode(library, colour, 20f, 30f);
+        GraphNode timeNode = addShaderNode(library, time, 20f, 150f);
+        GraphNode multiplyNode = addShaderNode(library, multiply, 240f, 60f);
+        GraphNode outputNode = addShaderNode(library, outputType, 470f, 60f);
+
+        shaderGraph.connect(colourNode.getOutputPorts().get(0), multiplyNode.getInputPorts().get(0));
+        shaderGraph.connect(timeNode.getOutputPorts().get(0), multiplyNode.getInputPorts().get(1));
+        shaderGraph.connect(multiplyNode.getOutputPorts().get(0), outputNode.getInputPorts().get(1));
+
+        // Left unconnected on purpose. These are the three nodes a preview system exists to show —
+        // UV's red/green gradient on a quad, Position and Normal on a sphere — and none of them needs
+        // to be wired to anything for its thumbnail to be the point.
+        addShaderNode(library, library.get("cg:Input/Geometry/uv"), 20f, 330f);
+        addShaderNode(library, library.get("cg:Input/Geometry/position"), 240f, 330f);
+        addShaderNode(library, library.get("cg:Input/Geometry/normal"), 460f, 330f);
+
+        // Recompile whenever the graph's shape changes. Debounced only by the fact that a connection is
+        // a discrete user action; a per-keystroke trigger would want real debouncing (6.3.8).
+        shaderGraph.onConnectionsChanged.connect(this::recompileShaderGraph);
+        recompileShaderGraph();
+
+        // 6.3.7 — live thumbnails. Constructed here but NOT attached: attaching registers a frame
+        // ticker, and there is no window yet at page-build time. render() does it on the first frame.
+        shaderPreviews = new com.crystalgui.graph.shader.ShaderGraphPreviews(
+                shaderGraph, shaderNodes, master);
+        // A Space dropdown changes the emitted GLSL but not the graph's shape, so onConnectionsChanged
+        // never fires for it — without this the source pane silently shows the previous variant.
+        shaderPreviews.onPropertyChanged.connect(this::recompileShaderGraph);
+
+        // 6.3.12 — the Main Preview. Parented to the graph's own pane rather than promoted into the top
+        // layer: Unity's floats over the canvas, but a top-layer panel would sit above the create menu
+        // and every dialog in the gallery too, which is a different claim than "above the graph".
+        shaderMainPreview = new com.crystalgui.graph.shader.MainPreviewPanel(
+                shaderGraph.getDocument(), shaderNodes, master);
+        // Over the canvas, not beside it: addOverlay puts it in the viewport rather than on the plane,
+        // so it stays put while the graph pans underneath — which is what "floating preview" means.
+        shaderGraph.addOverlay(shaderMainPreview);
+    }
+
+    /** Builds a widget for a library type and places it, keeping the document binding the factory does. */
+    private GraphNode addShaderNode(com.crystalgui.graph.NodeTypeRegistry library,
+                                    com.crystalgui.graph.NodeType type, float x, float y) {
+        GraphNode node = shaderGraph.getNodeFactory().create(type, type.create(x, y));
+        shaderGraph.addNode(node, x, y);
+        return node;
+    }
+
+    /**
+     * Maps the document to the compiler's IR, emits, and shows the result.
+     *
+     * <p>Errors go to the status line rather than being swallowed: a graph that cannot compile is the
+     * normal state while one is being built, and the message names the node responsible.</p>
+     */
+    private void recompileShaderGraph() {
+        if (shaderGraph == null || shaderSource == null) return;
+        var shaderNodes = com.crystalgraphics.shadergraph.CgShaderNodeRegistry.builtins();
+        var master = new com.crystalgraphics.shadergraph.CgMasterNode();
+
+        var result = com.crystalgui.graph.shader.ShaderGraphBridge.compile(
+                shaderGraph.getDocument(), shaderNodes, master);
+
+        shaderSource.setText(result.source().isEmpty()
+                ? "// nothing to compile yet\n" + String.join("\n", result.errors())
+                : result.source());
+        shaderStatus.setText(result.ok()
+                ? String.format("compiled  %dn/%de  %d chars  %d varyings  %d mapped lines",
+                        shaderGraph.getDocument().nodeCount(),
+                        shaderGraph.getDocument().edges().size(),
+                        result.source().length(), result.varyings().size(),
+                        result.lineOwners().size())
+                : result.errors().size() + " error(s): " + result.errors().get(0));
+
+        // The point of the line map: put the caret anywhere in the generated source and the status line
+        // names the NODE that emitted it. A driver error reports a line in code the user never wrote, and
+        // this is the lookup that turns that into somewhere to go and look.
+        shaderLineOwners = result;
     }
 
     private void graphPage(UIElement pane) {
