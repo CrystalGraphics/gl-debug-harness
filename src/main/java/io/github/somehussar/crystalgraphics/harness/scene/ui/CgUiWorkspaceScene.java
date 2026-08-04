@@ -84,7 +84,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     // ── The client half ─────────────────────────────────────────────────────────────────────────
     private ClientUiSession<Object> session;
     private WorkspaceClient<Object> workspace;
-    private WorkspaceTree tree;
+    private HarnessWorkspaceTree tree;
 
     private TreeView<CgPath> treeView;
     private TabView tabs;
@@ -135,7 +135,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
         session = new ClientUiSession<>(fromClient, PlainOps.INSTANCE);
         workspace = new WorkspaceClient<>(session, PlainOps.INSTANCE);
         workspace.onFileChanged(this::onFileChangedOnServer);
-        tree = new WorkspaceTree(workspace);
+        tree = new HarnessWorkspaceTree(workspace);
 
         uiWindow = new UIWindow(Ui.of(buildUi()));
         uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
@@ -494,116 +494,5 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
         return uiWindow.getInputHandler().consumeMouseEvent(event);
-    }
-
-    // ── The async-to-sync bridge ────────────────────────────────────────────────────────────────
-
-    /**
-     * A {@link TreeDataSource} over an asynchronous client.
-     *
-     * <p>Answers from what has arrived and requests what has not. A directory whose listing is still in
-     * flight reports no children — which is honest, and resolves itself when the response lands and the
-     * view is refreshed. Every remote file browser works this way; the alternative is blocking the render
-     * thread on a round trip.</p>
-     */
-    private static final class WorkspaceTree implements TreeDataSource<CgPath> {
-
-        private final WorkspaceClient<?> client;
-        private final List<CgPath> roots = new ArrayList<>();
-        private final Map<String, String> projectNames = new HashMap<>();
-        private final Map<CgPath, List<CgPath>> children = new HashMap<>();
-        private final Set<CgPath> directories = new HashSet<>();
-        private final Set<CgPath> requested = new HashSet<>();
-        private volatile boolean dirty;
-
-        WorkspaceTree(WorkspaceClient<?> client) {
-            this.client = client;
-        }
-
-        private String failure;
-
-        /** The last failure, so the status line can show it. Null when nothing has gone wrong. */
-        String failure() {
-            return failure;
-        }
-
-        void loadProjects(Runnable onLoaded) {
-            client.projects(infos -> {
-                roots.clear();
-                for (ProjectInfo info : infos) {
-                    CgPath root = info.root();
-                    roots.add(root);
-                    directories.add(root);
-                    projectNames.put(info.id(), info.displayName());
-                }
-                dirty = true;
-                onLoaded.run();
-            }, error -> {
-                // REPORTED, not swallowed. The first version of this was an empty lambda with a comment
-                // claiming the status line covered it -- so when the call was being dropped outright, the
-                // scene showed an empty tree and no reason for it.
-                failure = "projects failed: " + error.code();
-                dirty = true;
-            });
-        }
-
-        String displayNameOf(CgPath projectRoot) {
-            return projectNames.getOrDefault(projectRoot.project(), projectRoot.project());
-        }
-
-        boolean isDirectory(CgPath path) {
-            return directories.contains(path);
-        }
-
-        /** True once since the last call — the frame uses it to decide whether to refresh the view. */
-        boolean drainRefresh() {
-            if (!dirty) return false;
-            dirty = false;
-            return true;
-        }
-
-        @Override
-        public List<CgPath> roots() {
-            return roots;
-        }
-
-        @Override
-        public List<CgPath> children(CgPath parent) {
-            List<CgPath> known = children.get(parent);
-            if (known != null) return known;
-            request(parent);
-            return List.of();
-        }
-
-        @Override
-        public boolean hasChildren(CgPath item) {
-            // Every directory claims children, even before its listing arrives -- otherwise it would
-            // render as a leaf and there would be nothing to click to trigger the request.
-            return directories.contains(item);
-        }
-
-        private void request(CgPath directory) {
-            if (!requested.add(directory)) return;
-            client.list(directory, entries -> {
-                List<CgPath> paths = new ArrayList<>(entries.size());
-                for (CgFileEntry entry : entries) {
-                    CgPath child = directory.resolve(entry.name());
-                    paths.add(child);
-                    if (entry.isDirectory()) directories.add(child);
-                }
-                paths.sort((x, y) -> {
-                    boolean dx = directories.contains(x), dy = directories.contains(y);
-                    if (dx != dy) return dx ? -1 : 1;      // directories first, as every file tree does
-                    return x.name().compareToIgnoreCase(y.name());
-                });
-                children.put(directory, paths);
-                dirty = true;
-            }, failure -> {
-                // Allow a retry rather than latching the failure -- the listing may have failed because
-                // the directory was being written to.
-                requested.remove(directory);
-                if (failure.error() != CgFileError.FILE_NOT_FOUND) children.put(directory, List.of());
-            });
-        }
     }
 }
