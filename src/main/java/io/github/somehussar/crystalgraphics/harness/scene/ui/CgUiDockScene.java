@@ -12,6 +12,7 @@ import com.crystalgui.ui.Ui;
 import com.crystalgui.text.TextPoint;
 import com.crystalgui.text.diagnostic.Diagnostic;
 import com.crystalgui.text.diagnostic.DiagnosticSeverity;
+import com.crystalgui.text.syntax.LanguageRegistry;
 import com.crystalgui.ui.elements.UIText;
 import com.crystalgui.ui.elements.chrome.ProblemsPanel;
 import com.crystalgui.ui.elements.editor.EditorCommands;
@@ -317,9 +318,25 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         return fileEditors.computeIfAbsent(path, p -> {
             TextEditor created = new TextEditor("");
             created.addClass("panel-editor");
+            applyLanguage(created, p.name());
             if (uiWindow != null) EditorCommands.install(uiWindow, created);
             return created;
         });
+    }
+
+    /**
+     * Gives an editor the language its file name implies.
+     *
+     * <p>Two calls rather than one because they answer different questions: { Language} is comment
+     * syntax, bracket pairs and indent triggers, and the tokenizer only knows how to colour. The pairing
+     * is { LanguageRegistry}'s job, which is why the scene does not switch on an extension itself.</p>
+     */
+    private static void applyLanguage(TextEditor target, String fileName) {
+        LanguageRegistry.Entry entry = LanguageRegistry.forFileName(fileName);
+        target.setLanguage(entry.language());
+        // A FRESH tokenizer per editor -- see the registry: the interface is built for implementations
+        // that hold a parse tree per document, and sharing one would cross-contaminate them.
+        target.setTokenizer(entry.newTokenizer());
     }
 
     /** Built by the dock when it needs a file panel — including after a layout restore, where the read
@@ -397,6 +414,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         if (editor == null) {
             editor = new TextEditor(SHADER_SOURCE);
             editor.addClass("panel-editor");
+            applyLanguage(editor, "main.glsl");
             // Rows are 0-BASED and were off by one on three of these four, which is worth leaving a note
             // about because the symptom was so misleading: the squiggles all rendered, all in plausible
             // places, one line below the text they described -- and because a column past the end of a
