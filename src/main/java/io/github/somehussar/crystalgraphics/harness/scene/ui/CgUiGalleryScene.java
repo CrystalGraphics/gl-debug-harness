@@ -110,13 +110,16 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         this.uiWindow = new UIWindow(Ui.of(createDemo()));
         var engine = uiWindow.getStyleEngine();
         engine.addStylesheet(StyleSheet.DEFAULT);   // USER_AGENT origin — stays through every toggle
-        // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y, as commands bound on the root. Opt-in like the sheet above:
-        // the engine injects neither. Inside the editor page its own handler consumes the key first, so
-        // the two coexist; on the graph page this is the only route.
-        com.crystalgui.core.undo.UndoCommands.install(uiWindow);
-        // Delete / Ctrl+A / Escape / F / A. Every one is disabled unless a GraphView is in scope from
-        // the focused element, which is what makes the two bare letters tolerable as root bindings.
-        com.crystalgui.ui.elements.graph.GraphCommands.install(uiWindow);
+        // NO COMMAND INSTALLS HERE ANY MORE, deliberately.
+        //
+        // This scene used to install UndoCommands and GraphCommands on the root, and that was the ONLY
+        // place either happened -- so every other host got a graph that took focus, drew a selection and
+        // answered no key at all. A widget's own keys belong to the widget: TextEditor installs
+        // EditorCommands, GraphView installs GraphCommands plus the edit.undo/edit.redo chords, each
+        // bound on itself so the bare letters cannot fire while typing somewhere else in the window.
+        //
+        // An APPLICATION's commands are still the application's -- see CrystalEditor.install, which
+        // registers the dock, palette and file commands it decides to offer.
         // The graph theme. Added once and never toggled: the Ore toggle is about Minecraft chrome, and
         // a node graph has no Ore look to switch to — without it the nodes are unstyled boxes and the
         // port palette, which is the whole readability of the page, is missing.
