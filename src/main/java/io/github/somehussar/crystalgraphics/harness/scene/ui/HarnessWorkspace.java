@@ -49,13 +49,10 @@ final class HarnessWorkspace {
     private final WorkspaceRpc<Object> rpc;
     private final ClientUiSession<Object> session;
     private final WorkspaceClient<Object> client;
-    private final HarnessWorkspaceTree tree;
 
     /** Seconds until the next watcher poll. Every poll stats each watched file, so a per-frame poll would
      * be a stat storm at 60 Hz for no benefit a human could perceive. The cadence is the HOST's call. */
     private float untilPoll;
-
-    private boolean projectsRequested;
 
     HarnessWorkspace() {
         Path root = seedScratchProject();
@@ -78,15 +75,10 @@ final class HarnessWorkspace {
 
         session = new ClientUiSession<>(fromClient, PlainOps.INSTANCE);
         client = new WorkspaceClient<>(session, PlainOps.INSTANCE);
-        tree = new HarnessWorkspaceTree(client);
     }
 
     WorkspaceClient<Object> client() {
         return client;
-    }
-
-    HarnessWorkspaceTree tree() {
-        return tree;
     }
 
     void onFileChanged(Consumer<WorkspaceClient.FileChanged> listener) {
@@ -94,32 +86,28 @@ final class HarnessWorkspace {
     }
 
     /**
-     * One network tick, plus the watcher poll when it is due.
+     * True once the session has a window id.
      *
-     * <p>Called once a frame. <b>Projects are requested here, not at construction</b>: the client's window
-     * id is {@code -1} until {@code OpenWindow} arrives, and the server discards any packet addressed to
-     * another window — so a call made before then is thrown away with no error at all, and the scene shows
-     * an empty tree with nothing to explain it.</p>
-     *
-     * @return true when the tree changed and the view should be refreshed
+     * <p>Before that the server discards every packet addressed to another window, so a call made too
+     * early is thrown away with <b>no error at all</b> -- and the tree simply stays empty with nothing to
+     * explain it. Whoever asks for the project list has to wait for this.</p>
      */
-    boolean pump(float deltaSeconds, Runnable onProjectsLoaded) {
+    boolean isConnected() {
+        return session.windowId() >= 0;
+    }
+
+    /** One network tick, plus the watcher poll when it is due. Called once a frame. */
+    void pump(float deltaSeconds) {
         fromServer.deliver();
         fromClient.deliver();
         session.tick();
         server.tick();
-
-        if (!projectsRequested && session.windowId() >= 0) {
-            projectsRequested = true;
-            tree.loadProjects(onProjectsLoaded);
-        }
 
         untilPoll -= deltaSeconds;
         if (untilPoll <= 0f) {
             untilPoll = 0.5f;
             rpc.pollAndNotify((method, args) -> server.call(method, args, null, null), PlainOps.INSTANCE);
         }
-        return tree.drainRefresh();
     }
 
     void read(CgPath path, Consumer<WorkspaceClient.Document> onLoaded, Consumer<String> onFailure) {

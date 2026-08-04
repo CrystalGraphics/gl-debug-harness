@@ -29,7 +29,7 @@ import com.crystalgui.ui.elements.Tab;
 import com.crystalgui.ui.elements.TabView;
 import com.crystalgui.ui.elements.UIText;
 import com.crystalgui.ui.elements.editor.TextEditor;
-import com.crystalgui.ui.elements.tree.TreeDataSource;
+import com.crystalgui.ui.elements.workbench.WorkspaceTreeSource;
 import com.crystalgui.ui.elements.tree.TreeRow;
 import com.crystalgui.ui.elements.tree.TreeView;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -84,7 +84,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     // ── The client half ─────────────────────────────────────────────────────────────────────────
     private ClientUiSession<Object> session;
     private WorkspaceClient<Object> workspace;
-    private HarnessWorkspaceTree tree;
+    private WorkspaceTreeSource tree;
 
     private TreeView<CgPath> treeView;
     private TabView tabs;
@@ -135,7 +135,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
         session = new ClientUiSession<>(fromClient, PlainOps.INSTANCE);
         workspace = new WorkspaceClient<>(session, PlainOps.INSTANCE);
         workspace.onFileChanged(this::onFileChangedOnServer);
-        tree = new HarnessWorkspaceTree(workspace);
+        tree = new WorkspaceTreeSource(workspace);
 
         uiWindow = new UIWindow(Ui.of(buildUi()));
         uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
