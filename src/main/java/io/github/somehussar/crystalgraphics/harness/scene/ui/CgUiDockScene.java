@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.editor.CrystalEditor;
 import com.crystalgui.render.CgUiPaintContext;
@@ -72,6 +73,18 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
+        // THE CLOCK EVERY NODE PREVIEW READS. CgPreviewRenderer deliberately reuses the shared
+        // CgRenderPipeline singleton's one CgFrameData rather than owning its own, which is what lets a
+        // Time node's thumbnail animate for free off whatever clock the app already drives. Nothing else
+        // in this scene drives it, so without this line timeSecs stays at its 0f default forever and
+        // CG_TIME is permanently zero: a Time node reads 0, and anything downstream of one renders as if
+        // it did. The visible result is a Multiply of Colour x SineTime that is BLACK whatever colour you
+        // pick -- which reads as "the preview does not recompile" and is really sin(0).
+        //
+        // CgUiGalleryScene carries the same line, and the same comment, for the same reason. A host is
+        // what owns this clock; in Minecraft the loader drives it.
+        CgRenderPipeline.getInstance().getFrameData().timeSecs = (float) frame.getElapsedTime();
+
         // ONE NETWORK TICK, before anything reads the workspace. In a real client this is the network
         // tick; the scene does it explicitly so the asynchrony stays visible rather than pretended away.
         workspace.pump(frame.getDeltaTime());
