@@ -75,8 +75,11 @@ tasks.register<JavaExec>("runHarness") {
     //   ./gradlew :gl-debug-harness:runHarness -Dcrystalgraphics.shader.devmode=true
     // Failing silently is the worst version of this, because the run looks like evidence the flag
     // had no effect rather than evidence it was never applied.
+    // crystalgui.* as well as crystalgraphics.*: CrystalGUI has its own debug flags now
+    // (crystalgui.keymap.trace), and a filter naming only one project fails them in exactly the silent
+    // way described above -- the flag is accepted on the command line and reaches nothing.
     System.getProperties().stringPropertyNames()
-        .filter { it.startsWith("crystalgraphics.") }
+        .filter { it.startsWith("crystalgraphics.") || it.startsWith("crystalgui.") }
         .forEach { systemProperty(it, System.getProperty(it)) }
 
     // Read assets from the SOURCE trees, so an edit-and-save is visible to the running harness with no
