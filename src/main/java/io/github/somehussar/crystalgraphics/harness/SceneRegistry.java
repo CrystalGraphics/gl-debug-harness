@@ -24,6 +24,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextFieldScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiDockScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSplitViewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSvgIconScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSwitchScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextScene;
@@ -371,6 +372,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiNineSliceScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-svg-icon")
+                .description("SVG icons drawn as vectors -- five stroked Feather icons and a filled, gradient logo. Scroll to scale.")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiSvgIconScene()
         );
 
         reg.register(
