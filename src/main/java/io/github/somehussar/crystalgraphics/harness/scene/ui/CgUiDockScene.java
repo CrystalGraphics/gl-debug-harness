@@ -58,6 +58,10 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
 
         editor = new CrystalEditor(workspace.client());
+        // Beside the scratch workspace, not in it: a session record is private and must not become part of
+        // the project a resource pack ships. See WorkbenchSession -- the same reason trash lives outside.
+        editor.useConfig(new com.crystalgui.fs.LocalConfigStorage(
+                java.nio.file.Paths.get("workspace-config").toAbsolutePath().normalize()));
         editor.addClass("demo-root");
         editor.onStatus.connect(text -> status = text);
 
@@ -93,6 +97,9 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             // Deferred until the session has a window id: before that the server discards every packet
             // addressed to another window, so an earlier call is dropped with no error at all.
             editor.workbench().fileTree().loadProjects();
+            // AFTER loadProjects, not before: the restore parks the folders it wants expanded and retries
+            // until the listings that reveal them arrive, so asking first would simply park everything.
+            if (editor.restoreSession(HarnessWorkspace.PROJECT_ID)) status = "session restored";
         }
 
         uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
@@ -110,6 +117,11 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     @Override
     public void dispose() {
+        if (editor != null && uiWindow != null) {
+            editor.saveSession(HarnessWorkspace.PROJECT_ID,
+                    (int) uiWindow.getScreenWidth(), (int) uiWindow.getScreenHeight());
+            editor.savePreferences();
+        }
         if (editor != null) editor.delete();
         uiWindow = null;
     }
