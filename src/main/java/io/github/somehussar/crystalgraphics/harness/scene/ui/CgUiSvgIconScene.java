@@ -11,6 +11,9 @@ import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 
+import com.crystalgraphics.util.profiling.CgProfiler;
+import com.crystalgraphics.util.profiling.CgProfilerDump;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -82,6 +85,9 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
      */
     private static final int COLUMNS = 10;
 
+    /** Frames discarded before profiling starts — lazy material compiles and first-touch allocations. */
+    private static final int WARMUP_FRAMES = 30;
+
     private record Entry(String name, String path, SvgDocument document) {
         boolean missing() {
             return document == null;
@@ -98,6 +104,7 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
     private float panX;
     private float panY;
     private boolean running = true;
+    private int profileFrames;
     private boolean dragging;
     private int lastMouseX;
     private int lastMouseY;
@@ -107,6 +114,10 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
         for (String name : FILETYPES) load("filetypes/" + name, name);
         for (String name : CHROME) load(name, name + " (feather)");
         applyStartupOverrides(ctx.getScreenWidth(), ctx.getScreenHeight());
+        // Enabled BEFORE the first frame: the profiler is a no-op behind a volatile flag, so turning it on
+        // mid-run would leave the warm-up frames uninstrumented and the totals unattributable.
+        profileFrames = Integer.getInteger("crystalgui.svgicon.profile", 0);
+        if (profileFrames > 0) CgProfiler.setEnabled(true);
     }
 
     /**
@@ -225,6 +236,20 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
         // One-shot mode: capture, then stop the loop, so a scripted run produces a PNG and exits
         // instead of leaving a window open waiting to be closed by hand.
         if (Boolean.getBoolean("crystalgui.svgicon.oneshot") && frame.getFrameNumber() >= 7) running = false;
+
+        // Accumulate across frames rather than snapshotting each one: a single frame's numbers are noise
+        // next to driver scheduling, and the totals divided by the frame count are what a per-frame cost
+        // actually is. WARM-UP IS DISCARDED for the same reason -- the first frames pay lazy material
+        // compilation and buffer allocation that never happen again.
+        if (profileFrames > 0) {
+            if (frame.getFrameNumber() == WARMUP_FRAMES) CgProfiler.reset();
+            if (frame.getFrameNumber() == WARMUP_FRAMES + profileFrames) {
+                java.io.File out = CgProfilerDump.dump(
+                        new java.io.File(ctx.getOutputDir()), "svg-icons-" + profileFrames + "f");
+                System.out.println("[profile] frames=" + profileFrames + " dump=" + out);
+                running = false;
+            }
+        }
     }
 
     private float cellX(int index, float cellW) {
