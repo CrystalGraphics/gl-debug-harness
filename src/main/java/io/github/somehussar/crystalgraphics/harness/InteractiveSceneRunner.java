@@ -192,7 +192,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // ── Render loop ──
         // Frame ordering is explicitly documented and must be preserved exactly.
         // Each step delegates to the responsible service collaborator.
-        while (!Display.isCloseRequested() && scene.isRunning()) {
+        // HarnessDeadline is tested alongside the scene's own exit conditions so a capped run shuts down
+        // through the ordinary path, with GL teardown and any artifact writes intact. The watchdog inside
+        // HarnessDeadline is the backstop for a scene that never gets back here at all.
+        while (!Display.isCloseRequested() && scene.isRunning() && !HarnessDeadline.expired()) {
 
             // 1. Frame clock tick — compute delta, elapsed, frame number
             frameClock.tick();
