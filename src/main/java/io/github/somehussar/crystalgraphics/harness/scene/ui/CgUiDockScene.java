@@ -2,6 +2,7 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.core.dispose.Disposer;
 import com.crystalgui.editor.CrystalEditor;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
@@ -122,7 +123,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
                     (int) uiWindow.getScreenWidth(), (int) uiWindow.getScreenHeight());
             editor.savePreferences();
         }
-        if (editor != null) editor.delete();
+        if (editor != null) Disposer.dispose(editor);
         uiWindow = null;
     }
 
