@@ -26,12 +26,23 @@ public class HarnessConfig {
      */
     private String outputName;
 
+    /**
+     * Wall-clock seconds a scene may run for, or {@code 0} for no cap.
+     *
+     * <p>Set with {@code --seconds=N}. Honoured by <b>every</b> scene, because it is enforced by the runner
+     * rather than by scene code — see {@code HarnessDeadline} for why that distinction is the whole point.
+     * An interactive scene otherwise runs until its window is closed, which makes it unusable from a script
+     * or an agent.</p>
+     */
+    private double seconds;
+
     public HarnessConfig() {
         this.outputDir = "gl-debug-harness/harness-output";
         this.width = 800;
         this.height = 600;
         this.fontPath = null;
         this.outputName = null;
+        this.seconds = 0d;
     }
 
     public String getOutputDir() { return outputDir; }
@@ -54,6 +65,10 @@ public class HarnessConfig {
     public String getOutputName() { return outputName; }
     public void setOutputName(String val) { this.outputName = val; }
 
+    /** Wall-clock seconds the scene may run for; {@code 0} means no cap. See {@link #seconds}. */
+    public double getSeconds() { return seconds; }
+    public void setSeconds(double val) { this.seconds = val; }
+
     /**
      * Apply system property overrides (called before CLI args).
      */
@@ -73,6 +88,10 @@ public class HarnessConfig {
         String h = System.getProperty("harness.height");
         if (h != null && !h.isEmpty()) {
             this.height = parseIntStrict(h, "harness.height");
+        }
+        String secs = System.getProperty("harness.seconds");
+        if (secs != null && !secs.isEmpty()) {
+            this.seconds = parseSecondsStrict(secs, "harness.seconds");
         }
     }
 
@@ -94,6 +113,27 @@ public class HarnessConfig {
         }
         if (args.containsKey("output-name")) {
             this.outputName = args.get("output-name");
+        }
+        if (args.containsKey("seconds")) {
+            this.seconds = parseSecondsStrict(args.get("seconds"), "--seconds");
+        }
+    }
+
+    /**
+     * Parses a duration. Fractional values are allowed — half a second is a reasonable cap for a scene
+     * that only needs to prove it draws one frame.
+     */
+    public static double parseSecondsStrict(String value, String paramName) {
+        try {
+            double n = Double.parseDouble(value);
+            if (!(n > 0d) || Double.isInfinite(n)) {
+                throw new IllegalArgumentException(
+                    "Invalid value for " + paramName + ": '" + value + "' (must be a positive number of seconds)");
+            }
+            return n;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                "Invalid value for " + paramName + ": '" + value + "' (must be a valid number)");
         }
     }
 

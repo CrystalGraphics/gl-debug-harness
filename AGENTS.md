@@ -3,6 +3,28 @@
 **Module**: `gl-debug-harness/`  
 **Purpose**: Standalone LWJGL 2 / OpenGL 3.0 debug harness for CrystalGraphics, running outside Minecraft to test font rendering, FBO pipelines, atlas generation, and shader behavior in isolation.
 
+---
+
+## ⏱ `--seconds=N` — ALWAYS use this for an unattended run
+
+**An interactive scene runs until its window is closed. If nothing is going to close it, it never returns.**
+Every scene accepts `--seconds=N`, and any agent or script launching one should pass it.
+
+```bash
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-gallery --seconds=5"
+```
+
+| | |
+|---|---|
+| Applies to | **every scene**, interactive and managed — it is enforced by the runner, not by scene code, so a scene cannot omit it and a new scene gets it for free |
+| Timed from | scene start, so GL context creation and shader compilation are not counted against it |
+| Values | any positive number; fractional is fine (`--seconds=0.5` is enough to prove a scene draws) |
+| Exit code | **0**. Reaching the cap is the requested outcome, not a failure — a non-zero code would make every timed run a red build |
+| Default | absent = run until closed, which is the right default for a human at the keyboard |
+
+
+---
+
 ## Quick Start
 
 ```bash

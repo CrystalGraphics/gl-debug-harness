@@ -101,6 +101,11 @@ public final class FontDebugHarnessMain {
             // WorldConfig.get() after this point.
             ctx.setWorldSettings(WorldSettings.resolveFromDefaults());
 
+            // Armed here rather than at process start: the cap is on the SCENE, and everything above this
+            // point is context creation and shader compilation, which varies by machine and is not what a
+            // caller is trying to bound. Applies to every scene, interactive or managed.
+            HarnessDeadline.arm(config.getSeconds());
+
             HarnessSceneLifecycle scene = entry.getFactory().create();
 
             boolean isInteractiveMode =
@@ -182,6 +187,10 @@ public final class FontDebugHarnessMain {
         System.out.println("  --font-path=<path>     Font file path (default: system font)");
         System.out.println("  --width=<n>            Width in pixels (default: 800)");
         System.out.println("  --height=<n>           Height in pixels (default: 600)");
+        System.out.println("  --seconds=<n>          Stop the scene after n seconds (default: run until closed).");
+        System.out.println("                         Honoured by EVERY scene. Use it for any unattended run --");
+        System.out.println("                         an interactive scene otherwise never returns. Fractional");
+        System.out.println("                         values are allowed; exit code is 0 on reaching the cap.");
         System.out.println();
         System.out.println("Text-scene options:");
         System.out.println("  --pose-scale=<f>                 PoseStack scale factor (default: 1.0)");
