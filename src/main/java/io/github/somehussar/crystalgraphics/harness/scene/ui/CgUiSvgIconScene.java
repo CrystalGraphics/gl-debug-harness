@@ -97,6 +97,7 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
     private float zoom = 1f;
     private float panX;
     private float panY;
+    private boolean running = true;
     private boolean dragging;
     private int lastMouseX;
     private int lastMouseY;
@@ -105,6 +106,51 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
     public void init(HarnessContext ctx) {
         for (String name : FILETYPES) load("filetypes/" + name, name);
         for (String name : CHROME) load(name, name + " (feather)");
+        applyStartupOverrides(ctx.getScreenWidth(), ctx.getScreenHeight());
+    }
+
+    /**
+     * Optional deterministic start state, so the startup capture can be aimed at a suspect cell.
+     *
+     * <p>A seam artifact is <b>zoom-dependent</b> — it appears when a sub-pixel seam happens to swallow a
+     * pixel row, so it is present at some zooms and absent either side of them. Reproducing one therefore
+     * means naming the zoom, and hunting for it by hand through an interactive window is exactly the loop
+     * this exists to avoid. Absent these properties nothing changes: the grid still opens at 1x.</p>
+     *
+     * <pre>--args="--mode=cgui-svg-icon" -Dcrystalgui.svgicon.zoom=35 -Dcrystalgui.svgicon.focus=javaOutsideSource</pre>
+     */
+    private void applyStartupOverrides(int screenW, int screenH) {
+        zoom = Float.parseFloat(System.getProperty("crystalgui.svgicon.zoom", "1"));
+        // Additive, so they mean "and then shift by this" when a focus is named -- which is how the
+        // whole of an icon larger than the window gets tiled without recomputing a cell position by hand.
+        float offsetX = Float.parseFloat(System.getProperty("crystalgui.svgicon.panX", "0"));
+        float offsetY = Float.parseFloat(System.getProperty("crystalgui.svgicon.panY", "0"));
+        String focus = System.getProperty("crystalgui.svgicon.focus", "");
+        if (focus.isEmpty()) {
+            panX = offsetX;
+            panY = offsetY;
+            return;
+        }
+        // Centre the named cell rather than making the caller compute a pan: the cell's position is a
+        // function of the zoom it is being viewed at, so the two overrides are not independent.
+        for (int i = 0; i < entries.size(); i++) {
+            if (!entries.get(i).name().equals(focus)) continue;
+            // Land the ICON at the margin, not the cell: the icon is centred inside a cell far wider
+            // than it, so aiming at the cell puts the artwork off the right edge at any real zoom.
+            float cellW = BASE_CELL_W * zoom;
+            float iconPx = BASE_ICON * zoom;
+            // Centred, not margin-aligned, when asked: a seam artefact is decided by where the seam
+            // falls between two pixel CENTRES, so the icon's sub-pixel offset is part of the repro and
+            // "same zoom, different corner" is a different test.
+            float restX = MARGIN, restY = MARGIN;
+            if (Boolean.getBoolean("crystalgui.svgicon.center")) {
+                restX = (screenW - iconPx) * 0.5f;
+                restY = (screenH - iconPx) * 0.5f;
+            }
+            panX = -cellX(i, cellW) - (cellW - GAP * zoom - iconPx) * 0.5f + restX + offsetX;
+            panY = -cellY(i, BASE_CELL_H * zoom) + restY + offsetY;
+            return;
+        }
     }
 
     private void load(String path, String label) {
@@ -173,7 +219,12 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         paint.endFrame();
 
-        if (frame.getFrameNumber() == 5) ctx.getArtifactService().requestCapture("startup");
+        if (frame.getFrameNumber() == 5) {
+            ctx.getArtifactService().requestCapture(System.getProperty("crystalgui.svgicon.capture", "startup"));
+        }
+        // One-shot mode: capture, then stop the loop, so a scripted run produces a PNG and exits
+        // instead of leaving a window open waiting to be closed by hand.
+        if (Boolean.getBoolean("crystalgui.svgicon.oneshot") && frame.getFrameNumber() >= 7) running = false;
     }
 
     private float cellX(int index, float cellW) {
@@ -224,7 +275,7 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     @Override
     public boolean isRunning() {
-        return true;
+        return running;
     }
 
     @Override
