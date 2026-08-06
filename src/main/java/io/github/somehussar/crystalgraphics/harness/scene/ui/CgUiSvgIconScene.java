@@ -61,7 +61,7 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
             "font_dark", "html", "html_dark", "image", "image_dark", "java", "javaScript",
             "javaScript_dark", "java_dark", "json", "json_dark", "manifest", "manifest_dark", "markdown",
             "markdown_dark", "python", "python_dark", "text", "text_dark", "typeScript",
-            "typeScript_dark", "xhtml", "xhtml_dark", "xml", "xml_dark", "yaml", "yaml_dark"};
+            "typeScript_dark", "xhtml", "xhtml_dark", "xml", "xml_dark", "yaml", "yaml_dark", "shader"};
 
     /** Feather (MIT) — the stroked, {@code currentColor} set, kept so both cases are on one screen. */
     private static final String[] CHROME = {"folder", "file-text", "image", "code", "package"};
