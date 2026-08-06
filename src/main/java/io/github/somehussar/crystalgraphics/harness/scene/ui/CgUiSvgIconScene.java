@@ -56,13 +56,12 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
      * to be authoritative.</p>
      */
     private static final String[] FILETYPES = {
-            "Csharp", "Csharp_dark", "addAny", "any_type", "archive", "as", "aspectj", "binaryData",
-            "binaryData_dark", "config", "contexts", "contextsModifier", "css", "custom", "diagram",
-            "dtd", "folder", "folder_dark", "hprof", "htaccess", "html", "http", "i18n", "idl", "image",
-            "java", "javaClass", "javaOutsideSource", "javaScript", "jfr", "json", "jsonSchema",
-            "jsonSchema_dark", "json_dark", "jsp", "jspx", "jupyter", "manifest", "microsoftWindows",
-            "moduleGroup", "package", "properties", "regexp", "text", "uiForm", "unknown", "wsdlFile",
-            "xhtml", "xml", "xsdFile", "yaml", "IntelliJ_IDEA_Icon"};
+            "IntelliJ_IDEA_Icon", "anyType", "anyType_dark", "c", "c_dark", "css", "css_dark", "csv",
+            "csv_dark", "editorConfig", "editorConfig_dark", "folder", "folder_dark", "font",
+            "font_dark", "html", "html_dark", "image", "image_dark", "java", "javaScript",
+            "javaScript_dark", "java_dark", "json", "json_dark", "manifest", "manifest_dark", "markdown",
+            "markdown_dark", "python", "python_dark", "text", "text_dark", "typeScript",
+            "typeScript_dark", "xhtml", "xhtml_dark", "xml", "xml_dark", "yaml", "yaml_dark"};
 
     /** Feather (MIT) — the stroked, {@code currentColor} set, kept so both cases are on one screen. */
     private static final String[] CHROME = {"folder", "file-text", "image", "code", "package"};
@@ -105,19 +104,34 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
     private float panY;
     private boolean running = true;
     private int profileFrames;
+    private boolean profileInteractive;
+    private HarnessContext profileCtx;
     private boolean dragging;
     private int lastMouseX;
     private int lastMouseY;
 
     @Override
     public void init(HarnessContext ctx) {
+        // Enabled BEFORE the loads, or the one-off parse cost is invisible -- which is exactly the number
+        // "does opening a tree of icons stall the first frame" needs.
+        profileFrames = Integer.getInteger("crystalgui.svgicon.profile", 0);
+        // Interactive profiling: instrument everything but never stop the loop, so a human can drive the
+        // zoom across every threshold and the dump covers the WHOLE session. A fixed frame count cannot
+        // capture that -- the interesting events are the ones a person triggers.
+        profileInteractive = Boolean.getBoolean("crystalgui.svgicon.profileLive");
+        if (profileFrames > 0 || profileInteractive) CgProfiler.setEnabled(true);
         for (String name : FILETYPES) load("filetypes/" + name, name);
         for (String name : CHROME) load(name, name + " (feather)");
+        profileCtx = ctx;
         applyStartupOverrides(ctx.getScreenWidth(), ctx.getScreenHeight());
         // Enabled BEFORE the first frame: the profiler is a no-op behind a volatile flag, so turning it on
         // mid-run would leave the warm-up frames uninstrumented and the totals unattributable.
         profileFrames = Integer.getInteger("crystalgui.svgicon.profile", 0);
-        if (profileFrames > 0) CgProfiler.setEnabled(true);
+        // Interactive profiling: instrument everything but never stop the loop, so a human can drive the
+        // zoom across every threshold and the dump covers the WHOLE session. A fixed frame count cannot
+        // capture that -- the interesting events are the ones a person triggers.
+        profileInteractive = Boolean.getBoolean("crystalgui.svgicon.profileLive");
+        if (profileFrames > 0 || profileInteractive) CgProfiler.setEnabled(true);
     }
 
     /**
@@ -242,7 +256,13 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
         // actually is. WARM-UP IS DISCARDED for the same reason -- the first frames pay lazy material
         // compilation and buffer allocation that never happen again.
         if (profileFrames > 0) {
-            if (frame.getFrameNumber() == WARMUP_FRAMES) CgProfiler.reset();
+            if (frame.getFrameNumber() == WARMUP_FRAMES) {
+                // Dumped BEFORE the reset: this window holds the one-off costs -- parsing every icon and
+                // building whatever LOD meshes the first frames asked for -- which the steady-state
+                // average is designed to exclude and which are exactly what a cold start pays.
+                CgProfilerDump.dump(new java.io.File(ctx.getOutputDir()), "svg-startup");
+                CgProfiler.reset();
+            }
             if (frame.getFrameNumber() == WARMUP_FRAMES + profileFrames) {
                 java.io.File out = CgProfilerDump.dump(
                         new java.io.File(ctx.getOutputDir()), "svg-icons-" + profileFrames + "f");
@@ -316,5 +336,10 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     @Override
     public void dispose() {
+        if (profileInteractive && profileCtx != null) {
+            java.io.File out = CgProfilerDump.dump(
+                    new java.io.File(profileCtx.getOutputDir()), "svg-lod-live");
+            System.out.println("[profile] live dump=" + out);
+        }
     }
 }
