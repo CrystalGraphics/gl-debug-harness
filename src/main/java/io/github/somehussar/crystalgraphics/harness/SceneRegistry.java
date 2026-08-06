@@ -376,7 +376,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("cgui-svg-icon")
-                .description("SVG icons drawn as vectors -- five stroked Feather icons and a filled, gradient logo. Scroll to scale.")
+                .description("Every shipped icon in a labelled grid -- red = failed to load, amber = drew nothing. Scroll to scale.")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
