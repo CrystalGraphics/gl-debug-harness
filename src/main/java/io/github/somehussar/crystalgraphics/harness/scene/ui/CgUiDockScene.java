@@ -4,6 +4,11 @@ import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.core.dispose.Disposer;
 import com.crystalgui.editor.CrystalEditor;
+import com.crystalgui.ui.UIElement;
+import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.elements.dock.DockPanelDescriptor;
+import com.crystalgui.ui.elements.dock.DockRegion;
+import com.crystalgui.ui.elements.dock.RegionSide;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
@@ -54,6 +59,47 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private String status = "click a file in Project to begin";
     private boolean projectsAsked;
 
+    /**
+     * Eight stand-in tool windows, so the stripes have enough buttons to actually drag between.
+     *
+     * <h3>Here rather than in {@code core/}</h3>
+     *
+     * <p>They exist to be dragged, resized and reordered, which is a thing you do by hand — so they belong
+     * in the harness, which is the only place this engine can be driven by hand at all. Registering them in
+     * {@code CrystalEditor} would ship eight empty panels to every application built on it.</p>
+     *
+     * <p><b>Spread across all six slots on purpose</b>, and named after the IntelliJ tool windows that
+     * really live there. Three buttons in one group tests almost nothing: the interactions that break are
+     * crossing between rails, crossing between a rail's two groups, and reordering <em>within</em> a group —
+     * and the last of those needs a group with more than two things in it.</p>
+     *
+     * <p>Registered but not shown. A button appears for any singleton panel type whether or not it is open,
+     * and opening eight would leave no editor.</p>
+     */
+    private void registerDummyToolWindows() {
+        dummy("terminal", "Terminal", "crystalgui:code", DockRegion.PANEL, RegionSide.PRIMARY);
+        dummy("services", "Services", "crystalgui:package", DockRegion.PANEL, RegionSide.PRIMARY);
+        dummy("run", "Run", "crystalgui:x", DockRegion.PANEL, RegionSide.SECONDARY);
+        dummy("structure", "Structure", "crystalgui:file-text", DockRegion.SIDEBAR, RegionSide.PRIMARY);
+        dummy("bookmarks", "Bookmarks", "crystalgui:folder", DockRegion.SIDEBAR, RegionSide.PRIMARY);
+        dummy("commit", "Commit", "crystalgui:image", DockRegion.SIDEBAR, RegionSide.SECONDARY);
+        dummy("notifications", "Notifications", "crystalgui:file-text",
+                DockRegion.AUXILIARY, RegionSide.PRIMARY);
+        dummy("outline", "Outline", "crystalgui:code", DockRegion.AUXILIARY, RegionSide.SECONDARY);
+    }
+
+    private void dummy(String typeId, String title, String icon, DockRegion region, RegionSide side) {
+        editor.workbench().registerPanel(
+                DockPanelDescriptor.singleton(typeId, title).icon(icon).region(region).side(side),
+                ref -> {
+                    // NAMED, so a drag that lands somewhere unexpected says which panel it was. An empty
+                    // box would make all eight look identical the moment two end up in the same region.
+                    UIElement body = new UIElement();
+                    body.addChild(new UIText(title + " (dummy)"));
+                    return body;
+                });
+    }
+
     @Override
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
@@ -65,6 +111,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 java.nio.file.Paths.get("workspace-config").toAbsolutePath().normalize()));
         editor.addClass("demo-root");
         editor.onStatus.connect(text -> status = text);
+        registerDummyToolWindows();
 
         uiWindow = new UIWindow(Ui.of(editor));
         uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
