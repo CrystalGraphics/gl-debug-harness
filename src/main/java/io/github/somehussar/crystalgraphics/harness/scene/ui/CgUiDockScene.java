@@ -73,7 +73,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // Commands and their keys are the editor's, not the scene's -- so Ctrl+S, Ctrl+Shift+S and Ctrl+O
         // are registered commands here rather than a switch on scan codes, and appear in the palette with
         // their accelerators like everything else.
-        editor.install(uiWindow);
+        // Nothing to install: constructing the editor registered its commands.
     }
 
     @Override
