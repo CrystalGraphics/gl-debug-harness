@@ -155,6 +155,11 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         uiWindow.paintFrame();
         editor.giveInitialFocus();
 
+        if (dumpRequested) {
+            dumpRequested = false;
+            dumpProblemRows();
+        }
+
         if (frame.getFrameNumber() == 5) ctx.getArtifactService().requestCapture("startup");
     }
 
@@ -190,7 +195,51 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             emitDebugNotifications();
             return true;
         }
+        if (event.pressed() && event.key() == CgKeyCodes.KEY_F10) {
+            // DEFERRED to after the next frame is painted. Input is consumed BEFORE layout runs, so
+            // dumping here reports every box at 0x0 -- the state rows are in between being rebuilt and
+            // being measured, which says nothing about what is on screen.
+            dumpRequested = true;
+            return true;
+        }
         return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+    }
+
+    /**
+     * <b>F10 — the Problems rows' real geometry, printed.</b>
+     *
+     * <p>A row's icon and its message looked a line apart in this scene and were provably centred in every
+     * construction of it outside — six variations, all correct. That leaves something about <em>this</em>
+     * environment, and the only way to see it is from inside it. Prints each row's box and each part's, so
+     * the difference from the fixture is a subtraction rather than another guess.</p>
+     */
+    private boolean dumpRequested;
+
+    private void dumpProblemRows() {
+        UIElement panel = editor.workbench().querySelector("problemspanel");
+        if (panel == null) {
+            System.out.println("DUMP no problems panel in the tree");
+            return;
+        }
+        var pb = panel.getRuntimeCache();
+        System.out.println("DUMP panel x=" + pb.getX() + " y=" + pb.getY()
+                + " w=" + pb.getWidth() + " h=" + pb.getHeight()
+                + " uiScale=" + uiWindow.getUiScale());
+        for (UIElement row : panel.getElementsByClassName("__problem__")) {
+            var rb = row.getRuntimeCache();
+            System.out.println("DUMP  row y=" + rb.getY() + " h=" + rb.getHeight()
+                    + " centre=" + (rb.getY() + rb.getHeight() / 2f));
+            for (UIElement part : row.getChildren()) {
+                var qb = part.getRuntimeCache();
+                String extra = part instanceof UIText
+                        ? " ws=" + part.getStyle().getGeneralGroup().whiteSpace()
+                                + " shown=" + ((UIText) part).displayedText().length()
+                        : "";
+                System.out.println("DUMP    " + part.getClasses() + " y=" + qb.getY()
+                        + " h=" + qb.getHeight() + " w=" + qb.getWidth()
+                        + " centre=" + (qb.getY() + qb.getHeight() / 2f) + extra);
+            }
+        }
     }
 
     /**
