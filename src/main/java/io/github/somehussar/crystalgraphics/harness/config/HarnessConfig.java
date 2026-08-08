@@ -38,8 +38,8 @@ public class HarnessConfig {
 
     public HarnessConfig() {
         this.outputDir = "gl-debug-harness/harness-output";
-        this.width = 800;
-        this.height = 600;
+        this.width = 1920;
+        this.height = 1080;
         this.fontPath = null;
         this.outputName = null;
         this.seconds = 0d;
