@@ -9,10 +9,12 @@ import com.crystalgui.ui.elements.UIText;
 import com.crystalgui.ui.elements.dock.DockPanelDescriptor;
 import com.crystalgui.ui.elements.dock.DockRegion;
 import com.crystalgui.ui.elements.dock.RegionSide;
-import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
 import com.crystalgui.ui.Ui;
+import com.crystalgui.core.notify.Notification;
+import com.crystalgui.core.notify.Notifications;
+import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgui.ui.UIWindow;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -39,15 +41,16 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  * <p>The editor is {@link CrystalEditor} in {@code core/} — panels, layout, commands, keys and focus are
  * all its. This scene owns exactly two things a harness legitimately owns: <b>the fake half</b>
  * ({@link HarnessWorkspace} runs both ends of the workspace RPC in one process against a seeded scratch
- * directory, where a real host would have a server across a connection) and a status line drawn over the
+ * directory, where a real host would have a server across a connection) and its status line at the
  * top. Everything else moved, because a debug scene should never be the only place an application
  * exists.</p>
  */
 public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    /** Room for the harness's own status line, which is painted at y=0 over everything. */
+    /** No room reserved at the top any more: the status line is a real StatusBarView inside the
+     * workbench now, so it is laid out rather than painted over everything. @see #init */
     private static final String STYLES = """
-            .demo-root { width: 100%; height: 100%; padding-all: 8px; padding-top: 22px; }
+            .demo-root { width: 100%; height: 100%; padding-all: 8px; }
             """;
 
     /** Both halves of a real workspace, in this process — the one genuinely fake thing here. */
@@ -56,7 +59,6 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private UIWindow uiWindow;
     private CrystalEditor editor;
 
-    private String status = "click a file in Project to begin";
     private boolean projectsAsked;
 
     /**
@@ -77,15 +79,15 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      * and opening eight would leave no editor.</p>
      */
     private void registerDummyToolWindows() {
-        dummy("terminal", "Terminal", "crystalgui:code", DockRegion.PANEL, RegionSide.PRIMARY);
-        dummy("services", "Services", "crystalgui:package", DockRegion.PANEL, RegionSide.PRIMARY);
-        dummy("run", "Run", "crystalgui:x", DockRegion.PANEL, RegionSide.SECONDARY);
-        dummy("structure", "Structure", "crystalgui:file-text", DockRegion.SIDEBAR, RegionSide.PRIMARY);
-        dummy("bookmarks", "Bookmarks", "crystalgui:folder", DockRegion.SIDEBAR, RegionSide.PRIMARY);
-        dummy("commit", "Commit", "crystalgui:image", DockRegion.SIDEBAR, RegionSide.SECONDARY);
-        dummy("notifications", "Notifications", "crystalgui:file-text",
-                DockRegion.AUXILIARY, RegionSide.PRIMARY);
-        dummy("outline", "Outline", "crystalgui:code", DockRegion.AUXILIARY, RegionSide.SECONDARY);
+     //   dummy("terminal", "Terminal", "crystalgui:code", DockRegion.PANEL, RegionSide.PRIMARY);
+      //  dummy("services", "Services", "crystalgui:package", DockRegion.PANEL, RegionSide.PRIMARY);
+      //  dummy("run", "Run", "crystalgui:x", DockRegion.PANEL, RegionSide.SECONDARY);
+     //   dummy("structure", "Structure", "crystalgui:file-text", DockRegion.SIDEBAR, RegionSide.PRIMARY);
+       // dummy("bookmarks", "Bookmarks", "crystalgui:folder", DockRegion.SIDEBAR, RegionSide.PRIMARY);
+       // dummy("commit", "Commit", "crystalgui:image", DockRegion.SIDEBAR, RegionSide.SECONDARY);
+        // "notifications" is NOT a dummy any more -- Workbench registers the real NotificationsView under
+        // that id, and a second registration here would replace it with an empty box.
+        //dummy("outline", "Outline", "crystalgui:code", DockRegion.AUXILIARY, RegionSide.SECONDARY);
     }
 
     private void dummy(String typeId, String title, String icon, DockRegion region, RegionSide side) {
@@ -110,7 +112,6 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         editor.useConfig(new com.crystalgui.fs.LocalConfigStorage(
                 java.nio.file.Paths.get("workspace-config").toAbsolutePath().normalize()));
         editor.addClass("demo-root");
-        editor.onStatus.connect(text -> status = text);
         registerDummyToolWindows();
 
         uiWindow = new UIWindow(Ui.of(editor));
@@ -147,18 +148,12 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             editor.workbench().fileTree().loadProjects();
             // AFTER loadProjects, not before: the restore parks the folders it wants expanded and retries
             // until the listings that reveal them arrive, so asking first would simply park everything.
-            if (editor.restoreSession(HarnessWorkspace.PROJECT_ID)) status = "session restored";
+            editor.restoreSession(HarnessWorkspace.PROJECT_ID);
         }
 
         uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         uiWindow.paintFrame();
         editor.giveInitialFocus();
-
-        var context = CgUiPaintContext.getInstance();
-        context.text().draw().at(0, 0)
-                .text("CrystalShader editor — Ctrl+S save, Ctrl+Shift+P palette, F2 next problem   ["
-                        + status + "]")
-                .font(context.getFont().atSize(14)).submit();
 
         if (frame.getFrameNumber() == 5) ctx.getArtifactService().requestCapture("startup");
     }
@@ -191,7 +186,36 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
+        if (event.pressed() && event.key() == CgKeyCodes.KEY_F9) {
+            emitDebugNotifications();
+            return true;
+        }
         return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+    }
+
+    /**
+     * <b>F9 — one notification of each kind, for looking at them.</b>
+     *
+     * <h3>Why this is in the harness and not a command in core</h3>
+     *
+     * <p>Every notification the workbench produces is either a failure or something that happened while you
+     * were not looking, and a local in-memory workspace has no failure surface — no permissions, no network,
+     * no other writer — so an error is genuinely unreachable by using the application. Confirmations of
+     * things you had just done were the only easy triggers, and those were noise and were removed.</p>
+     *
+     * <p>So the trigger belongs to the debug tool. Shipping it as a registered command in {@code core/}
+     * would put "emit fake notifications" in every application's command palette, which is a worse trade
+     * than a key that only exists here — the same reason the eight stand-in tool windows above live in this
+     * scene rather than in {@code CrystalEditor}.</p>
+     */
+    private void emitDebugNotifications() {
+        Notifications.info("Indexing finished");
+        Notifications.show(Notification.warning("Disk space low")
+                .withDetail("Less than 50 MiB is left on the system partition (C:)"));
+        Notifications.show(Notification.error("HotSwap failed")
+                .withDetail("Error during compilation: no such symbol 'foo'")
+                .withAction("Review", () -> Notifications.info("Review clicked"))
+                .withAction("Ignore", () -> Notifications.info("Ignore clicked")));
     }
 
     @Override
