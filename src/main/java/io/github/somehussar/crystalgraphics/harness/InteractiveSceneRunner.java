@@ -345,7 +345,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // Ignores auto-repeat, or holding the key re-reads the files once a frame.
             if (event.pressed() && !event.repeat() && event.key() == Keyboard.KEY_R && isCtrlDown()) {
                 reloadStyleSheets();
-                continue;
             }
             for (CgSystemInput.Keyboard listener : keyboardListeners) {
                 if (!listener.consumeKeyboardEvent(event)) break;
