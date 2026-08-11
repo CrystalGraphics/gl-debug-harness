@@ -64,7 +64,8 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
             "typeScript_dark", "xhtml", "xhtml_dark", "xml", "xml_dark", "yaml", "yaml_dark", "shader"};
 
     /** Feather (MIT) — the stroked, {@code currentColor} set, kept so both cases are on one screen. */
-    private static final String[] CHROME = {"folder", "file-text", "image", "code", "package"};
+    private static final String[] CHROME = {"folder", "file-text", "image", "code", "package",
+            "general/search/search"};
 
     private static final float MARGIN = 8f;
     private static final float LABEL_HEIGHT = 12f;
