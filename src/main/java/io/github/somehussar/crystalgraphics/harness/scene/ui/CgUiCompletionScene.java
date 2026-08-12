@@ -6,11 +6,11 @@ import com.crystalgui.text.Change;
 import com.crystalgui.text.TextPoint;
 import com.crystalgui.text.decoration.TrackedRange;
 import com.crystalgui.text.diagnostic.Diagnostic;
+import com.crystalgui.language.java.JavaLanguage;
 import com.crystalgui.text.lang.CompletionItem;
-import com.crystalgui.text.lang.CompletionList;
 import com.crystalgui.text.lang.CompletionProvider;
-import com.crystalgui.text.lang.SymbolKind;
-import com.crystalgui.text.lang.Versioned;
+import com.crystalgui.text.lang.LanguageServices;
+import com.crystalgui.text.syntax.LanguageRegistry;
 import com.crystalgui.text.syntax.Language;
 import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.Ui;
@@ -24,7 +24,6 @@ import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  * M8 and M9 on screen at once: a live completion popup over text carrying tracked squiggles.
@@ -71,39 +70,11 @@ public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemI
             class Demo {
                 void run() {
                     var printer = new Printer();
-                    printer.pr
+                    System.
                     undefinedName();
                 }
             }
             """;
-
-    /** The rows the popup is shown with — one per kind, so every palette entry is on screen at once. */
-    private static final List<CompletionItem> ITEMS = List.of(
-            CompletionItem.builder("println", SymbolKind.METHOD)
-                    .detail("void").filterText("println").build(),
-            CompletionItem.builder("printf", SymbolKind.METHOD)
-                    .detail("PrintStream").filterText("printf").build(),
-            CompletionItem.builder("print", SymbolKind.METHOD)
-                    .detail("void").filterText("print").build(),
-            CompletionItem.builder("prefix", SymbolKind.FIELD)
-                    .detail("java.lang.String").filterText("prefix").build(),
-            CompletionItem.builder("precision", SymbolKind.LOCAL_VARIABLE)
-                    .detail("int").filterText("precision").build(),
-            CompletionItem.builder("PRECISION_LIMIT", SymbolKind.CONSTANT)
-                    .detail("int").filterText("PRECISION_LIMIT").build(),
-            CompletionItem.builder("Printer", SymbolKind.CLASS)
-                    .detail("com.example.output").filterText("Printer").build(),
-            CompletionItem.builder("Printable", SymbolKind.INTERFACE)
-                    .detail("java.awt.print").filterText("Printable").build(),
-            CompletionItem.builder("Priority", SymbolKind.ENUM)
-                    .detail("com.example").filterText("Priority").build(),
-            // Deprecated, so the strike-through is in the baseline rather than only in a unit test.
-            CompletionItem.builder("printStackTraceOld", SymbolKind.METHOD)
-                    .detail("void").filterText("printStackTraceOld").deprecated(true).build(),
-            // A scattered hit: "prn" reaches this only through the subsequence tier, so its banding is
-            // three separate marks -- which is the case a contiguous highlighter draws wrongly.
-            CompletionItem.builder("parseRelativeName", SymbolKind.METHOD)
-                    .detail("java.nio.file.Path").filterText("parseRelativeName").build());
 
     private UIWindow uiWindow;
     private TextEditor editor;
@@ -178,12 +149,28 @@ public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemI
         editor.buffer().insert(at, "    // a line inserted above every mark\n");
     }
 
-    /** Puts the caret after {@code printer.pr} and opens a session there. */
+    /**
+     * Puts the caret straight after {@code System.} and opens a session there.
+     *
+     * <p>The <b>real engine</b>, not a stub. This scene exists to be held beside IntelliJ's own popup for
+     * the same expression, and a stub would be comparing our drawing against our own invented rows — which
+     * says nothing about whether the member list is right. The cost is that it needs the staged engine
+     * bands, so it degrades to "no session" on a host without them rather than pretending.</p>
+     */
     private void openCompletionAtTheCaret() {
-        int caret = editor.buffer().toString().indexOf("printer.pr") + "printer.pr".length();
+        int caret = editor.buffer().toString().indexOf("System.") + "System.".length();
         editor.setCaret(caret);
-        editor.setLanguageServices(new StubServices());
-        editor.openCompletion(CompletionProvider.TriggerKind.EXPLICIT, null);
+
+        JavaLanguage.register();
+        LanguageRegistry.Entry entry = LanguageRegistry.forFileName("Demo.java");
+        LanguageServices services = entry == null ? null : entry.newServices(editor.buffer(), null);
+        if (services == null) {
+            System.out.println("   !! no Java engine staged -- run through :gl-debug-harness:runHarness "
+                    + "so stageEngines has written build/engines/");
+            return;
+        }
+        editor.setLanguageServices(services);
+        editor.openCompletion(CompletionProvider.TriggerKind.CHARACTER, ".");
     }
 
     /**
@@ -256,34 +243,6 @@ public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemI
         String text = editor.buffer().toString();
         int at = text.indexOf(needle);
         return at < 0 ? 0 : editor.buffer().offsetToPoint(at).row();
-    }
-
-    /** Answers the fixed list above. See the class note on why this is not the real engine. */
-    private static final class StubServices implements com.crystalgui.text.lang.LanguageServices {
-
-        @Override
-        public String id() {
-            return "harness-stub";
-        }
-
-        @Override
-        public CompletionProvider completion() {
-            return new CompletionProvider() {
-                @Override
-                public void complete(Request request, Consumer<Versioned<CompletionList>> answer) {
-                    answer.accept(Versioned.of(0, CompletionList.complete(ITEMS)));
-                }
-
-                @Override
-                public void resolveItem(CompletionItem item, Consumer<CompletionItem> answer) {
-                    answer.accept(item);
-                }
-            };
-        }
-
-        @Override
-        public void close() {
-        }
     }
 
     @Override
