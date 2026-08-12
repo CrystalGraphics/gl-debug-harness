@@ -20,6 +20,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiScrollerScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSliderScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTabViewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiWorkspaceScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCompletionScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextFieldScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiDockScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSplitViewScene;
@@ -444,6 +445,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiScrollerScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-completion")
+                .description("CrystalGUI completion popup + tracked diagnostic ranges, scripted and captured")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiCompletionScene()
         );
 
         reg.register(
