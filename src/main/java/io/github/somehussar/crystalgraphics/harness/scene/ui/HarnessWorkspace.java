@@ -1,6 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgui.language.grammar.TreeSitterLanguages;
+import com.crystalgui.language.java.JavaLanguage;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.LocalFileSystem;
 import com.crystalgui.fs.ProjectRegistry;
@@ -61,6 +62,19 @@ final class HarnessWorkspace {
         // lexers so it can load with no natives; this puts the real parsers in front of them, which is
         // what makes a declaration distinguishable from a call and a constant from an identifier.
         TreeSitterLanguages.register();
+
+        // AND THE JAVA ENGINE BEHIND IT. Without this the editor colours and nothing else: no
+        // diagnostics reach the document's set, a parameter and a field take one colour because only
+        // resolution can tell them apart, and Run has nothing to run. None of that reports itself --
+        // `LanguageServices` being absent is the feature flag the whole stack degrades through -- so it
+        // reads as those features not existing rather than as not being switched on.
+        //
+        // Returns false where the bands are not staged (`./gradlew :language:stageEngines`, which
+        // runHarness depends on). That is a legitimate environment, so it is reported and not fatal.
+        if (!JavaLanguage.register()) {
+            System.err.println("[harness] Java analysis is off: no engine bands under "
+                    + System.getProperty(JavaLanguage.ENGINES_DIRECTORY_PROPERTY, "<unset>"));
+        }
 
         Path root = seedScratchProject();
         ProjectRegistry registry = new ProjectRegistry().register(() -> List.of(

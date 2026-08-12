@@ -74,6 +74,18 @@ tasks.register<JavaExec>("runHarness") {
     systemProperty("org.lwjgl.librarypath", lwjglNativesDir)
     systemProperty("harness.output.dir", file("harness-output").absolutePath)
 
+    // THE ENGINE BANDS, staged one directory per band. Without this the harness opens no engine and the
+    // whole semantic layer is silently absent: no diagnostics, no semantic colouring, no Run command --
+    // because `EngineSource.NONE` is a legitimate deployment and nothing anywhere treats it as an error.
+    //
+    // A DIRECTORY rather than the jars on the harness's own classpath, and that is the point: the
+    // engines must load in EngineClassLoader's isolation, not beside the application. Putting ECJ on
+    // this classpath would work in the harness and be exactly the arrangement that cannot occur in
+    // production, so the dev run would be exercising a path that does not ship.
+    dependsOn(":language:stageEngines")
+    systemProperty("crystalgui.engines.dir",
+        project(":language").layout.buildDirectory.dir("engines").get().asFile.absolutePath)
+
     // Forward every -Dcrystalgraphics.* from the Gradle invocation into the forked JVM.
     //
     // Without this they set properties on the Gradle daemon and never reach the harness, so every

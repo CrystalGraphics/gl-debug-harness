@@ -1,0 +1,169 @@
+{
+  "version": 6,
+  "dock": {
+    "version": 1,
+    "viewportWidth": 960.0,
+    "viewportHeight": 540.0,
+    "rootOrientation": "HORIZONTAL",
+    "root": [
+      {
+        "size": 1.0,
+        "type": "branch",
+        "children": [
+          {
+            "size": 1.0,
+            "type": "leaf",
+            "panels": [
+              {
+                "typeId": "file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:src/Main.java"
+                  },
+                  {
+                    "k": "title",
+                    "v": "Main.java"
+                  }
+                ]
+              },
+              {
+                "typeId": "file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:src/shader.frag"
+                  },
+                  {
+                    "k": "title",
+                    "v": "shader.frag"
+                  }
+                ]
+              },
+              {
+                "typeId": "file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:src/app.js"
+                  },
+                  {
+                    "k": "title",
+                    "v": "app.js"
+                  }
+                ]
+              },
+              {
+                "typeId": "file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:src/index.html"
+                  },
+                  {
+                    "k": "title",
+                    "v": "index.html"
+                  }
+                ]
+              },
+              {
+                "typeId": "file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:src/java.svg"
+                  },
+                  {
+                    "k": "title",
+                    "v": "java.svg"
+                  }
+                ]
+              }
+            ],
+            "active": 0,
+            "central": true
+          }
+        ]
+      }
+    ]
+  },
+  "toolWindows": [
+    {
+      "id": "project",
+      "visible": true,
+      "region": "SIDEBAR",
+      "side": "PRIMARY",
+      "weight": 0.15933284,
+      "sideWeight": 0.5,
+      "order": 0,
+      "active": true,
+      "stripe": true
+    },
+    {
+      "id": "problems",
+      "visible": true,
+      "region": "PANEL",
+      "side": "PRIMARY",
+      "weight": 0.3,
+      "sideWeight": 0.5,
+      "order": 1,
+      "active": true,
+      "stripe": true
+    },
+    {
+      "id": "inspector",
+      "visible": false,
+      "region": "AUXILIARY",
+      "side": "PRIMARY",
+      "weight": 0.22,
+      "sideWeight": 0.5,
+      "order": 2,
+      "active": true,
+      "stripe": true
+    }
+  ],
+  "active": "harness.scratch:src/Main.java",
+  "expanded": [
+    {
+      "path": "harness.scratch:"
+    },
+    {
+      "path": "harness.scratch:src"
+    }
+  ],
+  "files": [
+    {
+      "path": "harness.scratch:src/shader.frag",
+      "view": {
+        "caret": 3467,
+        "scroll": 1800.0
+      }
+    },
+    {
+      "path": "harness.scratch:src/index.html",
+      "view": {
+        "caret": 3187,
+        "scroll": 1080.0
+      }
+    },
+    {
+      "path": "harness.scratch:src/app.js",
+      "view": {
+        "caret": 0
+      }
+    },
+    {
+      "path": "harness.scratch:src/java.svg",
+      "view": {
+        "caret": 0
+      }
+    },
+    {
+      "path": "harness.scratch:src/Main.java",
+      "view": {
+        "caret": 12221,
+        "scroll": 6776.0
+      }
+    }
+  ]
+}

@@ -2,6 +2,7 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.core.command.CommandRegistry;
 import com.crystalgui.core.dispose.Disposer;
 import com.crystalgui.editor.CrystalEditor;
 import com.crystalgui.ui.UIElement;
@@ -19,6 +20,8 @@ import com.crystalgui.ui.UIWindow;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
+
+import java.nio.file.Paths;
 
 /**
  * The editor, running.
@@ -60,6 +63,9 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private CrystalEditor editor;
 
     private boolean projectsAsked;
+
+    /** Run and Stop for the active .java file, or null where no engine band is available. */
+    private HarnessScriptRunner scriptRunner;
 
     /**
      * Eight stand-in tool windows, so the stripes have enough buttons to actually drag between.
@@ -122,6 +128,13 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // are registered commands here rather than a switch on scan codes, and appear in the palette with
         // their accelerators like everything else.
         // Nothing to install: constructing the editor registered its commands.
+
+        // RUN AND STOP, for the .java file in front. Null when no engine band was staged, and the
+        // commands are then deliberately NOT registered -- a Run row that cannot run anything teaches
+        // people the feature is broken rather than unavailable.
+        scriptRunner = HarnessScriptRunner.install(
+                CommandRegistry.global(), editor.workbench(),
+                Paths.get("build", "script-cache").toAbsolutePath().normalize());
     }
 
     @Override
