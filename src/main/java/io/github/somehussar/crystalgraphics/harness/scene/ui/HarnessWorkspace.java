@@ -1,6 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
-import com.crystalgui.syntax.treesitter.TreeSitterLanguages;
+import com.crystalgui.language.grammar.TreeSitterLanguages;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.LocalFileSystem;
 import com.crystalgui.fs.ProjectRegistry;

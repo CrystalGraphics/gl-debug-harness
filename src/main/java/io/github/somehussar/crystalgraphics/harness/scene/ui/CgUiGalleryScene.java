@@ -1362,7 +1362,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         editor.addClass("ed");
         // The built-in lexer, not tree-sitter: the harness must build without the local fork, and this is
         // the same fallback a platform whose native will not load gets. The tree-sitter backend has its
-        // own suite in :syntax-treesitter, against the real Java grammar.
+        // own suite in :language, against the real Java grammar.
         editor.setTokenizer(KeywordTokenizer.java());
         // The tokenizer colours it; the Language tells the editor how to EDIT it -- comment
         // tokens, bracket pairs. Two different questions about the same language.
@@ -1531,7 +1531,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     /** Deliberately ordinary Java: keywords, types, a call, a string, a number and both comment forms. */
     private static final String[] JAVA_SAMPLE = {
             "// P6.1.7 - the code editor. Everything here is highlighted by",
-            "// KeywordTokenizer; :syntax-treesitter does the same with a real parse.",
+            "// KeywordTokenizer; :language does the same with a real parse.",
             "package com.crystalgui.demo;",
             "",
             "/* A block comment, which spans",

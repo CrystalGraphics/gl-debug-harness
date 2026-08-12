@@ -30,7 +30,7 @@ dependencies {
     // a function, so a constructor, an enum constant, a declaration and a call are one colour and no
     // scheme can separate them. Without this the editor looks plausible and cannot match any reference
     // palette, which is exactly how it went unnoticed through a round of scheme tuning.
-    implementation(project(":syntax-treesitter"))
+    implementation(project(":language"))
     implementation("dev.vfyjxf:taffy:${rootProject.properties["taffy_version"]}")
 
     implementation("org.joml:joml:${rootProject.properties["jomlVersion"]}")
