@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgui.syntax.treesitter.TreeSitterLanguages;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.LocalFileSystem;
 import com.crystalgui.fs.ProjectRegistry;
@@ -55,6 +56,12 @@ final class HarnessWorkspace {
     private float untilPoll;
 
     HarnessWorkspace() {
+        // BEFORE anything opens a document, because LanguageRegistry is consulted when an editor is built
+        // and a file already open would keep whichever tokenizer it was given. core/ ships word-list
+        // lexers so it can load with no natives; this puts the real parsers in front of them, which is
+        // what makes a declaration distinguishable from a call and a constant from an identifier.
+        TreeSitterLanguages.register();
+
         Path root = seedScratchProject();
         ProjectRegistry registry = new ProjectRegistry().register(() -> List.of(
                 new WorkspaceProject(PROJECT_ID, "Scratch", root)));

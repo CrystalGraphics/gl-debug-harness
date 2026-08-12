@@ -24,6 +24,13 @@ dependencies {
     implementation("com.crystalgraphics:freetype-msdfgen-harfbuzz-bindings:1.0.0")
     implementation("com.crystalgraphics:core:1.0.0")
     implementation(project(":core")) // CrystalGUI:core, via composite build substitution
+
+    // The real parsers. core/ ships word-list lexers so it can load with no natives at all, and they are
+    // genuinely fine for keywords, strings and comments -- but a lexer calls any identifier before a "("
+    // a function, so a constructor, an enum constant, a declaration and a call are one colour and no
+    // scheme can separate them. Without this the editor looks plausible and cannot match any reference
+    // palette, which is exactly how it went unnoticed through a round of scheme tuning.
+    implementation(project(":syntax-treesitter"))
     implementation("dev.vfyjxf:taffy:${rootProject.properties["taffy_version"]}")
 
     implementation("org.joml:joml:${rootProject.properties["jomlVersion"]}")
