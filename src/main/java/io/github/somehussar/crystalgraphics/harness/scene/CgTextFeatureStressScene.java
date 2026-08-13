@@ -227,9 +227,9 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
     private static CgStyledText syntheticStyled(int i) {
         String text = latinText(i);
         List<CgStyleSpan> spans = new ArrayList<>();
-        spans.add(new CgStyleSpan(0, 5, true, false, Set.of(), 0xFFFFFFFF, null, 0f));
-        spans.add(new CgStyleSpan(5, 10, false, true, Set.of(), 0xFFFFFFFF, null, 0f));
-        spans.add(new CgStyleSpan(10, text.length(), true, true, Set.of(), 0xFFFFFFFF, null, 0f));
+        spans.add(new CgStyleSpan(0, 5, true, false, Set.of(), 0xFFFFFFFF, null, 0f, 0));
+        spans.add(new CgStyleSpan(5, 10, false, true, Set.of(), 0xFFFFFFFF, null, 0f, 0));
+        spans.add(new CgStyleSpan(10, text.length(), true, true, Set.of(), 0xFFFFFFFF, null, 0f, 0));
         return new CgStyledText(text, spans);
     }
 
@@ -237,9 +237,9 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
         String text = latinText(i);
         List<CgStyleSpan> spans = new ArrayList<>();
         spans.add(new CgStyleSpan(0, 8, false, false,
-                Set.of(CgTextDecoration.UNDERLINE), 0xFFFFFFFF, null, 0f));
+                Set.of(CgTextDecoration.UNDERLINE), 0xFFFFFFFF, null, 0f,0));
         spans.add(new CgStyleSpan(8, text.length(), false, false,
-                Set.of(CgTextDecoration.STRIKETHROUGH), 0xFFFFFFFF, null, 0f));
+                Set.of(CgTextDecoration.STRIKETHROUGH), 0xFFFFFFFF, null, 0f,0));
         return new CgStyledText(text, spans);
     }
 
