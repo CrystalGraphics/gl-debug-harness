@@ -1,6 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.api.render.CgRenderPipeline;
+import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.core.command.CommandRegistry;
 import com.crystalgui.language.run.RunPanels;
@@ -207,13 +208,28 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         return false;
     }
 
+    /**
+     * Whether no modifier is held — what makes the debug keys below <b>bare</b> F9 and F10.
+     *
+     * <p>Without this the scene ate every chord built on those keys: matching the key alone and returning
+     * {@code true} meant <b>Shift+F10 never reached the UI at all</b>, so the Run command's own accelerator
+     * was dead in this scene and read as a broken binding rather than as a harness debug key sitting on top
+     * of it. The keyboard event carries no modifiers, so the state is read from the platform.</p>
+     *
+     * <p>The same shape as {@code TextField} refusing Ctrl chords but not Alt ones: a handler that tests a
+     * key without testing the modifiers claims every accelerator that key is part of.</p>
+     */
+    private static boolean noModifiers() {
+        return CgPlatform.input().getCurrentModifiers() == 0;
+    }
+
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        if (event.pressed() && event.key() == CgKeyCodes.KEY_F9) {
+        if (event.pressed() && noModifiers() && event.key() == CgKeyCodes.KEY_F9) {
             emitDebugNotifications();
             return true;
         }
-        if (event.pressed() && event.key() == CgKeyCodes.KEY_F10) {
+        if (event.pressed() && noModifiers() && event.key() == CgKeyCodes.KEY_F10) {
             // DEFERRED to after the next frame is painted. Input is consumed BEFORE layout runs, so
             // dumping here reports every box at 0x0 -- the state rows are in between being rebuilt and
             // being measured, which says nothing about what is on screen.
