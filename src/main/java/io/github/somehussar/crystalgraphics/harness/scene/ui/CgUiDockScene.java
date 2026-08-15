@@ -3,6 +3,8 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.core.command.CommandRegistry;
+import com.crystalgui.language.run.RunPanels;
+import com.crystalgui.language.run.ScriptWorkbench;
 import com.crystalgui.core.dispose.Disposer;
 import com.crystalgui.editor.CrystalEditor;
 import com.crystalgui.ui.UIElement;
@@ -65,7 +67,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private boolean projectsAsked;
 
     /** Run and Stop for the active .java file, or null where no engine band is available. */
-    private HarnessScriptRunner scriptRunner;
+    private ScriptWorkbench scripting;
 
     /**
      * Eight stand-in tool windows, so the stripes have enough buttons to actually drag between.
@@ -132,9 +134,12 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // RUN AND STOP, for the .java file in front. Null when no engine band was staged, and the
         // commands are then deliberately NOT registered -- a Run row that cannot run anything teaches
         // people the feature is broken rather than unavailable.
-        scriptRunner = HarnessScriptRunner.install(
+        scripting = ScriptWorkbench.install(
                 CommandRegistry.global(), editor.workbench(),
                 Paths.get("build", "script-cache").toAbsolutePath().normalize());
+        // OPEN ON LAUNCH, which is a harness decision and not the panel's: this scene exists to be
+        // looked at while the console is being built. A real workbench leaves it on the rail until asked.
+        if (scripting != null) editor.workbench().revealPanel(RunPanels.RUN_TYPE);
     }
 
     @Override

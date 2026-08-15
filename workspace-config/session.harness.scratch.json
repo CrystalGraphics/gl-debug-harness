@@ -58,29 +58,16 @@
                 "state": [
                   {
                     "k": "path",
-                    "v": "harness.scratch:src/index.html"
+                    "v": "harness.scratch:src/RunTest.java"
                   },
                   {
                     "k": "title",
-                    "v": "index.html"
-                  }
-                ]
-              },
-              {
-                "typeId": "file",
-                "state": [
-                  {
-                    "k": "path",
-                    "v": "harness.scratch:src/java.svg"
-                  },
-                  {
-                    "k": "title",
-                    "v": "java.svg"
+                    "v": "RunTest.java"
                   }
                 ]
               }
             ],
-            "active": 0,
+            "active": 3,
             "central": true
           }
         ]
@@ -93,7 +80,7 @@
       "visible": true,
       "region": "SIDEBAR",
       "side": "PRIMARY",
-      "weight": 0.15933284,
+      "weight": 0.1829612,
       "sideWeight": 0.5,
       "order": 0,
       "active": true,
@@ -101,10 +88,10 @@
     },
     {
       "id": "problems",
-      "visible": true,
+      "visible": false,
       "region": "PANEL",
       "side": "PRIMARY",
-      "weight": 0.3,
+      "weight": 0.6268344,
       "sideWeight": 0.5,
       "order": 1,
       "active": true,
@@ -120,9 +107,20 @@
       "order": 2,
       "active": true,
       "stripe": true
+    },
+    {
+      "id": "run",
+      "visible": true,
+      "region": "PANEL",
+      "side": "PRIMARY",
+      "weight": 0.6268344,
+      "sideWeight": 0.5,
+      "order": 3,
+      "active": true,
+      "stripe": true
     }
   ],
-  "active": "harness.scratch:src/Main.java",
+  "active": "harness.scratch:src/RunTest.java",
   "expanded": [
     {
       "path": "harness.scratch:"
@@ -135,34 +133,29 @@
     {
       "path": "harness.scratch:src/shader.frag",
       "view": {
-        "caret": 3467,
-        "scroll": 1800.0
+        "caret": 4425,
+        "scroll": 1960.0
       }
     },
     {
-      "path": "harness.scratch:src/index.html",
+      "path": "harness.scratch:src/RunTest.java",
       "view": {
-        "caret": 3187,
-        "scroll": 1080.0
+        "caret": 2458,
+        "scroll": 820.05
       }
     },
     {
       "path": "harness.scratch:src/app.js",
       "view": {
-        "caret": 0
-      }
-    },
-    {
-      "path": "harness.scratch:src/java.svg",
-      "view": {
-        "caret": 0
+        "caret": 1883,
+        "scroll": 800.0
       }
     },
     {
       "path": "harness.scratch:src/Main.java",
       "view": {
-        "caret": 18638,
-        "scroll": 6938.1
+        "caret": 18285,
+        "scroll": 6912.25
       }
     }
   ]
