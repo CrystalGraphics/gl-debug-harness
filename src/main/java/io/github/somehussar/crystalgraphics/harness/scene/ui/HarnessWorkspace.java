@@ -1,7 +1,9 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgui.language.engine.EngineHost;
 import com.crystalgui.language.grammar.TreeSitterLanguages;
 import com.crystalgui.language.java.JavaLanguage;
+import com.crystalgui.language.js.JsLanguage;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.LocalFileSystem;
 import com.crystalgui.fs.ProjectRegistry;
@@ -18,6 +20,7 @@ import com.crystalgui.serialization.PlainOps;
 import com.crystalgui.ui.UIElement;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -73,7 +76,16 @@ final class HarnessWorkspace {
         // runHarness depends on). That is a legitimate environment, so it is reported and not fatal.
         if (!JavaLanguage.register()) {
             System.err.println("[harness] Java analysis is off: no engine bands under "
-                    + System.getProperty(JavaLanguage.ENGINES_DIRECTORY_PROPERTY, "<unset>"));
+                    + System.getProperty(EngineHost.ENGINES_DIRECTORY_PROPERTY, "<unset>"));
+        }
+
+        // AND THE JAVASCRIPT ENGINE, through the same front door and into the same band loader -- Rhino
+        // is staged beside ECJ, so whichever of these two calls runs first opens the host and the other
+        // joins it. Order is free between them and between either and the grammars, which is what the
+        // two registries were built for; this is the first host that proves it rather than claiming it.
+        if (!JsLanguage.register()) {
+            System.err.println("[harness] JavaScript analysis is off: no Rhino under "
+                    + System.getProperty(EngineHost.ENGINES_DIRECTORY_PROPERTY, "<unset>"));
         }
 
         Path root = seedScratchProject();
@@ -153,6 +165,12 @@ final class HarnessWorkspace {
                     "public class Main {\n    public static void main(String[] args) {\n"
                             + "        System.out.println(\"hello\");\n    }\n}\n");
             writeIfAbsent(root.resolve("src/notes.txt"), "one\ntwo\nthree\n");
+            // THE JAVASCRIPT FIXTURE, from a resource rather than from a string literal here. It is a
+            // page long and grows a section per M10 milestone, so inlining it would put a document
+            // nobody can read inside a method about directory setup -- and, worse, would make the copy
+            // that ships and the copy under review two different things. `writeIfAbsent` still applies:
+            // once it is on disk it is the user's scratch file and a rebuild must not overwrite it.
+            copyIfAbsent(root.resolve("src/Main.js"), "harness/workspace/Main.js");
         } catch (IOException e) {
             throw new IllegalStateException("could not create the scratch project at " + root, e);
         }
@@ -161,5 +179,24 @@ final class HarnessWorkspace {
 
     private static void writeIfAbsent(Path file, String content) throws IOException {
         if (!Files.exists(file)) Files.write(file, content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Seeds a file from a classpath resource, once.
+     *
+     * <p>A missing resource is reported and not fatal, because the scratch project is a convenience:
+     * losing one fixture must not stop the harness booting, and a stack trace here would look like a
+     * rendering failure. @see #writeIfAbsent</p>
+     */
+    private static void copyIfAbsent(Path file, String resource) throws IOException {
+        if (Files.exists(file)) return;
+        try (InputStream stream =
+                     HarnessWorkspace.class.getClassLoader().getResourceAsStream(resource)) {
+            if (stream == null) {
+                System.err.println("[harness] no seed resource " + resource + "; skipping " + file);
+                return;
+            }
+            Files.write(file, stream.readAllBytes());
+        }
     }
 }
