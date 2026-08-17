@@ -13,10 +13,12 @@
  *   M10.2  Rhino behind the file. The status bar names it; a syntax error is a real squiggle from a
  *          real parser, on the offset the parser reported; Run recognises the file and refuses one
  *          that does not compile.
+ *   M10.3  ONE diagnostic per problem rather than Rhino's five, with this engine's refusals named as
+ *          themselves — see the bottom of this file — and a warning on a local nothing uses.
+ *   M10.4  every name drawn as what the scopes say it is: parameter, local, const, reassigned,
+ *          captured, unresolved. None of these is visible to a grammar.
  *
  * Still to come, in the order they arrive:
- *   M10.3  the band-refusal diagnostics, re-titled — see the bottom of this file
- *   M10.4  parameters, locals, consts and captures each coloured as what they are
  *   M10.5  Shift+F10 actually runs it
  *   M10.6  hover and type inference   M10.7  completion   M10.8  Quick Documentation
  */
@@ -24,8 +26,8 @@
 'use strict';
 
 // ── Constants and the literal forms ─────────────────────────────────────────────────────────────
-// M10.4 will draw these as CONSTANTS, distinct from the locals below — a distinction no grammar can
-// make, because nothing in the shape of a name says whether it was declared with `const`.
+// These are drawn as CONSTANTS, distinct from the locals below — a distinction no grammar can make,
+// because nothing in the shape of a name says whether it was declared with `const`.
 
 const MAX_RETRIES = 5;
 const TIMEOUT_MS = 2500;
@@ -41,8 +43,10 @@ const PATTERN = /^cg-([a-z]+)-(\d+)$/;
 const GREETING = `hello, ${'world'} — he said "hi" and it stayed inside the template`;
 
 // ── Functions, parameters and captures ──────────────────────────────────────────────────────────
-// M10.4 colours all four of these differently: `total` is a local, `items` and `rate` are parameters,
-// `seen` is a local CAPTURED by the closure below it, and `applyRate` is a function.
+// Four different colours here, and every one of them needs resolved scopes: `items` and `rate` are
+// PARAMETERS, `total` is a local that is REASSIGNED (`+=`), `seen` is a local CAPTURED by the closure
+// inside it, and `applyRate` is a function. Look at `seen` on its declaration line and again inside
+// `report` — the second one is drawn differently, because that is where it escapes.
 
 function summarise(items, rate) {
     let total = 0;
@@ -57,6 +61,22 @@ function summarise(items, rate) {
         return seen.length;
     };
     return { total: total, count: report() };
+}
+
+// A local nothing uses is a warning — the only check a language with no compiler offers before the
+// script is run. Delete the `return` below and the warning moves to `answer` instead, because then
+// nothing reads it either.
+function unusedExample() {
+    var neverRead = 'this one is warned about';
+    var answer = 42;
+    return answer;
+}
+
+// ...but a PARAMETER is not, however unused: a callback's signature belongs to whoever calls it, and
+// `(err, data)` that ignores `err` is idiomatic rather than wrong. Nor is a TOP-LEVEL name, because
+// a script's top level is its surface — nothing in this file uses `GREETING` either.
+function callbackShape(err, data) {
+    return data;
 }
 
 const applyRate = (value, rate) => value * rate;
@@ -110,9 +130,12 @@ main();
 // `async`/`await` are refused by every band we ship, while `?.` and `??` work on Java 11+ and not on
 // Java 8. That gap is the whole reason parse diagnostics come from Rhino rather than from tree-sitter.
 //
-// At M10.2 the message is Rhino's own, which for `class` reads like a missing semicolon. M10.3 is
-// where it becomes "classes are not supported by this engine", and where a file written on Java 17
-// gets a warning about the Java 8 host it will not load on.
+// Uncomment `class Point` and you get exactly ONE error, saying "'class': classes are not supported by
+// Rhino <version>". Rhino itself reports FIVE — one real and four from its parser failing to
+// re-synchronise afterwards — and its wording for the real one is "identifier is a reserved word",
+// which is accurate about its lexer and useless to somebody who did not think they were declaring an
+// identifier. `async` is the interesting one: it lexes as an ordinary name, so the engine's complaint
+// lands on the `function` after it and mentions `async` nowhere at all.
 //
 // class Point {
 //     constructor(x, y) { this.x = x; this.y = y; }
