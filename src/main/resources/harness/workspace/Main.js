@@ -21,8 +21,13 @@
  *          printed it; Stop ends a spinning loop; a thrown error squiggles its own line and its
  *          stack frames are links. See the Output section, and the runtime-error line under it.
  *
+ *   M10.6  RESOLUTION. Hover a name and it says what it is, and which of four tiers said so:
+ *          what the last run left it as, what JSDoc declared, what the initializer implies, or
+ *          just how it was declared. A Java receiver's members come from the JAVA engine, so they
+ *          are the same list a .java file would show.
+ *
  * Still to come, in the order they arrive:
- *   M10.6  hover and type inference   M10.7  completion   M10.8  Quick Documentation
+ *   M10.7  completion   M10.8  Quick Documentation
  */
 
 'use strict';
@@ -98,16 +103,41 @@ function describe(config) {
 }
 
 // ── Java interop — the half of this language that matters here ──────────────────────────────────
-// Rhino reaches Java by reflection at call time. M10.6 resolves these THROUGH THE JAVA ENGINE, so the
-// members offered and the signatures shown are the same ones a .java file would get, quoted from the
-// same src.zip. Until then they are ordinary names.
+// Resolved THROUGH THE JAVA ENGINE. Hover `list` and it is a java.util.ArrayList; hover `add` and you
+// get the member the Java popup would show, with the signature the Java analyser quotes. `Java.type`
+// and the bare `java.util.…` spelling both resolve, and each says whether it is the class (statics) or
+// an instance. `Packages.java.util.ArrayList` is the third spelling and resolves to the same class.
+//
+// One thing is inherently less precise here than in Java, and it is the language's fault rather than
+// the engine's: JavaScript has no diamond, so this is a RAW ArrayList and `list.get(0)` is an Object.
 
 function useJava() {
     var list = new java.util.ArrayList();
     list.add('one');
     list.add('two');
     var joined = java.lang.String.join(', ', list);
-    return joined;
+    var Files = Java.type('java.util.Collections');
+    return joined + Files.emptyList().size();
+}
+
+// ── What JSDoc buys, which is the only place JavaScript writes a type down ──────────────────────
+// Hover `applyDiscount` and its owner band reads "— from JSDoc": the tier that answered is stated,
+// because a JavaScript answer's provenance is information a Java answer never had to carry. Hover
+// `rate` inside it and it is a number because the tag said so, not because anything could infer it.
+
+/**
+ * Applies a discount, for the sake of having something documented.
+ * @param {number} price the amount before the discount
+ * @param {number} rate a fraction between 0 and 1
+ * @returns {number}
+ */
+function applyDiscount(price, rate) {
+    return price - price * rate;
+}
+
+/** @deprecated use applyDiscount */
+function oldDiscount(price) {
+    return price * 0.9;
 }
 
 // ── Output ──────────────────────────────────────────────────────────────────────────────────────
@@ -129,6 +159,14 @@ function main() {
 }
 
 main();
+
+// ── After a run, the editor knows more than the source says ─────────────────────────────────────
+// This is the tier no static analysis can reach. `made` is assigned from a call nothing can follow,
+// so before a run its type is unknown — press Shift+F10 and hover it again: it is whatever it turned
+// out to be, and the owner band says "from last run". The same is true of any global the run left
+// behind, including one this file never declares.
+
+var made = useJava();
 
 // ── A runtime error, and where it lands ─────────────────────────────────────────────────────────
 // Uncomment the next line and run again: the console prints `Error: not today (Main.js#N)` with the
