@@ -17,9 +17,11 @@
  *          themselves — see the bottom of this file — and a warning on a local nothing uses.
  *   M10.4  every name drawn as what the scopes say it is: parameter, local, const, reassigned,
  *          captured, unresolved. None of these is visible to a grammar.
+ *   M10.5  Shift+F10 RUNS IT. Every console.log lands in the Run panel stamped with the line that
+ *          printed it; Stop ends a spinning loop; a thrown error squiggles its own line and its
+ *          stack frames are links. See the Output section, and the runtime-error line under it.
  *
  * Still to come, in the order they arrive:
- *   M10.5  Shift+F10 actually runs it
  *   M10.6  hover and type inference   M10.7  completion   M10.8  Quick Documentation
  */
 
@@ -109,19 +111,34 @@ function useJava() {
 }
 
 // ── Output ──────────────────────────────────────────────────────────────────────────────────────
-// M10.5 wires `console.log` and `print` to the Run panel, attributed to the line that printed. Until
-// then Run refuses the file, because a Run button that silently did nothing is worse than one that
-// says it is not built.
+// Shift+F10. `console.log`, `print` and `console.error` go to the Run panel with the level known and
+// the LINE that printed them in the stamp — double-click a row and the caret lands on it. Values are
+// formatted the way every JavaScript console formats them: `[ 1, 2, 3 ]`, `{ a: 1, b: 'x' }`,
+// `[Function: name]`. `readLine('prompt')` blocks on the panel's input row; Stop ends it there too.
+// `System.out` inside a Java call from the script lands in the same console, by the same rule.
 
 function main() {
     var result = summarise([1, 2, 3], 1.5);
     console.log('total: ' + result.total + ' over ' + result.count + ' items');
     console.log(describe(settings));
     console.log(GREETING);
+    console.log(settings, [MAX_RETRIES, TIMEOUT_MS], applyRate);
+    console.log(useJava());
+    console.warn('a warning goes to the error stream, as it does in Node');
     return result;
 }
 
 main();
+
+// ── A runtime error, and where it lands ─────────────────────────────────────────────────────────
+// Uncomment the next line and run again: the console prints `Error: not today (Main.js#N)` with the
+// script frame `at Main.js:N` as a link, AND the line itself gets a red squiggle -- the runtime's
+// verdict filed beside the analyser's, tracked through edits, withdrawn by the next run that gets
+// past it. Then uncomment the spinner and press Stop.
+//
+// throw new Error('not today');
+//
+// while (true) { }
 
 // ── Uncomment to see the engine disagree with the grammar ───────────────────────────────────────
 //
