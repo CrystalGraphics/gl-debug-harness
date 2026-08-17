@@ -36,8 +36,21 @@
  *          the same scheme as the editor. On a Java member it shows the JDK's OWN line, quoted from
  *          src.zip: `public boolean add(E e)`, parameter name included.
  *
- * Still to come, in the order they arrive:
- *   M10.9  quick fixes and intentions
+ *   M10.9  QUICK FIXES AND INTENTIONS. Alt+Enter on a warning or a caret: remove an unused local,
+ *          "did you mean" over what is in scope, declare a free name, `var`->`let`/`const`, `==`->`===`,
+ *          either `Java.type` spelling into the other, a concatenation into a template literal, and
+ *          surround with try/catch. Each offered only where it would still RUN on this band.
+ *
+ *   M10.10 THE SANDBOX. One allowlist, obeyed by four surfaces at once: a refused class is absent from
+ *          the member list, absent from the popup, absent from the type index, and throws if a script
+ *          names it anyway. Nothing is restricted in the harness — the point is that it is one switch.
+ *
+ *   M10.11 READABLE NAMES. On an obfuscated deployment a method is `func_147439_a` and a script writes
+ *          `getBlock`; the call is translated at lookup and the member list is renamed on the way in.
+ *          Both directions or neither, or the editor teaches you to write names the runtime refuses.
+ *
+ * See RunTest.js beside this file for the other half — a script written to be RUN rather than read,
+ * whose console output is a transcript of what this engine actually executes.
  */
 
 'use strict';

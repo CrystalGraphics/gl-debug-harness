@@ -171,6 +171,11 @@ final class HarnessWorkspace {
             // that ships and the copy under review two different things. `writeIfAbsent` still applies:
             // once it is on disk it is the user's scratch file and a rebuild must not overwrite it.
             copyIfAbsent(root.resolve("src/Main.js"), "harness/workspace/Main.js");
+            // AND THE ONE FOR RUNNING. `Main.js` is about what the EDITOR knows before anything runs;
+            // this is a transcript of what the RUNTIME does, which is a different question and fails in
+            // different ways -- an engine can look entirely correct in an editor and die at its first
+            // `Java.type`. Same pairing `RunTest.java` has with `Main.java`.
+            copyIfAbsent(root.resolve("src/RunTest.js"), "harness/workspace/RunTest.js");
         } catch (IOException e) {
             throw new IllegalStateException("could not create the scratch project at " + root, e);
         }
