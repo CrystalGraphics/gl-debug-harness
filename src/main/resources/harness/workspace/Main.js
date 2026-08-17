@@ -31,8 +31,13 @@
  *          scope, then the globals, then only the keywords THIS engine accepts. After a run, `.`
  *          on a live object lists what it actually has.
  *
+ *   M10.8  QUICK DOCUMENTATION. Mod+Q on any name shows its declaration the way the engine would
+ *          write it — `function summarise(items, rate)`, `const MAX_RETRIES: number` — coloured by
+ *          the same scheme as the editor. On a Java member it shows the JDK's OWN line, quoted from
+ *          src.zip: `public boolean add(E e)`, parameter name included.
+ *
  * Still to come, in the order they arrive:
- *   M10.8  Quick Documentation
+ *   M10.9  quick fixes and intentions
  */
 
 'use strict';
@@ -138,6 +143,12 @@ function useJava() {
 
 /**
  * Applies a discount, for the sake of having something documented.
+ *
+ * Mod+Q here reads `function applyDiscount(price: number, rate: number): number` — the types come
+ * from the tags below and nowhere else, since JavaScript declares none. An undocumented parameter is
+ * shown as a bare name rather than `?`, because a column of question marks is what most JavaScript
+ * would render and it says nothing the absence does not.
+ *
  * @param {number} price the amount before the discount
  * @param {number} rate a fraction between 0 and 1
  * @returns {number}
