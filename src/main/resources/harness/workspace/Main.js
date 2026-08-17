@@ -26,8 +26,13 @@
  *          just how it was declared. A Java receiver's members come from the JAVA engine, so they
  *          are the same list a .java file would show.
  *
+ *   M10.7  COMPLETION. `.` after a Java object lists the Java engine's members with their real
+ *          signatures; inside `Java.type('` the classpath's class names; in open code what is in
+ *          scope, then the globals, then only the keywords THIS engine accepts. After a run, `.`
+ *          on a live object lists what it actually has.
+ *
  * Still to come, in the order they arrive:
- *   M10.7  completion   M10.8  Quick Documentation
+ *   M10.8  Quick Documentation
  */
 
 'use strict';
@@ -120,6 +125,12 @@ function useJava() {
     return joined + Files.emptyList().size();
 }
 
+// Type a `.` after `list` above and the list is the JAVA engine's: `add`, `get`, `size` with their
+// real parameter types. Type inside the quotes of `Java.type('` and the classpath's class names are
+// offered — accepting one writes the whole qualified name and edits nothing else, because JavaScript
+// has no import to add. And `Java.type('…')` is the CLASS, so its statics are offered and its
+// instance members are not; `new java.util.ArrayList()` is the other way round.
+
 // ── What JSDoc buys, which is the only place JavaScript writes a type down ──────────────────────
 // Hover `applyDiscount` and its owner band reads "— from JSDoc": the tier that answered is stated,
 // because a JavaScript answer's provenance is information a Java answer never had to carry. Hover
@@ -165,6 +176,11 @@ main();
 // so before a run its type is unknown — press Shift+F10 and hover it again: it is whatever it turned
 // out to be, and the owner band says "from last run". The same is true of any global the run left
 // behind, including one this file never declares.
+//
+// COMPLETION USES IT TOO, and this is the clearest demonstration of what an engine buys: run the
+// file, then type `settings.` — the list is `retries`, `timeout` and `label`, the object's ACTUAL
+// properties, with what every object inherits (`toString`, `hasOwnProperty`) sorted underneath and
+// marked as inherited. Before the run there is nothing to know.
 
 var made = useJava();
 
