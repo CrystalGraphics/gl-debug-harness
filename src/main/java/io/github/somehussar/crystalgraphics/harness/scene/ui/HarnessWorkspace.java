@@ -4,6 +4,7 @@ import com.crystalgui.language.engine.EngineHost;
 import com.crystalgui.language.grammar.TreeSitterLanguages;
 import com.crystalgui.language.java.JavaLanguage;
 import com.crystalgui.language.js.JsLanguage;
+import com.crystalgui.language.run.ScriptPolicy;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.LocalFileSystem;
 import com.crystalgui.fs.ProjectRegistry;
@@ -25,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -87,6 +89,8 @@ final class HarnessWorkspace {
             System.err.println("[harness] JavaScript analysis is off: no Rhino under "
                     + System.getProperty(EngineHost.ENGINES_DIRECTORY_PROPERTY, "<unset>"));
         }
+
+        applyScriptPolicy();
 
         Path root = seedScratchProject();
         ProjectRegistry registry = new ProjectRegistry().register(() -> List.of(
@@ -155,6 +159,73 @@ final class HarnessWorkspace {
                 failure -> onFailure.accept(failure.isConflict()));
     }
 
+    /** Overrides the default filter — a prefix list, or {@code none} to switch it off. @see #applyScriptPolicy */
+    public static final String POLICY_PROPERTY = "cgui.harness.scriptPolicy";
+
+    /**
+     * What the harness refuses unless told otherwise — {@code UNSAFE} plus file access.
+     *
+     * <p>{@code unsafe} is {@link ScriptPolicy#UNSAFE}: reflection, method handles, {@code ClassLoader},
+     * {@code Runtime}, {@code ProcessBuilder}, {@code java.security} and the internals.</p>
+     *
+     * <p><b>{@code java.io.File} and not {@code java.io}</b>, which was the first spelling and was
+     * unusable: {@code System.out} is a {@code java.io.PrintStream}, so refusing the package refuses
+     * <em>printing</em> — every script that logs anything, which in a harness is all of them. The class
+     * a demonstration actually wants is the one that touches the disk. It is a reminder that a denial is
+     * a veto with no way to punch a hole in it: "{@code java.io} except {@code PrintStream}" cannot be
+     * spelled, and should not be, so the entry has to be the narrow one.</p>
+     */
+    private static final String DEFAULT_POLICY = "unsafe,java.io.File";
+
+    /**
+     * Applies the script class filter — <b>on by default</b>, at {@link #DEFAULT_POLICY}.
+     *
+     * <p>On rather than opt-in because a filter nobody switches on is a filter nobody tests, and because
+     * the harness is the only place this stack is exercised end to end. A deployment that means to run
+     * scripts unguarded should say so; so should this one.</p>
+     *
+     * <pre>
+     *   -Dcgui.harness.scriptPolicy=none                     # off
+     *   -Dcgui.harness.scriptPolicy=unsafe                   # ScriptPolicy.UNSAFE only
+     *   -Dcgui.harness.scriptPolicy=unsafe,java.io,java.net  # and these too
+     * </pre>
+     *
+     * <p>{@code unsafe} expands to {@link ScriptPolicy#UNSAFE}. Anything else in the list is a package or
+     * class prefix. <b>Both languages are restricted together</b>, because a filter that applies to one
+     * engine and not the other is not a filter, it is a note about which engine somebody remembered.</p>
+     *
+     * <p><b>What being on by default costs, stated rather than discovered:</b> Java refuses a script as a
+     * WHOLE FILE, before it starts, so one refused reach takes the file with it. {@code RunTest.java} has
+     * a reflection section, so under the default it does not run at all — where {@code RunTest.js} would
+     * lose only the reaches themselves, because Rhino's shutter is asked per access. That asymmetry is
+     * real and is what the {@code SandboxTest} pair exists to show; {@code =none} is the way back.</p>
+     */
+    private static void applyScriptPolicy() {
+        String requested = System.getProperty(POLICY_PROPERTY, DEFAULT_POLICY);
+        if (requested.trim().isEmpty() || requested.trim().equalsIgnoreCase("none")
+                || requested.trim().equalsIgnoreCase("off")) {
+            System.out.println("[harness] script class filter OFF (-D" + POLICY_PROPERTY + "=none)");
+            return;
+        }
+
+        List<String> denied = new ArrayList<>();
+        for (String entry : requested.split(",")) {
+            String trimmed = entry.trim();
+            if (trimmed.isEmpty()) continue;
+            if (trimmed.equalsIgnoreCase("unsafe")) {
+                denied.addAll(ScriptPolicy.UNSAFE);
+            } else {
+                denied.add(trimmed);
+            }
+        }
+        if (denied.isEmpty()) return;
+
+        ScriptPolicy policy = ScriptPolicy.denying(denied);
+        JavaLanguage.restrictTo(policy);
+        JsLanguage.restrictTo(policy);
+        System.out.println("[harness] script class filter on: " + policy);
+    }
+
     private static Path seedScratchProject() {
         Path root = Paths.get("workspace").toAbsolutePath().normalize();
         try {
@@ -176,6 +247,13 @@ final class HarnessWorkspace {
             // different ways -- an engine can look entirely correct in an editor and die at its first
             // `Java.type`. Same pairing `RunTest.java` has with `Main.java`.
             copyIfAbsent(root.resolve("src/RunTest.js"), "harness/workspace/RunTest.js");
+            // AND THE PAIR WRITTEN TO BE REFUSED. Both reach for classes a locked-down deployment would
+            // not allow, and both are inert until the filter is switched on -- see applyScriptPolicy.
+            // They are a PAIR because the two engines refuse differently and that difference is the
+            // thing worth looking at: Java is refused as a whole file before it starts, JavaScript one
+            // reach at a time as the shutter is asked.
+            copyIfAbsent(root.resolve("src/SandboxTest.java"), "harness/workspace/SandboxTest.java");
+            copyIfAbsent(root.resolve("src/SandboxTest.js"), "harness/workspace/SandboxTest.js");
         } catch (IOException e) {
             throw new IllegalStateException("could not create the scratch project at " + root, e);
         }
