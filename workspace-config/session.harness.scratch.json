@@ -2,8 +2,8 @@
   "version": 6,
   "dock": {
     "version": 1,
-    "viewportWidth": 960.0,
-    "viewportHeight": 540.0,
+    "viewportWidth": 1280.0,
+    "viewportHeight": 689.0,
     "rootOrientation": "HORIZONTAL",
     "root": [
       {
@@ -28,15 +28,28 @@
                 ]
               },
               {
-                "typeId": "file",
+                "typeId": "shadergraph.file",
                 "state": [
                   {
                     "k": "path",
-                    "v": "harness.scratch:src/shader.frag"
+                    "v": "harness.scratch:new.shadergraph"
                   },
                   {
                     "k": "title",
-                    "v": "shader.frag"
+                    "v": "new.shadergraph"
+                  }
+                ]
+              },
+              {
+                "typeId": "shadergraph.file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:test.shadergraph"
+                  },
+                  {
+                    "k": "title",
+                    "v": "test.shadergraph"
                   }
                 ]
               },
@@ -45,11 +58,24 @@
                 "state": [
                   {
                     "k": "path",
-                    "v": "harness.scratch:src/app.js"
+                    "v": "harness.scratch:manifest.mf"
                   },
                   {
                     "k": "title",
-                    "v": "app.js"
+                    "v": "manifest.mf"
+                  }
+                ]
+              },
+              {
+                "typeId": "shadersource",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "shader-generated://harness.scratch:new.shadergraph"
+                  },
+                  {
+                    "k": "title",
+                    "v": "new_compiled.shader"
                   }
                 ]
               },
@@ -58,16 +84,94 @@
                 "state": [
                   {
                     "k": "path",
-                    "v": "harness.scratch:src/RunTest.java"
+                    "v": "harness.scratch:README.md"
                   },
                   {
                     "k": "title",
-                    "v": "RunTest.java"
+                    "v": "README.md"
+                  }
+                ]
+              },
+              {
+                "typeId": "shadersource",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "shader-generated://harness.scratch:test.shadergraph"
+                  },
+                  {
+                    "k": "title",
+                    "v": "test_compiled.shader"
+                  }
+                ]
+              },
+              {
+                "typeId": "shadergraph.file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:src/maybe.shadergraph"
+                  },
+                  {
+                    "k": "title",
+                    "v": "maybe.shadergraph"
+                  }
+                ]
+              },
+              {
+                "typeId": "file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:gradle.properties"
+                  },
+                  {
+                    "k": "title",
+                    "v": "gradle.properties"
+                  }
+                ]
+              },
+              {
+                "typeId": "file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:config.config"
+                  },
+                  {
+                    "k": "title",
+                    "v": "config.config"
+                  }
+                ]
+              },
+              {
+                "typeId": "file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:src/web.html"
+                  },
+                  {
+                    "k": "title",
+                    "v": "web.html"
+                  }
+                ]
+              },
+              {
+                "typeId": "file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:src/notes.txt"
+                  },
+                  {
+                    "k": "title",
+                    "v": "notes.txt"
                   }
                 ]
               }
             ],
-            "active": 3,
+            "active": 1,
             "central": true
           }
         ]
@@ -77,53 +181,133 @@
   "toolWindows": [
     {
       "id": "project",
-      "visible": true,
+      "visible": false,
       "region": "SIDEBAR",
       "side": "PRIMARY",
-      "weight": 0.1829612,
-      "sideWeight": 0.5,
+      "weight": 0.17281818,
+      "sideWeight": 0.52307683,
+      "order": 0,
+      "active": true,
+      "stripe": true
+    },
+    {
+      "id": "inspector",
+      "visible": true,
+      "region": "AUXILIARY",
+      "side": "PRIMARY",
+      "weight": 0.26245636,
+      "sideWeight": 0.44499135,
+      "order": 0,
+      "active": true,
+      "stripe": true
+    },
+    {
+      "id": "commit",
+      "visible": false,
+      "region": "SIDEBAR",
+      "side": "SECONDARY",
+      "weight": 0.17281818,
+      "sideWeight": 0.52307683,
+      "order": 0,
+      "active": true,
+      "stripe": true
+    },
+    {
+      "id": "terminal",
+      "visible": false,
+      "region": "PANEL",
+      "side": "SECONDARY",
+      "weight": 0.22161669,
+      "sideWeight": 0.41693056,
       "order": 0,
       "active": true,
       "stripe": true
     },
     {
       "id": "problems",
-      "visible": false,
+      "visible": true,
       "region": "PANEL",
       "side": "PRIMARY",
-      "weight": 0.6268344,
-      "sideWeight": 0.5,
+      "weight": 0.22161669,
+      "sideWeight": 0.41693056,
       "order": 1,
       "active": true,
       "stripe": true
     },
     {
-      "id": "inspector",
+      "id": "bookmarks",
       "visible": false,
-      "region": "AUXILIARY",
+      "region": "PANEL",
+      "side": "SECONDARY",
+      "weight": 0.22161669,
+      "sideWeight": 0.41693056,
+      "order": 1,
+      "active": true,
+      "stripe": true
+    },
+    {
+      "id": "services",
+      "visible": false,
+      "region": "PANEL",
       "side": "PRIMARY",
-      "weight": 0.22,
-      "sideWeight": 0.5,
+      "weight": 0.22161669,
+      "sideWeight": 0.41693056,
+      "order": 1,
+      "active": true,
+      "stripe": true
+    },
+    {
+      "id": "structure",
+      "visible": false,
+      "region": "SIDEBAR",
+      "side": "SECONDARY",
+      "weight": 0.17281818,
+      "sideWeight": 0.52307683,
+      "order": 1,
+      "active": true,
+      "stripe": true
+    },
+    {
+      "id": "notifications",
+      "visible": false,
+      "region": "PANEL",
+      "side": "SECONDARY",
+      "weight": 0.22161669,
+      "sideWeight": 0.41693056,
+      "order": 2,
+      "active": true,
+      "stripe": true
+    },
+    {
+      "id": "outline",
+      "visible": false,
+      "region": "PANEL",
+      "side": "SECONDARY",
+      "weight": 0.22161669,
+      "sideWeight": 0.41693056,
       "order": 2,
       "active": true,
       "stripe": true
     },
     {
       "id": "run",
-      "visible": true,
+      "visible": false,
       "region": "PANEL",
-      "side": "PRIMARY",
-      "weight": 0.6268344,
-      "sideWeight": 0.5,
+      "side": "SECONDARY",
+      "weight": 0.22161669,
+      "sideWeight": 0.41693056,
       "order": 3,
       "active": true,
       "stripe": true
     }
   ],
-  "active": "harness.scratch:src/RunTest.java",
+  "active": "harness.scratch:new.shadergraph",
   "expanded": [
     {
       "path": "harness.scratch:"
+    },
+    {
+      "path": "harness.scratch:fah"
     },
     {
       "path": "harness.scratch:src"
@@ -131,31 +315,45 @@
   ],
   "files": [
     {
-      "path": "harness.scratch:src/shader.frag",
+      "path": "harness.scratch:manifest.mf",
       "view": {
-        "caret": 4425,
-        "scroll": 1960.0
+        "caret": 10
       }
     },
     {
-      "path": "harness.scratch:src/RunTest.java",
+      "path": "harness.scratch:gradle.properties",
       "view": {
-        "caret": 2458,
-        "scroll": 820.05
+        "caret": 0
       }
     },
     {
-      "path": "harness.scratch:src/app.js",
+      "path": "harness.scratch:src/web.html",
       "view": {
-        "caret": 1883,
-        "scroll": 800.0
+        "caret": 0
+      }
+    },
+    {
+      "path": "harness.scratch:config.config",
+      "view": {
+        "caret": 0
+      }
+    },
+    {
+      "path": "harness.scratch:src/notes.txt",
+      "view": {
+        "caret": 23
       }
     },
     {
       "path": "harness.scratch:src/Main.java",
       "view": {
-        "caret": 18285,
-        "scroll": 6912.25
+        "caret": 107
+      }
+    },
+    {
+      "path": "harness.scratch:README.md",
+      "view": {
+        "caret": 87
       }
     }
   ]

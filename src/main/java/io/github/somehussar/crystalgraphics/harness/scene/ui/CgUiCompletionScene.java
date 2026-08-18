@@ -123,7 +123,63 @@ public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemI
         if (number == 8 && !logged) {
             logged = true;
             report();
+            probeShapes();
             ctx.getArtifactService().requestCapture("completion-and-squiggles");
+        }
+    }
+
+    /**
+     * <b>The member list for shapes this scene's own document does not contain</b>, asked of the provider
+     * directly.
+     *
+     * <p>Reported as a defect: {@code System.out.} opened an empty popup and {@code getMinecraft().}
+     * offered three rows. Every layer was then driven in isolation and every layer answered correctly —
+     * the analyser, the provider with a fresh analysis, the provider with a <em>stale</em> one, and the
+     * whole services stack for both a compilation unit and a bare snippet. So the remaining question is
+     * environmental rather than logical: whether this JVM's classpath and staged engine produce the same
+     * answers a test JVM's do.</p>
+     *
+     * <p>No editor and no window, deliberately. Routing through the widget would fold the popup's sizing
+     * and the session's filtering back in, and those are exactly what this is trying to hold still.</p>
+     */
+    private void probeShapes() {
+        System.out.println();
+        System.out.println("=== member lists, asked of the provider directly ===========");
+        probeShape("a field receiver", "System.out.\n", "System.out.");
+        probeShape("a call receiver", "new java.util.ArrayList<String>().\n",
+                "new java.util.ArrayList<String>().");
+        probeShape("a unit, field receiver",
+                "class Demo {\n    void run() {\n        System.out.\n    }\n}\n", "System.out.");
+    }
+
+    /** Opens services over {@code source} alone and prints what the provider offers after {@code upTo}. */
+    private void probeShape(String what, String source, String upTo) {
+        LanguageRegistry.Entry entry = LanguageRegistry.forFileName("Probe.java");
+        if (entry == null) {
+            System.out.println("   !! no Java entry registered");
+            return;
+        }
+        com.crystalgui.text.TextBuffer buffer = new com.crystalgui.text.TextBuffer(source);
+        LanguageServices services = entry.newServices(buffer, null);
+        if (services == null) {
+            System.out.println("   !! no services for " + what);
+            return;
+        }
+        try {
+            int caret = source.indexOf(upTo) + upTo.length();
+            java.util.concurrent.atomic.AtomicReference<List<CompletionItem>> got =
+                    new java.util.concurrent.atomic.AtomicReference<>(List.of());
+            services.completion().complete(
+                    CompletionProvider.Request.character(caret, "", "."),
+                    answer -> got.set(answer.orElse(com.crystalgui.text.lang.CompletionList.EMPTY).items()));
+            List<CompletionItem> items = got.get();
+            StringBuilder first = new StringBuilder();
+            for (int i = 0; i < Math.min(6, items.size()); i++) {
+                first.append(i == 0 ? "" : ", ").append(items.get(i).label());
+            }
+            System.out.printf("   %-24s %3d rows   %s%n", what, items.size(), first);
+        } finally {
+            services.close();
         }
     }
 
