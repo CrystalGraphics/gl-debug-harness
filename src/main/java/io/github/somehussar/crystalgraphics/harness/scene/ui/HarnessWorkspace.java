@@ -254,6 +254,13 @@ final class HarnessWorkspace {
             // reach at a time as the shutter is asked.
             copyIfAbsent(root.resolve("src/SandboxTest.java"), "harness/workspace/SandboxTest.java");
             copyIfAbsent(root.resolve("src/SandboxTest.js"), "harness/workspace/SandboxTest.js");
+            // AND THE PAIR FOR DOCUMENTATION. `Main.java` and `Main.js` are the fixtures for COLOURS;
+            // these are for what Mod+Q draws. Each holds every construct its language's doc comments
+            // allow -- including the ones nothing here reads yet, marked PARITY, so a gap is visible
+            // rather than merely absent. The .js half also carries the Java-interop section, since a
+            // Java member's documentation reaches JavaScript through a bridge that can break on its own.
+            copyIfAbsent(root.resolve("src/DocShowcase.java"), "harness/workspace/DocShowcase.java");
+            copyIfAbsent(root.resolve("src/DocShowcase.js"), "harness/workspace/DocShowcase.js");
         } catch (IOException e) {
             throw new IllegalStateException("could not create the scratch project at " + root, e);
         }
