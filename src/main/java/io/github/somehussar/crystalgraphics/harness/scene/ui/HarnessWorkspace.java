@@ -1,7 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
-import com.crystalgui.language.engine.EngineHost;
-import com.crystalgui.language.grammar.TreeSitterLanguages;
+import com.crystalgui.language.LanguageStack;
 import com.crystalgui.language.java.JavaLanguage;
 import com.crystalgui.language.js.JsLanguage;
 import com.crystalgui.language.run.ScriptPolicy;
@@ -66,29 +65,17 @@ final class HarnessWorkspace {
         // and a file already open would keep whichever tokenizer it was given. core/ ships word-list
         // lexers so it can load with no natives; this puts the real parsers in front of them, which is
         // what makes a declaration distinguishable from a call and a constant from an identifier.
-        TreeSitterLanguages.register();
-
-        // AND THE JAVA ENGINE BEHIND IT. Without this the editor colours and nothing else: no
-        // diagnostics reach the document's set, a parameter and a field take one colour because only
-        // resolution can tell them apart, and Run has nothing to run. None of that reports itself --
-        // `LanguageServices` being absent is the feature flag the whole stack degrades through -- so it
-        // reads as those features not existing rather than as not being switched on.
         //
-        // Returns false where the bands are not staged (`./gradlew :language:stageEngines`, which
-        // runHarness depends on). That is a legitimate environment, so it is reported and not fatal.
-        if (!JavaLanguage.register()) {
-            System.err.println("[harness] Java analysis is off: no engine bands under "
-                    + System.getProperty(EngineHost.ENGINES_DIRECTORY_PROPERTY, "<unset>"));
-        }
-
-        // AND THE JAVASCRIPT ENGINE, through the same front door and into the same band loader -- Rhino
-        // is staged beside ECJ, so whichever of these two calls runs first opens the host and the other
-        // joins it. Order is free between them and between either and the grammars, which is what the
-        // two registries were built for; this is the first host that proves it rather than claiming it.
-        if (!JsLanguage.register()) {
-            System.err.println("[harness] JavaScript analysis is off: no Rhino under "
-                    + System.getProperty(EngineHost.ENGINES_DIRECTORY_PROPERTY, "<unset>"));
-        }
+        // The grammars, ECJ and Rhino, in one call. This used to be three blocks here and three more in
+        // the Minecraft client, and the two copies had already diverged on the one thing that matters:
+        // this one caught nothing, so a band that is present but UNOPENABLE threw NoClassDefFoundError
+        // straight out of the constructor. Which engines exist and what a missing one means are facts
+        // about language/, so they live there now -- a host only says when.
+        //
+        // Reports rather than throws where the bands are not staged (`./gradlew :language:stageEngines`,
+        // which runHarness depends on). That is a legitimate environment: the editor colours and does
+        // not analyse.
+        LanguageStack.registerAll();
 
         applyScriptPolicy();
 
