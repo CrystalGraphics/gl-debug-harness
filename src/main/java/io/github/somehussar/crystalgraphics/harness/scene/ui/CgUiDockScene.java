@@ -353,6 +353,12 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      */
     private void emitDebugNotifications() {
         Notifications.info("Indexing finished");
+        // A LONG ONE, because every fixture here was two or three words and the layout was tuned against
+        // them. The first real message that wrapped -- a download report carrying a URL -- came out as six
+        // lines of fragments with the severity icon floating beside line three, and nothing in this set
+        // could have shown that. A fixture set whose messages are all short tests one message length.
+        Notifications.info("JDK sources downloaded — 1432 files, 4.3 MB, "
+                + "cached under the game directory");
         Notifications.show(Notification.warning("Disk space low")
                 .withDetail("Less than 50 MiB is left on the system partition (C:)"));
         Notifications.show(Notification.error("HotSwap failed")
