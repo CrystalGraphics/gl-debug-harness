@@ -50,6 +50,31 @@ import java.util.Map;
  *   <dd>Which is what makes the label column size itself to the widest of them.</dd>
  * </dl>
  *
+ * <h3>Tables</h3>
+ *
+ * <p>Worth having because the JDK's own documentation is full of them — measured:
+ * {@code java.util.Formatter} carries nineteen in 88k characters of comment and its whole purpose is
+ * the conversion reference, {@code java.util.regex.Pattern} three, {@code DateTimeFormatter} two.
+ * Every column below should line up across its rows, and the header should be the only bold row:</p>
+ * <table>
+ *   <caption>Modes</caption>
+ *   <thead>
+ *     <tr><th>Mode</th><th>Meaning</th><th>Since</th></tr>
+ *   </thead>
+ *   <tbody>
+ *     <tr><td>READ_WRITE</td><td>Reads and writes</td><td>1.0</td></tr>
+ *     <tr><td>READ_ONLY</td><td>Reads only</td><td>1.2</td></tr>
+ *     <tr><td>LEGACY</td><td>A much longer cell, which is what makes its column wide</td>
+ *         <td>0.9</td></tr>
+ *   </tbody>
+ * </table>
+ *
+ * <p>A table with no header row and no caption, which is equally legal:</p>
+ * <table>
+ *   <tr><td>one</td><td>two</td></tr>
+ *   <tr><td>three</td><td>four</td></tr>
+ * </table>
+ *
  * <h3>Quoted and preformatted</h3>
  *
  * <blockquote>A blockquote, which the renderer draws with a rule down its left edge rather than a
@@ -388,20 +413,9 @@ public final class DocShowcase {
      * <b>HTML the parser does not know.</b>
      *
      * <p>The supported set is {@code p br pre ul ol dl li dt dd blockquote h1-h6 code tt b strong i em
-     * cite var a}. Everything below is legal in a doc comment and reaches the reader as something
-     * else — usually as its own angle brackets, which is the failure worth seeing.</p>
-     *
-     * <p>A table, which javadoc uses constantly for parameter and format documentation:</p>
-     * <table>
-     *   <caption>Modes</caption>
-     *   <thead>
-     *     <tr><th>Mode</th><th>Meaning</th></tr>
-     *   </thead>
-     *   <tbody>
-     *     <tr><td>READ_WRITE</td><td>Reads and writes</td></tr>
-     *     <tr><td>READ_ONLY</td><td>Reads only</td></tr>
-     *   </tbody>
-     * </table>
+     * cite var a table caption thead tbody tfoot tr th td}. Everything below is legal in a doc comment
+     * and reaches the reader as something else — usually as its own angle brackets, which is the
+     * failure worth seeing.</p>
      *
      * <p>A horizontal rule:</p>
      * <hr>
