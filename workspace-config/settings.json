@@ -3,5 +3,5 @@
   "build.shaders.warningsAsErrors": "false",
   "build.shaders.target": "GL 3.3",
   "appearance.theme": "Crystal Dark",
-  "appearance.editorScheme": "Dark+"
+  "appearance.editorScheme": "Eclipse Dark"
 }

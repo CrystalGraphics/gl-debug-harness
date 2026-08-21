@@ -2,8 +2,8 @@
   "version": 6,
   "dock": {
     "version": 1,
-    "viewportWidth": 1280.0,
-    "viewportHeight": 689.0,
+    "viewportWidth": 960.0,
+    "viewportHeight": 540.0,
     "rootOrientation": "HORIZONTAL",
     "root": [
       {
@@ -28,28 +28,15 @@
                 ]
               },
               {
-                "typeId": "shadergraph.file",
+                "typeId": "viewer",
                 "state": [
                   {
-                    "k": "path",
-                    "v": "harness.scratch:new.shadergraph"
+                    "k": "resource",
+                    "v": "library://io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiGalleryScene"
                   },
                   {
                     "k": "title",
-                    "v": "new.shadergraph"
-                  }
-                ]
-              },
-              {
-                "typeId": "shadergraph.file",
-                "state": [
-                  {
-                    "k": "path",
-                    "v": "harness.scratch:test.shadergraph"
-                  },
-                  {
-                    "k": "title",
-                    "v": "test.shadergraph"
+                    "v": "CgUiGalleryScene"
                   }
                 ]
               },
@@ -58,120 +45,16 @@
                 "state": [
                   {
                     "k": "path",
-                    "v": "harness.scratch:manifest.mf"
+                    "v": "harness.scratch:src/quickfix/QuickFixCast.java"
                   },
                   {
                     "k": "title",
-                    "v": "manifest.mf"
-                  }
-                ]
-              },
-              {
-                "typeId": "shadersource",
-                "state": [
-                  {
-                    "k": "path",
-                    "v": "shader-generated://harness.scratch:new.shadergraph"
-                  },
-                  {
-                    "k": "title",
-                    "v": "new_compiled.shader"
-                  }
-                ]
-              },
-              {
-                "typeId": "file",
-                "state": [
-                  {
-                    "k": "path",
-                    "v": "harness.scratch:README.md"
-                  },
-                  {
-                    "k": "title",
-                    "v": "README.md"
-                  }
-                ]
-              },
-              {
-                "typeId": "shadersource",
-                "state": [
-                  {
-                    "k": "path",
-                    "v": "shader-generated://harness.scratch:test.shadergraph"
-                  },
-                  {
-                    "k": "title",
-                    "v": "test_compiled.shader"
-                  }
-                ]
-              },
-              {
-                "typeId": "shadergraph.file",
-                "state": [
-                  {
-                    "k": "path",
-                    "v": "harness.scratch:src/maybe.shadergraph"
-                  },
-                  {
-                    "k": "title",
-                    "v": "maybe.shadergraph"
-                  }
-                ]
-              },
-              {
-                "typeId": "file",
-                "state": [
-                  {
-                    "k": "path",
-                    "v": "harness.scratch:gradle.properties"
-                  },
-                  {
-                    "k": "title",
-                    "v": "gradle.properties"
-                  }
-                ]
-              },
-              {
-                "typeId": "file",
-                "state": [
-                  {
-                    "k": "path",
-                    "v": "harness.scratch:config.config"
-                  },
-                  {
-                    "k": "title",
-                    "v": "config.config"
-                  }
-                ]
-              },
-              {
-                "typeId": "file",
-                "state": [
-                  {
-                    "k": "path",
-                    "v": "harness.scratch:src/web.html"
-                  },
-                  {
-                    "k": "title",
-                    "v": "web.html"
-                  }
-                ]
-              },
-              {
-                "typeId": "file",
-                "state": [
-                  {
-                    "k": "path",
-                    "v": "harness.scratch:src/notes.txt"
-                  },
-                  {
-                    "k": "title",
-                    "v": "notes.txt"
+                    "v": "QuickFixCast.java"
                   }
                 ]
               }
             ],
-            "active": 1,
+            "active": 2,
             "central": true
           }
         ]
@@ -181,179 +64,105 @@
   "toolWindows": [
     {
       "id": "project",
-      "visible": false,
-      "region": "SIDEBAR",
-      "side": "PRIMARY",
-      "weight": 0.17281818,
-      "sideWeight": 0.52307683,
-      "order": 0,
-      "active": true,
-      "stripe": true
-    },
-    {
-      "id": "inspector",
       "visible": true,
-      "region": "AUXILIARY",
-      "side": "PRIMARY",
-      "weight": 0.26245636,
-      "sideWeight": 0.44499135,
-      "order": 0,
-      "active": true,
-      "stripe": true
-    },
-    {
-      "id": "commit",
-      "visible": false,
       "region": "SIDEBAR",
-      "side": "SECONDARY",
-      "weight": 0.17281818,
-      "sideWeight": 0.52307683,
-      "order": 0,
-      "active": true,
-      "stripe": true
-    },
-    {
-      "id": "terminal",
-      "visible": false,
-      "region": "PANEL",
-      "side": "SECONDARY",
-      "weight": 0.22161669,
-      "sideWeight": 0.41693056,
+      "side": "PRIMARY",
+      "weight": 0.19977804,
+      "sideWeight": 0.5,
       "order": 0,
       "active": true,
       "stripe": true
     },
     {
       "id": "problems",
-      "visible": true,
-      "region": "PANEL",
-      "side": "PRIMARY",
-      "weight": 0.22161669,
-      "sideWeight": 0.41693056,
-      "order": 1,
-      "active": true,
-      "stripe": true
-    },
-    {
-      "id": "bookmarks",
-      "visible": false,
-      "region": "PANEL",
-      "side": "SECONDARY",
-      "weight": 0.22161669,
-      "sideWeight": 0.41693056,
-      "order": 1,
-      "active": true,
-      "stripe": true
-    },
-    {
-      "id": "services",
       "visible": false,
       "region": "PANEL",
       "side": "PRIMARY",
-      "weight": 0.22161669,
-      "sideWeight": 0.41693056,
+      "weight": 0.14720935,
+      "sideWeight": 0.5,
       "order": 1,
       "active": true,
       "stripe": true
     },
     {
-      "id": "structure",
+      "id": "inspector",
       "visible": false,
-      "region": "SIDEBAR",
-      "side": "SECONDARY",
-      "weight": 0.17281818,
-      "sideWeight": 0.52307683,
-      "order": 1,
-      "active": true,
-      "stripe": true
-    },
-    {
-      "id": "notifications",
-      "visible": false,
-      "region": "PANEL",
-      "side": "SECONDARY",
-      "weight": 0.22161669,
-      "sideWeight": 0.41693056,
-      "order": 2,
-      "active": true,
-      "stripe": true
-    },
-    {
-      "id": "outline",
-      "visible": false,
-      "region": "PANEL",
-      "side": "SECONDARY",
-      "weight": 0.22161669,
-      "sideWeight": 0.41693056,
+      "region": "AUXILIARY",
+      "side": "PRIMARY",
+      "weight": 0.22,
+      "sideWeight": 0.5,
       "order": 2,
       "active": true,
       "stripe": true
     },
     {
       "id": "run",
-      "visible": false,
+      "visible": true,
       "region": "PANEL",
-      "side": "SECONDARY",
-      "weight": 0.22161669,
-      "sideWeight": 0.41693056,
+      "side": "PRIMARY",
+      "weight": 0.14720935,
+      "sideWeight": 0.5,
       "order": 3,
       "active": true,
       "stripe": true
     }
   ],
-  "active": "harness.scratch:new.shadergraph",
+  "widgets": [
+    {
+      "id": "run.panel",
+      "view": {}
+    },
+    {
+      "id": "run.rail-split",
+      "view": {
+        "weights": [
+          {
+            "w": 24.0
+          },
+          {
+            "w": 76.0
+          }
+        ]
+      }
+    }
+  ],
+  "active": "harness.scratch:src/quickfix/QuickFixCast.java",
   "expanded": [
     {
       "path": "harness.scratch:"
     },
     {
-      "path": "harness.scratch:fah"
+      "path": "harness.scratch:src"
     },
     {
-      "path": "harness.scratch:src"
+      "path": "harness.scratch:src/quickfix"
     }
   ],
   "files": [
     {
-      "path": "harness.scratch:manifest.mf",
-      "view": {
-        "caret": 10
-      }
-    },
-    {
-      "path": "harness.scratch:gradle.properties",
-      "view": {
-        "caret": 0
-      }
-    },
-    {
-      "path": "harness.scratch:src/web.html",
-      "view": {
-        "caret": 0
-      }
-    },
-    {
-      "path": "harness.scratch:config.config",
-      "view": {
-        "caret": 0
-      }
-    },
-    {
-      "path": "harness.scratch:src/notes.txt",
-      "view": {
-        "caret": 23
-      }
-    },
-    {
       "path": "harness.scratch:src/Main.java",
       "view": {
-        "caret": 107
+        "caret": 322,
+        "anchor": 314
       }
     },
     {
-      "path": "harness.scratch:README.md",
+      "path": "harness.scratch:src/quickfix/QuickFixCast.java",
       "view": {
-        "caret": 87
+        "caret": 0
+      }
+    },
+    {
+      "path": "harness.scratch:src/DocShowcase.java",
+      "view": {
+        "caret": 6097,
+        "scroll": 1480.0
+      }
+    },
+    {
+      "path": "harness.scratch:src/ABC.java",
+      "view": {
+        "caret": 3
       }
     }
   ]
