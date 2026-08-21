@@ -248,6 +248,11 @@ final class HarnessWorkspace {
             // Java member's documentation reaches JavaScript through a bridge that can break on its own.
             copyIfAbsent(root.resolve("src/DocShowcase.java"), "harness/workspace/DocShowcase.java");
             copyIfAbsent(root.resolve("src/DocShowcase.js"), "harness/workspace/DocShowcase.js");
+            // AND THE ONE FOR THE LIBRARY VIEWER. Three Ctrl+B targets taking three different routes --
+            // a JDK type with attached source, a library type shipping none so it decompiles, and a
+            // nested type that lives in its outer class file. One file, so which of the three works is
+            // readable in one pass rather than assembled from three.
+            copyIfAbsent(root.resolve("src/Viewer.java"), "harness/workspace/Viewer.java");
         } catch (IOException e) {
             throw new IllegalStateException("could not create the scratch project at " + root, e);
         }
