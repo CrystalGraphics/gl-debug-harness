@@ -17,6 +17,9 @@ import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.ui.Ui;
 import com.crystalgui.core.notify.Notification;
 import com.crystalgui.core.notify.Notifications;
+import com.crystalgui.core.async.JobKey;
+import com.crystalgui.core.async.JobLane;
+import com.crystalgui.core.async.JobScheduler;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgui.ui.UIWindow;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -224,6 +227,10 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
+        if (event.pressed() && noModifiers() && event.key() == CgKeyCodes.KEY_F8) {
+            spawnDebugJobs();
+            return true;
+        }
         if (event.pressed() && noModifiers() && event.key() == CgKeyCodes.KEY_F9) {
             emitDebugNotifications();
             return true;
@@ -237,6 +244,60 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
         return uiWindow.getInputHandler().consumeKeyboardEvent(event);
     }
+
+    /**
+     * <b>F8 — three real jobs, so the status bar's progress has something to show.</b>
+     *
+     * <p>Real {@link JobScheduler} jobs on real worker threads reporting through
+     * {@code JobContext.progress()}, not a fake model written into the widget. That distinction is the
+     * whole point of the design: the status bar <em>pulls</em> a snapshot on the frame, and a scene that
+     * wrote to the widget directly would exercise the drawing and none of the threading.</p>
+     *
+     * <p>What to look for. <b>Nothing for the first 400ms</b> — work shorter than that is never drawn at
+     * all, which is what stops the bar strobing on every keystroke. Then <b>one line and a {@code (3)}</b>,
+     * because the chrome's width must not depend on how much is running; click it for the Processes popup,
+     * where each job has its own bar and its own cancel. One of the three is <b>indeterminate</b> and
+     * sweeps rather than fills, because it never reported a total. And <b>cancel greys a row but keeps its
+     * bar</b> — cancellation is cooperative, so the work has not stopped yet and the row must not pretend
+     * it has.</p>
+     */
+    private void spawnDebugJobs() {
+        spawnDebugJob("Downloading engine band 17", 16_000_000L, 6f);
+        spawnDebugJob("Indexing classpath", 4_000L, 4f);
+        spawnDebugJob("Resolving manifest", -1L, 8f);
+    }
+
+    /**
+     * One job that reports for {@code seconds}.
+     *
+     * <p>Reporting is <b>rate-limited</b> to twenty a second rather than per loop turn, which a real
+     * transfer owes for the same reason: each report allocates a state so a reader sees a consistent one,
+     * and a report per 8 KB chunk is thousands of allocations feeding a bar that redraws sixty times a
+     * second.</p>
+     */
+    private void spawnDebugJob(String what, long total, float seconds) {
+        JobKey key = JobKey.of(CgUiDockScene.class, what + "-" + (++debugJobsSpawned));
+        JobScheduler.shared().job(key, JobLane.BACKGROUND, context -> {
+            long steps = (long) (seconds * 20);
+            context.progress().begin(what, total);
+            for (long step = 0; step <= steps; step++) {
+                if (context.isCancelled()) return "cancelled";
+                if (total > 0) {
+                    context.progress().advance(total * step / steps);
+                    context.progress().detail("part " + step + " of " + steps);
+                }
+                try {
+                    Thread.sleep(50L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return "interrupted";
+                }
+            }
+            return "done";
+        }).submit();
+    }
+
+    private int debugJobsSpawned;
 
     /**
      * <b>F10 — the Problems rows' real geometry, printed.</b>
@@ -292,6 +353,12 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      */
     private void emitDebugNotifications() {
         Notifications.info("Indexing finished");
+        // A LONG ONE, because every fixture here was two or three words and the layout was tuned against
+        // them. The first real message that wrapped -- a download report carrying a URL -- came out as six
+        // lines of fragments with the severity icon floating beside line three, and nothing in this set
+        // could have shown that. A fixture set whose messages are all short tests one message length.
+        Notifications.info("JDK sources downloaded — 1432 files, 4.3 MB, "
+                + "cached under the game directory");
         Notifications.show(Notification.warning("Disk space low")
                 .withDetail("Less than 50 MiB is left on the system partition (C:)"));
         Notifications.show(Notification.error("HotSwap failed")
