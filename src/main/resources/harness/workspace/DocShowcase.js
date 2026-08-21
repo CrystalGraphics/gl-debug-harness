@@ -142,6 +142,9 @@ function withOptions(options) {
  *
  * Inline HTML is also legal inside markdown: <b>bold</b> and <em>emphasis</em>.
  *
+ * An image is its alt text, and must not be read as the link it looks like: ![a diagram](diagram.png)
+ * beside a real [link](https://example.com), so the two are visibly different things.
+ *
  * @returns {void}
  */
 function markdownDescription() {

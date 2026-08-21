@@ -428,23 +428,40 @@ public final class DocShowcase {
      * <p>Grouping elements: <span>a span</span> and <div>a div</div>, which carry no meaning of their
      * own and are usually there to hang an attribute on.</p>
      *
-     * <p>Attributes, which the parser currently reads on {@code <a href>} alone:
+     * <p>Attributes. The parser reads {@code href}, {@code alt}, {@code src}, {@code colspan} and
+     * {@code rowspan}, and drops the rest — dropping them after PARSING them, so a {@code >} inside a
+     * quoted value cannot end the tag early:
      * <a href="https://openjdk.org" target="_blank" title="a title">a link with three</a>, and a
      * <p id="anchor" class="note" style="color: red">paragraph with an id, a class and a style</p></p>
      *
-     * <p>An image, which has no text to fall back to: <img src="diagram.png" alt="a diagram">.</p>
+     * <p>An image is its {@code alt} text — nothing can be drawn, because a doc comment's
+     * {@code src} names a file beside the page javadoc would have generated:
+     * <img src="diagram.png" alt="a diagram">. One with no {@code alt} is decorative by definition and
+     * contributes nothing at all: <img src="spacer.png">.</p>
      *
      * <p>Self-closing and uppercase spellings, both legal in a doc comment:<br/>
      * <P>An uppercase paragraph.</P>
      * <BR>
      * <B>Uppercase bold</B> and <EM>uppercase emphasis</EM>.</p>
      *
-     * <p>Entities beyond the twelve that are decoded: &#64; is a numeric one, &#x40; the same in hex,
-     * and &sect; &para; &bull; &rarr; &larr; &times; &divide; &deg; &plusmn; &frac12; &alpha; &beta;
-     * are named ones javadoc passes straight through.</p>
+     * <p>Entities. &#64; is a numeric one, &#x40; the same in hex, and the named set is HTML 4.01's
+     * — &sect; &para; &bull; &rarr; &larr; &times; &divide; &deg; &plusmn; &frac12; &alpha; &beta;
+     * &eacute; &uuml; &ntilde; &copy; &hellip; &mdash; all decode. An unknown one is left as the
+     * author's own text: &fjlig; is HTML5-only and should read as itself.</p>
      *
      * <p>Malformed but legal-in-practice: an unclosed <b>bold that never closes, and a stray
      * &lt;/i&gt; that closes nothing.</p>
+     *
+     * <p>A table with spanning cells. The header covers two columns, so the rule between them must not
+     * be drawn through it, and the columns below must still line up:</p>
+     *
+     * <table>
+     *   <caption>Spans</caption>
+     *   <tr><th colspan="2">One header over two</th><th>Third</th></tr>
+     *   <tr><td rowspan="2">Reaches down</td><td>b</td><td>c</td></tr>
+     *   <tr><td>e</td><td>f</td></tr>
+     *   <tr><td>g</td><td>h</td><td>i</td></tr>
+     * </table>
      */
     public void parityHtml() {
     }
