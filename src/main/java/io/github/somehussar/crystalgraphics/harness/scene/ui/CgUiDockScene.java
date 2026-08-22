@@ -21,6 +21,7 @@ import com.crystalgui.core.async.JobKey;
 import com.crystalgui.core.async.JobLane;
 import com.crystalgui.core.async.JobScheduler;
 import com.crystalgraphics.platform.input.CgKeyCodes;
+import com.crystalgraphics.platform.input.CgModifiers;
 import com.crystalgui.ui.UIWindow;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -227,6 +228,26 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
+        if (event.pressed() && noModifiers() && event.key() == CgKeyCodes.KEY_F6) {
+            StagedMergeDemo.openCommitDiff(uiWindow, editor);
+            return true;
+        }
+        // F7 reads the REPOSITORY; Shift+F7 synthesises. Two keys because they answer different
+        // questions and only one of them is guaranteed to have an answer: a tree with nothing staged
+        // produces a merge with no conflicts in it, which is correct and exercises none of the conflict
+        // UI. Shift+F7 always has one conflict and two auto-merges, so it is the one to reach for when
+        // the question is whether the view works rather than what the tree currently says.
+        if (event.pressed() && event.key() == CgKeyCodes.KEY_F7) {
+            int modifiers = CgPlatform.input().getCurrentModifiers();
+            if (modifiers == CgModifiers.NONE) {
+                StagedMergeDemo.open(uiWindow, editor);
+                return true;
+            }
+            if (modifiers == CgModifiers.SHIFT) {
+                StagedMergeDemo.openSynthesised(uiWindow, editor);
+                return true;
+            }
+        }
         if (event.pressed() && noModifiers() && event.key() == CgKeyCodes.KEY_F8) {
             spawnDebugJobs();
             return true;
