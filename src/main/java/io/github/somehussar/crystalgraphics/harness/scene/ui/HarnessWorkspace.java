@@ -253,6 +253,24 @@ final class HarnessWorkspace {
             // nested type that lives in its outer class file. One file, so which of the three works is
             // readable in one pass rather than assembled from three.
             copyIfAbsent(root.resolve("src/Viewer.java"), "harness/workspace/Viewer.java");
+
+            // AND THE CROSS-FILE FIXTURE (M15), which is the first thing here laid out as a real project.
+            //
+            // Under `src/main/java` on purpose: a source root is what turns a path into a package, and
+            // the project index derives every qualified name from the path. Seeded into `src/` like the
+            // files above, these would be OUTSIDE every declared root -- so the index would decline to
+            // name them, nothing would resolve, and the fixture would silently prove the opposite of what
+            // it is for.
+            //
+            // Three files, three ways of reaching another one: Main imports Greeter across packages,
+            // Greeter reaches Formatter with no import at all, and Main depends on Formatter without
+            // ever naming it. @see Main.java's own comment for what should be true.
+            copyIfAbsent(root.resolve("src/main/java/com/example/Main.java"),
+                    "harness/workspace/imports/Main.java");
+            copyIfAbsent(root.resolve("src/main/java/com/example/util/Greeter.java"),
+                    "harness/workspace/imports/Greeter.java");
+            copyIfAbsent(root.resolve("src/main/java/com/example/util/Formatter.java"),
+                    "harness/workspace/imports/Formatter.java");
         } catch (IOException e) {
             throw new IllegalStateException("could not create the scratch project at " + root, e);
         }
@@ -272,6 +290,11 @@ final class HarnessWorkspace {
      */
     private static void copyIfAbsent(Path file, String resource) throws IOException {
         if (Files.exists(file)) return;
+        // THE DIRECTORIES TOO. Every seed until M15 landed directly in `src/`, so this never had to make
+        // one -- and the first fixture with a package path failed on `Files.write` with a
+        // NoSuchFileException naming the file rather than the directory that was missing.
+        Path parent = file.getParent();
+        if (parent != null) Files.createDirectories(parent);
         try (InputStream stream =
                      HarnessWorkspace.class.getClassLoader().getResourceAsStream(resource)) {
             if (stream == null) {
