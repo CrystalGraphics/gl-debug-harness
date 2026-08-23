@@ -271,6 +271,19 @@ final class HarnessWorkspace {
                     "harness/workspace/imports/Greeter.java");
             copyIfAbsent(root.resolve("src/main/java/com/example/util/Formatter.java"),
                     "harness/workspace/imports/Formatter.java");
+
+            // AND THE SAME SHAPE IN JAVASCRIPT (M15 S6/S7), under `src/main/js` -- the other declared
+            // root, so `util/Greeter.js` is the name `util.Greeter` that an import statement writes.
+            //
+            // Deliberately the same three-file chain as the Java fixture above, so the two engines can be
+            // compared on one workspace: App imports Greeter, Greeter imports Formatter, and Greeter
+            // importing anything at all is the case that decided how modules are loaded.
+            copyIfAbsent(root.resolve("src/main/js/App.js"),
+                    "harness/workspace/imports/App.js");
+            copyIfAbsent(root.resolve("src/main/js/util/Greeter.js"),
+                    "harness/workspace/imports/Greeter.js");
+            copyIfAbsent(root.resolve("src/main/js/util/Formatter.js"),
+                    "harness/workspace/imports/Formatter.js");
         } catch (IOException e) {
             throw new IllegalStateException("could not create the scratch project at " + root, e);
         }
