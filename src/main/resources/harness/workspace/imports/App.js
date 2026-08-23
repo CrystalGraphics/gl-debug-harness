@@ -9,7 +9,9 @@
 //     itself imports two levels down.
 //
 //  2. `Greeter.` COMPLETES with `greet`, `murmur` and `defaultName` — read statically out of another
-//     file, without running anything. That is M15 S7, and before it this popup was empty.
+//     file, without running anything, and a function reads as `function greet(who)` with its parameters.
+//     Note that NEITHER file writes `exports.` anywhere: a module that says nothing exports every
+//     top-level declaration, and an explicit `exports.x = ...` is the way to keep the rest private.
 //
 //  3. HOVER on `Greeter` says MODULE, and names `util.Greeter` as where the value came from. Not
 //     "class", which is what it said while the name was going through the Java tier.
