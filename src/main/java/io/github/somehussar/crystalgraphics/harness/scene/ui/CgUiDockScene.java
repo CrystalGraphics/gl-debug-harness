@@ -3,6 +3,8 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 import com.crystalgraphics.api.font.CgFontFamily;
 import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.util.profiling.CgProfiler;
+import com.crystalgraphics.util.profiling.CgProfilerDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.core.async.FrameProfile;
 import com.crystalgui.core.command.CommandRegistry;
@@ -160,6 +162,12 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
         // The counter's font, before any frame is timed. @see #overlayFont
         overlayFont();
+
+        // THE BACKEND'S OWN PROFILER, not a second one written from this side. CgTextRenderer's path is
+        // already scoped -- placementCache.lookup/hit/miss, flatten, resolvePlacements -- so the question
+        // "why does submitting 1,303 characters cost 12ms" is one CrystalGraphics can answer in its own
+        // terms. TextScene3D is the reference for this pairing. Dumped at the end of a scripted run.
+        if (flowEnabled) CgProfiler.setEnabled(true);
     }
 
     @Override
@@ -300,6 +308,10 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
         if (stage == Stage.SEARCHED && elapsed >= ACCEPT_AT) {
             long timed = FrameProfile.enter("FLOW Enter -- open the selected result");
+            // RESET THE BACKEND PROFILE HERE, so its counters describe the OPEN and not the whole run.
+            // A cumulative dump cannot answer "how many glyphs were rasterised synchronously on the
+            // frames that stalled" -- steady state dwarfs it. @see #dumpBackendProfile
+            if (CgProfiler.isEnabled()) CgProfiler.reset();
             press('\n', CgKeyCodes.KEY_RETURN);
             FrameProfile.leave(timed, "FLOW Enter -- open the selected result");
             enterStage(Stage.OPENED, "accepted");
@@ -307,6 +319,9 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
 
         if (stage == Stage.OPENED && elapsed >= SWEEP_AT) {
+            // DUMPED BEFORE THE SWEEP, while the profile still covers only the open. Three seconds of
+            // steady state is already enough to bury the warmup counts this is here to read.
+            dumpBackendProfile("open");
             enterStage(Stage.HOVERING, "sweeping the pointer across the document");
             return;
         }
@@ -424,6 +439,21 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // something outside this process, and one run is one sample either way.
         System.out.println("[flow]   delta >> paint means the cost was not on the frame thread"
                 + " (GPU, swap, or another application) -- re-run before believing it");
+        dumpBackendProfile("run");
+    }
+
+    /**
+     * The backend's own scope tree, written beside the run's other artifacts.
+     *
+     * <p>{@code dumpAllThreads} rather than {@code dump}: glyph generation runs on background workers,
+     * and a report that excluded them would answer "the renderer did nothing" for exactly the case
+     * where the renderer is waiting on them.</p>
+     */
+    private void dumpBackendProfile(String label) {
+        if (!flowEnabled || !CgProfiler.isEnabled()) return;
+        java.io.File out = CgProfilerDump.dumpAllThreads(
+                new java.io.File("harness-output/cgui-dock"), label);
+        System.out.println("[flow]   backend profile (" + label + "): " + (out == null ? "not written" : out));
     }
 
     private static String describe(Stage stage) {
