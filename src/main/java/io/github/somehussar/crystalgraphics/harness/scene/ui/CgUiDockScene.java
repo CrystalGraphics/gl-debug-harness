@@ -227,7 +227,16 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
 
         if (frame.getFrameNumber() == 5) ctx.getArtifactService().requestCapture("startup");
+        // REQUESTED FROM THE FLOW, TAKEN HERE -- the flow advances before the paint, so asking there
+        // would photograph the frame before the one it means.
+        if (captureRequested != null) {
+            ctx.getArtifactService().requestCapture(captureRequested);
+            captureRequested = null;
+        }
     }
+
+    /** A capture the flow asked for, taken after the next paint. @see #advanceFlow */
+    private String captureRequested;
 
     // ════════════════════════════════════════════════════════════════════════════════════════════
     //  THE SCRIPTED MEASUREMENT
@@ -322,6 +331,14 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             // DUMPED BEFORE THE SWEEP, while the profile still covers only the open. Three seconds of
             // steady state is already enough to bury the warmup counts this is here to read.
             dumpBackendProfile("open");
+            // AND A PICTURE OF THE SETTLED EDITOR, three seconds after the file arrived.
+            //
+            // The startup capture at frame 5 shows an empty workbench, which is the wrong half of this
+            // flow to look at: everything the run exists to exercise -- a document, its colouring, the
+            // gutter, the tree with a real listing in it -- is on screen only after the open. A render
+            // regression that reaches all of them (a tree row's label vanishing, a syntax colour going
+            // missing) is invisible in a capture taken before any of it exists.
+            captureRequested = "opened";
             enterStage(Stage.HOVERING, "sweeping the pointer across the document");
             return;
         }
