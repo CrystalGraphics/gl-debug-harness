@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Without this file the harness sees NONE of the engine's own logging.
+
+  Log4j2 with no configuration falls back to DefaultConfiguration, which is a console appender at
+  ERROR. Everything CrystalGUI reports through CrystalGuiCore.LOGGER at info or warn was therefore
+  dropped on the floor for the whole life of this harness — FrameProfile's [step] lines, UiBudget's
+  always-on frame-budget reports, the language stack's "resolving against the live runtime" notice,
+  every diagnostic written specifically to be read while something is running.
+
+  It is silent in the worst way: a run looks like evidence the instrumentation found nothing, rather
+  than evidence it was never given anywhere to write. Minecraft hides this completely, because FML
+  configures log4j itself — so the same probe prints in a client and prints nothing here, which reads
+  as the probe being broken.
+
+  WARN at the root and INFO for our own loggers: the point is to hear CrystalGUI and CrystalGraphics,
+  not every third-party library's startup chatter.
+-->
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <!-- No timestamp: these lines are read next to [flow] markers and against each other, and
+                 a wall clock adds a column to every one of them that nothing reads. -->
+            <PatternLayout pattern="%-5level %msg%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger name="CrystalGui" level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="com.crystalgui" level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="com.crystalgraphics" level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Root level="warn">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>
