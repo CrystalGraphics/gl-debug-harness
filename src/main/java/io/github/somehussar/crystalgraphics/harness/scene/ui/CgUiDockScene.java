@@ -18,7 +18,10 @@ import com.crystalgui.core.dispose.Disposer;
 import com.crystalgui.editor.CrystalEditor;
 import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.fs.CgPath;
+import com.crystalgui.ui.elements.dock.DockArea;
 import com.crystalgui.ui.elements.dock.DockPanelDescriptor;
+import com.crystalgui.ui.elements.dock.DockPanelRef;
 import com.crystalgui.ui.elements.dock.DockRegion;
 import com.crystalgui.ui.elements.dock.RegionSide;
 import com.crystalgui.style.sheet.StyleSheet;
@@ -269,7 +272,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      * <p>Long enough after the accept for the frame rate to come back — the summary's whole claim is that
      * a stall belongs to one gesture, which is only true if the run outlives it.</p>
      */
-    private static final double RUN_FOR = 20.0;
+    private static final double RUN_FOR = 22.0;
 
     private enum Stage {
         /** Everything up to the picker: the editor built, the project listed, the dock settling. */
@@ -281,10 +284,33 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         /** Enter has been pressed; the class is opening. */
         OPENED,
         /** The pointer is being swept across the open document. @see #sweepPointer */
-        HOVERING
+        HOVERING,
+        /** A PROJECT file is open beside the viewer, settling before it is closed. */
+        PROJECT_OPEN,
+        /** The tab has been closed; whatever closing costs lands in this stage's worst frame. */
+        CLOSED
     }
 
     private static final double SWEEP_AT = 11.0;
+
+    /**
+     * When a PROJECT file is opened, and when it is closed again.
+     *
+     * <h3>A project file, not the library viewer this flow already has open</h3>
+     *
+     * <p>Closing is reported at 20-50ms and to scale with the FILE, which nothing about closing should.
+     * The viewer cannot show it: {@code Workbench.releaseClosedPanel} returns early for anything that is
+     * not a project resource, so closing a {@code library://} tab disposes NOTHING and measured 1.7ms
+     * here — the whole cost under investigation is on the branch a viewer never takes.</p>
+     *
+     * <p>{@code DocShowcase.java} is the largest thing the seeded workspace has (22KB) and carries real
+     * language services, which is what makes its close representative.</p>
+     */
+    private static final double OPEN_PROJECT_AT = 14.0;
+    private static final double CLOSE_AT = 17.0;
+
+    /** The project file opened and closed to measure a close. @see #OPEN_PROJECT_AT */
+    private static final String CLOSE_SUBJECT = "src/DocShowcase.java";
 
     private Stage stage = Stage.STARTUP;
     private int typed;
@@ -343,7 +369,37 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             return;
         }
 
+        if (stage == Stage.HOVERING && elapsed >= OPEN_PROJECT_AT) {
+            long timed = FrameProfile.enter("FLOW open " + CLOSE_SUBJECT);
+            editor.workbench().openFile(CgPath.of(HarnessWorkspace.PROJECT_ID, CLOSE_SUBJECT));
+            FrameProfile.leave(timed, "FLOW open a project file");
+            enterStage(Stage.PROJECT_OPEN, "opened " + CLOSE_SUBJECT);
+            return;
+        }
+
+        if (stage == Stage.PROJECT_OPEN && elapsed >= CLOSE_AT) {
+            // THROUGH THE DOCK, the way the tab's own close button does -- `DockArea.closePanel`, which
+            // is what `Tab.onCloseRequested` is wired to. Reaching past it to the workbench would measure
+            // a path a user cannot take and would skip the layout collapse and the rebuild.
+            long timed = FrameProfile.enter("FLOW close the open tab");
+            closeOpenTab();
+            FrameProfile.leave(timed, "FLOW close the open tab");
+            enterStage(Stage.CLOSED, "closed the tab");
+            return;
+        }
+
         if (stage == Stage.HOVERING) sweepPointer();
+    }
+
+    /** Closes whatever the active group is showing, through the same call its close button makes. */
+    private void closeOpenTab() {
+        DockArea dock = editor.workbench().dock();
+        DockPanelRef panel = dock.activePanel();
+        if (panel == null) {
+            FrameProfile.note("FLOW nothing to close -- no active panel");
+            return;
+        }
+        dock.closePanel(panel);
     }
 
     /**
