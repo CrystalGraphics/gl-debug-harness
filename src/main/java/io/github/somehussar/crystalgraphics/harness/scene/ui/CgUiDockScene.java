@@ -19,7 +19,9 @@ import com.crystalgui.editor.CrystalEditor;
 import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.elements.UIText;
 import com.crystalgui.fs.CgPath;
+import com.crystalgui.fs.Resource;
 import com.crystalgui.ui.elements.dock.DockArea;
+import com.crystalgui.ui.elements.editor.TextEditor;
 import com.crystalgui.ui.elements.dock.DockPanelDescriptor;
 import com.crystalgui.ui.elements.dock.DockPanelRef;
 import com.crystalgui.ui.elements.dock.DockRegion;
@@ -205,12 +207,12 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             // ever touched, and its OPENED stage then measured 60ms instead of 237ms. Both numbers were
             // real and neither answered the question. A flow that measures opening a class has to begin
             // with that class shut. @see #printFlowSummary
-            if (!flowEnabled) editor.restoreSession(HarnessWorkspace.PROJECT_ID);
+            if (!flowEnabled && !HOVER_FLOW) editor.restoreSession(HarnessWorkspace.PROJECT_ID);
         }
 
         // BEFORE THE PAINT, so a gesture's cost lands in the frame the flow attributes it to.
         elapsed = frame.getElapsedTime();
-        if (flowEnabled) advanceFlow();
+        if (flowEnabled || HOVER_FLOW) advanceFlow();
 
         uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         long painted = System.nanoTime();
@@ -285,6 +287,8 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         OPENED,
         /** The pointer is being swept across the open document. @see #sweepPointer */
         HOVERING,
+        /** Parked on one symbol after another, long enough for each to open its popup. @see #hoverNextSymbol */
+        DOC_HOVER,
         /** A PROJECT file is open beside the viewer, settling before it is closed. */
         PROJECT_OPEN,
         /** The tab has been closed; whatever closing costs lands in this stage's worst frame. */
@@ -292,6 +296,66 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     }
 
     private static final double SWEEP_AT = 11.0;
+
+    /**
+     * When the pointer stops sweeping and starts RESTING on symbols, one after another.
+     *
+     * <h3>Why the sweep cannot produce a hover, and why that hid a 150ms frame</h3>
+     *
+     * <p>{@code HoverDocumentation} is a REST timer: it fires when the pointer stops. The sweep moves it
+     * every frame, so a scripted run never opened a documentation popup at all and the whole hover path —
+     * resolving the symbol, quoting its declaration out of attached source, building the popup — was
+     * invisible to it. It took hand-piloting to find, which does not scale.</p>
+     *
+     * <p>Driven through {@code TextEditor.hoverPointerForTest}, which takes a document OFFSET rather than
+     * a pixel: the flow can then name the symbol it wants to hover instead of computing where a row landed
+     * on screen, and it keeps working when the layout changes.</p>
+     */
+    private static final double HOVER_SYMBOLS_AT = 13.0;
+
+    /**
+     * The FAST flow: one class opened at startup, two symbols hovered, ten seconds total.
+     *
+     * <h3>Separate from the perf flow because it is a different question</h3>
+     *
+     * <p>{@code perfflow} measures OPENING a class — the picker, the read, the first layout — so it has to
+     * go through the picker and it takes twenty seconds to reach a settled document. Every hover
+     * measurement then costs a full run of that, which made hovering the slowest thing to iterate on and
+     * the last thing anybody looked at.</p>
+     *
+     * <p>This one skips all of it: the class is opened directly, the pointer rests on two symbols, and the
+     * run is over. Nothing here measures the open, and it should not — that is the other flow's job.</p>
+     */
+    private static final boolean HOVER_FLOW = Boolean.getBoolean("crystalgui.harness.hoverflow");
+
+    /** Opened at startup, without the picker. Its own source is bundled, so its symbols quote real code. */
+    private static final String HOVER_SUBJECT = "library://com.crystalgui.render.CgUiPaintContext";
+
+    private static final double FIRST_HOVER_AT = 5.0;
+    private static final double SECOND_HOVER_AT = 7.0;
+    private static final double HOVER_FLOW_RUN_FOR = 10.0;
+
+    /** Two names in {@link #HOVER_SUBJECT}, both from an attached-source jar so both quote a declaration. */
+    private static final List<String> FAST_HOVER_TARGETS = List.of("CgFrameBuffer", "CgTexture2D");
+
+    private boolean hoverSubjectOpened;
+    private int fastHovered;
+
+    /** Long enough for the rest timer plus the resolve to land, per symbol. */
+    private static final double PER_SYMBOL_SECONDS = 1.6;
+
+    /**
+     * The names to rest on, in order.
+     *
+     * <p>Types from an attached-source jar, because those are the expensive ones: quoting a declaration
+     * parses the whole compilation unit it lives in, and a class whose source is NOT attached falls back
+     * to an assembled signature and costs ~400us. Hovering only the cheap kind would measure nothing.</p>
+     */
+    private static final List<String> HOVER_TARGETS =
+            List.of("CgFrameBuffer", "CgTexture2D", "CgUiPaintContext", "CgFrameBuffer");
+
+    private int hoveredSoFar;
+    private double nextHoverAt;
 
     /**
      * When a PROJECT file is opened, and when it is closed again.
@@ -319,6 +383,10 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private double elapsed;
 
     private void advanceFlow() {
+        if (HOVER_FLOW) {
+            advanceHoverFlow();
+            return;
+        }
         if (stage == Stage.STARTUP && elapsed >= OPEN_PICKER_AT) {
             long timed = FrameProfile.enter("FLOW open Go to File");
             picker = GoToFile.open(uiWindow, editor.workbench());
@@ -388,7 +456,82 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             return;
         }
 
+        if (stage == Stage.HOVERING && elapsed >= HOVER_SYMBOLS_AT) {
+            enterStage(Stage.DOC_HOVER, "resting on symbols to open the documentation popup");
+            nextHoverAt = elapsed;
+            return;
+        }
+
+        if (stage == Stage.DOC_HOVER) {
+            if (elapsed >= nextHoverAt && hoveredSoFar < HOVER_TARGETS.size()) {
+                hoverNextSymbol();
+                nextHoverAt = elapsed + PER_SYMBOL_SECONDS;
+            }
+            // AND NOTHING ELSE. The pointer must be left alone between symbols -- a move is what resets
+            // the rest timer, so sweeping here would guarantee no popup ever opens.
+            return;
+        }
+
         if (stage == Stage.HOVERING) sweepPointer();
+    }
+
+    /**
+     * The fast flow: open one class, then rest on two symbols. @see #HOVER_FLOW
+     *
+     * <p>The subject is opened as soon as the workspace answers rather than on a clock, because the open
+     * is not what is being measured and waiting a fixed time for it would only make the run longer.</p>
+     */
+    private void advanceHoverFlow() {
+        if (!hoverSubjectOpened && workspace.isConnected()) {
+            hoverSubjectOpened = true;
+            long timed = FrameProfile.enter("FLOW open " + HOVER_SUBJECT);
+            editor.workbench().openResource(Resource.parse(HOVER_SUBJECT), null);
+            FrameProfile.leave(timed, "FLOW open the hover subject");
+        }
+        double due = fastHovered == 0 ? FIRST_HOVER_AT : SECOND_HOVER_AT;
+        if (fastHovered < FAST_HOVER_TARGETS.size() && elapsed >= due) {
+            hoverSymbol(FAST_HOVER_TARGETS.get(fastHovered++));
+        }
+        // AND THE POINTER IS LEFT ALONE. A move is what resets the rest timer, so anything that nudges it
+        // between symbols guarantees no popup ever opens -- which is exactly why the sweeping flow never
+        // produced one.
+    }
+
+    /**
+     * Rests the pointer on the next target name, by document offset.
+     *
+     * <p>The last entry is deliberately a REPEAT of the first: an attached unit is parsed once and cached,
+     * so the pair is what separates "this type costs 150ms" from "the first hover of a session does".</p>
+     */
+    private void hoverNextSymbol() {
+        // BY SELECTOR, not `activeEditor()`, which answers only for a PROJECT document -- and what this
+        // flow opens is a `library://` viewer, so it answered null and the whole hover stage did nothing.
+        // The class is what a viewer and a file editor share.
+        UIElement found = uiWindow.ui.rootElement.querySelector("texteditor.__file-editor__");
+        if (!(found instanceof TextEditor open)) {
+            FrameProfile.note("FLOW no file editor on screen to hover in");
+            hoveredSoFar = HOVER_TARGETS.size();
+            return;
+        }
+        hoverSymbol(HOVER_TARGETS.get(hoveredSoFar++));
+    }
+
+    /** Rests the pointer on the first occurrence of {@code name}, by offset rather than by pixel. */
+    private void hoverSymbol(String name) {
+        UIElement found = uiWindow.ui.rootElement.querySelector("texteditor.__file-editor__");
+        if (!(found instanceof TextEditor open)) {
+            FrameProfile.note("FLOW no file editor on screen to hover in");
+            return;
+        }
+        String text = open.getText();
+        int at = text.indexOf(name);
+        if (at < 0) {
+            FrameProfile.note("FLOW '" + name + "' is not in this document");
+            return;
+        }
+        // ONE PAST THE START, so the word lookup lands inside the identifier rather than on its boundary.
+        FrameProfile.note("FLOW resting on '" + name + "' at " + at);
+        open.hoverPointerForTest(at + 1);
     }
 
     /** Closes whatever the active group is showing, through the same call its close button makes. */
@@ -696,6 +839,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     public boolean isRunning() {
         // The scripted run ends by itself; a hand-driven one never does. A measurement nobody has to
         // close is one that can be run from a script, which is the whole difference being bought here.
+        if (HOVER_FLOW) return elapsed < HOVER_FLOW_RUN_FOR;
         return !flowEnabled || elapsed < RUN_FOR;
     }
 
