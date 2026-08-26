@@ -17,6 +17,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiGalleryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiScrollerScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSlotScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSliderScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTabViewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiWorkspaceScene;
@@ -349,6 +350,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiCheckboxScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-slot")
+                .description("CrystalGUI ItemSlot/FluidSlot: the native-content seam driven by a stand-in fixed-function renderer -- scratch target, depth, composite orientation, fill geometry, clipping, layer FBO, and the UNSUPPORTED face (press U)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiSlotScene()
         );
 
         reg.register(
