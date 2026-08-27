@@ -21,6 +21,7 @@ import com.crystalgui.ui.elements.UIText;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.Resource;
 import com.crystalgui.ui.elements.dock.DockArea;
+import com.crystalgui.text.syntax.SyntaxToken;
 import com.crystalgui.ui.elements.editor.CompletionSession;
 import com.crystalgui.ui.elements.editor.TextEditor;
 import com.crystalgui.ui.elements.dock.DockPanelDescriptor;
@@ -443,7 +444,17 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      * first to have typed a receiver. Each keystroke still gets its own span, so the dot's cost is read
      * off its own line and never averaged with the letters around it.</p>
      */
-    private static final String COMPLETE_TEXT = "CgUiPaintContext.";
+    private static final String COMPLETE_TEXT = "CgUi";
+
+    /**
+     * How long to wait after the prefix before ACCEPTING the row, and after that before reading colours.
+     *
+     * <p>The list has to have arrived for Enter to accept anything, and the analysis has to have landed
+     * for the colours to be the ones the editor settles on. Both are debounced; a shorter wait would
+     * report whatever was on screen mid-flight and call it the answer.</p>
+     */
+    private static final double ACCEPT_AFTER = 1.2;
+    private static final double READ_COLOURS_AFTER = 2.0;
 
     /**
      * What gets typed into the document.
@@ -559,15 +570,10 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
 
         if (stage == Stage.PROJECT_OPEN && elapsed >= stageEndsAt) {
-            enterStage(Stage.EDITING, "typing into the open document", EDIT_FOR);
-            return;
-        }
-
-        if (stage == Stage.EDITING) {
-            if (elapsed < stageEndsAt) {
-                typeIntoDocument();
-                return;
-            }
+            // COMPLETION FIRST, ON UNTOUCHED CODE. The editing gesture types prose at the same anchor, and
+            // a completion asked in the middle of it is asked about something no author would write --
+            // the first run of this reported a row reading `CgUiSvgthe quick brown fox jumps over...`,
+            // whose colours say nothing about either gesture.
             enterStage(Stage.COMPLETING, "driving a completion", COMPLETE_FOR);
             return;
         }
@@ -575,6 +581,15 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         if (stage == Stage.COMPLETING) {
             if (elapsed < stageEndsAt) {
                 typeCompletion();
+                return;
+            }
+            enterStage(Stage.EDITING, "typing into the open document", EDIT_FOR);
+            return;
+        }
+
+        if (stage == Stage.EDITING) {
+            if (elapsed < stageEndsAt) {
+                typeIntoDocument();
                 return;
             }
             // THROUGH THE DOCK, the way the tab's own close button does -- `DockArea.closePanel`, which
@@ -749,9 +764,28 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             return;
         }
         if (elapsed < nextCompleteAt) return;
-        nextCompleteAt = elapsed + COMPLETE_INTERVAL;
         int at = completeStep - 1;
-        if (at >= COMPLETE_TEXT.length()) return;
+        // THE PREFIX IS IN. Accept the highlighted row, then read what the row ends up coloured with --
+        // which is the reported bug: the letters typed by hand keep the colour they had while they were
+        // an unresolvable name of their own, and the inserted remainder gets the right one.
+        if (at == COMPLETE_TEXT.length()) {
+            if (elapsed < nextCompleteAt + ACCEPT_AFTER) return;
+            completeStep++;
+            nextCompleteAt = elapsed;
+            FrameProfile.note("FLOW accepting: " + completionState());
+            reportRowColours("BEFORE");
+            long accepted = FrameProfile.enter("FLOW completion ACCEPT (Enter)");
+            press('\n', CgKeyCodes.KEY_RETURN);
+            FrameProfile.leave(accepted, "FLOW completion ACCEPT (Enter)");
+            return;
+        }
+        if (at > COMPLETE_TEXT.length()) {
+            if (colourRead || elapsed < nextCompleteAt + READ_COLOURS_AFTER) return;
+            colourRead = true;
+            reportRowColours("AFTER ");
+            return;
+        }
+        nextCompleteAt = elapsed + COMPLETE_INTERVAL;
         char next = COMPLETE_TEXT.charAt(at);
         completeStep++;
         // NAMED FOR WHAT IT IS, so the two halves are legible in the log without counting characters.
@@ -793,6 +827,40 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         CompletionSession session = open == null ? null : open.completionSession();
         if (session == null) return "no session";
         return session.isClosed() ? "closed" : session.visibleRows().size() + " rows";
+    }
+
+    private boolean colourRead;
+
+    /**
+     * Prints the caret row's text and every token colouring it.
+     *
+     * <p>The row cache is what decides a character's colour and it cannot be read off the screen — two
+     * producers write into it and a semantic token replaces a grammar one where they overlap, so a stale
+     * entry looks exactly like a correct colour on the wrong word.</p>
+     */
+    private void reportRowColours(String when) {
+        TextEditor open = editor.workbench().activeEditor();
+        if (open == null) {
+            FrameProfile.note("FLOW no editor to read colours from");
+            return;
+        }
+        int row = open.buffer().offsetToPoint(open.getCaret()).row();
+        String text = open.buffer().line(row);
+        System.out.println("[colours] " + when + " row " + row + " caret=" + open.getCaret()
+                + " lines=" + open.buffer().lineCount() + " = \"" + text + "\"");
+        // THE TOP OF THE FILE, because accepting an unimported type also writes an import --
+        // which moves every row below it, and is the likeliest reason a row's cached colours
+        // stop describing the row they are filed under.
+        for (int head = 0; head < 6 && head < open.buffer().lineCount(); head++) {
+            System.out.println("[colours] " + when + "   head " + head + ": "
+                    + open.buffer().line(head));
+        }
+        for (SyntaxToken token : open.rowSyntaxForTest(row)) {
+            int from = Math.max(0, Math.min(token.start(), text.length()));
+            int to = Math.max(from, Math.min(token.end(), text.length()));
+            System.out.println("[colours]   " + when + "   [" + token.start() + "," + token.end() + ") "
+                    + token.name() + "  \"" + text.substring(from, to) + "\"");
+        }
     }
 
     private int completeStep;
