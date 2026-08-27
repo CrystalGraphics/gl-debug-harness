@@ -269,12 +269,18 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private static final double ACCEPT_AT = 8.0;
 
     /**
-     * When the run ends by itself.
+     * The BACKSTOP, not the schedule — the run ends when the last stage settles. @see #isRunning
      *
-     * <p>Long enough after the accept for the frame rate to come back — the summary's whole claim is that
-     * a stall belongs to one gesture, which is only true if the run outlives it.</p>
+     * <p>It used to be the schedule, and that is a second statement of how long the flow is: the flow
+     * itself says so by advancing, and a number beside it can only ever agree or go stale. It had already
+     * gone stale, and silently — at {@code 22.0} it looked generous while the last two gestures were
+     * scheduled for 14 and 17 seconds and had stopped firing at all, so it stopped a flow that had been
+     * over since second thirteen and reported nothing missing.</p>
+     *
+     * <p>Comfortably above the whole chain, so reaching it means a stage stopped advancing rather than
+     * that the run was cut short — which is the only thing a backstop should ever mean.</p>
      */
-    private static final double RUN_FOR = 22.0;
+    private static final double RUN_FOR = 35.0;
 
     private enum Stage {
         /** Everything up to the picker: the editor built, the project listed, the dock settling. */
@@ -289,8 +295,12 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         HOVERING,
         /** Parked on one symbol after another, long enough for each to open its popup. @see #hoverNextSymbol */
         DOC_HOVER,
+        /** The open document is being scrolled, a step per frame. @see #scrollDocument */
+        SCROLLING,
         /** A PROJECT file is open beside the viewer, settling before it is closed. */
         PROJECT_OPEN,
+        /** Characters are going into that document, one per frame. @see #typeIntoDocument */
+        EDITING,
         /** The tab has been closed; whatever closing costs lands in this stage's worst frame. */
         CLOSED
     }
@@ -370,10 +380,45 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      * <p>{@code DocShowcase.java} is the largest thing the seeded workspace has (22KB) and carries real
      * language services, which is what makes its close representative.</p>
      */
-    private static final double OPEN_PROJECT_AT = 14.0;
-    private static final double CLOSE_AT = 17.0;
+    /**
+     * How long a stage that is only settling is held for, before the next gesture.
+     *
+     * <h3>A DURATION, and the two before it used to be absolute clocks</h3>
+     *
+     * <p>They were {@code OPEN_PROJECT_AT = 14.0} and {@code CLOSE_AT = 17.0}, and both were guarded on
+     * {@code stage == HOVERING} — so the two of them raced whichever other stage also left {@code
+     * HOVERING}. Adding the documentation-hover stage at {@code t=13.0} won that race, and from then on
+     * nothing was ever in {@code HOVERING} at 14 seconds: <b>opening a project file and closing a tab
+     * silently stopped happening</b>, in the very next commit after the one that added them to measure a
+     * close. Neither the run nor the summary said so — a stage that never runs files no worst frame, and
+     * the summary prints only the stages it has, so the two rows were simply absent from a table nobody
+     * counts the rows of.</p>
+     *
+     * <p>So the tail is a CHAIN: each stage names its successor and holds for a duration from the moment
+     * it was entered. Inserting one now shifts everything after it instead of orphaning it, and the run
+     * ends when the last stage does rather than at a clock that has to be remembered to keep up.</p>
+     */
+    private static final double SETTLE_FOR = 3.0;
 
-    /** The project file opened and closed to measure a close. @see #OPEN_PROJECT_AT */
+    /** How long the document is scrolled for. @see #scrollDocument */
+    private static final double SCROLL_FOR = 2.5;
+
+    /** How long characters go into the document for. @see #typeIntoDocument */
+    private static final double EDIT_FOR = 2.5;
+
+    /**
+     * What gets typed into the document.
+     *
+     * <h3>Letters and spaces, and deliberately nothing that opens a popup</h3>
+     *
+     * <p>A {@code .} would summon the completion list, which is a large cost of its own and a different
+     * question — the one being asked here is what an ORDINARY keystroke costs. Word-shaped text also
+     * keeps the tokenizer doing real work: a run of one repeated character re-lexes to the same token
+     * every time and would flatter whatever caches sit behind it.</p>
+     */
+    private static final String EDIT_TEXT = "the quick brown fox jumps over the lazy dog ";
+
+    /** The project file opened and closed to measure a close. @see #SETTLE_FOR */
     private static final String CLOSE_SUBJECT = "src/DocShowcase.java";
 
     private Stage stage = Stage.STARTUP;
@@ -437,25 +482,6 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             return;
         }
 
-        if (stage == Stage.HOVERING && elapsed >= OPEN_PROJECT_AT) {
-            long timed = FrameProfile.enter("FLOW open " + CLOSE_SUBJECT);
-            editor.workbench().openFile(CgPath.of(HarnessWorkspace.PROJECT_ID, CLOSE_SUBJECT));
-            FrameProfile.leave(timed, "FLOW open a project file");
-            enterStage(Stage.PROJECT_OPEN, "opened " + CLOSE_SUBJECT);
-            return;
-        }
-
-        if (stage == Stage.PROJECT_OPEN && elapsed >= CLOSE_AT) {
-            // THROUGH THE DOCK, the way the tab's own close button does -- `DockArea.closePanel`, which
-            // is what `Tab.onCloseRequested` is wired to. Reaching past it to the workbench would measure
-            // a path a user cannot take and would skip the layout collapse and the rebuild.
-            long timed = FrameProfile.enter("FLOW close the open tab");
-            closeOpenTab();
-            FrameProfile.leave(timed, "FLOW close the open tab");
-            enterStage(Stage.CLOSED, "closed the tab");
-            return;
-        }
-
         if (stage == Stage.HOVERING && elapsed >= HOVER_SYMBOLS_AT) {
             enterStage(Stage.DOC_HOVER, "resting on symbols to open the documentation popup");
             nextHoverAt = elapsed;
@@ -463,16 +489,189 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
 
         if (stage == Stage.DOC_HOVER) {
-            if (elapsed >= nextHoverAt && hoveredSoFar < HOVER_TARGETS.size()) {
-                hoverNextSymbol();
-                nextHoverAt = elapsed + PER_SYMBOL_SECONDS;
+            if (hoveredSoFar < HOVER_TARGETS.size()) {
+                if (elapsed >= nextHoverAt) {
+                    hoverNextSymbol();
+                    nextHoverAt = elapsed + PER_SYMBOL_SECONDS;
+                }
+                // AND NOTHING ELSE while symbols remain. The pointer must be left alone between them --
+                // a move is what resets the rest timer, so sweeping here would guarantee no popup opens.
+                return;
             }
-            // AND NOTHING ELSE. The pointer must be left alone between symbols -- a move is what resets
-            // the rest timer, so sweeping here would guarantee no popup ever opens.
+            // EXHAUSTED, so this stage is over. It used to have no exit at all, which is what made it a
+            // dead end for the two gestures that came after it. @see #SETTLE_FOR
+            if (elapsed >= nextHoverAt) {
+                parkPointer();
+                enterStage(Stage.SCROLLING, "scrolling the open document", SCROLL_FOR);
+            }
+            return;
+        }
+
+        if (stage == Stage.SCROLLING) {
+            if (elapsed < stageEndsAt) {
+                scrollDocument();
+                return;
+            }
+            long timed = FrameProfile.enter("FLOW open " + CLOSE_SUBJECT);
+            editor.workbench().openFile(CgPath.of(HarnessWorkspace.PROJECT_ID, CLOSE_SUBJECT));
+            FrameProfile.leave(timed, "FLOW open a project file");
+            enterStage(Stage.PROJECT_OPEN, "opened " + CLOSE_SUBJECT, SETTLE_FOR);
+            return;
+        }
+
+        if (stage == Stage.PROJECT_OPEN && elapsed >= stageEndsAt) {
+            enterStage(Stage.EDITING, "typing into the open document", EDIT_FOR);
+            return;
+        }
+
+        if (stage == Stage.EDITING) {
+            if (elapsed < stageEndsAt) {
+                typeIntoDocument();
+                return;
+            }
+            // THROUGH THE DOCK, the way the tab's own close button does -- `DockArea.closePanel`, which
+            // is what `Tab.onCloseRequested` is wired to. Reaching past it to the workbench would measure
+            // a path a user cannot take and would skip the layout collapse and the rebuild.
+            long timed = FrameProfile.enter("FLOW close the open tab");
+            closeOpenTab();
+            FrameProfile.leave(timed, "FLOW close the open tab");
+            enterStage(Stage.CLOSED, "closed the tab", SETTLE_FOR);
             return;
         }
 
         if (stage == Stage.HOVERING) sweepPointer();
+    }
+
+    /**
+     * Scrolls the open document by a step, once per frame.
+     *
+     * <h3>The scroll POSITION rather than a wheel event, and the distinction is worth stating</h3>
+     *
+     * <p>What a scroll costs per frame is not the wheel: it is everything that follows the offset moving
+     * — rows realised and recycled, {@code ensureRowSyntax} colouring the ones that arrived,
+     * {@code measureWidestRealisedLine} re-scanning for the horizontal extent, the error stripe re-placing
+     * its marks. Driving the offset reaches all of that. The wheel's own half — a hit test and a listener
+     * — is already measured every frame of the sweep above, so going through it here would add a
+     * coordinate conversion that can silently miss the editor and measure nothing.</p>
+     *
+     * <p><b>Immediate, not smooth.</b> {@code setScrollTop} may animate, and an animation retargeted every
+     * frame would measure the animator rather than the scroll. A new position per frame is also what a
+     * trackpad or a drag actually produces.</p>
+     *
+     * <p>It SAYS when it did nothing, which is the lesson the orphaned stages taught: a scripted gesture
+     * that quietly no-ops is worse than one that fails, because the summary still prints a row for it.</p>
+     */
+    private void scrollDocument() {
+        UIElement found = uiWindow.ui.rootElement.querySelector("texteditor.__file-editor__");
+        if (!(found instanceof TextEditor open)) {
+            if (scrollStep == 0) FrameProfile.note("FLOW no file editor on screen to scroll");
+            scrollStep++;
+            return;
+        }
+        float max = open.getMaxScrollTop();
+        if (max <= 0f) {
+            if (scrollStep == 0) FrameProfile.note("FLOW the open document does not scroll");
+            scrollStep++;
+            return;
+        }
+        // DOWN THEN BACK UP, so the pass realises rows in both directions -- a one-way scroll measures
+        // only the arriving edge, and recycling a row that is being scrolled back onto is the other half.
+        scrollStep++;
+        float span = max * 2f;
+        float at = (scrollStep * SCROLL_PIXELS_PER_FRAME) % span;
+        open.setScrollImmediate(0f, at <= max ? at : span - at);
+    }
+
+    /** Fast enough to cross a long document in the time the stage is held, slow enough to realise rows. */
+    private static final float SCROLL_PIXELS_PER_FRAME = 24f;
+
+    private int scrollStep;
+
+    /**
+     * Types one character into the open document, per frame, through the real input path.
+     *
+     * <h3>Why this is not the {@code TYPING} stage, which also types</h3>
+     *
+     * <p>That one types into <b>Go to File</b> — a {@code TextField} in a popup, over a search index.
+     * This one types into the editor, and they share nothing that costs anything: a document keystroke
+     * runs an {@code Edit} through the rope, remaps every tracked range, reprojects, re-tokenizes the
+     * touched rows and re-announces to the language services. The flow measured the picker and never the
+     * editor, so "a keystroke costs 60ms" was a report the harness had no way to confirm or deny.</p>
+     *
+     * <h3>It must be a PROJECT document, which is why it runs after the project file is open</h3>
+     *
+     * <p>What the earlier stages open is a {@code library://} viewer, and a viewer is read-only: every
+     * keystroke into it would be refused by {@code applyEdit}'s first line and measure the cost of
+     * declining to edit. {@code Workbench.activeEditor} answers only for a project document, which makes
+     * it exactly the right accessor here and the wrong one for the hover stage above.</p>
+     *
+     * <p>Each keystroke gets its own span, so the report is per-keystroke rather than per-stage. A worst
+     * frame tells you a keystroke was expensive; a span per keystroke tells you whether it is the FIRST
+     * one that is expensive — a debounce expiring, an analysis landing — or every one of them, and those
+     * have nothing in common but the symptom.</p>
+     */
+    private void typeIntoDocument() {
+        TextEditor open = editor.workbench().activeEditor();
+        if (open == null) {
+            if (editStep == 0) FrameProfile.note("FLOW no project editor to type into");
+            editStep++;
+            return;
+        }
+        if (editStep == 0) {
+            if (open.isReadOnly()) {
+                FrameProfile.note("FLOW the open document is read-only -- nothing will be typed");
+                editStep++;
+                return;
+            }
+            // FOCUSED FIRST, or the keystrokes reach whatever the open left focused and the stage
+            // measures nothing. Through the input handler, which is what a click would do.
+            uiWindow.getInputHandler().requestFocus(open);
+            // MID-VIEWPORT rather than offset 0. Typing at the very start shifts every offset in the
+            // document, so it is the worst case for range remapping rather than the ordinary one -- and
+            // if the two differ, that is a finding rather than a fixture detail.
+            open.setCaret(Math.min(open.getText().length(), CARET_AT));
+            lengthBeforeTyping = open.getText().length();
+        }
+        char next = EDIT_TEXT.charAt(editStep % EDIT_TEXT.length());
+        editStep++;
+        String label = "FLOW keystroke '" + next + "' into the document (#" + editStep + ")";
+        long timed = FrameProfile.enter(label);
+        press(next, keyFor(next));
+        FrameProfile.leave(timed, label);
+        // AND IT SAYS WHEN NOTHING WENT IN. A refused keystroke costs almost nothing and would report as
+        // a beautifully fast stage -- the most misleading answer a measurement can give.
+        if (editStep == 2 && open.getText().length() == lengthBeforeTyping) {
+            FrameProfile.note("FLOW the document did not change -- keystrokes are not reaching it");
+        }
+    }
+
+    /** Far enough in to be an ordinary edit rather than a whole-document remap. @see #typeIntoDocument */
+    private static final int CARET_AT = 400;
+
+    private int editStep;
+    private int lengthBeforeTyping;
+
+    /**
+     * Moves the pointer off the document, so the stages after the hover measure only themselves.
+     *
+     * <h3>A resting pointer is a live gesture, and it outlives the stage that set it up</h3>
+     *
+     * <p>{@code DOC_HOVER} leaves the pointer parked on a symbol, deliberately — that is how a rest timer
+     * is made to fire. Nothing then moved it, so every later stage ran with a loaded hover: opening a
+     * project file put a NEW document under that same point, which resolved a symbol and built a
+     * documentation popup, and the worst frame of the close came out as <b>31.8ms of
+     * {@code style:drainDirtyMatch}, 40 invalidations of it raised by {@code Popover.applyOpenState}</b>.
+     * A real close is a third of that. The number was not noise — it was a correctly measured frame of
+     * the wrong thing, filed under the gesture that happened to be current.</p>
+     *
+     * <p>The corner rather than a computed empty spot: it is outside every panel by construction, needs no
+     * knowledge of the layout, and cannot drift when the workbench is rearranged.</p>
+     */
+    private void parkPointer() {
+        uiWindow.getInputHandler().consumeMouseEvent(new CgSystemInput.Mouse.Event(
+                1, 1, 1 - lastSweepX, 1 - lastSweepY, CgMouseCodes.NONE, false, 0f, -1L));
+        lastSweepX = 1;
+        lastSweepY = 1;
     }
 
     /**
@@ -604,22 +803,39 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     }
 
     private void enterStage(Stage next, String what) {
+        // NO DEADLINE: the stage decides for itself when it is done -- typing runs out of characters,
+        // doc-hover runs out of symbols. Far enough ahead that a stage which forgets to advance is caught
+        // by the backstop rather than hanging the run. @see #isRunning
+        enterStage(next, what, Double.MAX_VALUE);
+    }
+
+    /** @param holdSeconds how long this stage lasts, from now. @see #SETTLE_FOR */
+    private void enterStage(Stage next, String what, double holdSeconds) {
         recordStage();
         stage = next;
+        stageEndsAt = holdSeconds == Double.MAX_VALUE ? Double.MAX_VALUE : elapsed + holdSeconds;
         stageWorstMs = 0f;
         stageWorstPaintMs = 0f;
         stageWorstOverlayMs = 0f;
         stageFrames = 0;
+        stagePaintSumMs = 0f;
+        stagePaintFrames = 0;
+        stageOverBudget = 0;
         System.out.println(String.format("[flow] t=%.2fs  %s", elapsed, what));
         FrameProfile.note("FLOW " + what);
     }
+
+    /** When the current stage hands over, or {@code MAX_VALUE} for one that ends on its own terms. */
+    private double stageEndsAt = Double.MAX_VALUE;
 
     private final Map<Stage, Worst> worstPerStage = new EnumMap<>(Stage.class);
 
     /** Files the stage that is ending under its own name, so the summary can be printed at the end. */
     private void recordStage() {
         if (stageFrames > 0) {
-            worstPerStage.put(stage, new Worst(stageWorstMs, stageWorstPaintMs, stageWorstOverlayMs));
+            worstPerStage.put(stage, new Worst(stageWorstMs, stageWorstPaintMs, stageWorstOverlayMs,
+                    stagePaintFrames == 0 ? 0f : stagePaintSumMs / stagePaintFrames,
+                    stageOverBudget, stagePaintFrames));
         }
     }
 
@@ -630,7 +846,8 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      * @param paintMs   what {@code paintFrame()} cost on the frame thread
      * @param overlayMs what the counter itself cost, so the probe can be ruled out
      */
-    private record Worst(float deltaMs, float paintMs, float overlayMs) {
+    private record Worst(float deltaMs, float paintMs, float overlayMs,
+                         float meanPaintMs, int overBudget, int frames) {
     }
 
     /**
@@ -643,13 +860,15 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      */
     private void printFlowSummary() {
         recordStage();
-        System.out.println("[flow] ---- worst frame per gesture -----------------------------");
-        System.out.println("[flow]            delta    paint  overlay");
+        System.out.println("[flow] ---- per gesture ------------------------------------------");
+        System.out.println("[flow]            delta    paint  overlay     mean   over/frames");
         for (Stage each : Stage.values()) {
             Worst worst = worstPerStage.get(each);
             if (worst == null) continue;
-            System.out.println(String.format("[flow]   %-8s %6.1f   %6.1f   %6.1f ms   (%s)",
-                    each, worst.deltaMs(), worst.paintMs(), worst.overlayMs(), describe(each)));
+            System.out.println(String.format(
+                    "[flow]   %-12s %6.1f   %6.1f   %6.1f   %6.2f   %4d/%-4d  (%s)",
+                    each, worst.deltaMs(), worst.paintMs(), worst.overlayMs(),
+                    worst.meanPaintMs(), worst.overBudget(), worst.frames(), describe(each)));
         }
         // SAID EVERY TIME, not left to be remembered. A delta far above its own paint is the shape of
         // something outside this process, and one run is one sample either way.
@@ -679,6 +898,11 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             case SEARCHED: return "query typed, idle -- should be back to baseline";
             case OPENED: return "Enter: the class opening";
             case HOVERING: return "pointer sweeping -- hover invalidation per frame";
+            case DOC_HOVER: return "resting on symbols -- resolve, quote, build the popup";
+            case SCROLLING: return "scrolling -- rows realised, coloured and measured";
+            case PROJECT_OPEN: return "a project file opened beside the viewer";
+            case EDITING: return "typing into the document -- one keystroke per frame";
+            case CLOSED: return "the tab closed -- dispose, collapse, rebuild";
             default: return "";
         }
     }
@@ -746,10 +970,27 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // line, and a spike that appears only in the delta is a reason to run it again before believing
         // it.
         if (stageFrames > 1) {
-            stageWorstPaintMs = Math.max(stageWorstPaintMs, paintNanos / 1_000_000f);
+            float paintMs = paintNanos / 1_000_000f;
+            stageWorstPaintMs = Math.max(stageWorstPaintMs, paintMs);
             stageWorstOverlayMs = Math.max(stageWorstOverlayMs, overlayNanos / 1_000_000f);
+            // THE MEAN AND THE COUNT, because a MAX is the noisiest statistic there is and this summary
+            // is read across runs. The same gesture on unchanged code reported 95, 132 and 569ms on three
+            // consecutive runs -- one outlier from anything else on the machine sets it, and it never
+            // comes back down. A mean over a stage's frames and "how many missed the budget" both move
+            // when the code moves and stay still when it does not, which is the whole requirement for a
+            // number you are trying to optimise against.
+            stagePaintSumMs += paintMs;
+            stagePaintFrames++;
+            if (paintMs > BUDGET_MS) stageOverBudget++;
         }
     }
+
+    /** 120Hz. What "missed the budget" means in the count beside each gesture. */
+    private static final float BUDGET_MS = 8.3f;
+
+    private float stagePaintSumMs;
+    private int stagePaintFrames;
+    private int stageOverBudget;
 
     /** What {@code uiWindow.paintFrame()} cost this frame — CPU, the same span [frame] reports. */
     private long paintNanos;
@@ -840,7 +1081,15 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // The scripted run ends by itself; a hand-driven one never does. A measurement nobody has to
         // close is one that can be run from a script, which is the whole difference being bought here.
         if (HOVER_FLOW) return elapsed < HOVER_FLOW_RUN_FOR;
-        return !flowEnabled || elapsed < RUN_FOR;
+        if (!flowEnabled) return true;
+        // WHEN THE LAST STAGE SETTLES, and RUN_FOR only as a backstop for a stage that never advances.
+        //
+        // It was RUN_FOR alone, which makes the clock a second statement of how long the flow is -- and a
+        // second statement is one that goes stale. It already had: the run stopped at 22 seconds while
+        // the last two gestures were scheduled for 14 and 17 and had stopped firing entirely, so the
+        // number said the flow was complete and covered a flow that was not.
+        if (stage == Stage.CLOSED && elapsed >= stageEndsAt) return false;
+        return elapsed < RUN_FOR;
     }
 
     @Override
