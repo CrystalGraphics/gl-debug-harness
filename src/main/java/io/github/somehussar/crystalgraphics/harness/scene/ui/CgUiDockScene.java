@@ -21,6 +21,7 @@ import com.crystalgui.ui.elements.UIText;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.Resource;
 import com.crystalgui.ui.elements.dock.DockArea;
+import com.crystalgui.ui.elements.editor.CompletionSession;
 import com.crystalgui.ui.elements.editor.TextEditor;
 import com.crystalgui.ui.elements.dock.DockPanelDescriptor;
 import com.crystalgui.ui.elements.dock.DockPanelRef;
@@ -280,7 +281,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      * <p>Comfortably above the whole chain, so reaching it means a stage stopped advancing rather than
      * that the run was cut short — which is the only thing a backstop should ever mean.</p>
      */
-    private static final double RUN_FOR = 35.0;
+    private static final double RUN_FOR = 45.0;
 
     private enum Stage {
         /** Everything up to the picker: the editor built, the project listed, the dock settling. */
@@ -301,6 +302,8 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         PROJECT_OPEN,
         /** Characters are going into that document, one per frame. @see #typeIntoDocument */
         EDITING,
+        /** A completion is being driven: a prefix filtered letter by letter, then a dot. @see #typeCompletion */
+        COMPLETING,
         /** The tab has been closed; whatever closing costs lands in this stage's worst frame. */
         CLOSED
     }
@@ -405,6 +408,23 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     /** How long characters go into the document for. @see #typeIntoDocument */
     private static final double EDIT_FOR = 2.5;
+
+    /** How long the completion gesture runs. @see #typeCompletion */
+    private static final double COMPLETE_FOR = 3.0;
+
+    /**
+     * The two completion shapes in one string, typed left to right.
+     *
+     * <p><b>{@code CgUi} is the first half</b> — a prefix that matches a great many types on this
+     * classpath, so each letter refilters a long list rather than a short one, which is the case that was
+     * reported as dropping frames. <b>The trailing dot is the second</b>: it is not a filter at all but a
+     * fresh member query against a resolved receiver, and it was reported as a 60ms frame on its own.</p>
+     *
+     * <p>One gesture rather than two because they are consecutive in real use and the second needs the
+     * first to have typed a receiver. Each keystroke still gets its own span, so the dot's cost is read
+     * off its own line and never averaged with the letters around it.</p>
+     */
+    private static final String COMPLETE_TEXT = "CgUiPaintContext.";
 
     /**
      * What gets typed into the document.
@@ -529,6 +549,15 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 typeIntoDocument();
                 return;
             }
+            enterStage(Stage.COMPLETING, "driving a completion", COMPLETE_FOR);
+            return;
+        }
+
+        if (stage == Stage.COMPLETING) {
+            if (elapsed < stageEndsAt) {
+                typeCompletion();
+                return;
+            }
             // THROUGH THE DOCK, the way the tab's own close button does -- `DockArea.closePanel`, which
             // is what `Tab.onCloseRequested` is wired to. Reaching past it to the workbench would measure
             // a path a user cannot take and would skip the layout collapse and the rebuild.
@@ -626,10 +655,10 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             // FOCUSED FIRST, or the keystrokes reach whatever the open left focused and the stage
             // measures nothing. Through the input handler, which is what a click would do.
             uiWindow.getInputHandler().requestFocus(open);
-            // MID-VIEWPORT rather than offset 0. Typing at the very start shifts every offset in the
-            // document, so it is the worst case for range remapping rather than the ordinary one -- and
-            // if the two differ, that is a finding rather than a fixture detail.
-            open.setCaret(Math.min(open.getText().length(), CARET_AT));
+            if (!caretIntoCode(open)) {
+                editStep++;
+                return;
+            }
             lengthBeforeTyping = open.getText().length();
         }
         char next = EDIT_TEXT.charAt(editStep % EDIT_TEXT.length());
@@ -645,8 +674,106 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
     }
 
-    /** Far enough in to be an ordinary edit rather than a whole-document remap. @see #typeIntoDocument */
-    private static final int CARET_AT = 400;
+    /**
+     * Where the typing gestures put the caret — <b>found in the text, not a byte offset</b>.
+     *
+     * <h3>Offset 400 was inside the fixture's javadoc, and every completion was refused</h3>
+     *
+     * <p>{@code CARET_AT = 400} looked like an ordinary "far enough in to be a real edit" constant and
+     * landed in the {@code /** … *}{@code /} block that opens {@code DocShowcase.java}. Completion
+     * declines inside a comment or a string — correctly — so the whole completion gesture measured the
+     * cost of <b>refusing</b>: seventeen keystrokes, seventeen {@code refused: the caret is in a comment
+     * or a string}, and a stage summary that looked healthy because nothing had happened.</p>
+     *
+     * <p>An anchor cannot drift into a comment when the fixture is edited, and if it ever stops matching
+     * the gesture says so instead of typing at offset zero. Same shape {@link #hoverSymbol} already uses
+     * to find what to rest on.</p>
+     */
+    private static final String CODE_ANCHOR = "this.count = count;";
+
+    /**
+     * Types {@link #COMPLETE_TEXT} one character per frame, on a line of its own.
+     *
+     * <h3>A fresh line, because the context is what the provider answers about</h3>
+     *
+     * <p>{@link #typeIntoDocument} leaves prose in the middle of a statement, and a completion asked
+     * inside that is asked about something no author would have written — so it measures a recovery path
+     * rather than the one being reported. A newline first puts the caret somewhere a completion request
+     * is an ordinary thing to make.</p>
+     *
+     * <h3>Every keystroke on its own span, and the dot is the one that matters</h3>
+     *
+     * <p>The letters refilter a list that already exists; the dot throws it away and asks for the members
+     * of a resolved type. Averaging the two would hide whichever is worse, and the report says they are
+     * different costs — "a lot of entries drops the frames a little" against "the dot alone is 60ms".</p>
+     */
+    private void typeCompletion() {
+        TextEditor open = editor.workbench().activeEditor();
+        if (open == null) {
+            if (completeStep == 0) FrameProfile.note("FLOW no project editor to complete in");
+            completeStep++;
+            return;
+        }
+        if (completeStep == 0) {
+            uiWindow.getInputHandler().requestFocus(open);
+            if (!caretIntoCode(open)) {
+                completeStep = COMPLETE_TEXT.length() + 1;
+                return;
+            }
+            // A LINE OF ITS OWN. Typed rather than inserted, so the editor takes the same path it would
+            // for a real Enter -- which is also the one gesture here that changes the line count.
+            long timed = FrameProfile.enter("FLOW newline before the completion");
+            press('\n', CgKeyCodes.KEY_RETURN);
+            FrameProfile.leave(timed, "FLOW newline before the completion");
+            completeStep++;
+            return;
+        }
+        int at = completeStep - 1;
+        if (at >= COMPLETE_TEXT.length()) return;
+        char next = COMPLETE_TEXT.charAt(at);
+        completeStep++;
+        // NAMED FOR WHAT IT IS, so the two halves are legible in the log without counting characters.
+        String what = next == '.' ? "DOT trigger" : "filter '" + next + "'";
+        String label = "FLOW completion " + what + " (" + (at + 1) + "/" + COMPLETE_TEXT.length() + ")";
+        long timed = FrameProfile.enter(label);
+        press(next, keyFor(next));
+        FrameProfile.leave(timed, label);
+        FrameProfile.note("FLOW   -> " + completionState());
+    }
+
+    /**
+     * Puts the caret at the end of {@link #CODE_ANCHOR}, or says why it could not.
+     *
+     * @return false when the anchor is gone — the caller must then do nothing at all rather than type
+     *         somewhere arbitrary, which is how the last version measured seventeen refusals
+     */
+    private boolean caretIntoCode(TextEditor open) {
+        int at = open.getText().indexOf(CODE_ANCHOR);
+        if (at < 0) {
+            FrameProfile.note("FLOW the code anchor \"" + CODE_ANCHOR + "\" is not in this document"
+                    + " -- nothing will be typed");
+            return false;
+        }
+        open.setCaret(at + CODE_ANCHOR.length());
+        return true;
+    }
+
+    /**
+     * What the completion list holds right now, for the log.
+     *
+     * <p>Read OUTSIDE the measured span, because {@code visibleRows()} builds a list and
+     * {@code EditorSuggest} says so in as many words. It still costs the frame something, which is the
+     * right trade: the alternative is the run this replaces, where every keystroke was refused and the
+     * summary reported a healthy stage because nothing had happened.</p>
+     */
+    private String completionState() {
+        TextEditor open = editor.workbench().activeEditor();
+        CompletionSession session = open == null ? null : open.completionSession();
+        if (session == null) return "no session";
+        return session.isClosed() ? "closed" : session.visibleRows().size() + " rows";
+    }
+
+    private int completeStep;
 
     private int editStep;
     private int lengthBeforeTyping;
@@ -902,6 +1029,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             case SCROLLING: return "scrolling -- rows realised, coloured and measured";
             case PROJECT_OPEN: return "a project file opened beside the viewer";
             case EDITING: return "typing into the document -- one keystroke per frame";
+            case COMPLETING: return "completion: a prefix refiltered per letter, then a dot trigger";
             case CLOSED: return "the tab closed -- dispose, collapse, rebuild";
             default: return "";
         }
