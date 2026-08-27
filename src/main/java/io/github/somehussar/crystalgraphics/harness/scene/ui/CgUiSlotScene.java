@@ -264,6 +264,11 @@ public class CgUiSlotScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
         @Override public boolean isAvailable() { return true; }
 
+        // The harness has no platform values to recognise -- there is no ItemStack here to wrap and
+        // none behind any content to hand back. Stating that unconditionally IS the implementation.
+        @Override public NativeContent wrap(Object nativeValue) { return NativeContent.EMPTY; }
+        @Override public Object unwrap(NativeContent content) { return null; }
+
         @Override
         public NativeContent resolve(String descriptor) {
             // Parsed through the core grammar, exactly as Mc1710NativeContentService does -- this is
