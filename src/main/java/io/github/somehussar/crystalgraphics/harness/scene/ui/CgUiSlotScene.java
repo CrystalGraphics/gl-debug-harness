@@ -14,6 +14,7 @@ import com.crystalgui.ui.elements.slot.FluidSlot;
 import com.crystalgui.ui.elements.slot.ItemSlot;
 import com.crystalgui.ui.elements.slot.NativeContent;
 import com.crystalgui.ui.elements.slot.NativeContentService;
+import com.crystalgui.ui.elements.slot.NativeDescriptors;
 import com.crystalgui.ui.elements.slot.NativeProfile;
 import com.crystalgui.ui.elements.slot.NativeSurface;
 import com.crystalgui.ui.input.FocusPolicy;
@@ -225,12 +226,21 @@ public class CgUiSlotScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     // ── The stand-in ────────────────────────────────────────────────────────
 
-    private static NativeContent item(String id) {
-        return content("item:" + id, NativeProfile.MODEL, 1f);
+    /**
+     * Fixtures speak the real grammar. The ids are namespaced (`harness:small`) and the strings are
+     * formatted by {@link NativeDescriptors}, because the whole point of the stand-in is to be a second
+     * independent implementation of the cross-version contract -- a fixture the real grammar refuses
+     * would be exercising a dialect no loader speaks.
+     */
+    private static NativeContent item(String path) {
+        return content(NativeDescriptors.item("harness:" + path, 0, 1), NativeProfile.MODEL, 1f);
     }
 
-    private static NativeContent fluid(String id, float fill) {
-        return content("fluid:" + id, NativeProfile.FLAT, fill);
+    private static NativeContent fluid(String path, float fill) {
+        // The descriptor's amount/capacity and the handle's fillFraction are the same fact spelled
+        // twice; deriving one from the other keeps them from disagreeing.
+        int amount = Math.round(Math.max(0f, Math.min(1f, fill)) * 1000f);
+        return content(NativeDescriptors.fluid("harness:" + path, amount, 1000), NativeProfile.FLAT, fill);
     }
 
     private static NativeContent content(String descriptor, NativeProfile profile, float fill) {
@@ -256,9 +266,19 @@ public class CgUiSlotScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
         @Override
         public NativeContent resolve(String descriptor) {
-            if (descriptor == null || descriptor.isEmpty()) return NativeContent.EMPTY;
-            return content(descriptor,
-                    descriptor.startsWith("fluid:") ? NativeProfile.FLAT : NativeProfile.MODEL, 1f);
+            // Parsed through the core grammar, exactly as Mc1710NativeContentService does -- this is
+            // the drift detector: a loader spelling a descriptor its own way stops resolving HERE, in
+            // a scene anyone can run in seconds, rather than on some other version's client.
+            if (NativeDescriptors.parseSlot(descriptor) != null
+                    || NativeDescriptors.parseItem(descriptor) != null) {
+                return content(descriptor, NativeProfile.MODEL, 1f);
+            }
+            NativeDescriptors.FluidRef fluid = NativeDescriptors.parseFluid(descriptor);
+            if (fluid != null) {
+                return content(descriptor, NativeProfile.FLAT,
+                        Math.min(1f, fluid.amount() / (float) fluid.capacity()));
+            }
+            return NativeContent.EMPTY;
         }
 
         @Override
