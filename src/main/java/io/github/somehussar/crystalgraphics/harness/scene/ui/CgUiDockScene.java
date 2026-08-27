@@ -410,7 +410,26 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private static final double EDIT_FOR = 2.5;
 
     /** How long the completion gesture runs. @see #typeCompletion */
-    private static final double COMPLETE_FOR = 3.0;
+    private static final double COMPLETE_FOR = 4.5;
+
+    /**
+     * Seconds between completion keystrokes — <b>a typing speed, not a frame</b>.
+     *
+     * <h3>One character per frame is ~60 a second, and no query can answer that fast</h3>
+     *
+     * <p>Every other gesture here types once per frame, which is right for them: they measure what a
+     * keystroke costs, and the faster they arrive the more of them get measured. It is wrong the moment
+     * the thing being measured answers ASYNCHRONOUSLY. A completion query takes tens of milliseconds, and
+     * the session supersedes an outstanding request on every keystroke — so at one per frame not a single
+     * answer ever landed, and the popup truthfully reported zero rows for the whole gesture. The flow was
+     * measuring a list that never arrived.</p>
+     *
+     * <p>120ms is about eight characters a second — brisk human typing, and slow enough that an answer
+     * has a chance to come back between two of them, which is the case worth measuring.</p>
+     */
+    private static final double COMPLETE_INTERVAL = 0.12;
+
+    private double nextCompleteAt;
 
     /**
      * The two completion shapes in one string, typed left to right.
@@ -726,8 +745,11 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             press('\n', CgKeyCodes.KEY_RETURN);
             FrameProfile.leave(timed, "FLOW newline before the completion");
             completeStep++;
+            nextCompleteAt = elapsed + COMPLETE_INTERVAL;
             return;
         }
+        if (elapsed < nextCompleteAt) return;
+        nextCompleteAt = elapsed + COMPLETE_INTERVAL;
         int at = completeStep - 1;
         if (at >= COMPLETE_TEXT.length()) return;
         char next = COMPLETE_TEXT.charAt(at);
