@@ -301,6 +301,8 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         SCROLLING,
         /** A PROJECT file is open beside the viewer, settling before it is closed. */
         PROJECT_OPEN,
+        /** A JAVASCRIPT file is open, settling. The counterpart measurement. @see #JS_SUBJECT */
+        JS_OPEN,
         /** Characters are going into that document, one per frame. @see #typeIntoDocument */
         EDITING,
         /** A completion is being driven: a prefix filtered letter by letter, then a dot. @see #typeCompletion */
@@ -471,6 +473,26 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     /** The project file opened and closed to measure a close. @see #SETTLE_FOR */
     private static final String CLOSE_SUBJECT = "src/DocShowcase.java";
 
+    /**
+     * Its JavaScript counterpart, opened straight afterwards.
+     *
+     * <p>The same file in the other language, so the two timings differ by the LANGUAGE and by nothing
+     * else -- same workspace, same window, same frame loop, one run. The report is that a first
+     * JavaScript file takes about twice as long to finish colouring as a first Java one, which is a
+     * comparison and therefore needs both halves measured the same way.</p>
+     *
+     * <p>Held longer than the others: what is being waited for is the semantic pass landing, not layout.</p>
+     */
+    private static final String JS_SUBJECT =
+            System.getProperty("crystalgui.harness.jssubject", "src/other/Import.js");
+
+    private static final double JS_SETTLE_FOR = 6.0;
+
+    /** Opened after {@link #JS_SUBJECT}, to tell a per-process warmup from a per-file one. */
+    private static final String SECOND_JS_SUBJECT = "src/main/js/util/Greeter.js";
+
+    private boolean secondJsOpened;
+
     private Stage stage = Stage.STARTUP;
     private int typed;
 
@@ -570,6 +592,29 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
 
         if (stage == Stage.PROJECT_OPEN && elapsed >= stageEndsAt) {
+            long jsTimed = FrameProfile.enter("FLOW open " + JS_SUBJECT);
+            editor.workbench().openFile(CgPath.of(HarnessWorkspace.PROJECT_ID, JS_SUBJECT));
+            FrameProfile.leave(jsTimed, "FLOW open a JavaScript file");
+            enterStage(Stage.JS_OPEN, "opened " + JS_SUBJECT, JS_SETTLE_FOR);
+            return;
+        }
+
+        if (stage == Stage.JS_OPEN && elapsed < stageEndsAt) {
+            // A SECOND, DIFFERENT JAVASCRIPT FILE, halfway through the stage.
+            //
+            // The whole question is whether the first-file cost is paid once per PROCESS or once per
+            // FILE, and one file cannot answer it: re-analysing the same document is warm by definition.
+            // Two distinct files in one run is the only shape that separates "the engine woke up" from
+            // "every JavaScript file pays this".
+            if (!secondJsOpened && elapsed >= stageEndsAt - JS_SETTLE_FOR / 2) {
+                secondJsOpened = true;
+                editor.workbench().openFile(CgPath.of(HarnessWorkspace.PROJECT_ID, SECOND_JS_SUBJECT));
+                FrameProfile.note("FLOW opened a SECOND JavaScript file: " + SECOND_JS_SUBJECT);
+            }
+            return;
+        }
+
+        if (stage == Stage.JS_OPEN && elapsed >= stageEndsAt) {
             // COMPLETION FIRST, ON UNTOUCHED CODE. The editing gesture types prose at the same anchor, and
             // a completion asked in the middle of it is asked about something no author would write --
             // the first run of this reported a row reading `CgUiSvgthe quick brown fox jumps over...`,
@@ -1118,6 +1163,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             case DOC_HOVER: return "resting on symbols -- resolve, quote, build the popup";
             case SCROLLING: return "scrolling -- rows realised, coloured and measured";
             case PROJECT_OPEN: return "a project file opened beside the viewer";
+            case JS_OPEN: return "a JavaScript file opened -- the first one of the session";
             case EDITING: return "typing into the document -- one keystroke per frame";
             case COMPLETING: return "completion: a prefix refiltered per letter, then a dot trigger";
             case CLOSED: return "the tab closed -- dispose, collapse, rebuild";
