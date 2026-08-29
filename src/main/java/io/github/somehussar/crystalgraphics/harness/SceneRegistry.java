@@ -17,6 +17,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiGalleryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiScrollerScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiShadowPartsScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSlotScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSliderScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTabViewScene;
@@ -338,6 +339,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiButtonScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-shadow-parts")
+                .description("SPIKE S2 -- a shadow-rooted Button beside the stock one under ONE stylesheet: `text { color: red }` reaches the stock label and cannot reach the shadow one, which takes its colour from ::part(label). Status line reports what focus retargets to")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiShadowPartsScene()
         );
 
         reg.register(

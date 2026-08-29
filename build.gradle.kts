@@ -31,7 +31,7 @@ dependencies {
     // scheme can separate them. Without this the editor looks plausible and cannot match any reference
     // palette, which is exactly how it went unnoticed through a round of scheme tuning.
     implementation(project(":language"))
-    implementation("dev.vfyjxf:taffy:${rootProject.properties["taffy_version"]}")
+    implementation(project(":taffy"))
 
     implementation("org.joml:joml:${rootProject.properties["jomlVersion"]}")
     implementation("com.google.code.findbugs:jsr305:3.0.2")
