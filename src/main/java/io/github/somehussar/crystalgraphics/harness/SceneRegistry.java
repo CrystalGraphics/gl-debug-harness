@@ -17,6 +17,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiGalleryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiScrollerScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiEngineParityScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiShadowPartsScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSlotScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSliderScene;
@@ -339,6 +340,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiButtonScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-engine-parity")
+                .description("M5 5.4 -- ONE fixed tree built on BOTH engines from one spec and one stylesheet: backgrounds, borders, radii, an opacity layer, a rounded clip, a square clip, a scroll offset, a transform, text. Alternates engines every 2s; writes engine_old/engine_new PNGs on frames 4 and 5, which EngineParityTest compares")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiEngineParityScene()
         );
 
         reg.register(
