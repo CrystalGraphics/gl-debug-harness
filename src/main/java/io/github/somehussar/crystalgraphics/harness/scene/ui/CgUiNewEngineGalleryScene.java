@@ -4,6 +4,13 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.style.sheet.StyleSheet;
+import com.crystalgui.widget.layout.PageStack;
+import com.crystalgui.widget.layout.SplitView;
+import com.crystalgui.widget.layout.Tab;
+import com.crystalgui.widget.layout.TabView;
+import com.crystalgui.widget.overlay.Dialog;
+import com.crystalgui.widget.overlay.DialogManager;
+import com.crystalgui.widget.overlay.InputDialog;
 import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.ui.dom.UINode;
@@ -101,11 +108,12 @@ public class CgUiNewEngineGalleryScene
      */
     private static final String SCENE_CSS = """
             #page {
-                /* flex-direction IS STATED, and on this engine it has to be. The box tree writes CSS's
-                   initials for anything unset (BoxStyle, D5.8) -- so an unset direction is `row`, where
-                   the old engine's bridge defaulted to `column`. A sheet that leaned on the old default
-                   lays out sideways here, with every section on one line and each of them zero-high,
-                   which is what "nothing is drawing" turned out to be. */
+                /* Stated rather than relied on. It USED to be load-bearing: BoxStyle wrote CSS's
+                   initials for anything unset, so an unset direction was `row` where the old bridge
+                   defaulted to `column`, and this scene laid out sideways with every section on one
+                   line and zero-high -- which is what "nothing is drawing" turned out to be. D5.8 was
+                   reversed at 6.1 and both engines answer `column` now; the declaration stays because
+                   a layout this scene depends on should not be inherited from a default. */
                 flex-direction: column;
                 width: 100%;
                 height: 100%;
@@ -137,6 +145,27 @@ public class CgUiNewEngineGalleryScene
                 flex-direction: row;
                 gap-all: 10;
                 align-items: center;
+            }
+            /* THE THREE THAT NEED A BOX TO LIVE IN. A SplitView divides what it is given and a TabView's
+               panes fill what is left, so both measure to nothing inside a content-sized column -- and
+               a dialog stage is a positioning context for absolutely placed windows, which has no
+               content to be sized by at all. Fixed heights here, not in the widgets. */
+            .stage {
+                width: 100%;
+                height: 240;
+                background-color: #1B1B1B;
+                border-radius: 4;
+            }
+            .split-demo { width: 100%; height: 180; }
+            .tabs-demo  { width: 100%; height: 200; }
+            .pane-body {
+                width: 100%;
+                height: 0;
+                flex-grow: 1;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                background-color: #2D2D30;
             }
             """;
 
@@ -236,7 +265,161 @@ public class CgUiNewEngineGalleryScene
         ColorSelector colours = new ColorSelector();
         column.append(section("ColorSelector — the deepest composite in the batch", row(colours)));
 
+        // ── 6.2: the dialogs and the layout composites ─────────────────────
+        column.append(section("SplitView — drag either divider; the right pane holds a nested vertical one",
+                splitView()));
+        column.append(section("TabView + Tab — click a tab, close one with its X, and the strip scrolls",
+                tabView()));
+        column.append(section("PageStack — one page at a time, built on first show",
+                pageStack()));
+        column.append(section("Dialog + DialogManager — drag a title bar, click to raise, X closes",
+                dialogs()));
+        column.append(section("InputDialog — a prompt and a confirm, both centred once measured",
+                inputDialogs()));
+
         return page;
+    }
+
+    /**
+     * Two dividers and a nested split, which is where a divider drag goes wrong first.
+     *
+     * <p>Nested because the outer split's travel is measured against its own content box minus its
+     * dividers, and a split inside a pane is the shape that gets that arithmetic wrong — the inner
+     * one's travel must come from the pane it was given, not from the window.</p>
+     */
+    private UINode splitView() {
+        SplitView split = new SplitView();
+        split.addClass("split-demo");
+        // 0..100, not 0..1 -- matching LDLib2's 5..95 defaults, which is what the widget documents.
+        split.setPercentage(40f).setLimits(15f, 85f);
+        split.first().append(paneBody("first pane"));
+
+        SplitView nested = new SplitView();
+        nested.setOrientation(SplitView.Orientation.VERTICAL);
+        nested.first().append(paneBody("nested top"));
+        nested.second().append(paneBody("nested bottom"));
+        split.second().append(nested);
+        return split;
+    }
+
+    /**
+     * Enough tabs to overflow the strip, so the rail scrolls and the strip bar appears.
+     *
+     * <p>The bar is the thing to watch: it is derived from measured sizes and refreshed from a
+     * post-layout hook, which replaced the two overrides the old engine needed ({@code setScroll} and
+     * {@code onLayoutChanged}). If it never appears, that hook is not running.</p>
+     */
+    private UINode tabView() {
+        TabView tabs = new TabView();
+        tabs.addClass("tabs-demo");
+        tabs.setTabSide(TabView.TabSide.TOP);
+        for (String name : new String[] {"one", "two", "three", "four", "five", "six", "seven"}) {
+            Tab tab = tabs.addTab(name);
+            tab.setClosable(true);
+            tab.onCloseRequested.connect(() -> tabs.removeTab(tab));
+            tab.content().append(paneBody("pane " + name));
+        }
+        return tabs;
+    }
+
+    /** One page at a time, each built by the factory the first time it is asked for. */
+    private UINode pageStack() {
+        PageStack<String> stack = new PageStack<>();
+        stack.addClass("stage");
+        stack.setPageFactory(key -> paneBody("page " + key));
+        stack.setPlaceholder(paneBody("nothing shown"));
+
+        UINode controls = row();
+        for (String key : new String[] {"alpha", "beta", "gamma"}) {
+            Button open = new Button(key);
+            open.attachListener(() -> stack.show(key));
+            controls.append(open);
+        }
+        Button none = new Button("none");
+        none.attachListener(() -> stack.show(null));
+        controls.append(none);
+
+        UINode box = new UINode();
+        StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(8f));
+        box.append(controls);
+        box.append(stack);
+        return box;
+    }
+
+    /**
+     * Three managed dialogs on a stage of their own.
+     *
+     * <p>The stage is an ordinary node: {@link DialogManager} places and stacks what it is given, and
+     * a dialog moves by INLINE insets rather than a transform. <b>They do not resize</b> — D6 chose a
+     * resize mode over an edge band and 6.0 did not build one, so the three {@code UIResizer} hooks
+     * were deleted with the port, and this is what that looks like on screen.</p>
+     */
+    private UINode dialogs() {
+        UINode stage = new UINode().addClass("stage");
+        DialogManager manager = new DialogManager(stage);
+
+        Dialog first = manager.manage(new Dialog("panel one"));
+        first.getContent().append(hint("drag my title bar"));
+
+        Dialog second = manager.manage(new Dialog("panel two"));
+        second.getContent().append(new Button("a button"));
+
+        Dialog third = manager.manage(new Dialog("panel three"));
+        third.getContent().append(hint("click me to raise"));
+
+        UINode controls = row();
+        Button openAll = new Button("open all");
+        openAll.attachListener(manager::showAll);
+        controls.append(openAll);
+        Button closeAll = new Button("close all");
+        closeAll.attachListener(manager::closeAll);
+        controls.append(closeAll);
+        Button spawn = new Button("new window");
+        spawn.attachListener(() -> manager.manage(
+                new Dialog("panel " + (manager.getDialogs().size() + 1))).show());
+        controls.append(spawn);
+
+        UINode box = new UINode();
+        StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(8f));
+        box.append(controls);
+        box.append(stage);
+        return box;
+    }
+
+    /**
+     * The two static prompts, and the one thing worth watching is WHERE they appear.
+     *
+     * <p>A prompt is out of flow, so its size is unknown until it has been laid out: it opens
+     * transparent (a {@code __placing__} class the sheet owns) and centres itself from a post-layout
+     * hook, then drops the class. A prompt that flashes at the top-left before settling means that
+     * hook ran before layout; one that never appears at all means the class was never dropped.</p>
+     */
+    private UINode inputDialogs() {
+        UINode controls = row();
+        Button ask = new Button("ask for a name");
+        ask.attachListener(() -> InputDialog.ask(ask, "New file", "name", "untitled.txt", name -> { }));
+        controls.append(ask);
+        Button confirm = new Button("confirm a deletion");
+        confirm.attachListener(() -> InputDialog.confirm(
+                confirm, "Delete", "Delete untitled.txt?", () -> { }));
+        controls.append(confirm);
+        return controls;
+    }
+
+    /** A filled pane body, so an empty split or tab reads as empty rather than as broken. */
+    private UINode paneBody(String label) {
+        UINode body = new UINode().addClass("pane-body");
+        body.append(hint(label));
+        return body;
+    }
+
+    /** A label that never eats a press — a pane's text must not shadow the pane. */
+    private UIText hint(String text) {
+        UIText label = new UIText(text);
+        label.setHitTest(false);
+        return label;
     }
 
     private UINode section(String heading, UINode body) {
