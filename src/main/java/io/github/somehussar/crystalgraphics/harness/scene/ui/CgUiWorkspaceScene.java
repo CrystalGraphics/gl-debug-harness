@@ -1,6 +1,8 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.core.collection.tree.TreeDataSource;
+import com.crystalgui.core.collection.tree.TreeRow;
 import com.crystalgui.fs.CgFileEntry;
 import com.crystalgui.fs.CgFileError;
 import com.crystalgui.fs.CgPath;
@@ -20,22 +22,20 @@ import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.serialization.PlainOps;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.UIWindow;
+import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.elements.Button;
 import com.crystalgui.ui.elements.SplitView;
 import com.crystalgui.ui.elements.Tab;
 import com.crystalgui.ui.elements.TabView;
 import com.crystalgui.ui.elements.UIText;
 import com.crystalgui.ui.elements.editor.TextEditor;
-import com.crystalgui.ui.elements.workbench.WorkspaceTreeSource;
-import com.crystalgui.ui.elements.tree.TreeRow;
 import com.crystalgui.ui.elements.tree.TreeView;
-import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgui.ui.elements.workbench.WorkspaceTreeSource;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
-
+import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
