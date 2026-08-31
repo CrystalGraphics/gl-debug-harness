@@ -24,6 +24,7 @@ import com.crystalgui.text.lang.SymbolModifier;
 import com.crystalgui.ui.box.Box;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.input.FocusPolicy;
 import com.crystalgui.widget.canvas.CanvasView;
 import com.crystalgui.widget.collection.list.ListRenderer;
 import com.crystalgui.widget.collection.list.ListView;
@@ -175,6 +176,19 @@ public class CgUiNewEngineGalleryScene
                 color: #4FC1FF;
                 font-size: 13;
             }
+            /* The twisty is the RENDERER's, so its look is the scene's too. Ported from the old
+               gallery: a vector chevron rotated by the __expanded__ class TreeView applies, and
+               removed outright on a leaf. The rules are on the twisty's OWN box rather than on the
+               row, because a row carries the depth indent as padding-left and a rule there would
+               out-specify it and flatten the tree. */
+            .tv-row { flex-direction: row; align-items: center; gap-all: 4; height: 22; }
+            .tv-twisty {
+                width: 11px; height: 11px; flex-shrink: 0; padding-left: 3px;
+                color: #98C379; overlay: shape("chevron-right");
+            }
+            .tv-row:hover .tv-twisty { color: #FFFFFF; }
+            .tv-row.__expanded__ > .tv-twisty { transform: rotate(90deg); }
+            .tv-row.__leaf__ > .tv-twisty { overlay: none; }
             .row {
                 width: 100%;
                 flex-direction: row;
@@ -635,18 +649,34 @@ public class CgUiNewEngineGalleryScene
             }
         };
         TreeView<String> tree = new TreeView<>(source);
+        // A TWISTY, BUILT BY THE RENDERER -- which is where it belongs on both engines: TreeView
+        // applies the indent and the __expanded__/__collapsed__/__leaf__ classes and nothing else, so
+        // a renderer that makes only a label produces a tree that cannot be opened with the mouse.
+        // A real chevron rather than a glyph: the bundled Minecraft font has no triangle character.
         tree.setRenderer(new TreeRenderer<>() {
             @Override
             public UINode createTemplate() {
-                UINode row = new UINode();
-                row.append(new UIText(""));
+                UINode row = new UINode().addClass("tv-row");
+                row.setFocusPolicy(FocusPolicy.CLICK);
+                UINode twisty = new UINode().addClass("tv-twisty");
+                // ONCE per pooled element, reading the row's CURRENT index at click time -- it cannot
+                // capture one, because this element is a different row every time it is recycled.
+                twisty.onMouseDown.attachListener((el, event) -> {
+                    int at = tree.indexOfRowElement(el.parent());
+                    if (at >= 0) tree.toggleExpandedAt(at);
+                    event.stopPropagation();
+                }, false, false);
+                row.append(twisty);
+                UIText label = new UIText("");
+                label.setHitTest(false);
+                row.append(label);
                 return row;
             }
 
             @Override
             public void bind(String item, TreeRow<String> row, int index, UINode template) {
-                ((UIText) template.children().get(0))
-                        .setText(item.substring(item.lastIndexOf('/') + 1));
+                ((UIText) template.children().get(1))
+                        .setText(row.depth() == 0 ? item : item.substring(item.lastIndexOf('/') + 1));
             }
         });
         tree.setExpanded("src", true);
