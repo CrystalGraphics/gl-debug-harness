@@ -6,7 +6,6 @@ import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.box.TextNode;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.ui.dom.UINode;
 import com.crystalgui.ui.elements.UIText;
@@ -123,7 +122,7 @@ public class CgUiEngineParityScene implements InteractiveSceneLifecycle, Harness
         uiWindow = new UIWindow(Ui.of(oldRoot));
         uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLE_SHEET));
 
-        // New engine: UINode/TextNode under a UIDocument, the same stylesheet text.
+        // New engine: UINode/UIText under a UIDocument, the same stylesheet text.
         document = new UIDocument();
         UINode newRoot = build(new Builder<UINode>() {
             @Override
@@ -142,7 +141,11 @@ public class CgUiEngineParityScene implements InteractiveSceneLifecycle, Harness
 
             @Override
             public UINode text(String id, String content) {
-                TextNode t = new TextNode(content);
+                // Qualified, and the ONLY place in the repo that has to be: this scene builds one
+                // tree on BOTH engines, so both UITexts are in scope at once and an import can only
+                // name one of them. The old-engine cluster above keeps the plain import; the new
+                // engine's twin says which it is. It resolves itself when the old engine goes at 6.9.
+                com.crystalgui.widget.text.UIText t = new com.crystalgui.widget.text.UIText(content);
                 t.setId(id);
                 StyleGroup.inlinePipeline(t.getStyle().getLayoutGroup(),
                         l -> l.positionType(TaffyPosition.ABSOLUTE)

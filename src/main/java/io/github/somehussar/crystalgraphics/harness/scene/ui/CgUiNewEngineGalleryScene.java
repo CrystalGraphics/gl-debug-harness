@@ -4,7 +4,7 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.box.TextNode;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.ui.dom.UINode;
 import com.crystalgui.widget.control.Button;
@@ -213,7 +213,7 @@ public class CgUiNewEngineGalleryScene
 
         Button popAnchor = new Button("Toggle a popover");
         Popover popover = new Popover();
-        TextNode popText = new TextNode("A bare Popover: light children, no shadow root.");
+        UIText popText = new UIText("A bare Popover: light children, no shadow root.");
         popover.append(popText);
         page.append(popover);
         popAnchor.attachListener(() -> {
@@ -222,8 +222,16 @@ public class CgUiNewEngineGalleryScene
         });
         column.append(section("Popover", row(popAnchor)));
 
-        column.append(section("SymbolIcon (kind glyphs, static/final marks)",
-                row(new SymbolIcon(), new SymbolIcon(), new SymbolIcon())));
+        SymbolIcon cls = new SymbolIcon();
+        cls.show(com.crystalgui.text.lang.SymbolKind.CLASS, java.util.Set.of());
+        SymbolIcon iface = new SymbolIcon();
+        iface.show(com.crystalgui.text.lang.SymbolKind.INTERFACE, java.util.Set.of());
+        SymbolIcon marked = new SymbolIcon();
+        marked.show(com.crystalgui.text.lang.SymbolKind.METHOD,
+                java.util.Set.of(com.crystalgui.text.lang.SymbolModifier.STATIC,
+                        com.crystalgui.text.lang.SymbolModifier.FINAL));
+        column.append(section("SymbolIcon — class, interface, and a method with static+final marks",
+                row(cls, iface, marked)));
 
         ColorSelector colours = new ColorSelector();
         column.append(section("ColorSelector — the deepest composite in the batch", row(colours)));
@@ -233,7 +241,7 @@ public class CgUiNewEngineGalleryScene
 
     private UINode section(String heading, UINode body) {
         UINode section = new UINode().addClass("section");
-        TextNode title = new TextNode(heading);
+        UIText title = new UIText(heading);
         title.addClass("heading");
         section.append(title);
         section.append(body);
