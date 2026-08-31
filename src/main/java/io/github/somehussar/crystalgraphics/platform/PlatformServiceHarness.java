@@ -1,7 +1,6 @@
 package io.github.somehussar.crystalgraphics.platform;
 
 import com.crystalgraphics.platform.CgPlatform;
-import com.crystalgui.ui.elements.slot.NativeContentService;
 import com.crystalgraphics.platform.CgPlatformService;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
@@ -81,14 +80,14 @@ public final class PlatformServiceHarness implements CgPlatformService {
      */
     public static void onPreInit() {
         CgPlatform.register(PlatformServiceHarness.getInstance());
-        // DECLARED, not left absent. A native-content slot refuses to paint on a platform that never said
-        // whether it renders items, and the harness is genuinely such a platform -- there is no Minecraft
-        // here to ask. Saying so out loud is what separates it from a loader that forgot, and it is what
-        // lets a slot appear in a scene at all.
+        // NATIVE CONTENT IS NOT DECLARED HERE, and it used to be.
         //
-        // A scene wanting to exercise the draw path installs a stand-in over this and puts it back on
-        // dispose. See CgUiSlotScene.
-        CgPlatform.provide(NativeContentService.SERVICE, NativeContentService.UNSUPPORTED);
+        // `com.crystalgui.ui.elements.slot` lives only on core's `native-content-slots` branch, which
+        // was never merged to master -- so this branch of the harness has not compiled against master
+        // core since it was written, and `cgui-slot` went with it. The declaration is worth restoring
+        // the moment that branch lands: a native-content slot refuses to paint on a platform that
+        // never said whether it renders items, and the harness is genuinely such a platform, so
+        // saying so out loud is what separates it from a loader that forgot.
     }
 
 }

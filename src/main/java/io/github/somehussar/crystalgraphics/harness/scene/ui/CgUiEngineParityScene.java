@@ -6,10 +6,9 @@ import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.ui.Ui;
 import com.crystalgui.ui.UIElement;
 import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.box.Box;
 import com.crystalgui.ui.box.TextNode;
-import com.crystalgui.ui.dom.Document;
-import com.crystalgui.ui.dom.Node;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.ui.dom.UINode;
 import com.crystalgui.ui.elements.UIText;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -21,7 +20,7 @@ import org.joml.Matrix4f;
 /**
  * M5 5.4's acceptance picture: ONE fixed tree, described once, built on BOTH engines from the same
  * stylesheet, and drawn by each — the old engine through {@code UIWindow.paintFrame()}, the new
- * through {@code Document.update()} + {@code Document.paint()} over the box tree.
+ * through {@code UIDocument.update()} + {@code UIDocument.paint()} over the box tree.
  *
  * <p>The tree carries every path a paint pass has to survive: flat and rounded backgrounds,
  * borders, an {@code opacity} layer, a rounded {@code overflow: hidden} (the mask path), a square
@@ -50,7 +49,7 @@ public class CgUiEngineParityScene implements InteractiveSceneLifecycle, Harness
             """;
 
     private UIWindow uiWindow;
-    private Document document;
+    private UIDocument document;
     private boolean scrollApplied;
 
     @Override
@@ -124,12 +123,12 @@ public class CgUiEngineParityScene implements InteractiveSceneLifecycle, Harness
         uiWindow = new UIWindow(Ui.of(oldRoot));
         uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLE_SHEET));
 
-        // New engine: Node/TextNode under a Document, the same stylesheet text.
-        document = new Document();
-        Node newRoot = build(new Builder<Node>() {
+        // New engine: UINode/TextNode under a UIDocument, the same stylesheet text.
+        document = new UIDocument();
+        UINode newRoot = build(new Builder<UINode>() {
             @Override
-            public Node make(String id, float x, float y, float width, float height) {
-                Node n = new Node().setId(id);
+            public UINode make(String id, float x, float y, float width, float height) {
+                UINode n = new UINode().setId(id);
                 StyleGroup.inlinePipeline(n.getStyle().getLayoutGroup(),
                         l -> l.positionType(TaffyPosition.ABSOLUTE)
                                 .left(x).top(y).width(width).height(height));
@@ -137,12 +136,12 @@ public class CgUiEngineParityScene implements InteractiveSceneLifecycle, Harness
             }
 
             @Override
-            public void add(Node parent, Node child) {
+            public void add(UINode parent, UINode child) {
                 parent.append(child);
             }
 
             @Override
-            public Node text(String id, String content) {
+            public UINode text(String id, String content) {
                 TextNode t = new TextNode(content);
                 t.setId(id);
                 StyleGroup.inlinePipeline(t.getStyle().getLayoutGroup(),
@@ -167,8 +166,8 @@ public class CgUiEngineParityScene implements InteractiveSceneLifecycle, Harness
             if (oldClip != null) oldClip.setScrollImmediate(0f, 60f);
             UIElement oldSquare = uiWindow.ui.rootElement.getElementById("square-clip");
             if (oldSquare != null) oldSquare.setScrollImmediate(0f, 120f);
-            Node newClip = (Node) document.getElementById("round-clip");
-            Node newSquare = (Node) document.getElementById("square-clip");
+            UINode newClip = (UINode) document.getElementById("round-clip");
+            UINode newSquare = (UINode) document.getElementById("square-clip");
             if (newClip != null && newClip.box() != null) newClip.box().setScroll(0f, 60f);
             if (newSquare != null && newSquare.box() != null) newSquare.box().setScroll(0f, 120f);
             scrollApplied = true;
@@ -195,7 +194,7 @@ public class CgUiEngineParityScene implements InteractiveSceneLifecycle, Harness
         if (frame.getFrameNumber() == 5) ctx.getArtifactService().captureNow("engine_new");
 
         if (frame.getFrameNumber() > 5) {
-            String status = (drawOld ? "OLD engine (UIWindow.paintFrame)" : "NEW engine (Document.paint over boxes)")
+            String status = (drawOld ? "OLD engine (UIWindow.paintFrame)" : "NEW engine (UIDocument.paint over boxes)")
                     + " -- alternates every 2s; PNGs written on frames 4/5";
             context.text().draw().at(4, (float) h - 20f).text(status)
                     .font(context.getFont().atSize(14)).submit();
