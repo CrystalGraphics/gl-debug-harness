@@ -19,6 +19,7 @@ import com.crystalgui.graph.port.PortType;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.style.sheet.StyleSheet;
+import com.crystalgui.style.sheet.StyleSheetRegistry;
 import com.crystalgui.text.lang.SymbolKind;
 import com.crystalgui.text.lang.SymbolModifier;
 import com.crystalgui.ui.box.Box;
@@ -130,6 +131,18 @@ public class CgUiNewEngineGalleryScene
         // THE USER-AGENT SHEET, which is not installed for you -- a scene that asserts on default.css
         // behaviour without this exercises no CSS at all and looks like a styling regression.
         document.styles().addStylesheet(StyleSheet.DEFAULT);
+        // THE GRAPH THEME, which the UA sheet deliberately does not contain. The split is the same
+        // one `ore.css` sits on: `ua/config-kit.css` gives a graphnode its GEOMETRY -- width, min and
+        // max width, the title bar's row and height, the port columns -- and `crystalgui:graph` gives
+        // it the Unity look, every background and border and the per-type port palette a wire reads
+        // its colour from. Measured: the UA half is 93% geometry declarations, the theme 39% colour
+        // and the rest radii and outlines.
+        //
+        // Without this the nodes lay out perfectly and paint nothing -- no background, no border, no
+        // port colour -- which reads as a broken port rather than as an unthemed widget. The old
+        // gallery loads it on the line below its own DEFAULT and hardcodes not one graph rule in its
+        // scene sheet; this scene simply never did.
+        document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:graph"));
         document.styles().addStylesheet(StyleSheet.parse(SCENE_CSS));
         document.boxes().setRootTransform(new Matrix4f().scale(SCALE, SCALE, 1f));
         document.append(buildRoot());
