@@ -1,22 +1,34 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.chrome.menu.MenuBarView;
+import com.crystalgui.chrome.palette.QuickPick;
+import com.crystalgui.chrome.status.StatusBarView;
+import com.crystalgui.core.collection.list.SelectionMode;
+import com.crystalgui.core.collection.pick.QuickPickItem;
+import com.crystalgui.core.collection.pick.QuickPickSource;
+import com.crystalgui.core.collection.tree.TreeDataSource;
+import com.crystalgui.core.collection.tree.TreeRow;
+import com.crystalgui.core.command.Command;
+import com.crystalgui.core.command.CommandRegistry;
+import com.crystalgui.core.command.MenuId;
 import com.crystalgui.core.config.ConfigDescriptor;
+import com.crystalgui.core.property.ObservableList;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.widget.config.ConfiguratorGroup;
-import com.crystalgui.widget.config.ConfiguratorPanel;
-import com.crystalgui.widget.layout.PageStack;
-import com.crystalgui.widget.layout.SplitView;
-import com.crystalgui.widget.layout.Tab;
-import com.crystalgui.widget.layout.TabView;
-import com.crystalgui.widget.overlay.Dialog;
-import com.crystalgui.widget.overlay.DialogManager;
-import com.crystalgui.widget.overlay.InputDialog;
-import com.crystalgui.widget.text.UIText;
+import com.crystalgui.text.lang.SymbolKind;
+import com.crystalgui.text.lang.SymbolModifier;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.widget.collection.list.ListRenderer;
+import com.crystalgui.widget.collection.list.ListView;
+import com.crystalgui.widget.collection.table.TableColumn;
+import com.crystalgui.widget.collection.table.TableView;
+import com.crystalgui.widget.collection.tree.TreeRenderer;
+import com.crystalgui.widget.collection.tree.TreeView;
+import com.crystalgui.widget.config.ConfiguratorGroup;
+import com.crystalgui.widget.config.ConfiguratorPanel;
 import com.crystalgui.widget.control.Button;
 import com.crystalgui.widget.control.Checkbox;
 import com.crystalgui.widget.control.CheckboxGroup;
@@ -27,17 +39,25 @@ import com.crystalgui.widget.control.SymbolIcon;
 import com.crystalgui.widget.control.TextField;
 import com.crystalgui.widget.form.ColorSelector;
 import com.crystalgui.widget.form.SearchField;
+import com.crystalgui.widget.layout.PageStack;
+import com.crystalgui.widget.layout.SplitView;
+import com.crystalgui.widget.layout.Tab;
+import com.crystalgui.widget.layout.TabView;
+import com.crystalgui.widget.overlay.Dialog;
+import com.crystalgui.widget.overlay.DialogManager;
 import com.crystalgui.widget.overlay.Dropdown;
+import com.crystalgui.widget.overlay.InputDialog;
 import com.crystalgui.widget.overlay.Menu;
 import com.crystalgui.widget.overlay.MenuItem;
 import com.crystalgui.widget.overlay.Popover;
 import com.crystalgui.widget.overlay.Tooltip;
 import com.crystalgui.widget.scroll.ScrollerView;
+import com.crystalgui.widget.text.UIText;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
-import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
+import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -273,13 +293,13 @@ public class CgUiNewEngineGalleryScene
         column.append(section("Popover", row(popAnchor)));
 
         SymbolIcon cls = new SymbolIcon();
-        cls.show(com.crystalgui.text.lang.SymbolKind.CLASS, java.util.Set.of());
+        cls.show(SymbolKind.CLASS, Set.of());
         SymbolIcon iface = new SymbolIcon();
-        iface.show(com.crystalgui.text.lang.SymbolKind.INTERFACE, java.util.Set.of());
+        iface.show(SymbolKind.INTERFACE, Set.of());
         SymbolIcon marked = new SymbolIcon();
-        marked.show(com.crystalgui.text.lang.SymbolKind.METHOD,
-                java.util.Set.of(com.crystalgui.text.lang.SymbolModifier.STATIC,
-                        com.crystalgui.text.lang.SymbolModifier.FINAL));
+        marked.show(SymbolKind.METHOD,
+                Set.of(SymbolModifier.STATIC,
+                        SymbolModifier.FINAL));
         column.append(section("SymbolIcon — class, interface, and a method with static+final marks",
                 row(cls, iface, marked)));
 
@@ -301,6 +321,18 @@ public class CgUiNewEngineGalleryScene
         column.append(section(
                 "The config kit — thirteen controls, two groups, and a log of what changed",
                 configKit()));
+
+        // ── 6.3: the collections and the shell's chrome ─────────────────────
+        column.append(section(
+                "ListView — ten thousand rows, a dozen realised; drag and shift-click to select",
+                listView()));
+        column.append(section("TreeView — click a twisty; src starts expanded", treeView()));
+        column.append(section("TableView — click a header to sort, drag a divider to resize",
+                tableView()));
+        column.append(section("MenuBarView — Alt+F, arrows across the bar, one row dimmed",
+                menuBar()));
+        column.append(section("StatusBarView + Breadcrumbs", statusBar()));
+        column.append(section("QuickPick — the palette, promoted over everything", palette()));
 
         return page;
     }
@@ -519,6 +551,193 @@ public class CgUiNewEngineGalleryScene
     private static String describe(@Nullable Object value) {
         if (value instanceof double[] numbers) return Arrays.toString(numbers);
         return String.valueOf(value);
+    }
+
+    // ── 6.3: the collections and the shell's chrome ────────────────────────
+
+    /**
+     * A virtualised list of ten thousand rows.
+     *
+     * <p><b>Ten thousand deliberately.</b> A list of twenty tells you nothing a column of labels
+     * would not, and virtualisation is the one thing about this widget that can be silently absent —
+     * a list that realised everything looks identical until the frame time says otherwise. The
+     * counter under it reads what is actually realised, so the answer is on screen rather than in a
+     * profiler.</p>
+     */
+    private UINode listView() {
+        ObservableList<String> model = new ObservableList<>();
+        for (int i = 0; i < 10_000; i++) model.add("Row " + i);
+        ListView<String> list = new ListView<>(model);
+        list.setRenderer(new ListRenderer<>() {
+            @Override
+            public UINode createTemplate() {
+                UINode row = new UINode();
+                row.append(new UIText(""));
+                return row;
+            }
+
+            @Override
+            public void bind(String item, int index, UINode template) {
+                ((UIText) template.children().get(0)).setText(item);
+            }
+        }).setItemHeight(22f).setSelectionMode(SelectionMode.MULTIPLE);
+        StyleGroup.inlinePipeline(list.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).height(180f));
+
+        UIText counter = hint("");
+        document.animation().every(list, delta -> {
+            long realised = list.children().stream()
+                    .filter(c -> c.hasClass(ListView.ROW_CLASS)).count();
+            counter.setText(realised + " of 10,000 rows realised · "
+                    + list.getSelectedIndices().size() + " selected");
+            return true;
+        });
+
+        UINode box = new UINode();
+        StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(6f));
+        box.append(list);
+        box.append(counter);
+        return box;
+    }
+
+    /** A three-level tree, so an indent reads as an indent and a twisty has somewhere to go. */
+    private UINode treeView() {
+        TreeDataSource<String> source = new TreeDataSource<>() {
+            @Override
+            public List<String> roots() {
+                return List.of("src", "assets", "docs");
+            }
+
+            @Override
+            public List<String> children(String parent) {
+                long depth = parent.chars().filter(c -> c == '/').count();
+                if (depth >= 2) return List.of();
+                return List.of(parent + "/one", parent + "/two", parent + "/three");
+            }
+
+            @Override
+            public boolean hasChildren(String item) {
+                return !children(item).isEmpty();
+            }
+        };
+        TreeView<String> tree = new TreeView<>(source);
+        tree.setRenderer(new TreeRenderer<>() {
+            @Override
+            public UINode createTemplate() {
+                UINode row = new UINode();
+                row.append(new UIText(""));
+                return row;
+            }
+
+            @Override
+            public void bind(String item, TreeRow<String> row, int index, UINode template) {
+                ((UIText) template.children().get(0))
+                        .setText(item.substring(item.lastIndexOf('/') + 1));
+            }
+        });
+        tree.setExpanded("src", true);
+        StyleGroup.inlinePipeline(tree.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).height(200f));
+        return tree;
+    }
+
+    /**
+     * Three columns, one flexible and two fixed, two of them sortable.
+     *
+     * <p>A fixed column beside a flexible one is the pairing that catches the arithmetic: a table
+     * whose weights are applied to the whole width rather than to the free space looks right until
+     * exactly one column is fixed.</p>
+     */
+    private UINode tableView() {
+        ObservableList<String> model = new ObservableList<>();
+        for (String name : new String[] {"gui_quad.shader", "gui_glass.shader", "gui_blur.shader",
+                                         "gui_gradient.shader", "gui_curve.shader"}) {
+            model.add(name);
+        }
+        TableView<String> table = new TableView<>(model);
+        table.addColumn(TableColumn.<String>of("Name", s -> s).flexible().sortable());
+        table.addColumn(TableColumn.<String>of("Chars", s -> String.valueOf(s.length()))
+                .width(70f).sortable());
+        table.addColumn(TableColumn.<String>of("Kind",
+                s -> s.contains("glass") || s.contains("blur") ? "effect" : "draw").width(90f));
+        StyleGroup.inlinePipeline(table.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).height(180f));
+        return table;
+    }
+
+    /**
+     * A menu bar over a real {@link CommandRegistry}, with one command deliberately disabled.
+     *
+     * <p>The disabled row is the point: the registry carries {@code enabled} and never filters, so a
+     * bar that DROPPED it would look tidier and be wrong — a menu whose rows are never in the same
+     * place twice is the failure that rule exists to prevent.</p>
+     */
+    private UINode menuBar() {
+        CommandRegistry registry = new CommandRegistry();
+        MenuId file = MenuId.of("gallery.file");
+        MenuId edit = MenuId.of("gallery.edit");
+        UIText log = hint("pick something from the bar");
+        registry.register(Command.of("gallery.new", "New")
+                .menu(file, "io", 0).run(() -> log.setText("File > New")));
+        registry.register(Command.of("gallery.open", "Open...")
+                .menu(file, "io", 1).run(() -> log.setText("File > Open")));
+        registry.register(Command.of("gallery.save", "Save (disabled on purpose)")
+                .menu(file, "io", 2).enabledWhen(context -> false).run(() -> {
+                }));
+        registry.register(Command.of("gallery.cut", "Cut")
+                .menu(edit, "clipboard", 0).run(() -> log.setText("Edit > Cut")));
+        registry.register(Command.of("gallery.copy", "Copy")
+                .menu(edit, "clipboard", 1).run(() -> log.setText("Edit > Copy")));
+
+        MenuBarView bar = new MenuBarView(registry).addMenu(file, "File").addMenu(edit, "Edit");
+        StyleGroup.inlinePipeline(bar.getStyle().getLayoutGroup(), l -> l.widthPercent(100f));
+
+        UINode box = new UINode();
+        StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(6f));
+        box.append(bar);
+        box.append(log);
+        return box;
+    }
+
+    /**
+     * The status bar, with its breadcrumb trail in it.
+     *
+     * <p>Both at once because the trail lives in the bar — showing it alone would demo a widget in a
+     * context nothing uses it in, and its sizing comes from the bar around it.</p>
+     */
+    private UINode statusBar() {
+        StatusBarView status = new StatusBarView();
+        StyleGroup.inlinePipeline(status.getStyle().getLayoutGroup(), l -> l.widthPercent(100f));
+        status.breadcrumbs().setTrail(List.of("core", "src", "com", "crystalgui", "widget"));
+        return status;
+    }
+
+    /**
+     * The picker, opened over the whole document — it is a promoted overlay, never a child.
+     *
+     * <p>Which is the thing worth seeing: it is built here as a sibling of nothing, positioned
+     * against the surface rather than against whatever opened it, and dismissed by Escape or a press
+     * outside. A picker demoed inline would be a list with a search box on top of it.</p>
+     */
+    private UINode palette() {
+        Button open = new Button("Open a QuickPick");
+        open.attachListener(() -> {
+            QuickPick pick = new QuickPick();
+            pick.setPlaceholder("Type to filter...");
+            pick.setSource(QuickPickSource.of(List.of(
+                    QuickPickItem.of("quad", "gui_quad.shader")
+                            .withDescription("the default material"),
+                    QuickPickItem.of("glass", "gui_glass.shader")
+                            .withDescription("liquid glass"),
+                    QuickPickItem.of("blur", "gui_blur.shader")
+                            .withDescription("one axis of the Gaussian"),
+                    QuickPickItem.of("gradient", "gui_gradient.shader")
+                            .withDescription("eight stops, one draw"))));
+            pick.open(document);
+        });
+        return row(open);
     }
 
     private UINode section(String heading, UINode body) {
