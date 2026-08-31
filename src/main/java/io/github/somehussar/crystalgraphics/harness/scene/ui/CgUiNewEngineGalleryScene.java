@@ -14,13 +14,17 @@ import com.crystalgui.core.command.CommandRegistry;
 import com.crystalgui.core.command.MenuId;
 import com.crystalgui.core.config.ConfigDescriptor;
 import com.crystalgui.core.property.ObservableList;
+import com.crystalgui.graph.port.BasicPortType;
+import com.crystalgui.graph.port.PortType;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.text.lang.SymbolKind;
 import com.crystalgui.text.lang.SymbolModifier;
+import com.crystalgui.ui.box.Box;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.widget.canvas.CanvasView;
 import com.crystalgui.widget.collection.list.ListRenderer;
 import com.crystalgui.widget.collection.list.ListView;
 import com.crystalgui.widget.collection.table.TableColumn;
@@ -39,6 +43,9 @@ import com.crystalgui.widget.control.SymbolIcon;
 import com.crystalgui.widget.control.TextField;
 import com.crystalgui.widget.form.ColorSelector;
 import com.crystalgui.widget.form.SearchField;
+import com.crystalgui.widget.graph.GraphNode;
+import com.crystalgui.widget.graph.GraphView;
+import com.crystalgui.widget.graph.NodePort;
 import com.crystalgui.widget.layout.PageStack;
 import com.crystalgui.widget.layout.SplitView;
 import com.crystalgui.widget.layout.Tab;
@@ -333,6 +340,12 @@ public class CgUiNewEngineGalleryScene
                 menuBar()));
         column.append(section("StatusBarView + Breadcrumbs", statusBar()));
         column.append(section("QuickPick — the palette, promoted over everything", palette()));
+
+        // ── 6.4: the canvas and the graph ───────────────────────────────
+        column.append(section(
+                "GraphView — middle-drag to pan, wheel to zoom, drag a port onto another to wire",
+                graphView()));
+        column.append(section("CanvasView — the plane underneath it, with culling", canvasView()));
 
         return page;
     }
@@ -738,6 +751,115 @@ public class CgUiNewEngineGalleryScene
             pick.open(document);
         });
         return row(open);
+    }
+
+    // ── 6.4: the canvas and the graph ──────────────────────────────────────
+
+    /**
+     * A node graph: three nodes, two wires, a live pan and zoom.
+     *
+     * <p><b>Wired on purpose, and with one input deliberately taken twice.</b> A graph of unconnected
+     * nodes demonstrates the node widget and nothing about the view — the wires are what read a port's
+     * colour out of the cascade, what cull with the plane, and what the marquee has to avoid selecting.
+     * The status line under it reports the pan and zoom continuously, which is the only way to see
+     * that a drag tracks the pointer rather than accelerating away from it.</p>
+     *
+     * <p>The third node sits far enough right to be off screen at rest, so culling has something to
+     * cull: a plane whose every node is visible demonstrates a viewport, not a canvas.</p>
+     */
+    private UINode graphView() {
+        GraphView graph = new GraphView();
+        StyleGroup.inlinePipeline(graph.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).height(320f));
+
+        PortType number = new BasicPortType("float", 1);
+        PortType colour = new BasicPortType("vec4", 4);
+
+        GraphNode a = new GraphNode("Time");
+        graph.addNode(a, 20f, 30f);
+        NodePort aOut = a.addOutput(number, "Out");
+
+        GraphNode b = new GraphNode("Multiply");
+        graph.addNode(b, 220f, 20f);
+        NodePort bIn = b.addInput(number, "A");
+        NodePort bIn2 = b.addInput(number, "B");
+        NodePort bOut = b.addOutput(number, "Out");
+
+        GraphNode c = new GraphNode("Fragment");
+        graph.addNode(c, 430f, 60f);
+        c.addInput(colour, "Base Color");
+        NodePort cIn = c.addInput(number, "Alpha");
+
+        GraphNode far = new GraphNode("Off screen");
+        graph.addNode(far, 1400f, 40f);
+        far.addOutput(number, "Out");
+
+        graph.connect(aOut, bIn);
+        graph.connect(bOut, cIn);
+
+        UIText status = hint("");
+        document.animation().every(graph, delta -> {
+            status.setText(String.format("pan %.0f, %.0f · zoom %.2f · %d wires — "
+                            + "middle-drag to pan, wheel to zoom, drag a port to rewire",
+                    graph.getPanX(), graph.getPanY(), graph.getZoom(),
+                    graph.getConnections().size()));
+            return true;
+        });
+
+        UINode box = new UINode();
+        StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(6f));
+        box.append(graph);
+        box.append(status);
+        // THE SECOND INPUT IS LEFT FREE so the replace rule is reachable by hand: drag `Time`'s output
+        // onto `Multiply`'s A, which is already taken, and the existing wire has to leave.
+        box.append(hint("`Multiply.A` is already wired — dropping another wire on it must REPLACE, "
+                + "not refuse; `B` is free for comparison"));
+        return box;
+    }
+
+    /**
+     * The bare canvas the graph is built on: pan, zoom, and culling with the count on screen.
+     *
+     * <p>Shown beside the graph rather than instead of it because the two answer different questions.
+     * A {@code GraphView} demonstrates wires and ports; a {@code CanvasView} demonstrates that the
+     * plane is a viewport — which is only visible when there is more content than fits and a number
+     * saying how much of it is currently culled.</p>
+     */
+    private UINode canvasView() {
+        CanvasView canvas = new CanvasView();
+        StyleGroup.inlinePipeline(canvas.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).height(200f));
+
+        List<UINode> tiles = new ArrayList<>();
+        for (int i = 0; i < 60; i++) {
+            UINode tile = new UINode().addClass("canvas-tile");
+            tile.append(hint("#" + i));
+            StyleGroup.inlinePipeline(tile.getStyle().getLayoutGroup(),
+                    l -> l.width(70f).height(44f));
+            canvas.addNode(tile, (i % 10) * 90f, (i / 10) * 60f);
+            tiles.add(tile);
+        }
+
+        UIText status = hint("");
+        document.animation().every(canvas, delta -> {
+            int visible = 0;
+            for (UINode tile : tiles) {
+                Box box = tile.box();
+                if (box != null && box.width() > 0f) visible++;
+            }
+            status.setText(String.format("zoom %.2f · %d of %d tiles laid out — "
+                            + "culled tiles keep their box and lose their opacity, never the reverse",
+                    canvas.getZoom(), visible, tiles.size()));
+            return true;
+        });
+
+        UINode box = new UINode();
+        StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(6f));
+        box.append(canvas);
+        box.append(status);
+        return box;
     }
 
     private UINode section(String heading, UINode body) {
