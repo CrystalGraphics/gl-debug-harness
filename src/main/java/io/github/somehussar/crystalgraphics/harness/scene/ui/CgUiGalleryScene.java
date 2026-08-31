@@ -23,7 +23,7 @@ import com.crystalgui.ui.elements.graph.NodePort;
 import com.crystalgui.ui.elements.graph.PortType;
 import com.crystalgui.ui.elements.Checkbox;
 import com.crystalgui.ui.elements.ColorSelector;
-import com.crystalgui.ui.elements.config.ConfigDescriptor;
+import com.crystalgui.core.config.ConfigDescriptor;
 import com.crystalgui.ui.elements.config.ConfiguratorGroup;
 import com.crystalgui.ui.elements.config.ConfiguratorPanel;
 import com.crystalgui.ui.elements.Dialog;

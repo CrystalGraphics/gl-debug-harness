@@ -1,9 +1,12 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.core.config.ConfigDescriptor;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.style.sheet.StyleSheet;
+import com.crystalgui.widget.config.ConfiguratorGroup;
+import com.crystalgui.widget.config.ConfiguratorPanel;
 import com.crystalgui.widget.layout.PageStack;
 import com.crystalgui.widget.layout.SplitView;
 import com.crystalgui.widget.layout.Tab;
@@ -35,6 +38,11 @@ import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import javax.annotation.Nullable;
 import org.joml.Matrix4f;
 
 /**
@@ -158,6 +166,19 @@ public class CgUiNewEngineGalleryScene
             }
             .split-demo { width: 100%; height: 180; }
             .tabs-demo  { width: 100%; height: 200; }
+            /* A panel is sized by its rows; the cap is so a long kit does not own the whole page. */
+            .config-demo {
+                width: 100%;
+                max-height: 420;
+            }
+            .config-log {
+                width: 100%;
+                flex-direction: column;
+                gap-all: 2;
+                padding-all: 8;
+                background-color: #1B1B1B;
+                border-radius: 4;
+            }
             .pane-body {
                 width: 100%;
                 height: 0;
@@ -276,6 +297,10 @@ public class CgUiNewEngineGalleryScene
                 dialogs()));
         column.append(section("InputDialog — a prompt and a confirm, both centred once measured",
                 inputDialogs()));
+
+        column.append(section(
+                "The config kit — thirteen controls, two groups, and a log of what changed",
+                configKit()));
 
         return page;
     }
@@ -420,6 +445,80 @@ public class CgUiNewEngineGalleryScene
         UIText label = new UIText(text);
         label.setHitTest(false);
         return label;
+    }
+
+    /**
+     * The config kit: every control it ships, one panel, with a live log of what changed.
+     *
+     * <p><b>All thirteen at once, deliberately.</b> Each is a different shape of the same idea — a
+     * label on the left and an editor on the right — so the only useful check is whether they line up
+     * with each other. A control demoed on its own can be wrong in a way that reads as correct.</p>
+     *
+     * <p>The two groups exist so a foldout and an indent are visible <em>against</em> ungrouped rows;
+     * depth only reads as depth next to something that is not indented. The nested group is collapsed
+     * to start, which is the state the arrow is easiest to get wrong in.</p>
+     */
+    private UINode configKit() {
+        ConfiguratorPanel panel = new ConfiguratorPanel();
+        panel.addClass("config-demo");
+
+        // A plain header: a full-width band with no arrow and nothing to collapse, unlike the group
+        // below it. Two different things that look alike until you try to fold one.
+        panel.add(ConfigDescriptor.header("Node Settings"), null);
+        panel.add(ConfigDescriptor.text("name", "Name").tooltip("Free text"), "Untitled");
+        panel.add(ConfigDescriptor.number("scale", "Scale"), 1.0);
+        panel.add(ConfigDescriptor.number("opacity", "Opacity").range(0f, 1f), 0.5);
+        panel.add(ConfigDescriptor.number("count", "Count").integral(true), 3);
+        panel.add(ConfigDescriptor.bool("exposed", "Exposed"), true);
+        panel.add(ConfigDescriptor.select("space", "Space",
+                List.of("Object", "View", "World", "Tangent", "Absolute World")), "World");
+        panel.add(ConfigDescriptor.vector("offset", "Offset", 3), new double[] {0, 1, 0});
+        panel.add(ConfigDescriptor.vector("uv", "UV", 2), new double[] {0, 0});
+
+        ConfiguratorGroup advanced = new ConfiguratorGroup("Advanced");
+        panel.append(advanced);
+        panel.addTo(advanced.content(), ConfigDescriptor.number("bias", "Bias"), 0.0);
+        panel.addTo(advanced.content(), ConfigDescriptor.bool("clamp", "Clamp"), false);
+        ConfiguratorGroup nested = new ConfiguratorGroup("Nested", true);
+        advanced.content().append(nested);
+        panel.addTo(nested.content(), ConfigDescriptor.text("note", "Note"), "two levels deep");
+
+        panel.add(ConfigDescriptor.of("entries", "Entries", ConfigDescriptor.Kind.ARRAY)
+                .element(ConfigDescriptor.text("entries.e", "")), List.of("alpha", "beta"));
+
+        ConfiguratorGroup rich = new ConfiguratorGroup("Colour, mask, matrix, asset");
+        panel.append(rich);
+        panel.addTo(rich.content(), ConfigDescriptor.color("tint", "Tint"), 0xFF3C8CFF);
+        panel.addTo(rich.content(), ConfigDescriptor.mask("layers", "Layers",
+                List.of("Default", "Water", "UI", "PostProcessing")), Set.of("Default", "Water"));
+        panel.addTo(rich.content(), ConfigDescriptor.matrix("transform", "Transform", 4), null);
+        panel.addTo(rich.content(), ConfigDescriptor.asset("shader", "Shader"), "Shaders/Lit.shader");
+
+        // NEWEST FIRST AND CAPPED. A log that grows downward pushes itself off the page, and the only
+        // line worth seeing is the one that just happened -- which is the whole point of showing the
+        // panel's `changed` signal rather than trusting the controls to look right.
+        UINode log = new UINode().addClass("config-log");
+        List<String> lines = new ArrayList<>();
+        panel.changed.connect((id, value) -> {
+            lines.add(0, id + " = " + describe(value));
+            while (lines.size() > 6) lines.remove(lines.size() - 1);
+            log.removeAll();
+            for (String line : lines) log.append(hint(line));
+        });
+        log.append(hint("scrub a number, type a name, open a colour — changes land here"));
+
+        UINode box = new UINode();
+        StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(8f));
+        box.append(panel);
+        box.append(log);
+        return box;
+    }
+
+    /** An array is not its {@code toString}, and neither is a matrix. */
+    private static String describe(@Nullable Object value) {
+        if (value instanceof double[] numbers) return Arrays.toString(numbers);
+        return String.valueOf(value);
     }
 
     private UINode section(String heading, UINode body) {
