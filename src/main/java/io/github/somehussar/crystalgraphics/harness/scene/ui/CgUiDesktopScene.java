@@ -350,7 +350,7 @@ public class CgUiDesktopScene
         Button open = new Button("Modal");
         open.onPressed.connect(() -> {
             Dialog dialog = new Dialog("Owned by " + owner.getTitle());
-            owner.attachOwned(dialog, true);
+            owner.attachOwned(dialog);
             dialog.append(new UIText("This blocks " + owner.getTitle() + "."));
             dialog.append(new UIText("Everything else still works."));
             dialog.showModal();
