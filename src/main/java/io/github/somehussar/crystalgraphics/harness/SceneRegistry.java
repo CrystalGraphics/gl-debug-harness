@@ -14,6 +14,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRenderer
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCheckboxScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiGalleryScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiDesktopScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNewEngineGalleryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
@@ -375,6 +376,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiNewEngineGalleryScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-desktop")
+                .description("M6 NEW ENGINE: CrystalOS -- stacking windows, drag, resize, cascade, the taskbar, per-window modality, maximise, and CrystalEditor running as a window. The counterpart to cgui-new-gallery: that one answers whether a ported WIDGET draws, this one whether a ported WINDOW behaves")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.06f, 0.06f, 0.08f, 1.0f)
+                .build(),
+            () -> new CgUiDesktopScene()
         );
 
         reg.register(
