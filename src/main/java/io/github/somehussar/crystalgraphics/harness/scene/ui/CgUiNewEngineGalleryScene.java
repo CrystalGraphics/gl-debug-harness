@@ -1,9 +1,9 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgui.chrome.menu.MenuBarView;
-import com.crystalgui.chrome.palette.QuickPick;
-import com.crystalgui.chrome.status.StatusBarView;
+import com.crystalgui.workbench.chrome.menu.MenuBarView;
+import com.crystalgui.workbench.chrome.palette.QuickPick;
+import com.crystalgui.workbench.chrome.status.StatusBarView;
 import com.crystalgui.core.collection.list.SelectionMode;
 import com.crystalgui.core.collection.pick.QuickPickItem;
 import com.crystalgui.core.collection.pick.QuickPickSource;
