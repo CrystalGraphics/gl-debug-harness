@@ -21,3 +21,9 @@
 # ignored along with it. A source file that git silently refuses to track is the worst half of that:
 # it works locally forever and is missing for everybody else.
 /workspace/
+
+# A DESKTOP ARRANGEMENT IS THIS MACHINE'S, not the scene's. `cgui-desktop` persists where you
+# left every window, and its own javadoc says "with no record at all it does nothing, so a first run
+# looks exactly as it always has" -- which is only true if nobody ships one. The session record beside
+# it is tracked deliberately (it is a fixture other scenes read); this is state.
+/workspace-config/desktop.*.json

@@ -71,7 +71,8 @@
       "sideWeight": 0.5,
       "order": 0,
       "active": true,
-      "stripe": true
+      "stripe": true,
+      "type": "DOCKED"
     },
     {
       "id": "problems",
@@ -82,7 +83,8 @@
       "sideWeight": 0.5,
       "order": 1,
       "active": true,
-      "stripe": true
+      "stripe": true,
+      "type": "DOCKED"
     },
     {
       "id": "inspector",
@@ -93,7 +95,8 @@
       "sideWeight": 0.5,
       "order": 2,
       "active": true,
-      "stripe": true
+      "stripe": true,
+      "type": "DOCKED"
     },
     {
       "id": "run",
@@ -104,9 +107,11 @@
       "sideWeight": 0.5,
       "order": 3,
       "active": true,
-      "stripe": true
+      "stripe": true,
+      "type": "DOCKED"
     }
   ],
+  "windows": [],
   "widgets": [
     {
       "id": "run.panel",
@@ -133,23 +138,20 @@
     },
     {
       "path": "harness.scratch:src"
-    },
-    {
-      "path": "harness.scratch:src/quickfix"
     }
   ],
   "files": [
+    {
+      "path": "harness.scratch:src/quickfix/QuickFixCast.java",
+      "view": {
+        "caret": 0
+      }
+    },
     {
       "path": "harness.scratch:src/Main.java",
       "view": {
         "caret": 322,
         "anchor": 314
-      }
-    },
-    {
-      "path": "harness.scratch:src/quickfix/QuickFixCast.java",
-      "view": {
-        "caret": 0
       }
     },
     {
