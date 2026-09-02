@@ -5,6 +5,7 @@ import com.crystalgraphics.gl.render.CgVectorRenderer;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgMouseCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.style.StyleGroup;
 import com.crystalgui.ui.input.keymap.KeyStroke;
 import com.crystalgui.ui.input.keymap.KeymapResolver;
 import com.crystalgui.ui.input.keymap.Keymap;
@@ -116,7 +117,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        this.document.append(createDemo());
+        UINode sceneRoot = createDemo();
+        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
+        // root and took the window's size; here the DOCUMENT is the root and this is an
+        // ordinary child, which sizes to its content -- so without this the scene lays out
+        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
+        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).heightPercent(100f));
+        this.document.append(sceneRoot);
         var engine = document.styles();
         engine.addStylesheet(StyleSheet.DEFAULT);   // USER_AGENT origin — stays through every toggle
         // NO COMMAND INSTALLS HERE ANY MORE, deliberately.

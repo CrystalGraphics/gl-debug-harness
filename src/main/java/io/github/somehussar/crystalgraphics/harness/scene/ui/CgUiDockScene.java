@@ -6,6 +6,7 @@ import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.util.profiling.CgProfiler;
 import com.crystalgraphics.util.profiling.CgProfilerDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.style.StyleGroup;
 import com.crystalgui.core.async.FrameProfile;
 import com.crystalgui.core.command.CommandRegistry;
 import com.crystalgui.render.CgUiPaintContext;
@@ -150,7 +151,14 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        this.document.append(editor);
+        UINode sceneRoot = editor;
+        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
+        // root and took the window's size; here the DOCUMENT is the root and this is an
+        // ordinary child, which sizes to its content -- so without this the scene lays out
+        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
+        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).heightPercent(100f));
+        this.document.append(sceneRoot);
         document.styles().addStylesheet(StyleSheet.DEFAULT);
         //document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
         document.styles().addStylesheet(StyleSheet.parse(STYLES));
