@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.style.property.layout.LayoutProperties;
 import com.crystalgui.ui.dom.UINode;
@@ -200,6 +201,13 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 );
 //        document.setMouse(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
         document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
+
+        // AND THE PAINT. `paintFrame()` did both; `frame()` only advances, so a scene that
+        // lost this half advanced perfectly and drew nothing.
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
+        document.paint(paintContext);
+        paintContext.endFrame();
         UINode previousElement = this.hoveredElement;
 //        this.hoveredElement = document.input().hoverTarget(), ctx.getScreenHeight() - Mouse.getY());
 //        if (this.hoveredElement != previousElement) {

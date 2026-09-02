@@ -110,6 +110,13 @@ public class CgUiSwitchScene implements InteractiveSceneLifecycle, CgSystemInput
         if (f == 6) animated.setChecked(true);
         document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
 
+        // AND THE PAINT. `paintFrame()` did both; `frame()` only advances, so a scene that
+        // lost this half advanced perfectly and drew nothing.
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
+        document.paint(paintContext);
+        paintContext.endFrame();
+
         var context = CgUiPaintContext.getInstance();
         context.text().draw().at(0, 0)
                 .text("Switch — knob slides via flex-grow; timing from ore.css. toggles=" + toggleCount)

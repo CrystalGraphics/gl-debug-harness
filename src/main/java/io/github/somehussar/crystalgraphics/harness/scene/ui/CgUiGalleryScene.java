@@ -2112,6 +2112,13 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // size. Done per frame because a resize is a drag; setScale ignores an unchanged value.
         document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
 
+        // AND THE PAINT. `paintFrame()` did both; `frame()` only advances, so a scene that
+        // lost this half advanced perfectly and drew nothing.
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
+        document.paint(paintContext);
+        paintContext.endFrame();
+
         var context = CgUiPaintContext.getInstance();
         Tab selected = pages.getSelectedTab();
         context.text().draw().at(0, 0)

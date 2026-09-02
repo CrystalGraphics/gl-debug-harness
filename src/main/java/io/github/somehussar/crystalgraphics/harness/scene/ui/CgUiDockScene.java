@@ -223,6 +223,13 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
         long painted = System.nanoTime();
         document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
+
+        // AND THE PAINT. `paintFrame()` did both; `frame()` only advances, so a scene that
+        // lost this half advanced perfectly and drew nothing.
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
+        document.paint(paintContext);
+        paintContext.endFrame();
         editor.giveInitialFocus();
         paintNanos = System.nanoTime() - painted;
 
@@ -759,7 +766,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
     }
 
-    /** What {@code document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE)} cost this frame — CPU, the same span [frame] reports. */
+    /** What {@code document.frame(...)} cost this frame — CPU, the same span [frame] reports. */
     private long paintNanos;
 
     /** What the counter itself cost. A probe has to be able to rule itself out. @see #paintOverlay */

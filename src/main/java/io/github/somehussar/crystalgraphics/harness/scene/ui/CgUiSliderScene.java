@@ -130,6 +130,13 @@ public class CgUiSliderScene implements InteractiveSceneLifecycle, CgSystemInput
         focusedSlider.setFocused(true);
         document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
 
+        // AND THE PAINT. `paintFrame()` did both; `frame()` only advances, so a scene that
+        // lost this half advanced perfectly and drew nothing.
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
+        document.paint(paintContext);
+        paintContext.endFrame();
+
         var context = CgUiPaintContext.getInstance();
         context.text().draw().at(0, 0)
                 .text(String.format("Slider — drag/click/arrows/wheel.  live value = %.3f", live.getValue()))

@@ -205,6 +205,13 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         forceStates();
         document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
 
+        // AND THE PAINT. `paintFrame()` did both; `frame()` only advances, so a scene that
+        // lost this half advanced perfectly and drew nothing.
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
+        document.paint(paintContext);
+        paintContext.endFrame();
+
         var context = CgUiPaintContext.getInstance();
         String status = String.format("clicks: %d | button enabled: %s", clickCount, demoButton.isEnabled());
         context.text().draw().at(0, 0).text(status).font(context.getFont().atSize(16)).submit();

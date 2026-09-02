@@ -234,6 +234,13 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
         try (CgProfiler.Scope ignored = CgProfiler.scope("document.paintFrame")) {
             if (DRAW_LABELS) {
                 document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
+
+                // AND THE PAINT. `paintFrame()` did both; `frame()` only advances, so a scene that
+                // lost this half advanced perfectly and drew nothing.
+                CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+                paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
+                document.paint(paintContext);
+                paintContext.endFrame();
             } else {
                 document.update(ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
             }
