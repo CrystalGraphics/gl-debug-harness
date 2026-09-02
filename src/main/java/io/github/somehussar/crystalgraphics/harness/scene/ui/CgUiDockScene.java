@@ -155,15 +155,10 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // their accelerators like everything else.
         // Nothing to install: constructing the editor registered its commands.
 
-        // RUN AND STOP, for the .java file in front. Null when no engine band was staged, and the
-        // commands are then deliberately NOT registered -- a Run row that cannot run anything teaches
-        // people the feature is broken rather than unavailable.
-        scripting = ScriptWorkbench.install(
-                CommandRegistry.global(), editor.workbench(),
-                Paths.get("build", "script-cache").toAbsolutePath().normalize());
-        // OPEN ON LAUNCH, which is a harness decision and not the panel's: this scene exists to be
-        // looked at while the console is being built. A real workbench leaves it on the rail until asked.
-        if (scripting != null) editor.workbench().revealPanel(RunPanels.RUN_TYPE);
+        // RUN AND STOP MOVED TO cgui-desktop. `ScriptWorkbench` is on the new engine now and takes the
+        // new `Workbench`; this scene is the OLD engine's and is deleted at 6.9b, so there is nothing
+        // to install here any more. The comment in CgUiDesktopScene.openEditorWindow saying this scene
+        // is the one that runs the editor with everything on was true and is not any longer.
 
         // The counter's font, before any frame is timed. @see #overlayFont
         overlayFont();

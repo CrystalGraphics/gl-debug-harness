@@ -2,6 +2,8 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.core.command.CommandRegistry;
+import com.crystalgui.language.run.view.ScriptWorkbench;
 import com.crystalgui.app.editor.CrystalEditor;
 import com.crystalgui.core.dispose.Disposer;
 import com.crystalgui.core.window.WindowPolicy;
@@ -186,6 +188,7 @@ public class CgUiDesktopScene
     private final HarnessWorkspace workspace = new HarnessWorkspace();
 
     private CrystalEditor editor;
+    private ScriptWorkbench scripting;
     private boolean projectsAsked;
     private boolean focusGiven;
     private int backgroundWindows;
@@ -286,8 +289,11 @@ public class CgUiDesktopScene
      * exercise is seeing it share a desktop, so it starts at a size that leaves the other windows
      * visible. Double-click its caption for the in-game default.</p>
      *
-     * <p>{@code ScriptWorkbench} is deliberately not installed: {@code cgui-dock} is the scene that runs
-     * the editor with everything on, and this one is about the compositor around it.</p>
+     * <p>{@code ScriptWorkbench} IS installed here now. It used to be {@code cgui-dock}'s, on the
+     * division that this scene is about the compositor and that one about the editor with everything
+     * on — sound while both could run the editor, and gone the moment `ScriptWorkbench` moved to the
+     * new engine: {@code cgui-dock} is the old engine's and is deleted at 6.9b, so without this there
+     * would be no scene that runs the Run panel at all.</p>
      */
     private void openEditorWindow() {
         editor = new CrystalEditor(workspace.client());
@@ -296,6 +302,13 @@ public class CgUiDesktopScene
         editor.useConfig(new LocalConfigStorage(
                 Paths.get("workspace-config").toAbsolutePath().normalize()));
         editor.addClass("desktop-editor");
+
+        // RUN AND STOP, for the file in front. Null when no engine band was staged, and the commands
+        // are then deliberately NOT registered -- a Run row that cannot run anything teaches people
+        // the feature is broken rather than unavailable.
+        scripting = ScriptWorkbench.install(
+                CommandRegistry.global(), editor.workbench(),
+                Paths.get("build", "script-cache").toAbsolutePath().normalize());
 
         WindowFrame frame = desktop.addWindow(new WindowFrame("Crystal Editor"));
         // HIDE_ON_CLOSE: a workbench is not a dialog, so its close button minimises and its taskbar

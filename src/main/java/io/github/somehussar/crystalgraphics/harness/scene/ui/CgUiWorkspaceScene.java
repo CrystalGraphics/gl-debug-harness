@@ -1,6 +1,8 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.ui.dom.ElementTreeSource;
+import com.crystalgui.net.mirror.ElementNodeMirror;
 import com.crystalgui.core.collection.tree.TreeDataSource;
 import com.crystalgui.core.collection.tree.TreeRow;
 import com.crystalgui.fs.CgFileEntry;
@@ -76,13 +78,13 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     private UIWindow uiWindow;
 
     // ── The server half ─────────────────────────────────────────────────────────────────────────
-    private ServerUiSession<Object> server;
+    private ServerUiSession<UIElement, Object> server;
     private WorkspaceRpc<Object> rpc;
     private InMemoryTransport<Object> fromServer;
     private InMemoryTransport<Object> fromClient;
 
     // ── The client half ─────────────────────────────────────────────────────────────────────────
-    private ClientUiSession<Object> session;
+    private ClientUiSession<UIElement, Object> session;
     private WorkspaceClient<Object> workspace;
     private WorkspaceTreeSource tree;
 
@@ -127,12 +129,13 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
         fromServer = pair[0];
         fromClient = pair[1];
 
-        server = new ServerUiSession<>(1, new UIElement(), fromServer, PlainOps.INSTANCE);
+        server = new ServerUiSession<>(1, new ElementTreeSource(new UIElement()),
+                new ElementNodeMirror<>(PlainOps.INSTANCE), fromServer, PlainOps.INSTANCE);
         rpc = new WorkspaceRpc<>(service, WorkspaceActor.LOCAL);
         rpc.installOn(server::onCall);
         server.open();
 
-        session = new ClientUiSession<>(fromClient, PlainOps.INSTANCE);
+        session = new ClientUiSession<>(new ElementNodeMirror<>(PlainOps.INSTANCE), fromClient, PlainOps.INSTANCE);
         workspace = new WorkspaceClient<>(session, PlainOps.INSTANCE);
         workspace.onFileChanged(this::onFileChangedOnServer);
         tree = new WorkspaceTreeSource(workspace);

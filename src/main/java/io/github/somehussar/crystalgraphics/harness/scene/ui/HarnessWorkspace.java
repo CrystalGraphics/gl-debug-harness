@@ -1,5 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgui.ui.dom.ElementTreeSource;
+import com.crystalgui.net.mirror.ElementNodeMirror;
 import com.crystalgui.language.LanguageStack;
 import com.crystalgui.language.java.JavaLanguage;
 import com.crystalgui.language.js.JsLanguage;
@@ -51,9 +53,9 @@ final class HarnessWorkspace {
 
     private final InMemoryTransport<Object> fromServer;
     private final InMemoryTransport<Object> fromClient;
-    private final ServerUiSession<Object> server;
+    private final ServerUiSession<UIElement, Object> server;
     private final WorkspaceRpc<Object> rpc;
-    private final ClientUiSession<Object> session;
+    private final ClientUiSession<UIElement, Object> session;
     private final WorkspaceClient<Object> client;
 
     /** Seconds until the next watcher poll. Every poll stats each watched file, so a per-frame poll would
@@ -92,12 +94,13 @@ final class HarnessWorkspace {
         fromServer = pair[0];
         fromClient = pair[1];
 
-        server = new ServerUiSession<>(1, new UIElement(), fromServer, PlainOps.INSTANCE);
+        server = new ServerUiSession<>(1, new ElementTreeSource(new UIElement()),
+                new ElementNodeMirror<>(PlainOps.INSTANCE), fromServer, PlainOps.INSTANCE);
         rpc = new WorkspaceRpc<>(service, WorkspaceActor.LOCAL);
         rpc.installOn(server::onCall);
         server.open();
 
-        session = new ClientUiSession<>(fromClient, PlainOps.INSTANCE);
+        session = new ClientUiSession<>(new ElementNodeMirror<>(PlainOps.INSTANCE), fromClient, PlainOps.INSTANCE);
         client = new WorkspaceClient<>(session, PlainOps.INSTANCE);
     }
 
