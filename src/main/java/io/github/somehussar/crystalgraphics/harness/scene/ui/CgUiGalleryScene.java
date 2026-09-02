@@ -1729,14 +1729,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         @Override
         public void paintContent(CgUiPaintContext ctx, Box box) {
             super.paintContent(ctx, box);
-            // Absolute layout origin, the same pair UINode.paintSelf itself paints its background
-            // from. The strokes below are offset from it, so they follow the element wherever the
-            // gallery's layout puts it rather than being pinned to screen coordinates — which also
-            // means they stay correct while the page scrolls, with no scroll-aware code here at all.
-            // The BOX the painter handed over -- every box is drawn in its own space now, so these
-            // are the origin the strokes below are offset from.
-            float x = box.x();
-            float y = box.y();
+            // ZERO, not box.x()/box.y(). BoxPainter poses every box in its OWN space, so the origin
+            // the strokes are offset from is already this canvas's top-left -- and it stays correct
+            // while the page scrolls, with no scroll-aware code here, because the pose carries the
+            // scroll too. Adding the box's own offset on top shifted every stroke right by however
+            // far along its row the canvas sat, which draws a perfectly correct picture in the wrong
+            // place and reads as the strokes overflowing their canvas.
+            float x = 0f;
+            float y = 0f;
             float t = (System.nanoTime() - START_NANOS) / 1_000_000_000f;
 
             switch (mode) {

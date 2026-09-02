@@ -41,7 +41,14 @@
  * thickens it, so: compact the tabs enough that twenty fit without scrolling at the harness's
  * default window size, AND widen the bar so the moment a twenty-first is added the overflow
  * is visible and draggable rather than silently unreachable. */
-.gallery-tabs tab            { height: 13px; font-size: 7; }
+/* NO `font-size` here, and that is the whole rule. It used to say 7 and the label went on drawing at
+ * 10, because `default.css` opens with `* { font-size: 10 }` -- a STYLESHEET candidate on every
+ * element, and inheritance only applies where there is no candidate at any origin, so a size set on a
+ * wrapper never reached the UIText inside it. The new engine puts a widget's label in its SHADOW tree,
+ * which no outer rule reaches, so the label finally has no candidate and inherits -- and the 7 nobody
+ * had ever seen applied started applying, shrinking the rail from ~153px to ~107px. Saying nothing
+ * lets the tab take the universal 10 and the label inherit it, which is what this always rendered. */
+.gallery-tabs tab            { height: 13px; }
 .gallery-tabs .__strip-bar__ { width: 5px; }
 .theme-btn     { width: 118px; }
 
@@ -53,7 +60,14 @@
 .slot          { width: 86px; }
 .field         { width: 150px; }
 
-.swatch        { width: 14px; height: 14px; background: #6FA8DC; }
+/* The button page's pre-icon. `setPreIcon` puts a CALLER'S node into the button's SHADOW tree as
+ * `::part(pre-icon)`, and an outer bare-class rule cannot reach into a shadow tree -- so `.swatch`
+ * alone matched nothing and the icon drew at 0x0 with no background: an invisible node inside a
+ * button that otherwise looked right. Combining the class with the part is what every other
+ * consumer in the engine already does (`taskbar .__entry__::part(pre-icon).__tile-1__`,
+ * `::part(pre-icon).__completion-icon__`). The bare spelling stays for a swatch in the light tree. */
+.swatch,
+::part(pre-icon).swatch { width: 14px; height: 14px; background: #6FA8DC; }
 .box           { width: 96px; height: 40px; }
 /* Canvas for the curve page. A plain element with a background — everything drawn on it
  * comes from ctx.curve() in paintSelf, so its only job is to give the strokes a box with
