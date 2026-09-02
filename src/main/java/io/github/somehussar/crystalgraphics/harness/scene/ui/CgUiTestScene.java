@@ -1,9 +1,8 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgui.style.property.layout.LayoutProperties;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
+import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.render.texture.CgUiQuad;
 import com.crystalgui.render.texture.CgUiSprite;
 import com.crystalgui.ui.input.FocusPolicy;
@@ -16,7 +15,7 @@ import org.lwjgl.input.Keyboard;
 
 /**
  * Interactive harness scene that builds and renders a CrystalGUI DOM tree
- * using the immediate-mode {@link UIWindow} paint path.
+ * using the immediate-mode {@link UIDocument} paint path.
  *
  * <p>This scene exercises the full CrystalGUI stack — Taffy layout, DOM tree
  * traversal, {@code CgUiQuad} solid fills, {@code CgUiSprite} atlas sprites,
@@ -32,9 +31,12 @@ import org.lwjgl.input.Keyboard;
  */
 public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
 
-    private UIElement hoveredElement;
+    private UIDocument document;
+
+    private UINode hoveredElement;
 
     CgUiSprite backgroundMain = new CgUiSprite()
             .setTexture("crystalgui:textures/gui/gdp_styles.png")
@@ -59,29 +61,31 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     @Override
     public void init(HarnessContext ctx) {
-        UIElement root =
+        UINode root =
 //                createUISimple();
                 createYogaExample();
         Keyboard.enableRepeatEvents(true);
-        this.uiWindow = new UIWindow(Ui.of(root));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        this.document.append(root);
     }
 
-    private UIElement createUISimple() {
-        UIElement root = new UIElement()
+    private UINode createUISimple() {
+        UINode root = new UINode()
                 .generalStyle(s -> s.background(new CgUiQuad(0xFFFFFFFF)))
                 .layout(l -> l.height(600).width(600).flexDirection(FlexDirection.COLUMN));
 
-        root.addChild(
-                new UIElement().generalStyle(s -> s.background(new CgUiQuad(0xFFFF0000)))
+        root.append(
+                new UINode().generalStyle(s -> s.background(new CgUiQuad(0xFFFF0000)))
                         .layout(l -> l.widthPercent(100).height(300))
         );
 
         return root;
     }
 
-    private UIElement createYogaExample() {
+    private UINode createYogaExample() {
 
-        UIElement root = new UIElement()
+        UINode root = new UINode()
                 .generalStyle(s -> s.background(backgroundMain))
                 .layout(l -> l
                         .width(250)
@@ -89,10 +93,10 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                         .paddingAll(10)
                 ).onMouseScroll.attachListener(
 //                        (thiz, event) -> thiz.generalStyle(s -> s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00)),
-                        (thizElement, event) -> uiWindow.getLeftPos(),
+                        (thizElement, event) -> { },
                         true, false);
 
-        UIElement container = new UIElement().setId("Container")
+        UINode container = new UINode().setId("Container")
                 .generalStyle(s -> s.background(inset))
                 .layout(l -> l
                         .widthPercent(100).heightPercent(100)
@@ -100,14 +104,14 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                         .gapAll(10)
                         .flexDirection(FlexDirection.COLUMN)
                 );
-        root.addChild(container);
+        root.append(container);
 
-        UIElement header = new UIElement().setId("Header")
+        UINode header = new UINode().setId("Header")
                 .generalStyle(s -> s.background(inset))
                 .layout(l -> l.height(60));
-        container.addChild(header);
+        container.append(header);
 
-        UIElement mainWrapper = new UIElement().setId("wrapper")
+        UINode mainWrapper = new UINode().setId("wrapper")
                 .setHitTest(false)
                 .layout(l -> l
 //                        .positionType(TaffyPosition.ABSOLUTE)   // pulls it out of container's flex flow entirely
@@ -116,9 +120,9 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                         .justifyContent(AlignContent.CENTER)
                         .alignItems(AlignItems.CENTER)           // center main vertically within the full stretch too
                 ).setFocusPolicy(FocusPolicy.NONE);
-        container.addChild(mainWrapper); // still added before `content` — controls paint order, not flow anymore
+        container.append(mainWrapper); // still added before `content` — controls paint order, not flow anymore
 
-        UIElement main = new UIElement().setId("main")
+        UINode main = new UINode().setId("main")
                 .generalStyle(s -> s.background(inset).color(0xFF00FF00))
                 .layout(l -> l
                         .widthPercent(100)
@@ -130,21 +134,21 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                         .alignItems(AlignItems.CENTER)
                         .justifyContent(AlignContent.SPACE_AROUND)
                 );
-        mainWrapper.addChild(main);
+        mainWrapper.append(main);
 
         for (int i = 0; i < 3; i++) {
-            UIElement button = new UIElement().setId("buttonMain"+i)
+            UINode button = new UINode().setId("buttonMain"+i)
                     .generalStyle(s -> s.background(buttonSprite))
                     .layout(l -> l.width(40).height(40));
-            main.addChild(button);
+            main.append(button);
         }
 
-        UIElement content = new UIElement().setId("content")
+        UINode content = new UINode().setId("content")
                 .generalStyle(s -> s.background(inset).color(0xFFFF0000))
                 .layout(l -> l.flex(2).marginBottom(72).marginLeft(10).marginRight(10));
-        container.addChild(content);
+        container.append(content);
 
-        UIElement absolute = new UIElement().setId("absolute")
+        UINode absolute = new UINode().setId("absolute")
                 .generalStyle(s -> s.background(overlay))
                 .layout(l -> l
                         .positionType(TaffyPosition.ABSOLUTE)
@@ -154,9 +158,9 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                         .justifyContent(AlignContent.SPACE_AROUND)
                         .bottom(0)
                 );
-        container.addChild(absolute);
+        container.append(absolute);
 
-        UIElement button1 = new UIElement().setId("button0")
+        UINode button1 = new UINode().setId("button0")
                 .generalStyle(s -> s
                         .background(buttonSprite)
                         .overlay(new CgUiSprite()
@@ -166,36 +170,35 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                         )
                 )
                 .layout(l -> l.width(40).height(40));
-        absolute.addChild(button1);
+        absolute.append(button1);
 
         for (int i = 0; i < 3; i++) {
-            UIElement button = new UIElement().setId("Header"+(1+i))
+            UINode button = new UINode().setId("Header"+(1+i))
                     .generalStyle(s -> s.background(buttonSprite))
                     .layout(l -> l.width(40).height(40));
-            absolute.addChild(button);
+            absolute.append(button);
         }
         return root;
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         long timeMillis = System.currentTimeMillis();
 
         float value = (float) Math.sin(2 * Math.PI * timeMillis / 5000.0);
-        uiWindow.ui.rootElement
-                .getChildren().getFirst().getChildren().get(1).getChildren().getFirst().layout(
+        document
+                .children().getFirst().children().get(1).children().getFirst().layout(
                         l -> l.widthPercent(60 + 40 * value).minWidth(60).maxHeight(160)
                 );
-//        uiWindow.setMouse(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
-        uiWindow.paintFrame();
-        UIElement previousElement = this.hoveredElement;
-//        this.hoveredElement = uiWindow.getHoveredElement(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
+//        document.setMouse(Mouse.getX(), ctx.getScreenHeight() - Mouse.getY());
+        document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
+        UINode previousElement = this.hoveredElement;
+//        this.hoveredElement = document.input().hoverTarget(), ctx.getScreenHeight() - Mouse.getY());
 //        if (this.hoveredElement != previousElement) {
 //            if (this.hoveredElement == null) {
 //                Display.setTitle("No element selected :(");
 //            } else {
-//                Display.setTitle(hoveredElement.getId() + "#");
+//                Display.setTitle(hoveredElement.id() + "#");
 //            }
 //        }
 //        Display.setTitle(String.format("%d, %d", Mouse.getX(), ctx.getScreenHeight() - Mouse.getY()));
@@ -203,7 +206,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -225,12 +228,12 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
 
 //        if (event.pressed()) {
-//            uiWindow.ui.rootElement.generalStyle(s -> {
+//            document.generalStyle(s -> {
 //                   s.color(s.color() == 0xFF00FF00 ? 0xFFFFFFFF : 0xFF00FF00);
 //            });
 //
 //            if(this.hoveredElement != null) {
-//                this.hoveredElement.addChild(new UIElement().setId("button0")
+//                this.hoveredElement.append(new UINode().setId("button0")
 //                        .generalStyle(s -> s
 //                                .background(buttonSprite)
 //                                .overlay(new CgUiSprite()
@@ -243,11 +246,11 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
 //            }
 //        }
 
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

@@ -5,10 +5,9 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.platform.service.CgSoundService;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.Button;
+import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.control.Button;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -34,7 +33,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
     private int clickCount = 0;
     private int keyboardActivationCount = 0;
     private int soundPlayCount = 0;
@@ -75,13 +77,15 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput
         org.lwjgl.input.Keyboard.enableRepeatEvents(false);
         PlatformServiceHarness.getInstance().soundImpl = soundId -> soundPlayCount++;
 
-        UIElement root = createButtonDemo();
-        this.uiWindow = new UIWindow(Ui.of(root));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLE_SHEET));
+        UINode root = createButtonDemo();
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        this.document.append(root);
+        this.document.styles().addStylesheet(StyleSheet.parse(STYLE_SHEET));
     }
 
-    private UIElement createButtonDemo() {
-        UIElement root = new UIElement()
+    private UINode createButtonDemo() {
+        UINode root = new UINode()
                 .layout(l -> l
                         .paddingAll(16)
                         .flexDirection(FlexDirection.ROW)
@@ -89,29 +93,37 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput
                         .alignItems(AlignItems.FLEX_START))
                 .setFocusPolicy(FocusPolicy.NONE);
 
-        UIElement clickCard = new UIElement();
+        UINode clickCard = new UINode();
         clickCard.addClass("card");
         Button clickButton = new Button("Click Me");
         clickButton.addClass("button");
         clickButton.attachListener(() -> clickCount++);
-        clickCard.addChild(clickButton);
-        root.addChild(clickCard);
+        clickCard.append(clickButton);
+        root.append(clickCard);
 
-        UIElement keyboardCard = new UIElement();
+        UINode keyboardCard = new UINode();
         keyboardCard.addClass("card");
         Button keyboardButton = new Button("Keyboard Test");
         keyboardButton.addClass("button");
         keyboardButton.attachListener(() -> keyboardActivationCount++);
-        keyboardCard.addChild(keyboardButton);
-        root.addChild(keyboardCard);
+        keyboardCard.append(keyboardButton);
+        root.append(keyboardCard);
 
         return root;
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
-        uiWindow.paintFrame();
+        int w = ctx.getScreenWidth();
+        int h = ctx.getScreenHeight();
+        // SURFACE pixels in, LOGICAL units to lay out in -- the scale lives on the box
+        // tree's root transform, so this is the only place the two spaces meet.
+        document.frame(frame.getDeltaTime(), w / SCALE, h / SCALE);
+
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(w, h);
+        document.paint(paintContext);
+        paintContext.endFrame();
 
         var context = CgUiPaintContext.getInstance();
         String status = String.format(
@@ -129,7 +141,7 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -149,11 +161,11 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

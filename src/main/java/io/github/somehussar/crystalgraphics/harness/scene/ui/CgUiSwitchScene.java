@@ -4,11 +4,10 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.Switch;
-import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.control.Switch;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -30,7 +29,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiSwitchScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness's other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
     private Switch animated;
     private Switch focused;
     private int toggleCount = 0;
@@ -43,61 +45,62 @@ public class CgUiSwitchScene implements InteractiveSceneLifecycle, CgSystemInput
     @Override
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(false);
-        this.uiWindow = new UIWindow(Ui.of(createDemo()));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLES));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        this.document.append(createDemo());
+        this.document.styles().addStylesheet(StyleSheet.DEFAULT);
+        this.document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
+        this.document.styles().addStylesheet(StyleSheet.parse(STYLES));
     }
 
-    private UIElement createDemo() {
-        UIElement root = new UIElement()
+    private UINode createDemo() {
+        UINode root = new UINode()
                 .layout(l -> l.paddingAll(12).flexDirection(FlexDirection.COLUMN).gapAll(8))
                 .setFocusPolicy(FocusPolicy.NONE);
         root.addClass("panel");
 
-        root.addChild(row("off", new Switch()));
+        root.append(row("off", new Switch()));
 
         Switch on = new Switch();
         on.setChecked(true);
-        root.addChild(row("on", on));
+        root.append(row("on", on));
 
         animated = new Switch();
         animated.attachListener(v -> toggleCount++);
-        root.addChild(row("animating", animated));
+        root.append(row("animating", animated));
 
         focused = new Switch();
-        root.addChild(row("focused", focused));
+        root.append(row("focused", focused));
 
         Switch disabled = new Switch();
         disabled.setEnabled(false);
-        root.addChild(row("disabled", disabled));
+        root.append(row("disabled", disabled));
 
         return root;
     }
 
-    private UIElement row(String label, UIElement widget) {
-        UIElement row = new UIElement();
+    private UINode row(String label, UINode widget) {
+        UINode row = new UINode();
         row.addClass("row");
         // Fixed-width slot: UIText pushes its own width at IMPORTANT origin, which outranks any
         // stylesheet width, so the label has to be wrapped to keep the rows aligned.
-        UIElement slot = new UIElement().layout(l -> l.width(64));
+        UINode slot = new UINode().layout(l -> l.width(64));
         UIText t = new UIText(label);
         t.addClass("label");
-        slot.addChild(t);
-        row.addChild(slot);
-        row.addChild(widget);
+        slot.append(t);
+        row.append(slot);
+        row.append(widget);
         return row;
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         focused.setFocused(true);
 
         long f = frame.getFrameNumber();
         // Toggle once, then capture the following frames so the knob is caught mid-slide.
         if (f == 6) animated.setChecked(true);
-        uiWindow.paintFrame();
+        document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
 
         var context = CgUiPaintContext.getInstance();
         context.text().draw().at(0, 0)
@@ -112,7 +115,7 @@ public class CgUiSwitchScene implements InteractiveSceneLifecycle, CgSystemInput
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -132,11 +135,11 @@ public class CgUiSwitchScene implements InteractiveSceneLifecycle, CgSystemInput
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

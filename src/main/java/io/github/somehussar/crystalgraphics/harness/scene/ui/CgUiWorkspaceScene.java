@@ -1,8 +1,8 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgui.ui.dom.ElementTreeSource;
-import com.crystalgui.net.mirror.ElementNodeMirror;
+import com.crystalgui.ui.dom.UINodeTreeSource;
+import com.crystalgui.net.mirror.UINodeMirror;
 import com.crystalgui.core.collection.tree.TreeDataSource;
 import com.crystalgui.core.collection.tree.TreeRow;
 import com.crystalgui.fs.CgFileEntry;
@@ -24,17 +24,16 @@ import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.serialization.PlainOps;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.elements.Button;
-import com.crystalgui.ui.elements.SplitView;
-import com.crystalgui.ui.elements.Tab;
-import com.crystalgui.ui.elements.TabView;
-import com.crystalgui.ui.elements.UIText;
-import com.crystalgui.ui.elements.editor.TextEditor;
-import com.crystalgui.ui.elements.tree.TreeView;
-import com.crystalgui.ui.elements.workbench.WorkspaceTreeSource;
+import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.control.Button;
+import com.crystalgui.widget.layout.SplitView;
+import com.crystalgui.widget.layout.Tab;
+import com.crystalgui.widget.layout.TabView;
+import com.crystalgui.widget.text.UIText;
+import com.crystalgui.widget.texteditor.TextEditor;
+import com.crystalgui.widget.collection.tree.TreeView;
+import com.crystalgui.workbench.explorer.WorkspaceTreeSource;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -73,25 +72,28 @@ import java.util.Set;
 public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
         CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
+    /** Logical-to-surface scale, as the harness's other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
     private static final String PROJECT_ID = "harness.scratch";
 
-    private UIWindow uiWindow;
+    private UIDocument document;
 
     // ── The server half ─────────────────────────────────────────────────────────────────────────
-    private ServerUiSession<UIElement, Object> server;
+    private ServerUiSession<UINode, Object> server;
     private WorkspaceRpc<Object> rpc;
     private InMemoryTransport<Object> fromServer;
     private InMemoryTransport<Object> fromClient;
 
     // ── The client half ─────────────────────────────────────────────────────────────────────────
-    private ClientUiSession<UIElement, Object> session;
+    private ClientUiSession<UINode, Object> session;
     private WorkspaceClient<Object> workspace;
     private WorkspaceTreeSource tree;
 
     private TreeView<CgPath> treeView;
     private TabView tabs;
     private UIText status;
-    private UIElement banner;
+    private UINode banner;
     private UIText bannerText;
 
     /** Open documents, by path, so a second click on a file focuses its tab rather than opening another. */
@@ -105,7 +107,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     private float untilPoll;
 
     /** Which item each pooled tree row currently shows — see the renderer for why it is not captured. */
-    private final Map<UIElement, CgPath> rowItems = new HashMap<>();
+    private final Map<UINode, CgPath> rowItems = new HashMap<>();
 
     /** The path whose save was refused, awaiting Reload or Keep. */
     private CgPath conflicted;
@@ -129,20 +131,22 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
         fromServer = pair[0];
         fromClient = pair[1];
 
-        server = new ServerUiSession<>(1, new ElementTreeSource(new UIElement()),
-                new ElementNodeMirror<>(PlainOps.INSTANCE), fromServer, PlainOps.INSTANCE);
+        server = new ServerUiSession<>(1, new UINodeTreeSource(new UINode()),
+                new UINodeMirror<>(PlainOps.INSTANCE), fromServer, PlainOps.INSTANCE);
         rpc = new WorkspaceRpc<>(service, WorkspaceActor.LOCAL);
         rpc.installOn(server::onCall);
         server.open();
 
-        session = new ClientUiSession<>(new ElementNodeMirror<>(PlainOps.INSTANCE), fromClient, PlainOps.INSTANCE);
+        session = new ClientUiSession<>(new UINodeMirror<>(PlainOps.INSTANCE), fromClient, PlainOps.INSTANCE);
         workspace = new WorkspaceClient<>(session, PlainOps.INSTANCE);
         workspace.onFileChanged(this::onFileChangedOnServer);
         tree = new WorkspaceTreeSource(workspace);
 
-        uiWindow = new UIWindow(Ui.of(buildUi()));
-        uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("harness:workspace"));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        this.document.append(buildUi());
+        document.styles().addStylesheet(StyleSheet.DEFAULT);
+        document.styles().addStylesheet(StyleSheetRegistry.of("harness:workspace"));
 
         // DELIBERATELY NOT loading projects here. The client's window id is -1 until OpenWindow
         // arrives, and the server discards any packet for another window -- so a call made now is thrown
@@ -185,35 +189,35 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
 
     // ── UI ──────────────────────────────────────────────────────────────────────────────────────
 
-    private UIElement buildUi() {
-        UIElement root = new UIElement();
+    private UINode buildUi() {
+        UINode root = new UINode();
         root.addClass("ws-root");
 
-        UIElement head = new UIElement();
+        UINode head = new UINode();
         head.addClass("ws-head");
         Button save = new Button("Save (Ctrl+S)");
         save.addClass("ws-btn");
         save.attachListener(this::saveActive);
-        head.addChild(save);
+        head.append(save);
         status = new UIText("");
         status.addClass("ws-status");
-        head.addChild(status);
-        root.addChild(head);
+        head.append(status);
+        root.append(head);
 
-        banner = new UIElement();
+        banner = new UINode();
         banner.addClass("ws-banner");
         bannerText = new UIText("");
         bannerText.addClass("ws-banner-text");
-        banner.addChild(bannerText);
+        banner.append(bannerText);
         Button reload = new Button("Load File System Changes");
         reload.addClass("ws-btn");
         reload.attachListener(this::reloadConflicted);
-        banner.addChild(reload);
+        banner.append(reload);
         Button keep = new Button("Keep Memory Changes");
         keep.addClass("ws-btn");
         keep.attachListener(this::keepConflicted);
-        banner.addChild(keep);
-        root.addChild(banner);
+        banner.append(keep);
+        root.append(banner);
         showBanner(null);
 
         SplitView split = new SplitView();
@@ -222,17 +226,17 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
 
         treeView = new TreeView<>(tree);
         treeView.addClass("ws-tree");
-        treeView.setRenderer(new com.crystalgui.ui.elements.tree.TreeRenderer<>() {
+        treeView.setRenderer(new com.crystalgui.widget.collection.tree.TreeRenderer<>() {
             @Override
-            public UIElement createTemplate() {
-                UIElement row = new UIElement();
+            public UINode createTemplate() {
+                UINode row = new UINode();
                 row.addClass("ws-row");
                 UIText label = new UIText("");
                 // The LABEL does not take the click, so the press lands on the row -- the same trick every
                 // composite in this engine uses, since click targeting takes the exact element hit and
                 // never walks up to a handler-bearing ancestor.
                 label.setHitTest(false);
-                row.addChild(label);
+                row.append(label);
                 // THE ROW'S ITEM IS READ, NEVER CAPTURED. Templates are pooled and rebound as the list
                 // scrolls, and a listener may only be attached once -- capturing the item here would
                 // freeze this row on whatever it first displayed, and keep working right up until
@@ -245,16 +249,16 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
             }
 
             @Override
-            public void bind(CgPath item, TreeRow<CgPath> row, int index, UIElement template) {
+            public void bind(CgPath item, TreeRow<CgPath> row, int index, UINode template) {
                 rowItems.put(template, item);
                 String name = item.isProjectRoot() ? tree.displayNameOf(item) : item.name();
-                ((UIText) template.getChildren().get(0))
+                ((UIText) template.children().get(0))
                         .setText("  ".repeat(row.depth())
                                 + (row.expandable() ? (row.expanded() ? "- " : "+ ") : "   ") + name);
             }
 
             @Override
-            public void unbind(UIElement template) {
+            public void unbind(UINode template) {
                 rowItems.remove(template);
             }
         });
@@ -267,12 +271,12 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
             TreeRow<CgPath> row = treeView.rowAt(index);
             if (row != null) activateRow(row.item());
         });
-        split.first().addChild(treeView);
+        split.first().append(treeView);
 
         tabs = new TabView();
         tabs.addClass("ws-tabs");
-        split.second().addChild(tabs);
-        root.addChild(split);
+        split.second().append(tabs);
+        root.append(split);
 
         return root;
     }
@@ -316,7 +320,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
             TextEditor editor = new TextEditor(document.text());
             editor.addClass("ws-editor");
             Tab tab = tabs.addTab(path.name());
-            tab.content().addChild(editor);
+            tab.content().append(editor);
             tabs.selectTab(tab);
             openTabs.put(path, tab);
             editors.put(path, editor);
@@ -449,10 +453,9 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
 
         if (tree.drainRefresh()) treeView.refresh();
 
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         String treeError = tree.failure();
         status.setText(treeError != null ? treeError : note);
-        uiWindow.paintFrame();
+        document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
 
         var context = CgUiPaintContext.getInstance();
         context.text().draw().at(0, 0)
@@ -464,7 +467,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -491,11 +494,11 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
             saveActive();
             return false;
         }
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

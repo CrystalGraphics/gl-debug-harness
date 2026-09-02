@@ -1,6 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.text.Change;
 import com.crystalgui.text.TextPoint;
@@ -12,11 +13,10 @@ import com.crystalgui.text.lang.CompletionProvider;
 import com.crystalgui.text.lang.LanguageServices;
 import com.crystalgui.text.syntax.LanguageRegistry;
 import com.crystalgui.text.syntax.Language;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.editor.CompletionSession;
-import com.crystalgui.ui.elements.editor.TextEditor;
+import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.texteditor.suggest.CompletionSession;
+import com.crystalgui.widget.texteditor.TextEditor;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -66,6 +66,9 @@ import java.util.List;
 public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard,
         CgSystemInput.Mouse {
 
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
     private static final String SOURCE = """
             class Demo {
                 void run() {
@@ -76,7 +79,7 @@ public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemI
             }
             """;
 
-    private UIWindow uiWindow;
+    private UIDocument document;
     private TextEditor editor;
     private boolean logged;
 
@@ -95,21 +98,22 @@ public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemI
         // since every view part computes a line's top as `origin + line * height - scrollTop`, all nine
         // rows resolve to the same y and paint on top of each other. See the note in the scene javadoc --
         // the defect is the editor's, not this scene's, and this is a workaround rather than a fix.
-        editor.setScrollImmediate(0f, 0f);
+        editor.box().setScroll(0f, 0f);
 
         // THE EDITOR IS THE ROOT, as it is in the dock scene. Wrapped in a sized parent instead, its scroll
         // offset resolves to NaN on the first layout and every line's top becomes `origin + n*height - NaN`
         // -- so all nine rows painted at the same y, stacked on top of each other. The editor is the only
         // configuration proven to lay out here, and a harness scene is the wrong place to be discovering
         // that; see the note at the top of this file.
-        uiWindow = new UIWindow(Ui.of(editor));
-        uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        this.document.append(editor);
+        document.styles().addStylesheet(StyleSheet.DEFAULT);
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgUiPaintContextWarmup.ensure();
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
 
         long number = frame.getFrameNumber();
         // FRAME 2, not 0: the first frame is where layout settles, and a diagnostic installed before the
@@ -118,7 +122,7 @@ public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemI
         if (number == 4) editForcingTheSquigglesToTrack();
         if (number == 6) openCompletionAtTheCaret();
 
-        uiWindow.paintFrame();
+        document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
 
         if (number == 8 && !logged) {
             logged = true;
@@ -240,14 +244,18 @@ public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemI
         // question and not a completion one -- and a screenshot cannot distinguish "the text is not drawn"
         // from "the text is drawn somewhere off the capture".
         System.out.println("=== geometry ==============================================");
-        System.out.printf("   window       %dx%d logical (the harness surface is twice that at uiScale 2)%n",
-                (int) uiWindow.getScreenWidth(), (int) uiWindow.getScreenHeight());
+        // THE DOCUMENT'S OWN BOX, because `ctx` is the render call's and this runs outside it. It is
+        // already in logical units, which is what this line was reporting.
+        System.out.printf("   window       %.0fx%.0f logical (the harness surface is twice that at uiScale 2)%n",
+                document.box() == null ? 0f : document.box().width(),
+                document.box() == null ? 0f : document.box().height());
         System.out.printf("   editor box   %.1fx%.1f%n",
-                editor.getRuntimeCache().getWidth(), editor.getRuntimeCache().getHeight());
+                editor.box().width(), editor.box().height());
         System.out.printf("   rows         %d in the document, line height %.1f%n",
                 editor.buffer().lineCount(), editor.lineHeight());
-        org.joml.Vector3f origin = editor.getRuntimeCache().localToWorld.get()
-                .transformPosition(new org.joml.Vector3f(0f, 0f, 0f));
+        // `localToWorld` is a method on Box, where the old runtime cache exposed a cell to `get()`.
+        org.joml.Vector3f origin = editor.box() == null ? new org.joml.Vector3f()
+                : editor.box().localToWorld().transformPosition(new org.joml.Vector3f(0f, 0f, 0f));
         System.out.printf("   editor world (%.1f, %.1f) -- surface pixels, so uiScale is already in it%n",
                 origin.x, origin.y);
 
@@ -303,7 +311,7 @@ public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemI
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -323,12 +331,12 @@ public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemI
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 
     /** Kept out of the render body so the reason is stated once. */

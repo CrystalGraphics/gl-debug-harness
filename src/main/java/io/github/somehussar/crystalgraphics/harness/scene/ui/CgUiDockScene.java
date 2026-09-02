@@ -10,24 +10,23 @@ import com.crystalgui.core.async.FrameProfile;
 import com.crystalgui.core.command.CommandRegistry;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.render.text.FontFamilyCache;
-import com.crystalgui.ui.elements.chrome.QuickPick;
-import com.crystalgui.ui.elements.workbench.GoToFile;
+import com.crystalgui.workbench.chrome.palette.QuickPick;
+import com.crystalgui.workbench.search.GoToFile;
 import com.crystalgui.language.run.view.RunPanels;
 import com.crystalgui.language.run.view.ScriptWorkbench;
 import com.crystalgui.core.dispose.Disposer;
-import com.crystalgui.editor.CrystalEditor;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.app.editor.CrystalEditor;
+import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.Resource;
-import com.crystalgui.ui.elements.dock.DockArea;
-import com.crystalgui.ui.elements.editor.TextEditor;
-import com.crystalgui.ui.elements.dock.DockPanelDescriptor;
-import com.crystalgui.ui.elements.dock.DockPanelRef;
-import com.crystalgui.ui.elements.dock.DockRegion;
-import com.crystalgui.ui.elements.dock.RegionSide;
+import com.crystalgui.workbench.dock.DockArea;
+import com.crystalgui.widget.texteditor.TextEditor;
+import com.crystalgui.workbench.dock.panel.DockPanelDescriptor;
+import com.crystalgui.workbench.dock.layout.DockPanelRef;
+import com.crystalgui.workbench.region.DockRegion;
+import com.crystalgui.workbench.region.RegionSide;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.Ui;
 import com.crystalgui.core.notify.Notification;
 import com.crystalgui.core.notify.Notifications;
 import com.crystalgui.core.async.JobKey;
@@ -36,7 +35,7 @@ import com.crystalgui.core.async.JobScheduler;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgModifiers;
 import com.crystalgraphics.platform.input.CgMouseCodes;
-import com.crystalgui.ui.UIWindow;
+import com.crystalgui.ui.dom.UIDocument;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -73,6 +72,9 @@ import java.util.Map;
  */
 public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
     /** No room reserved at the top any more: the status line is a real StatusBarView inside the
      * workbench now, so it is laid out rather than painted over everything. @see #init */
     private static final String STYLES = """
@@ -82,7 +84,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     /** Both halves of a real workspace, in this process — the one genuinely fake thing here. */
     private final HarnessWorkspace workspace = new HarnessWorkspace();
 
-    private UIWindow uiWindow;
+    private UIDocument document;
     private CrystalEditor editor;
 
     private boolean projectsAsked;
@@ -128,8 +130,8 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 ref -> {
                     // NAMED, so a drag that lands somewhere unexpected says which panel it was. An empty
                     // box would make all eight look identical the moment two end up in the same region.
-                    UIElement body = new UIElement();
-                    body.addChild(new UIText(title + " (dummy)"));
+                    UINode body = new UINode();
+                    body.append(new UIText(title + " (dummy)"));
                     return body;
                 });
     }
@@ -146,10 +148,12 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         editor.addClass("demo-root");
         registerDummyToolWindows();
 
-        uiWindow = new UIWindow(Ui.of(editor));
-        uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        //uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
-        uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLES));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        this.document.append(editor);
+        document.styles().addStylesheet(StyleSheet.DEFAULT);
+        //document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
+        document.styles().addStylesheet(StyleSheet.parse(STYLES));
         // Commands and their keys are the editor's, not the scene's -- so Ctrl+S, Ctrl+Shift+S and Ctrl+O
         // are registered commands here rather than a switch on scan codes, and appear in the palette with
         // their accelerators like everything else.
@@ -198,7 +202,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             // AND NOT AT ALL UNDER THE SCRIPTED FLOW, which is not tidiness -- it is the difference
             // between a measurement and a coin toss. The session records which documents were open, so
             // a scripted run REOPENS whatever the previous scripted run left behind: the second run of
-            // this flow paid the whole cost of opening UIElement during startup, before the picker was
+            // this flow paid the whole cost of opening UINode during startup, before the picker was
             // ever touched, and its OPENED stage then measured 60ms instead of 237ms. Both numbers were
             // real and neither answered the question. A flow that measures opening a class has to begin
             // with that class shut. @see #printFlowSummary
@@ -209,9 +213,8 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         elapsed = frame.getElapsedTime();
         if (flowEnabled || HOVER_FLOW) advanceFlow();
 
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         long painted = System.nanoTime();
-        uiWindow.paintFrame();
+        document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
         editor.giveInitialFocus();
         paintNanos = System.nanoTime() - painted;
 
@@ -258,7 +261,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private static final boolean flowEnabled = Boolean.getBoolean("crystalgui.harness.perfflow");
 
     /** What gets typed into Go to File. Overridable, because the point is a big class and not this one. */
-    private static final String QUERY = System.getProperty("crystalgui.harness.perfquery", "UIElement");
+    private static final String QUERY = System.getProperty("crystalgui.harness.perfquery", "UINode");
 
     private static final double OPEN_PICKER_AT = 5.0;
     private static final double ACCEPT_AT = 8.0;
@@ -384,7 +387,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
         if (stage == Stage.STARTUP && elapsed >= OPEN_PICKER_AT) {
             long timed = FrameProfile.enter("FLOW open Go to File");
-            picker = GoToFile.open(uiWindow, editor.workbench());
+            picker = GoToFile.open(document, editor.workbench());
             FrameProfile.leave(timed, "FLOW open Go to File");
             enterStage(Stage.TYPING, "Go to File opened");
             return;
@@ -502,7 +505,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // BY SELECTOR, not `activeEditor()`, which answers only for a PROJECT document -- and what this
         // flow opens is a `library://` viewer, so it answered null and the whole hover stage did nothing.
         // The class is what a viewer and a file editor share.
-        UIElement found = uiWindow.ui.rootElement.querySelector("texteditor.__file-editor__");
+        UINode found = document.querySelector("texteditor.__file-editor__");
         if (!(found instanceof TextEditor open)) {
             FrameProfile.note("FLOW no file editor on screen to hover in");
             hoveredSoFar = HOVER_TARGETS.size();
@@ -513,7 +516,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     /** Rests the pointer on the first occurrence of {@code name}, by offset rather than by pixel. */
     private void hoverSymbol(String name) {
-        UIElement found = uiWindow.ui.rootElement.querySelector("texteditor.__file-editor__");
+        UINode found = document.querySelector("texteditor.__file-editor__");
         if (!(found instanceof TextEditor open)) {
             FrameProfile.note("FLOW no file editor on screen to hover in");
             return;
@@ -556,15 +559,17 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      * elements.</p>
      */
     private void sweepPointer() {
-        int width = Math.max(1, (int) uiWindow.getScreenWidth());
-        int height = Math.max(1, (int) uiWindow.getScreenHeight());
+        // THE DOCUMENT'S OWN BOX, because `ctx` belongs to the render call and this does not run in
+        // one. It is already in logical units, which is the space the sweep is expressed in.
+        int width = Math.max(1, (int) (document.box() == null ? 0f : document.box().width()));
+        int height = Math.max(1, (int) (document.box() == null ? 0f : document.box().height()));
         sweepStep++;
         // A LISSAJOUS rather than a line: two incommensurate rates cover an area over time without ever
         // repeating the same path, which is what makes a fixed number of frames worth more than a sweep
         // that retraces itself.
         int x = (int) (width * (0.5 + 0.42 * Math.sin(sweepStep * 0.07)));
         int y = (int) (height * (0.5 + 0.42 * Math.sin(sweepStep * 0.031)));
-        uiWindow.getInputHandler().consumeMouseEvent(new CgSystemInput.Mouse.Event(
+        document.input().consumeMouseEvent(new CgSystemInput.Mouse.Event(
                 x, y, x - lastSweepX, y - lastSweepY, CgMouseCodes.NONE, false, 0f, -1L));
         lastSweepX = x;
         lastSweepY = y;
@@ -585,9 +590,9 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      */
     private void press(char character, int key) {
         long now = System.currentTimeMillis();
-        uiWindow.getInputHandler().consumeKeyboardEvent(
+        document.input().consumeKeyboardEvent(
                 new CgSystemInput.Keyboard.Event(character, key, true, false, now));
-        uiWindow.getInputHandler().consumeKeyboardEvent(
+        document.input().consumeKeyboardEvent(
                 new CgSystemInput.Keyboard.Event(character, key, false, false, now));
     }
 
@@ -746,7 +751,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
     }
 
-    /** What {@code uiWindow.paintFrame()} cost this frame — CPU, the same span [frame] reports. */
+    /** What {@code document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE)} cost this frame — CPU, the same span [frame] reports. */
     private long paintNanos;
 
     /** What the counter itself cost. A probe has to be able to rule itself out. @see #paintOverlay */
@@ -821,13 +826,16 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // AND THE SCRIPTED RUN WRITES NO SESSION -- the other half of the rule above. Restoring one
         // would be harmless if nothing ever wrote one; it is the write that makes run N+1 differ from
         // run N, so the flow leaves the record exactly as the last hand-driven run left it.
-        if (!flowEnabled && editor != null && uiWindow != null) {
+        if (!flowEnabled && editor != null && document != null) {
+            // The document's own box: this is teardown, so there is no render context to ask, and
+            // the size a session records is the logical one anyway.
             editor.saveSession(HarnessWorkspace.PROJECT_ID,
-                    (int) uiWindow.getScreenWidth(), (int) uiWindow.getScreenHeight());
+                    (int) (document.box() == null ? 0f : document.box().width()),
+                    (int) (document.box() == null ? 0f : document.box().height()));
             editor.savePreferences();
         }
         if (editor != null) Disposer.dispose(editor);
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -866,7 +874,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         if (event.pressed() && noModifiers() && event.key() == CgKeyCodes.KEY_F6) {
-            StagedMergeDemo.openCommitDiff(uiWindow, editor);
+            StagedMergeDemo.openCommitDiff(document, editor);
             return true;
         }
         // F7 reads the REPOSITORY; Shift+F7 synthesises. Two keys because they answer different
@@ -877,11 +885,11 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         if (event.pressed() && event.key() == CgKeyCodes.KEY_F7) {
             int modifiers = CgPlatform.input().getCurrentModifiers();
             if (modifiers == CgModifiers.NONE) {
-                StagedMergeDemo.open(uiWindow, editor);
+                StagedMergeDemo.open(document, editor);
                 return true;
             }
             if (modifiers == CgModifiers.SHIFT) {
-                StagedMergeDemo.openSynthesised(uiWindow, editor);
+                StagedMergeDemo.openSynthesised(document, editor);
                 return true;
             }
         }
@@ -900,7 +908,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             dumpRequested = true;
             return true;
         }
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     /**
@@ -968,28 +976,28 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private boolean dumpRequested;
 
     private void dumpProblemRows() {
-        UIElement panel = editor.workbench().querySelector("problemspanel");
+        UINode panel = editor.workbench().querySelector("problemspanel");
         if (panel == null) {
             System.out.println("DUMP no problems panel in the tree");
             return;
         }
-        var pb = panel.getRuntimeCache();
-        System.out.println("DUMP panel x=" + pb.getX() + " y=" + pb.getY()
-                + " w=" + pb.getWidth() + " h=" + pb.getHeight()
-                + " uiScale=" + uiWindow.getUiScale());
-        for (UIElement row : panel.getElementsByClassName("__problem__")) {
-            var rb = row.getRuntimeCache();
-            System.out.println("DUMP  row y=" + rb.getY() + " h=" + rb.getHeight()
-                    + " centre=" + (rb.getY() + rb.getHeight() / 2f));
-            for (UIElement part : row.getChildren()) {
-                var qb = part.getRuntimeCache();
+        var pb = panel.box();
+        System.out.println("DUMP panel x=" + pb.x() + " y=" + pb.y()
+                + " w=" + pb.width() + " h=" + pb.height()
+                + " uiScale=" + document.boxes().uiScale());
+        for (UINode row : panel.getElementsByClassName("__problem__")) {
+            var rb = row.box();
+            System.out.println("DUMP  row y=" + rb.y() + " h=" + rb.height()
+                    + " centre=" + (rb.y() + rb.height() / 2f));
+            for (UINode part : row.children()) {
+                var qb = part.box();
                 String extra = part instanceof UIText
                         ? " ws=" + part.getStyle().getGeneralGroup().whiteSpace()
                                 + " shown=" + ((UIText) part).displayedText().length()
                         : "";
-                System.out.println("DUMP    " + part.getClasses() + " y=" + qb.getY()
-                        + " h=" + qb.getHeight() + " w=" + qb.getWidth()
-                        + " centre=" + (qb.getY() + qb.getHeight() / 2f) + extra);
+                System.out.println("DUMP    " + part.classes() + " y=" + qb.y()
+                        + " h=" + qb.height() + " w=" + qb.width()
+                        + " centre=" + (qb.y() + qb.height() / 2f) + extra);
             }
         }
     }
@@ -1027,6 +1035,6 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

@@ -5,11 +5,10 @@ import com.crystalgui.core.property.Property;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.TextField;
-import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.control.TextField;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -30,7 +29,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiTextFieldScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
     private TextField plain;
     /** Focused and unselected so the caret is actually visible — see where it is built. */
     private TextField caretShowcase;
@@ -59,14 +61,16 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, CgSystemIn
 
         // The real system clipboard comes from the harness's InputAdapter (AWT-backed), so Ctrl+X/C/V
         // in this scene exercise the same path a loader would provide.
-        this.uiWindow = new UIWindow(Ui.of(createDemo()));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLES));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        this.document.append(createDemo());
+        this.document.styles().addStylesheet(StyleSheet.DEFAULT);
+        this.document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
+        this.document.styles().addStylesheet(StyleSheet.parse(STYLES));
     }
 
-    private UIElement createDemo() {
-        UIElement root = new UIElement()
+    private UINode createDemo() {
+        UINode root = new UINode()
                 .layout(l -> l.width(320).height(230)
                         .paddingAll(10).flexDirection(FlexDirection.COLUMN).gapAll(4))
                 .setFocusPolicy(FocusPolicy.NONE);
@@ -86,7 +90,7 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, CgSystemIn
         // unfocused pre-selected field renders nothing and this demo would silently vanish.
         plain.selectAll();
         plain.setFocused(true);
-        root.addChild(row("plain", plain));
+        root.append(row("plain", plain));
 
         // The caret's counterpart. Three things are all required:
         //   * focused        — the caret only paints while focused
@@ -102,69 +106,77 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, CgSystemIn
         caretShowcase.setText("caret");
         caretShowcase.setCaretBlinkSeconds(0f);
         caretShowcase.setFocused(true);
-        root.addChild(row("caret", caretShowcase));
+        root.append(row("caret", caretShowcase));
 
         placeholder = new TextField();
         placeholder.setPlaceholder("type something…");
-        root.addChild(row("placeholder", placeholder));
+        root.append(row("placeholder", placeholder));
 
         // Invalid until it parses AND fits the range — try "500". '-' is unreachable here because a
         // 0..100 range can never be negative, so the mode's keystroke filter drops it.
         number = new TextField();
         number.setMode(TextField.Mode.INTEGER).setRange(0, 100).setText("42");
-        root.addChild(row("int 0..100", number));
+        root.append(row("int 0..100", number));
 
         // ...whereas a range that CAN go negative admits '-'. Wheel steps by 5.
         signed = new TextField();
         signed.setMode(TextField.Mode.INTEGER).setRange(-50, 50).setStep(5).setText("-10");
-        root.addChild(row("int ±50, step5", signed));
+        root.append(row("int ±50, step5", signed));
 
         // Decimal point and exponent, both typable. Wheel steps by 0.25.
         decimal = new TextField();
         decimal.setMode(TextField.Mode.DOUBLE).setRange(-10, 10).setStep(0.25).setText("1.5");
-        root.addChild(row("double ±10", decimal));
+        root.append(row("double ±10", decimal));
 
         // Rejects non-digits at the keystroke, so nothing invalid can even be typed.
         digitsOnly = new TextField();
         digitsOnly.setCharPattern("[0-9]");
-        root.addChild(row("digits only", digitsOnly));
+        root.append(row("digits only", digitsOnly));
 
         // The two update modes, side by side. `mirror` is bound to the same Property as `bound`, so
         // typing in one and pressing Enter (or tabbing away) fills the other; `immediate` publishes
         // on every keystroke instead, which the label below tracks live.
         bound = new TextField();
         bound.bindValueBidirectional(model);
-        root.addChild(row("bound (Enter)", bound));
+        root.append(row("bound (Enter)", bound));
 
         mirror = new TextField();
         mirror.bindValueBidirectional(model);
-        root.addChild(row("…mirrors it", mirror));
+        root.append(row("…mirrors it", mirror));
 
         immediate = new TextField();
         immediate.setUpdateMode(TextField.UpdateMode.IMMEDIATE);
-        root.addChild(row("immediate", immediate));
+        root.append(row("immediate", immediate));
 
         return root;
     }
 
-    private UIElement row(String label, UIElement widget) {
-        UIElement row = new UIElement();
+    private UINode row(String label, UINode widget) {
+        UINode row = new UINode();
         row.addClass("row");
-        UIElement slot = new UIElement();
+        UINode slot = new UINode();
         slot.addClass("slot");
         UIText t = new UIText(label);
         t.addClass("label");
-        slot.addChild(t);
-        row.addChild(slot);
+        slot.append(t);
+        row.append(slot);
         widget.addClass("field");
-        row.addChild(widget);
+        row.append(widget);
         return row;
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
-        uiWindow.paintFrame();
+        int w = ctx.getScreenWidth();
+        int h = ctx.getScreenHeight();
+        // SURFACE pixels in, LOGICAL units to lay out in -- the scale lives on the box
+        // tree's root transform, so this is the only place the two spaces meet.
+        document.frame(frame.getDeltaTime(), w / SCALE, h / SCALE);
+
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(w, h);
+        document.paint(paintContext);
+        paintContext.endFrame();
 
         var context = CgUiPaintContext.getInstance();
         context.text().draw().at(0, 0)
@@ -183,7 +195,7 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -203,11 +215,11 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

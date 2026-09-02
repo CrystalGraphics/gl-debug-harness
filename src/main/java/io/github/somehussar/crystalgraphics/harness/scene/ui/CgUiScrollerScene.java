@@ -4,11 +4,10 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.ScrollerView;
-import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.scroll.ScrollerView;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -18,7 +17,7 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 /**
  * Exercises scrolling — wheel over a list, or drag a scrollbar thumb.
  *
- * <p>The left column is the point: it's a <b>plain {@code UIElement}</b> with {@code overflow: hidden},
+ * <p>The left column is the point: it's a <b>plain {@code UINode}</b> with {@code overflow: hidden},
  * no widget at all. It scrolls because scrolling is an element capability in this engine, the same way
  * any {@code <div>} scrolls in a browser. The right column is {@code ScrollerView}, which adds nothing
  * but the two visible bars.</p>
@@ -28,8 +27,11 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
-    private UIElement bare;
+    /** Logical-to-surface scale, as the harness's other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
+    private UINode bare;
     private ScrollerView withBars;
 
     private static final String STYLES = """
@@ -50,52 +52,53 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
     @Override
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
-        this.uiWindow = new UIWindow(Ui.of(createDemo()));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLES));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        this.document.append(createDemo());
+        this.document.styles().addStylesheet(StyleSheet.DEFAULT);
+        this.document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
+        this.document.styles().addStylesheet(StyleSheet.parse(STYLES));
     }
 
-    private UIElement createDemo() {
-        UIElement root = new UIElement()
+    private UINode createDemo() {
+        UINode root = new UINode()
                 .layout(l -> l.paddingAll(10).flexDirection(FlexDirection.ROW).gapAll(10))
                 .setFocusPolicy(FocusPolicy.NONE);
         root.addClass("panel");
         root.addClass("demo-root");
 
         // A PLAIN element. No widget — just overflow, exactly like a scrolling <div>.
-        bare = new UIElement();
+        bare = new UINode();
         bare.addClass("col");
         bare.addClass("bare");
         fill(bare, "bare");
-        root.addChild(bare);
+        root.append(bare);
 
         // Same thing plus visible bars.
         withBars = new ScrollerView();
         withBars.addClass("col");
         withBars.addClass("barred");
         fill(withBars, "bars");
-        root.addChild(withBars);
+        root.append(withBars);
 
         return root;
     }
 
     /** Rows go in via plain addChild — top-layer children, no content host to reach through. */
-    private void fill(UIElement container, String tag) {
+    private void fill(UINode container, String tag) {
         for (int i = 0; i < 30; i++) {
-            UIElement row = new UIElement();
+            UINode row = new UINode();
             row.addClass(i % 2 == 0 ? "row" : "row-alt");
             UIText t = new UIText(tag + " row " + i);
             if (i == 20) row.setFocusPolicy(FocusPolicy.FOCUSABLE);
             t.addClass("label");
-            row.addChild(t);
-            container.addChild(row);
+            row.append(t);
+            container.append(row);
         }
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         // Content size is only known after a layout, so the bars are synced once it exists.
         withBars.refreshScrollers();
 
@@ -103,15 +106,17 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
         // the point it's here to make: scrolling is a capability any element has, reachable through
         // scrollTop, with no widget and no wrapper. It mirrors the right column so the two can be
         // compared directly.
-        bare.setScrollTop(withBars.getScrollTop());
+        if (bare.box() != null && withBars.box() != null) {
+            bare.box().setScroll(bare.box().scrollLeft(), withBars.box().scrollTop());
+        }
 
-        uiWindow.paintFrame();
+        document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
 
         var context = CgUiPaintContext.getInstance();
         context.text().draw().at(0, 0)
                 .text(String.format("Wheel/drag the RIGHT column; the left is scrolled from code."
                                 + "  bare=%.0f  bars=%.0f",
-                        bare.getScrollTop(), withBars.getScrollTop()))
+                        bare.scrollTop(), withBars.scrollTop()))
                 .font(context.getFont().atSize(14)).submit();
 
         if (frame.getFrameNumber() == 5) {
@@ -121,7 +126,7 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -141,11 +146,11 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

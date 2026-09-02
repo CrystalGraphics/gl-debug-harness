@@ -5,10 +5,9 @@ import com.crystalgraphics.util.profiling.CgProfilerReport;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -63,6 +62,9 @@ import java.util.logging.Logger;
  * into it would make both jobs worse.
  */
 public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
+
+    /** Logical-to-surface scale, as the harness's other new-engine scenes use. */
+    private static final float SCALE = 2f;
 
     private static final Logger LOGGER = Logger.getLogger(CgUiTextStressScene.class.getName());
 
@@ -126,7 +128,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
     };
 
     private HarnessContext ctx;
-    private UIWindow uiWindow;
+    private UIDocument document;
     private final List<UIText> labels = new ArrayList<>(LABEL_COUNT);
 
     private Mode mode = Mode.STATIC;
@@ -144,14 +146,16 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
         this.ctx = ctx;
         Keyboard.enableRepeatEvents(false);
         CgProfiler.setEnabled(true);
-        uiWindow = new UIWindow(Ui.of(buildStressPanel()));
-        uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLE_SHEET));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        this.document.append(buildStressPanel());
+        document.styles().addStylesheet(StyleSheet.DEFAULT);
+        document.styles().addStylesheet(StyleSheet.parse(STYLE_SHEET));
         csvRows.add(String.join(",", CSV_HEADER));
     }
 
-    private UIElement buildStressPanel() {
-        UIElement root = new UIElement()
+    private UINode buildStressPanel() {
+        UINode root = new UINode()
                 .layout(l -> l
                         .paddingAll(6)
                         .flexDirection(FlexDirection.ROW)
@@ -161,12 +165,12 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
                 .setFocusPolicy(FocusPolicy.NONE);
 
         for (int i = 0; i < LABEL_COUNT; i++) {
-            UIElement cell = new UIElement();
+            UINode cell = new UINode();
             cell.addClass("stress-cell");
             UIText label = new UIText(staticTextFor(i));
             label.addClass("stress-label");
-            cell.addChild(label);
-            root.addChild(cell);
+            cell.append(label);
+            root.append(cell);
             labels.add(label);
         }
         return root;
@@ -207,7 +211,6 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
         double now = frame.getElapsedTime();
         if (modeStartedAt < 0) modeStartedAt = now;
 
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
 
         long f = frame.getFrameNumber();
         try (CgProfiler.Scope ignored = CgProfiler.scope("uiText.setText")) {
@@ -220,11 +223,11 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
             }
         }
 
-        try (CgProfiler.Scope ignored = CgProfiler.scope("uiWindow.paintFrame")) {
+        try (CgProfiler.Scope ignored = CgProfiler.scope("document.paintFrame")) {
             if (DRAW_LABELS) {
-                uiWindow.paintFrame();
+                document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
             } else {
-                uiWindow.updateWithoutPainting();
+                document.update(ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
             }
         }
 
@@ -276,7 +279,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
                 frame.getFrameNumber(), frame.getElapsedTime(), mode.name(), measured ? 1 : 0,
                 frame.getDeltaTime() * 1000.0,
                 scope(report, "uiText.setText"),
-                scope(report, "uiWindow.paintFrame"),
+                scope(report, "document.paintFrame"),
                 scope(report, "resolveGlyphs"),
                 scope(report, "submitBatchedQuads"),
                 scope(report, "quadLoop"),
@@ -368,7 +371,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
         labels.clear();
     }
 
@@ -389,11 +392,11 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

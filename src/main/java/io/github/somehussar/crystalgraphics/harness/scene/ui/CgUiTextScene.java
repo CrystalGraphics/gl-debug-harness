@@ -5,10 +5,9 @@ import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgui.core.property.Property;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.FlexWrap;
@@ -49,7 +48,10 @@ import org.lwjgl.input.Keyboard;
  */
 public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
     private final Property<String> liveText = new Property<>("Short.");
     private int liveIndex = 0;
 
@@ -85,13 +87,15 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
     @Override
     public void init(HarnessContext ctx) {
         Keyboard.enableRepeatEvents(false);
-        UIElement root = createTextDemo();
-        this.uiWindow = new UIWindow(Ui.of(root));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLE_SHEET));
+        UINode root = createTextDemo();
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        this.document.append(root);
+        this.document.styles().addStylesheet(StyleSheet.parse(STYLE_SHEET));
     }
 
-    private UIElement createTextDemo() {
-        UIElement root = new UIElement()
+    private UINode createTextDemo() {
+        UINode root = new UINode()
                 .layout(l -> l
                         .paddingAll(16)
                         .flexDirection(FlexDirection.ROW)
@@ -102,59 +106,67 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 ).setFocusPolicy(FocusPolicy.NONE);
 
         // Case 1: plain single-line, auto-sized.
-        UIElement plainCard = new UIElement();
+        UINode plainCard = new UINode();
         plainCard.addClass("card");
         UIText plainText = new UIText("Plain auto-sized text.");
         plainText.addClass("label");
-        plainCard.addChild(plainText);
-        root.addChild(plainCard);
+        plainCard.append(plainText);
+        root.append(plainCard);
 
         // Case 2: wrapped multi-line in a fixed-width box.
-        UIElement wrapCard = new UIElement();
+        UINode wrapCard = new UINode();
         wrapCard.addClass("card");
         wrapCard.addClass("wrap-box");
         UIText wrapText = new UIText(
                 "This is a longer sentence that must wrap across multiple lines inside a fixed-width box.");
         wrapText.addClass("label");
-        wrapCard.addChild(wrapText);
-        root.addChild(wrapCard);
+        wrapCard.append(wrapText);
+        root.append(wrapCard);
 
         // Case 3: font-family fallback — mixes Latin (covered by IBMPlexSans, the primary) with
         // Japanese (not covered by IBMPlexSans, forcing resolution through the NotoSansJP fallback).
-        UIElement fallbackCard = new UIElement();
+        UINode fallbackCard = new UINode();
         fallbackCard.addClass("card");
         fallbackCard.addClass("wrap-box");
         UIText fallbackText = new UIText("Hello こんにちは fallback");
         fallbackText.addClass("fallback-text");
-        fallbackCard.addChild(fallbackText);
-        root.addChild(fallbackCard);
+        fallbackCard.append(fallbackText);
+        root.append(fallbackCard);
 
         // Case 4: live bindTextTo — press SPACE to cycle liveText through LIVE_STRINGS.
-        UIElement liveCard = new UIElement();
+        UINode liveCard = new UINode();
         liveCard.addClass("card");
         liveCard.addClass("wrap-box");
         UIText liveTextElement = new UIText("");
         liveTextElement.addClass("label");
         liveTextElement.bindTextTo(liveText);
-        liveCard.addChild(liveTextElement);
-        root.addChild(liveCard);
+        liveCard.append(liveTextElement);
+        root.append(liveCard);
         UIText rawText = new UIText("Testinggg");
-        root.addChild(rawText);
+        root.append(rawText);
 
         return root;
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
-        uiWindow.paintFrame();
+        int w = ctx.getScreenWidth();
+        int h = ctx.getScreenHeight();
+        // SURFACE pixels in, LOGICAL units to lay out in -- the scale lives on the box
+        // tree's root transform, so this is the only place the two spaces meet.
+        document.frame(frame.getDeltaTime(), w / SCALE, h / SCALE);
+
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(w, h);
+        document.paint(paintContext);
+        paintContext.endFrame();
         var context = CgUiPaintContext.getInstance();
-        context.text().draw().at(0, 0).text(uiWindow.getUiScale() + "x").font(context.getFont().atSize(32)).submit();
+        context.text().draw().at(0, 0).text(document.boxes().uiScale() + "x").font(context.getFont().atSize(32)).submit();
     }
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -181,20 +193,18 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
                     liveText.set(LIVE_STRINGS[liveIndex]);
                     return true;
                 case CgKeyCodes.KEY_UP:
-                    uiWindow.setUiScale(Math.min(4, uiWindow.getUiScale() + 0.5f));
-                    uiWindow.init(0, 0);
+                    document.boxes().setUiScale(Math.min(4, document.boxes().uiScale() + 0.5f));
                     return true;
                 case CgKeyCodes.KEY_DOWN:
-                    uiWindow.setUiScale(Math.max(0.5f, uiWindow.getUiScale() - 0.5f));
-                    uiWindow.init(0, 0);
+                    document.boxes().setUiScale(Math.max(0.5f, document.boxes().uiScale() - 0.5f));
                     return true;
             }
         }
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

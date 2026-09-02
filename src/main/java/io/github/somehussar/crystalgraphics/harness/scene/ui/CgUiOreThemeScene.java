@@ -4,11 +4,10 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.Button;
-import com.crystalgui.ui.elements.Checkbox;
+import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.control.Button;
+import com.crystalgui.widget.control.Checkbox;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -46,7 +45,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
     private Button demoButton;
     private Button hoverButton;
     private Button pressedButton;
@@ -61,13 +63,15 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(false);
 
-        UIElement root = createDemo();
-        this.uiWindow = new UIWindow(Ui.of(root));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
+        UINode root = createDemo();
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        this.document.append(root);
+        this.document.styles().addStylesheet(StyleSheet.DEFAULT);
+        this.document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
         // Demo-only rules for the overlay-fit matrix — deliberately NOT in ore.css, which is the
         // shippable theme.
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(FIT_DEMO_STYLES));
+        this.document.styles().addStylesheet(StyleSheet.parse(FIT_DEMO_STYLES));
     }
 
     private static final String FIT_DEMO_STYLES = """
@@ -89,11 +93,11 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
             .ring-thick   { border-radius: 6px; outline: 3px #FFAA00; outline-offset: 2px; }
             """;
 
-    private UIElement createDemo() {
+    private UINode createDemo() {
         // Plain outer container purely for screen margin. Deliberately does NOT set padding/gap on
         // the panel itself — Java .layout(...) writes at INLINE origin, which outranks stylesheets,
         // so anything set here would suppress the theme's own .panel rules.
-        UIElement root = new UIElement()
+        UINode root = new UINode()
                 .layout(l -> l.paddingAll(10).flexDirection(FlexDirection.ROW).gapAll(10))
                 .setFocusPolicy(FocusPolicy.NONE);
 
@@ -101,17 +105,17 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         // Only width is set in Java; background/padding/gap all come from `.panel` in ore.css.
         // Default flex-direction COLUMN + align-items STRETCH make children fill the panel width,
         // which is exactly how LDLib2's own demo gets its full-width button.
-        UIElement panel = new UIElement().layout(l -> l.width(108));
+        UINode panel = new UINode().layout(l -> l.width(108));
         panel.addClass("panel");
-        root.addChild(panel);
+        root.append(panel);
 
         demoButton = new Button("Button");
         demoButton.attachListener(() -> clickCount++);
-        panel.addChild(demoButton);
+        panel.append(demoButton);
 
         Checkbox disableToggle = new Checkbox("Toggle");
         disableToggle.attachListener(isChecked -> demoButton.setEnabled(!isChecked));
-        panel.addChild(disableToggle);
+        panel.append(disableToggle);
 
         // ── Forced-state matrix ──
         // Every visual state driven programmatically (see forceStates()), so hover/pressed/checked
@@ -122,16 +126,16 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         // gap set in Java (INLINE origin) rather than a CSS class: a `.dense` class would tie with
         // `.panel` on specificity (both single-class) and lose. This panel has a lot of rows and
         // needs to stay on-screen.
-        UIElement states = new UIElement().layout(l -> l.width(108).gapAll(1));
+        UINode states = new UINode().layout(l -> l.width(108).gapAll(1));
         states.addClass("panel");
-        root.addChild(states);
+        root.append(states);
 
         hoverButton = new Button("Btn hover");
         pressedButton = new Button("Btn pressed");
         focusButton = new Button("Btn focus");
         Button disabledButton = new Button("Btn disabled");
         disabledButton.setEnabled(false);
-        states.addChildren(new Button("Btn default"), hoverButton, pressedButton, focusButton, disabledButton);
+        states.append(new Button("Btn default"), hoverButton, pressedButton, focusButton, disabledButton);
 
         hoverBox = new Checkbox("hover");
         pressedBox = new Checkbox("pressed");
@@ -142,7 +146,7 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         checkedBox.setChecked(true);
         Checkbox disabledBox = new Checkbox("disabled");
         disabledBox.setEnabled(false);
-        states.addChildren(new Checkbox("default"), hoverBox, pressedBox, focusBox,
+        states.append(new Checkbox("default"), hoverBox, pressedBox, focusBox,
                 checkedBox, checkedHoverBox, disabledBox);
 
         // ── overlay-fit matrix ──
@@ -150,27 +154,27 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         // 40x24 boxes, one per fit mode. Proves the general feature rather than just the checkbox's
         // use of it: `fill` distorts to the box, `none` stays 10x10, `contain` fits inside keeping
         // aspect, `cover` overflows keeping aspect. All are centered (overlay-position default).
-        UIElement fits = new UIElement().layout(l -> l.width(86));
+        UINode fits = new UINode().layout(l -> l.width(86));
         fits.addClass("panel");
-        root.addChild(fits);
+        root.append(fits);
         for (String mode : new String[]{"fill", "none", "contain", "cover"}) {
-            UIElement demo = new UIElement().layout(l -> l.width(34).height(20));
+            UINode demo = new UINode().layout(l -> l.width(34).height(20));
             demo.addClass("fit-demo");
             demo.addClass("fit-" + mode);
-            fits.addChild(demo);
+            fits.append(demo);
         }
 
         // ── SDF outline-stroke matrix ──
         // Pure `outline: <width> <color>` — no texture. Generous gaps so offset rings (which draw
         // OUTSIDE the element box) don't overlap their neighbours.
-        UIElement rings = new UIElement().layout(l -> l.width(70).gapAll(9));
+        UINode rings = new UINode().layout(l -> l.width(70).gapAll(9));
         rings.addClass("panel");
-        root.addChild(rings);
+        root.append(rings);
         for (String variant : new String[]{"square", "offset", "rounded", "thick"}) {
-            UIElement demo = new UIElement().layout(l -> l.width(30).height(16));
+            UINode demo = new UINode().layout(l -> l.width(30).height(16));
             demo.addClass("ring-demo");
             demo.addClass("ring-" + variant);
-            rings.addChild(demo);
+            rings.append(demo);
         }
 
         return root;
@@ -190,9 +194,8 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         forceStates();
-        uiWindow.paintFrame();
+        document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
 
         var context = CgUiPaintContext.getInstance();
         String status = String.format("clicks: %d | button enabled: %s", clickCount, demoButton.isEnabled());
@@ -205,7 +208,7 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -225,11 +228,11 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }
