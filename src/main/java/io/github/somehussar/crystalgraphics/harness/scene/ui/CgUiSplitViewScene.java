@@ -5,7 +5,7 @@ import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.layout.SplitView;
 import com.crystalgui.widget.text.UIText;
@@ -57,7 +57,7 @@ public class CgUiSplitViewScene implements InteractiveSceneLifecycle, CgSystemIn
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = createDemo();
+        UIElement sceneRoot = createDemo();
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -70,12 +70,12 @@ public class CgUiSplitViewScene implements InteractiveSceneLifecycle, CgSystemIn
         this.document.styles().addStylesheet(StyleSheet.parse(STYLES));
     }
 
-    private UINode createDemo() {
+    private UIElement createDemo() {
         // Sized from the stylesheet (.demo-root below), which only works because UIDocument now
         // recomputes the root's placement per layout instead of once in init(). It used to have to be
         // set in Java: init() measured the root before any stylesheet had been applied and then
         // early-returned forever, leaving a CSS-sized root permanently mis-positioned.
-        UINode root = new UINode()
+        UIElement root = new UIElement()
                 .layout(l -> l.paddingAll(10).flexDirection(FlexDirection.COLUMN).gapAll(8))
                 .setFocusPolicy(FocusPolicy.NONE);
         root.addClass("panel");
@@ -104,7 +104,7 @@ public class CgUiSplitViewScene implements InteractiveSceneLifecycle, CgSystemIn
         vertical.setPercentage(35f);
         vertical.first().addClass("pane-d");
         vertical.first().append(label("top 35% — holds a 2000px child"));
-        UINode huge = new UINode();
+        UIElement huge = new UIElement();
         huge.addClass("huge");
         vertical.first().append(huge);
         vertical.second().addClass("pane-a");
@@ -116,14 +116,14 @@ public class CgUiSplitViewScene implements InteractiveSceneLifecycle, CgSystemIn
     }
 
     /** SplitView is 100%x100% by default, so it needs a sized host to live in. */
-    private UINode frame(UINode content) {
-        UINode frame = new UINode();
+    private UIElement frame(UIElement content) {
+        UIElement frame = new UIElement();
         frame.addClass("frame");
         frame.append(content);
         return frame;
     }
 
-    private UINode label(String text) {
+    private UIElement label(String text) {
         UIText t = new UIText(text);
         t.addClass("label");
         return t;

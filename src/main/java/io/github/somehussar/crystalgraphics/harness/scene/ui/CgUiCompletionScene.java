@@ -4,7 +4,6 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.text.Change;
 import com.crystalgui.text.TextPoint;
 import com.crystalgui.text.decoration.TrackedRange;
 import com.crystalgui.text.diagnostic.Diagnostic;
@@ -14,12 +13,10 @@ import com.crystalgui.text.lang.CompletionProvider;
 import com.crystalgui.text.lang.LanguageServices;
 import com.crystalgui.text.syntax.LanguageRegistry;
 import com.crystalgui.text.syntax.Language;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.texteditor.suggest.CompletionSession;
 import com.crystalgui.widget.texteditor.TextEditor;
-import com.crystalgui.ui.input.FocusPolicy;
-import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -108,7 +105,7 @@ public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemI
         // that; see the note at the top of this file.
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = editor;
+        UIElement sceneRoot = editor;
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out

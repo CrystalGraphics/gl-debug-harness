@@ -15,11 +15,11 @@ import com.crystalgui.desktop.window.WindowFrame;
 import com.crystalgui.fs.LocalConfigStorage;
 import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgui.render.CgUiPaintContext;
+import com.crystalgui.ui.dom.UIElement;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.ui.box.Box;
 import com.crystalgui.ui.dom.UIDocument;
-import com.crystalgui.ui.dom.UINode;
 import com.crystalgui.ui.input.keymap.KeyChord;
 import com.crystalgui.ui.input.keymap.Keymap;
 import com.crystalgui.widget.control.Button;
@@ -203,7 +203,7 @@ public class CgUiDesktopScene
         // ALL A HOST PROVIDES IS A ROOT WITH A SIZE. Nobody constructs a desktop -- `Desktop.of` finds
         // or builds the document's one, because the engine may not name a compositor, so the compositor
         // names the document.
-        UINode root = new UINode();
+        UIElement root = new UIElement();
         root.addClass("demo-root");
         document.append(root);
         desktop = Desktop.of(document);
@@ -321,8 +321,8 @@ public class CgUiDesktopScene
         frame.setContent(editor);
     }
 
-    private UINode paragraph(String... lines) {
-        UINode box = new UINode();
+    private UIElement paragraph(String... lines) {
+        UIElement box = new UIElement();
         for (String line : lines) box.append(new UIText(line));
         return box;
     }
@@ -359,7 +359,7 @@ public class CgUiDesktopScene
      * layer, which is what scopes the modality. Everything outside the window carries on working, which
      * is the entire point.</p>
      */
-    private UINode modalButton(WindowFrame owner) {
+    private UIElement modalButton(WindowFrame owner) {
         Button open = new Button("Modal");
         open.onPressed.connect(() -> {
             Dialog dialog = new Dialog("Owned by " + owner.getTitle());
@@ -368,15 +368,15 @@ public class CgUiDesktopScene
             dialog.append(new UIText("Everything else still works."));
             dialog.showModal();
         });
-        UINode row = new UINode();
+        UIElement row = new UIElement();
         row.layout(l -> l.flexDirection(FlexDirection.ROW).paddingTop(4));
         row.append(open);
         return row;
     }
 
     /** Two focusable controls that do nothing but hold focus — which is the whole point of them. */
-    private UINode focusRow(String first, String second) {
-        UINode row = new UINode();
+    private UIElement focusRow(String first, String second) {
+        UIElement row = new UIElement();
         row.layout(l -> l.flexDirection(FlexDirection.ROW).gapAll(4).paddingTop(4));
         row.append(new Button(first));
         row.append(new Button(second));
@@ -441,7 +441,7 @@ public class CgUiDesktopScene
      * runs, so anything read on the way in describes boxes that have not been measured yet.
      */
     private void refreshReadout() {
-        UINode area = desktop.windowLayer();
+        UIElement area = desktop.windowLayer();
         WindowFrame active = desktop.activeWindow();
         Box areaBox = area == null ? null : area.box();
         StringBuilder text = new StringBuilder();

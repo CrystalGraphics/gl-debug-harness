@@ -6,7 +6,7 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
@@ -23,7 +23,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Logger;
@@ -149,7 +148,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
         CgProfiler.setEnabled(true);
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = buildStressPanel();
+        UIElement sceneRoot = buildStressPanel();
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -162,8 +161,8 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
         csvRows.add(String.join(",", CSV_HEADER));
     }
 
-    private UINode buildStressPanel() {
-        UINode root = new UINode()
+    private UIElement buildStressPanel() {
+        UIElement root = new UIElement()
                 .layout(l -> l
                         .paddingAll(6)
                         .flexDirection(FlexDirection.ROW)
@@ -173,7 +172,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
                 .setFocusPolicy(FocusPolicy.NONE);
 
         for (int i = 0; i < LABEL_COUNT; i++) {
-            UINode cell = new UINode();
+            UIElement cell = new UIElement();
             cell.addClass("stress-cell");
             UIText label = new UIText(staticTextFor(i));
             label.addClass("stress-label");

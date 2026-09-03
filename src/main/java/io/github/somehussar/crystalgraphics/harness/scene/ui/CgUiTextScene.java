@@ -6,7 +6,7 @@ import com.crystalgui.style.StyleGroup;
 import com.crystalgui.core.property.Property;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
@@ -88,10 +88,10 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
     @Override
     public void init(HarnessContext ctx) {
         Keyboard.enableRepeatEvents(false);
-        UINode root = createTextDemo();
+        UIElement root = createTextDemo();
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = root;
+        UIElement sceneRoot = root;
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -102,8 +102,8 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
         this.document.styles().addStylesheet(StyleSheet.parse(STYLE_SHEET));
     }
 
-    private UINode createTextDemo() {
-        UINode root = new UINode()
+    private UIElement createTextDemo() {
+        UIElement root = new UIElement()
                 .layout(l -> l
                         .paddingAll(16)
                         .flexDirection(FlexDirection.ROW)
@@ -114,7 +114,7 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 ).setFocusPolicy(FocusPolicy.NONE);
 
         // Case 1: plain single-line, auto-sized.
-        UINode plainCard = new UINode();
+        UIElement plainCard = new UIElement();
         plainCard.addClass("card");
         UIText plainText = new UIText("Plain auto-sized text.");
         plainText.addClass("label");
@@ -122,7 +122,7 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
         root.append(plainCard);
 
         // Case 2: wrapped multi-line in a fixed-width box.
-        UINode wrapCard = new UINode();
+        UIElement wrapCard = new UIElement();
         wrapCard.addClass("card");
         wrapCard.addClass("wrap-box");
         UIText wrapText = new UIText(
@@ -133,7 +133,7 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
         // Case 3: font-family fallback — mixes Latin (covered by IBMPlexSans, the primary) with
         // Japanese (not covered by IBMPlexSans, forcing resolution through the NotoSansJP fallback).
-        UINode fallbackCard = new UINode();
+        UIElement fallbackCard = new UIElement();
         fallbackCard.addClass("card");
         fallbackCard.addClass("wrap-box");
         UIText fallbackText = new UIText("Hello こんにちは fallback");
@@ -142,7 +142,7 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
         root.append(fallbackCard);
 
         // Case 4: live bindTextTo — press SPACE to cycle liveText through LIVE_STRINGS.
-        UINode liveCard = new UINode();
+        UIElement liveCard = new UIElement();
         liveCard.addClass("card");
         liveCard.addClass("wrap-box");
         UIText liveTextElement = new UIText("");

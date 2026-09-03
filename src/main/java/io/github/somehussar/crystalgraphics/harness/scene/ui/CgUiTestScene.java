@@ -2,8 +2,7 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleGroup;
-import com.crystalgui.style.property.layout.LayoutProperties;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.render.texture.CgUiQuad;
 import com.crystalgui.render.texture.CgUiSprite;
@@ -38,7 +37,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     private UIDocument document;
 
-    private UINode hoveredElement;
+    private UIElement hoveredElement;
 
     CgUiSprite backgroundMain = new CgUiSprite()
             .setTexture("crystalgui:textures/gui/gdp_styles.png")
@@ -63,13 +62,13 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     @Override
     public void init(HarnessContext ctx) {
-        UINode root =
+        UIElement root =
 //                createUISimple();
                 createYogaExample();
         Keyboard.enableRepeatEvents(true);
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = root;
+        UIElement sceneRoot = root;
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -79,22 +78,22 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
         this.document.append(sceneRoot);
     }
 
-    private UINode createUISimple() {
-        UINode root = new UINode()
+    private UIElement createUISimple() {
+        UIElement root = new UIElement()
                 .generalStyle(s -> s.background(new CgUiQuad(0xFFFFFFFF)))
                 .layout(l -> l.height(600).width(600).flexDirection(FlexDirection.COLUMN));
 
         root.append(
-                new UINode().generalStyle(s -> s.background(new CgUiQuad(0xFFFF0000)))
-                        .layout(l -> l.widthPercent(100).height(300))
+                new UIElement().generalStyle(s -> s.background(new CgUiQuad(0xFFFF0000)))
+                               .layout(l -> l.widthPercent(100).height(300))
         );
 
         return root;
     }
 
-    private UINode createYogaExample() {
+    private UIElement createYogaExample() {
 
-        UINode root = new UINode()
+        UIElement root = new UIElement()
                 .generalStyle(s -> s.background(backgroundMain))
                 .layout(l -> l
                         .width(250)
@@ -105,9 +104,9 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                         (thizElement, event) -> { },
                         true, false);
 
-        UINode container = new UINode().setId("Container")
-                .generalStyle(s -> s.background(inset))
-                .layout(l -> l
+        UIElement container = new UIElement().setId("Container")
+                                             .generalStyle(s -> s.background(inset))
+                                             .layout(l -> l
                         .widthPercent(100).heightPercent(100)
                         .flex(1)
                         .gapAll(10)
@@ -115,14 +114,14 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 );
         root.append(container);
 
-        UINode header = new UINode().setId("Header")
-                .generalStyle(s -> s.background(inset))
-                .layout(l -> l.height(60));
+        UIElement header = new UIElement().setId("Header")
+                                          .generalStyle(s -> s.background(inset))
+                                          .layout(l -> l.height(60));
         container.append(header);
 
-        UINode mainWrapper = new UINode().setId("wrapper")
-                .setHitTest(false)
-                .layout(l -> l
+        UIElement mainWrapper = new UIElement().setId("wrapper")
+                                               .setHitTest(false)
+                                               .layout(l -> l
 //                        .positionType(TaffyPosition.ABSOLUTE)   // pulls it out of container's flex flow entirely
 //                        .widthPercent(100).heightPercent(100)   // stretches to fill container, top to bottom
                         .flexDirection(FlexDirection.ROW)
@@ -131,9 +130,9 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 ).setFocusPolicy(FocusPolicy.NONE);
         container.append(mainWrapper); // still added before `content` — controls paint order, not flow anymore
 
-        UINode main = new UINode().setId("main")
-                .generalStyle(s -> s.background(inset).color(0xFF00FF00))
-                .layout(l -> l
+        UIElement main = new UIElement().setId("main")
+                                        .generalStyle(s -> s.background(inset).color(0xFF00FF00))
+                                        .layout(l -> l
                         .widthPercent(100)
                         .heightAuto()
                         .flexDirection(FlexDirection.ROW)
@@ -146,20 +145,20 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
         mainWrapper.append(main);
 
         for (int i = 0; i < 3; i++) {
-            UINode button = new UINode().setId("buttonMain"+i)
-                    .generalStyle(s -> s.background(buttonSprite))
-                    .layout(l -> l.width(40).height(40));
+            UIElement button = new UIElement().setId("buttonMain"+i)
+                                              .generalStyle(s -> s.background(buttonSprite))
+                                              .layout(l -> l.width(40).height(40));
             main.append(button);
         }
 
-        UINode content = new UINode().setId("content")
-                .generalStyle(s -> s.background(inset).color(0xFFFF0000))
-                .layout(l -> l.flex(2).marginBottom(72).marginLeft(10).marginRight(10));
+        UIElement content = new UIElement().setId("content")
+                                           .generalStyle(s -> s.background(inset).color(0xFFFF0000))
+                                           .layout(l -> l.flex(2).marginBottom(72).marginLeft(10).marginRight(10));
         container.append(content);
 
-        UINode absolute = new UINode().setId("absolute")
-                .generalStyle(s -> s.background(overlay))
-                .layout(l -> l
+        UIElement absolute = new UIElement().setId("absolute")
+                                            .generalStyle(s -> s.background(overlay))
+                                            .layout(l -> l
                         .positionType(TaffyPosition.ABSOLUTE)
                         .widthPercent(100).height(64)
                         .flexDirection(FlexDirection.ROW)
@@ -169,8 +168,8 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 );
         container.append(absolute);
 
-        UINode button1 = new UINode().setId("button0")
-                .generalStyle(s -> s
+        UIElement button1 = new UIElement().setId("button0")
+                                           .generalStyle(s -> s
                         .background(buttonSprite)
                         .overlay(new CgUiSprite()
                                 .setTexture("crystalgui:textures/gui/Spritesheet_UI_Flat.png")
@@ -178,13 +177,13 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                                 .setSprite(296, 233, 14, 14)
                         )
                 )
-                .layout(l -> l.width(40).height(40));
+                                           .layout(l -> l.width(40).height(40));
         absolute.append(button1);
 
         for (int i = 0; i < 3; i++) {
-            UINode button = new UINode().setId("Header"+(1+i))
-                    .generalStyle(s -> s.background(buttonSprite))
-                    .layout(l -> l.width(40).height(40));
+            UIElement button = new UIElement().setId("Header"+(1+i))
+                                              .generalStyle(s -> s.background(buttonSprite))
+                                              .layout(l -> l.width(40).height(40));
             absolute.append(button);
         }
         return root;
@@ -208,7 +207,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
         paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
         document.paint(paintContext);
         paintContext.endFrame();
-        UINode previousElement = this.hoveredElement;
+        UIElement previousElement = this.hoveredElement;
 //        this.hoveredElement = document.input().hoverTarget(), ctx.getScreenHeight() - Mouse.getY());
 //        if (this.hoveredElement != previousElement) {
 //            if (this.hoveredElement == null) {
@@ -249,7 +248,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
 //            });
 //
 //            if(this.hoveredElement != null) {
-//                this.hoveredElement.append(new UINode().setId("button0")
+//                this.hoveredElement.append(new UIElement().setId("button0")
 //                        .generalStyle(s -> s
 //                                .background(buttonSprite)
 //                                .overlay(new CgUiSprite()

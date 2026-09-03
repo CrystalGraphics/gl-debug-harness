@@ -2,15 +2,12 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.style.StyleGroup;
-import com.crystalgui.ui.dom.UINodeTreeSource;
-import com.crystalgui.net.mirror.UINodeMirror;
+import com.crystalgui.ui.dom.UIElementTreeSource;
+import com.crystalgui.net.mirror.UIElementMirror;
 import com.crystalgui.core.collection.tree.TreeDataSource;
 import com.crystalgui.core.collection.tree.TreeRow;
-import com.crystalgui.fs.CgFileEntry;
-import com.crystalgui.fs.CgFileError;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.LocalFileSystem;
-import com.crystalgui.fs.ProjectInfo;
 import com.crystalgui.fs.ProjectRegistry;
 import com.crystalgui.fs.WorkspaceActor;
 import com.crystalgui.fs.WorkspaceClient;
@@ -25,7 +22,7 @@ import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.serialization.PlainOps;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.control.Button;
 import com.crystalgui.widget.layout.SplitView;
@@ -43,13 +40,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * P6.1.10 end to end: a remote project workspace, both halves in this process.
@@ -81,20 +75,20 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     private UIDocument document;
 
     // ── The server half ─────────────────────────────────────────────────────────────────────────
-    private ServerUiSession<UINode, Object> server;
+    private ServerUiSession<UIElement, Object> server;
     private WorkspaceRpc<Object> rpc;
     private InMemoryTransport<Object> fromServer;
     private InMemoryTransport<Object> fromClient;
 
     // ── The client half ─────────────────────────────────────────────────────────────────────────
-    private ClientUiSession<UINode, Object> session;
+    private ClientUiSession<UIElement, Object> session;
     private WorkspaceClient<Object> workspace;
     private WorkspaceTreeSource tree;
 
     private TreeView<CgPath> treeView;
     private TabView tabs;
     private UIText status;
-    private UINode banner;
+    private UIElement banner;
     private UIText bannerText;
 
     /** Open documents, by path, so a second click on a file focuses its tab rather than opening another. */
@@ -108,7 +102,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     private float untilPoll;
 
     /** Which item each pooled tree row currently shows — see the renderer for why it is not captured. */
-    private final Map<UINode, CgPath> rowItems = new HashMap<>();
+    private final Map<UIElement, CgPath> rowItems = new HashMap<>();
 
     /** The path whose save was refused, awaiting Reload or Keep. */
     private CgPath conflicted;
@@ -132,20 +126,20 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
         fromServer = pair[0];
         fromClient = pair[1];
 
-        server = new ServerUiSession<>(1, new UINodeTreeSource(new UINode()),
-                new UINodeMirror<>(PlainOps.INSTANCE), fromServer, PlainOps.INSTANCE);
+        server = new ServerUiSession<>(1, new UIElementTreeSource(new UIElement()),
+                new UIElementMirror<>(PlainOps.INSTANCE), fromServer, PlainOps.INSTANCE);
         rpc = new WorkspaceRpc<>(service, WorkspaceActor.LOCAL);
         rpc.installOn(server::onCall);
         server.open();
 
-        session = new ClientUiSession<>(new UINodeMirror<>(PlainOps.INSTANCE), fromClient, PlainOps.INSTANCE);
+        session = new ClientUiSession<>(new UIElementMirror<>(PlainOps.INSTANCE), fromClient, PlainOps.INSTANCE);
         workspace = new WorkspaceClient<>(session, PlainOps.INSTANCE);
         workspace.onFileChanged(this::onFileChangedOnServer);
         tree = new WorkspaceTreeSource(workspace);
 
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = buildUi();
+        UIElement sceneRoot = buildUi();
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -197,11 +191,11 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
 
     // ── UI ──────────────────────────────────────────────────────────────────────────────────────
 
-    private UINode buildUi() {
-        UINode root = new UINode();
+    private UIElement buildUi() {
+        UIElement root = new UIElement();
         root.addClass("ws-root");
 
-        UINode head = new UINode();
+        UIElement head = new UIElement();
         head.addClass("ws-head");
         Button save = new Button("Save (Ctrl+S)");
         save.addClass("ws-btn");
@@ -212,7 +206,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
         head.append(status);
         root.append(head);
 
-        banner = new UINode();
+        banner = new UIElement();
         banner.addClass("ws-banner");
         bannerText = new UIText("");
         bannerText.addClass("ws-banner-text");
@@ -236,8 +230,8 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
         treeView.addClass("ws-tree");
         treeView.setRenderer(new com.crystalgui.widget.collection.tree.TreeRenderer<>() {
             @Override
-            public UINode createTemplate() {
-                UINode row = new UINode();
+            public UIElement createTemplate() {
+                UIElement row = new UIElement();
                 row.addClass("ws-row");
                 UIText label = new UIText("");
                 // The LABEL does not take the click, so the press lands on the row -- the same trick every
@@ -257,7 +251,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
             }
 
             @Override
-            public void bind(CgPath item, TreeRow<CgPath> row, int index, UINode template) {
+            public void bind(CgPath item, TreeRow<CgPath> row, int index, UIElement template) {
                 rowItems.put(template, item);
                 String name = item.isProjectRoot() ? tree.displayNameOf(item) : item.name();
                 ((UIText) template.children().get(0))
@@ -266,7 +260,7 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
             }
 
             @Override
-            public void unbind(UINode template) {
+            public void unbind(UIElement template) {
                 rowItems.remove(template);
             }
         });

@@ -6,7 +6,7 @@ import com.crystalgui.core.property.Property;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.control.TextField;
 import com.crystalgui.widget.text.UIText;
@@ -64,7 +64,7 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, CgSystemIn
         // in this scene exercise the same path a loader would provide.
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = createDemo();
+        UIElement sceneRoot = createDemo();
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -77,8 +77,8 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, CgSystemIn
         this.document.styles().addStylesheet(StyleSheet.parse(STYLES));
     }
 
-    private UINode createDemo() {
-        UINode root = new UINode()
+    private UIElement createDemo() {
+        UIElement root = new UIElement()
                 .layout(l -> l.width(320).height(230)
                         .paddingAll(10).flexDirection(FlexDirection.COLUMN).gapAll(4))
                 .setFocusPolicy(FocusPolicy.NONE);
@@ -159,10 +159,10 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, CgSystemIn
         return root;
     }
 
-    private UINode row(String label, UINode widget) {
-        UINode row = new UINode();
+    private UIElement row(String label, UIElement widget) {
+        UIElement row = new UIElement();
         row.addClass("row");
-        UINode slot = new UINode();
+        UIElement slot = new UIElement();
         slot.addClass("slot");
         UIText t = new UIText(label);
         t.addClass("label");

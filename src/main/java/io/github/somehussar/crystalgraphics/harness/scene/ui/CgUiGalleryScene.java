@@ -6,6 +6,7 @@ import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgMouseCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.style.StyleGroup;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.input.keymap.KeyStroke;
 import com.crystalgui.ui.input.keymap.KeymapResolver;
 import com.crystalgui.ui.input.keymap.Keymap;
@@ -28,7 +29,6 @@ import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
 import com.crystalgui.text.syntax.KeywordTokenizer;
 import com.crystalgui.ui.service.AnchoredPlacement;
-import com.crystalgui.ui.dom.UINode;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.control.Button;
 import com.crystalgui.widget.control.Checkbox;
@@ -38,7 +38,6 @@ import com.crystalgui.widget.overlay.Dialog;
 import com.crystalgui.widget.overlay.DialogManager;
 import com.crystalgui.widget.overlay.Dropdown;
 import com.crystalgui.widget.overlay.Menu;
-import com.crystalgui.widget.overlay.MenuItem;
 import com.crystalgui.widget.scroll.ScrollerView;
 import com.crystalgui.widget.control.Slider;
 import com.crystalgui.widget.layout.SplitView;
@@ -60,7 +59,6 @@ import com.crystalgui.widget.collection.list.ListView;
 import com.crystalgui.widget.collection.tree.TreeRenderer;
 import com.crystalgui.widget.collection.tree.TreeView;
 import com.crystalgui.ui.input.FocusPolicy;
-import com.crystalgui.ui.input.UIDragController;
 import com.crystalgui.ui.input.keymap.KeyEventType;
 import com.crystalgui.ui.text.TextRange;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -117,7 +115,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = createDemo();
+        UIElement sceneRoot = createDemo();
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -174,8 +172,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         themeToggle.setText(oreOn ? "theme: oreg" : "theme: defaultg");
     }
 
-    private UINode createDemo() {
-        UINode root = new UINode()
+    private UIElement createDemo() {
+        UIElement root = new UIElement()
                 .layout(l -> l.paddingAll(8).flexDirection(FlexDirection.COLUMN).gapAll(6))
                 .setFocusPolicy(FocusPolicy.NONE);
         root.addClass("gallery-root");
@@ -199,7 +197,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         scrollerPage(page("Scroller", "ScrollerView opts into the wheel; a bare element does not."));
         splitViewPage(page("SplitView", "Draggable dividers, nestable."));
         tabViewPage(page("TabView", "A TabView inside a TabView pane."));
-        elementPage(page("UINode", "The styleable div everything else is built from."));
+        elementPage(page("UIElement", "The styleable div everything else is built from."));
         transformPage(page("transform", "CSS transform + transform-origin. Layout never sees them; clicks follow."));
         tooltipPage(page("Tooltip", "Top layer: hover a row INSIDE the scroller - the tooltip escapes the clip."));
         dragPage(page("Drag", "Drag a chip onto a bin. Ghost follows the cursor; Escape cancels."));
@@ -222,15 +220,15 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         return root;
     }
 
-    private UINode header() {
-        UINode head = new UINode();
+    private UIElement header() {
+        UIElement head = new UIElement();
         head.addClass("gallery-head");
 
         UIText title = new UIText("CrystalGUI - widget gallery");
         title.addClass("label");
         head.append(title);
 
-        UINode spacer = new UINode();
+        UIElement spacer = new UIElement();
         spacer.addClass("spacer");
         head.append(spacer);
 
@@ -243,9 +241,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     }
 
     /** Adds a tab, gives its pane the shared page styling and a one-line description, returns the pane. */
-    private UINode page(String label, String description) {
+    private UIElement page(String label, String description) {
         Tab tab = pages.addTab(label);
-        UINode pane = tab.content();
+        UIElement pane = tab.content();
         pane.addClass("page");
 
         UIText desc = new UIText(description);
@@ -254,16 +252,16 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         return pane;
     }
 
-    private UINode row(UINode... children) {
-        UINode row = new UINode();
+    private UIElement row(UIElement... children) {
+        UIElement row = new UIElement();
         row.addClass("page-row");
-        for (UINode child : children) row.append(child);
+        for (UIElement child : children) row.append(child);
         return row;
     }
 
     /** A fixed-width text cell, because a bare UIText sizes itself and columns would not line up. */
-    private UINode slot(String text) {
-        UINode slot = new UINode();
+    private UIElement slot(String text) {
+        UIElement slot = new UIElement();
         slot.addClass("slot");
         UIText label = new UIText(text);
         label.addClass("label");
@@ -271,15 +269,15 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         return slot;
     }
 
-    private UINode swatch() {
-        UINode swatch = new UINode();
+    private UIElement swatch() {
+        UIElement swatch = new UIElement();
         swatch.addClass("swatch");
         return swatch;
     }
 
     // ── Pages ───────────────────────────────────────────────────────────────────────────────────
 
-    private void buttonPage(UINode pane) {
+    private void buttonPage(UIElement pane) {
         Button plain = new Button("click me");
         plain.attachListener(() -> buttonClicks++);
 
@@ -296,14 +294,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     private int buttonClicks = 0;
 
-    private void checkboxPage(UINode pane) {
+    private void checkboxPage(UIElement pane) {
         Checkbox one = new Checkbox("free-standing");
         Checkbox two = new Checkbox("starts checked");
         two.setChecked(true);
 
         // allowEmpty(false) gives radio semantics: the last checked box refuses to un-check.
         CheckboxGroup group = new CheckboxGroup().allowEmpty(false);
-        UINode radios = row(slot("group, required"));
+        UIElement radios = row(slot("group, required"));
         for (String name : new String[]{"red", "green", "blue"}) {
             Checkbox option = new Checkbox(name);
             option.setGroup(group);
@@ -314,7 +312,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.append(radios);
     }
 
-    private void switchPage(UINode pane) {
+    private void switchPage(UIElement pane) {
         Switch off = new Switch();
         Switch on = new Switch();
         on.setChecked(true);
@@ -325,7 +323,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private Slider continuous;
     private Slider stepped;
 
-    private void sliderPage(UINode pane) {
+    private void sliderPage(UIElement pane) {
         continuous = new Slider();
         continuous.setRange(0, 100).setValue(35);
 
@@ -338,7 +336,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     private TextField plainField;
 
-    private void textFieldPage(UINode pane) {
+    private void textFieldPage(UIElement pane) {
         plainField = new TextField();
         plainField.setText("edit me");
         plainField.addClass("field");
@@ -368,7 +366,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.append(row(slot("...mirrors it"), mirror));
     }
 
-    private void textPage(UINode pane) {
+    private void textPage(UIElement pane) {
         UIText self = new UIText("Self-sized: the element is exactly as wide as the glyphs.");
         self.addClass("label");
 
@@ -384,11 +382,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     private ScrollerView scroller;
 
-    private void scrollerPage(UINode pane) {
+    private void scrollerPage(UIElement pane) {
         scroller = new ScrollerView();
         scroller.addClass("scroll-demo");
         for (int i = 1; i <= 14; i++) {
-            UINode rowEl = new UINode();
+            UIElement rowEl = new UIElement();
             rowEl.addClass("scroll-row");
             if (i % 2 == 0) rowEl.addClass("scroll-row-alt");
             UIText label = new UIText("row " + i);
@@ -412,7 +410,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * <p>The other two rows are the placement fallbacks: one hard against the right edge (clamps
      * instead of overflowing) and one near the bottom (flips above its anchor).</p>
      */
-    private void tooltipPage(UINode pane) {
+    private void tooltipPage(UIElement pane) {
         Button plain = new Button("hover me");
         Tooltip.attach(plain, "A tooltip in the top layer.");
 
@@ -423,10 +421,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.append(row(slot("wrapping"), multi));
 
         // Right edge: a left-aligned tooltip would overflow, so placement clamps it inward.
-        UINode edgeRow = row(slot("clamps"), new UINode());
+        UIElement edgeRow = row(slot("clamps"), new UIElement());
         Button atEdge = new Button("near right edge");
         Tooltip.attach(atEdge, "Clamped inside the window instead of overflowing.");
-        UINode pusher = new UINode();
+        UIElement pusher = new UIElement();
         pusher.addClass("spacer");
         edgeRow.append(pusher);
         edgeRow.append(atEdge);
@@ -436,7 +434,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         ScrollerView list = new ScrollerView();
         list.addClass("scroll-demo");
         for (int i = 1; i <= 14; i++) {
-            UINode rowEl = new UINode();
+            UIElement rowEl = new UIElement();
             rowEl.addClass("scroll-row");
             if (i % 2 == 0) rowEl.addClass("scroll-row-alt");
             UIText label = new UIText("row " + i + " - hover me");
@@ -463,27 +461,27 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      *       it existed, `:hover` fired on everything the cursor crossed.</li>
      * </ul>
      */
-    private void dragPage(UINode pane) {
+    private void dragPage(UIElement pane) {
         UIText status = new UIText("drag a chip onto a bin");
         status.addClass("label");
         pane.append(status);
 
-        UINode chips = new UINode();
+        UIElement chips = new UIElement();
         chips.addClass("page-row");
         for (String name : new String[]{"alpha", "beta", "gamma"}) {
             chips.append(draggableChip(name, status));
         }
         pane.append(chips);
 
-        UINode bins = new UINode();
+        UIElement bins = new UIElement();
         bins.addClass("page-row");
         bins.append(dropBin("bin one", status));
         bins.append(dropBin("bin two", status));
         pane.append(bins);
     }
 
-    private UINode draggableChip(String name, UIText status) {
-        UINode chip = new UINode();
+    private UIElement draggableChip(String name, UIText status) {
+        UIElement chip = new UIElement();
         chip.addClass("chip");
         UIText label = new UIText(name);
         label.addClass("label");
@@ -493,7 +491,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // The ghost lives INSIDE the chip on purpose: the drag controller excludes the source and
         // its descendants from drop targeting, so a ghost parented here can never become the drop
         // target for its own drag. It is display:none until a drag activates.
-        UINode ghost = new UINode();
+        UIElement ghost = new UIElement();
         ghost.addClass("chip");
         ghost.addClass("chip-ghost");
         UIText ghostLabel = new UIText(name);
@@ -522,8 +520,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         return chip;
     }
 
-    private UINode dropBin(String name, UIText status) {
-        UINode bin = new UINode();
+    private UIElement dropBin(String name, UIText status) {
+        UIElement bin = new UIElement();
         bin.addClass("bin");
         UIText label = new UIText(name);
         label.addClass("label");
@@ -576,15 +574,15 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      *   <li>Corners sit above the edge strips they cross, so a corner drag wins the hit test.</li>
      * </ul>
      */
-    private void resizePage(UINode pane) {
+    private void resizePage(UIElement pane) {
         pane.append(row(slot("both"), resizablePanel("resize: both", Resize.BOTH, false)));
         pane.append(row(slot("horizontal"), resizablePanel("width only", Resize.HORIZONTAL, false)));
         pane.append(row(slot("vertical"), resizablePanel("height only", Resize.VERTICAL, false)));
         pane.append(row(slot("min/max"), resizablePanel("clamped 70-160 x 40-90", Resize.BOTH, true)));
     }
 
-    private UINode resizablePanel(String label, Resize mode, boolean capped) {
-        UINode panel = new UINode();
+    private UIElement resizablePanel(String label, Resize mode, boolean capped) {
+        UIElement panel = new UIElement();
         panel.addClass("rz");
         if (capped) panel.addClass("rz-capped");
         panel.generalStyle(g -> g.resize(mode));
@@ -615,8 +613,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      *       features compose.</li>
      * </ul>
      */
-    private void dialogPage(UINode pane) {
-        UINode stage = new UINode();
+    private void dialogPage(UIElement pane) {
+        UIElement stage = new UIElement();
         stage.addClass("dlg-stage");
         pane.append(stage);
 
@@ -643,7 +641,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         thirdBody.setHitTest(false);
         third.getContent().append(thirdBody);
 
-        UINode controls = new UINode();
+        UIElement controls = new UIElement();
         controls.addClass("page-row");
         Button reopen = new Button("open all");
         reopen.attachListener(manager::showAll);
@@ -672,7 +670,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * must show a dark offset copy one pixel down-right. The last row sets {@code white-space} and
      * {@code text-align} on the <em>wrapper</em>, so it also proves both inherit.</p>
      */
-    private void textCssPage(UINode pane) {
+    private void textCssPage(UIElement pane) {
         pane.append(row(slot("wrapping"), txBox("this label wraps because its box is narrower than the text", null)));
         pane.append(row(slot("align left"), txBox("aligned left", "tx-left")));
         pane.append(row(slot("align center"), txBox("aligned center", "tx-center")));
@@ -752,8 +750,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     }
 
     /** A fixed-width box around a label — the label alone would self-size and leave nothing to align in. */
-    private UINode txBox(String text, String extraClass) {
-        UINode box = new UINode();
+    private UIElement txBox(String text, String extraClass) {
+        UIElement box = new UIElement();
         box.addClass("tx-box");
         if (extraClass != null) box.addClass(extraClass);
         UIText label = new UIText(text);
@@ -763,9 +761,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     }
 
     /** A `.tx-rich` box whose label carries named highlight ranges, styled entirely from the sheet. */
-    private UINode highlightBox(String text, String extraClass,
+    private UIElement highlightBox(String text, String extraClass,
                                    java.util.function.Consumer<HighlightBuilder> build) {
-        UINode box = new UINode();
+        UIElement box = new UIElement();
         box.addClass("tx-box");
         box.addClass("tx-rich");
         if (extraClass != null) box.addClass(extraClass);
@@ -799,9 +797,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      *
      * <p><b>Space</b> is bound twice — press and release — which is the axis space-to-pan is built on.</p>
      */
-    private void keymapPage(UINode host) {
+    private void keymapPage(UIElement host) {
         // THE PAGE IS ITS OWN SCOPE. A keymap belongs to a node that declares one, and the tab's
-        // content is an ordinary UINode -- so the page roots itself in a KeymapNode and everything
+        // content is an ordinary UIElement -- so the page roots itself in a KeymapNode and everything
         // below is inside it. That is what makes "page-scoped" mean anything here.
         KeymapNode pane = new KeymapNode();
         host.append(pane);
@@ -818,12 +816,12 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.append(row(slot("scoped"), focusPanel("editor"), focusPanel("canvas"),
                 hint("same chord, two panels")));
 
-        UINode logBox = new UINode();
+        UIElement logBox = new UIElement();
         logBox.addClass("km-log");
         logBox.append(log);
         pane.append(row(slot("last command"), logBox, hint("Mod+A in a panel")));
 
-        UINode pendingBox = new UINode();
+        UIElement pendingBox = new UIElement();
         pendingBox.addClass("km-pending");
         pendingBox.append(pending);
         pane.append(row(slot("chord"), pendingBox, hint("then Mod+S -> saveAll (page-scoped)")));
@@ -846,7 +844,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     /** Grey annotation text. The bindings are invisible by nature, so the page has to say what to press —
      * a demo nobody can operate proves nothing. */
-    private UINode hint(String text) {
+    private UIElement hint(String text) {
         UIText label = new UIText(text);
         label.addClass("km-hint");
         return label;
@@ -879,13 +877,13 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     /**
      * A node that owns a keymap.
      *
-     * <p>{@code UINode} implements {@code KeymapScope} but owns no {@code Keymap} — {@code
+     * <p>{@code UIElement} implements {@code KeymapScope} but owns no {@code Keymap} — {@code
      * keymapOrNull} defaults to null, which is right for the overwhelming majority of nodes and is
      * exactly what a page about SCOPING has to override. The old engine gave every element a lazily
      * created keymap; this engine makes owning one a decision, the same way {@code GraphView} and
      * {@code TextEditor} each declare theirs.</p>
      */
-    private static final class KeymapNode extends UINode {
+    private static final class KeymapNode extends UIElement {
         private final Keymap keymap = new Keymap();
 
         @Override
@@ -966,7 +964,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * rather than to whatever element inherited its slot — the view tracks the index, because a recycled
      * element is not a stable identity.</p>
      */
-    private void listPage(UINode pane) {
+    private void listPage(UIElement pane) {
         ObservableList<String> model = new ObservableList<>();
         for (int i = 0; i < 100_000; i++) model.add("row " + i);
 
@@ -976,10 +974,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         list.setSelectionMode(SelectionMode.MULTIPLE);
         list.setRenderer(new ListRenderer<String>() {
             @Override
-            public UINode createTemplate() {
+            public UIElement createTemplate() {
                 // Structure and listeners ONCE. There is deliberately nowhere to put a listener in
                 // bind(), which is what stops a recycled row accumulating one per scroll step.
-                UINode row = new UINode();
+                UIElement row = new UIElement();
                 row.addClass("lv-row");
                 row.setFocusPolicy(FocusPolicy.CLICK);
                 UIText label = new UIText("");
@@ -989,7 +987,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             }
 
             @Override
-            public void bind(String item, int index, UINode template) {
+            public void bind(String item, int index, UIElement template) {
                 ((UIText) template.children().get(0)).setText(item);
             }
         });
@@ -1037,7 +1035,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * are generated on demand, so nothing exists until you ask for it. Everything else (virtualisation,
      * recycling, selection, focus surviving a scroll) is inherited from the list and is not tree code.</p>
      */
-    private void treePage(UINode pane) {
+    private void treePage(UIElement pane) {
         TreeDataSource<String> source = new TreeDataSource<>() {
             @Override
             public java.util.List<String> roots() {
@@ -1066,15 +1064,15 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         tree.setSelectionMode(SelectionMode.MULTIPLE);
         tree.setRenderer(new TreeRenderer<String>() {
             @Override
-            public UINode createTemplate() {
-                UINode row = new UINode();
+            public UIElement createTemplate() {
+                UIElement row = new UIElement();
                 row.addClass("tv-row");
                 row.setFocusPolicy(FocusPolicy.CLICK);
                 // A real vector chevron (overlay: shape("chevron-right"), rotated when expanded)
                 // rather than the "v"/">" glyph this used to be — the bundled Minecraft font has
                 // no triangle character at all. Stays hittable, unlike NodeCreationMenu's twisty:
                 // this page's own comment explains why (clicking anywhere else only focuses/selects).
-                UINode twisty = new UINode();
+                UIElement twisty = new UIElement();
                 twisty.addClass("tv-twisty");
                 // The twisty is HITTABLE, unlike the label. Clicking it toggles; clicking anywhere else
                 // in the row just focuses and selects. Without this the tree can only be opened from the
@@ -1095,7 +1093,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             }
 
             @Override
-            public void bind(String item, TreeRow<String> row, int index, UINode template) {
+            public void bind(String item, TreeRow<String> row, int index, UIElement template) {
                 // The twisty's own look is driven entirely by the __expanded__/__collapsed__/
                 // __leaf__ classes TreeView already applies to `template` — see gallery.css's
                 // .tv-twisty rules. No Java decision needed here any more.
@@ -1146,7 +1144,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * used to compare the policy for equality with {@code CLICK}, which would leave every unselected tab
      * dead to the mouse the moment it stopped being the selected one.</p>
      */
-    private void focusPage(UINode pane) {
+    private void focusPage(UIElement pane) {
         Button before = new Button("before");
         before.addClass("fc-btn");
         pane.append(before);
@@ -1184,8 +1182,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      *       That asymmetry is the spec, not an oversight.</li>
      * </ol>
      */
-    private void modalPage(UINode pane) {
-        UINode stage = new UINode();
+    private void modalPage(UIElement pane) {
+        UIElement stage = new UIElement();
         stage.addClass("md-stage");
         pane.append(stage);
 
@@ -1212,7 +1210,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         }, false, false);
         modal.getContent().append(veto);
 
-        UINode controls = new UINode();
+        UIElement controls = new UIElement();
         controls.addClass("page-row");
         Button openModal = new Button("showModal()");
         openModal.attachListener(() -> {
@@ -1248,8 +1246,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      *   <li><b>Arrow keys</b> walk the items and wrap; the whole menu is a single Tab stop.</li>
      * </ol>
      */
-    private void menuPage(UINode pane) {
-        UINode stage = new UINode();
+    private void menuPage(UIElement pane) {
+        UIElement stage = new UIElement();
         stage.addClass("mn-stage");
         pane.append(stage);
 
@@ -1273,7 +1271,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         quality.getMenu().addSubmenu("More...", more);
 
-        UINode canvas = new UINode();
+        UIElement canvas = new UIElement();
         canvas.addClass("mn-canvas");
         UIText hint = new UIText("right-click me");
         hint.addClass("label");
@@ -1300,7 +1298,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         }, false, false);
     }
 
-    private void splitViewPage(UINode pane) {
+    private void splitViewPage(UIElement pane) {
         SplitView split = new SplitView();
         split.addClass("split-demo");
         // Percentages here are 0..100, not 0..1 — matching LDLib2's 5..95 defaults.
@@ -1327,12 +1325,12 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.append(split);
     }
 
-    private void tabViewPage(UINode pane) {
+    private void tabViewPage(UIElement pane) {
         TabView nested = new TabView();
         nested.addClass("nested-tabs");
         nested.setTabSide(TabView.TabSide.TOP);
         for (String name : new String[]{"one", "two", "three"}) {
-            UINode filler = new UINode();
+            UIElement filler = new UIElement();
             filler.addClass("pane-filler");
             UIText label = new UIText("pane " + name);
             label.addClass("label");
@@ -1342,16 +1340,16 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.append(nested);
     }
 
-    private void elementPage(UINode pane) {
-        UINode flat = new UINode();
+    private void elementPage(UIElement pane) {
+        UIElement flat = new UIElement();
         flat.addClass("box");
         flat.addClass("box-flat");
 
-        UINode rounded = new UINode();
+        UIElement rounded = new UIElement();
         rounded.addClass("box");
         rounded.addClass("box-round");
 
-        UINode sprite = new UINode();
+        UIElement sprite = new UIElement();
         sprite.addClass("box");
         sprite.addClass("box-sprite");
 
@@ -1362,8 +1360,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.append(row(slot("border only"), box("box-border-only")));
     }
 
-    private UINode box(String cssClass) {
-        UINode element = new UINode();
+    private UIElement box(String cssClass) {
+        UIElement element = new UIElement();
         element.addClass("box");
         element.addClass(cssClass);
         return element;
@@ -1378,7 +1376,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * moves, because rendering and hit-testing derive their matrices from separate code paths and a
      * disagreement between them looks perfectly fine on screen.</p>
      */
-    private void transformPage(UINode pane) {
+    private void transformPage(UIElement pane) {
         pane.append(row(slot("none"), transformDemo("tf-none")));
         pane.append(row(slot("scale(1.6)"), transformDemo("tf-scale")));
         pane.append(row(slot("origin 0 0"), transformDemo("tf-origin")));
@@ -1389,7 +1387,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.append(row(slot("on :hover"), transformDemo("tf-hover")));
     }
 
-    private UINode transformDemo(String cssClass) {
+    private UIElement transformDemo(String cssClass) {
         Button button = new Button("click");
         button.addClass(cssClass);
         button.attachListener(() -> buttonClicks++);
@@ -1411,7 +1409,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * <p>The document is 400 lines and only the visible ones exist as elements. Scroll and watch the
      * realised count in the status line stay flat.</p>
      */
-    private void editorPage(UINode pane) {
+    private void editorPage(UIElement pane) {
         TextEditor editor = new TextEditor(join(JAVA_SAMPLE));
         editor.addClass("ed");
         // The built-in lexer, not tree-sitter: the harness must build without the local fork, and this is
@@ -1668,7 +1666,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      *       {@code withLayerOpacity} would mean it was only ever synced onto the quad material.</li>
      * </ul>
      */
-    private void curvePage(UINode pane) {
+    private void curvePage(UIElement pane) {
         // More rows than a pane can hold, deliberately — this is the one page where the interesting
         // cases are visual rather than interactive, so it is worth showing all of them and scrolling.
         ScrollerView scroll = new ScrollerView();
@@ -1681,11 +1679,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     }
 
     /**
-     * A plain {@link UINode} that paints strokes through {@code ctx.curve()} in its own local
+     * A plain {@link UIElement} that paints strokes through {@code ctx.curve()} in its own local
      * space — deliberately not a new widget, since the point is that no setup and no material
      * handling is required of the caller.
      */
-    private static final class CurveCanvas extends UINode {
+    private static final class CurveCanvas extends UIElement {
 
         /** Wall-clock origin for the animated rows. Static so every canvas shares one phase. */
         private static final long START_NANOS = System.nanoTime();
@@ -2290,14 +2288,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * control is a <em>view of one colour</em> — drag any slider and the ring, the square and the
      * readout must all move together.</p>
      */
-    private void colorSelectorPage(UINode pane) {
+    private void colorSelectorPage(UIElement pane) {
         ColorSelector picker = new ColorSelector();
         // setInitialColor, not setColor: this opens an editing session, so it sets the "original" the
         // left swatch shows and restores. setColor moves only the current colour, which would leave the
         // swatch showing the constructor's white and make the reset undo to a colour nobody chose.
         picker.setInitialColor(0xFFB00DDB);
 
-        UINode swatch = new UINode();
+        UIElement swatch = new UIElement();
         swatch.addClass("color-swatch");
         UIText readout = new UIText("");
 
@@ -2309,7 +2307,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         picker.onColorChanged.connect(c -> show.run());
         show.run();
 
-        UINode side = new UINode();
+        UIElement side = new UIElement();
         side.addClass("color-side");
         side.append(swatch);
         side.append(readout);
@@ -2329,7 +2327,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
 
 
-        UINode row = new UINode();
+        UIElement row = new UIElement();
         row.addClass("color-row");
         row.append(side);
         pane.append(row(slot("picker"), open));
@@ -2338,7 +2336,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         window.show().moveTo(40f, 90f);
     }
 
-    private void shaderGraphPage(UINode pane) {
+    private void shaderGraphPage(UIElement pane) {
         var shaderNodes = com.crystalgraphics.shadergraph.CgShaderNodeRegistry.builtins();
         var master = new com.crystalgraphics.shadergraph.CgMasterNode();
 
@@ -2496,7 +2494,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         shaderLineOwners = result;
     }
 
-    private void graphPage(UINode pane) {
+    private void graphPage(UIElement pane) {
         graph = new GraphView();
         graph.addClass("graph-view");
 
@@ -2689,7 +2687,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * the failure this page exists to make obvious, and an echo — a value reported when nobody typed —
      * shows up as a line appearing on its own.</p>
      */
-    private void configuratorPage(UINode pane) {
+    private void configuratorPage(UIElement pane) {
         ConfiguratorPanel panel = new ConfiguratorPanel();
         panel.addClass("cfg-panel");
 
@@ -2733,7 +2731,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // A COLUMN of one-line labels rather than one label with newlines in it: UIText wraps, and
         // whether it also honours an explicit line break is a question this page has no business
         // depending on.
-        UINode log = new UINode();
+        UIElement log = new UIElement();
         log.addClass("cfg-log");
         java.util.List<String> lines = new java.util.ArrayList<>();
         panel.changed.connect((id, value) -> {
@@ -2751,7 +2749,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             }
         });
 
-        UINode side = new UINode();
+        UIElement side = new UIElement();
         side.addClass("cfg-side");
         side.append(hint("Every control sits on ONE height - that is the property to check"));
         side.append(hint("Labels are LEFT-aligned and fixed-width, so controls share a left edge"));
@@ -2775,7 +2773,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // The window goes on the PANE, not in the row: a Dialog is position:absolute against its
         // containing block, so putting it in a flex row would have it float over the row's other child
         // rather than sit beside it. The side panel is inset instead, to clear where the window opens.
-        UINode row = new UINode();
+        UIElement row = new UIElement();
         row.addClass("cfg-row");
         row.append(side);
         pane.append(row(slot("panel"), open));

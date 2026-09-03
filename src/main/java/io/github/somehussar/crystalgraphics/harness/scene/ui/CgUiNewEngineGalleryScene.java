@@ -1,6 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.workbench.chrome.menu.MenuBarView;
 import com.crystalgui.workbench.chrome.palette.QuickPick;
 import com.crystalgui.workbench.chrome.status.StatusBarView;
@@ -24,7 +25,6 @@ import com.crystalgui.text.lang.SymbolKind;
 import com.crystalgui.text.lang.SymbolModifier;
 import com.crystalgui.ui.box.Box;
 import com.crystalgui.ui.dom.UIDocument;
-import com.crystalgui.ui.dom.UINode;
 import com.crystalgui.ui.input.FocusPolicy;
 import com.crystalgui.widget.canvas.CanvasView;
 import com.crystalgui.widget.collection.list.ListRenderer;
@@ -244,22 +244,22 @@ public class CgUiNewEngineGalleryScene
             }
             """;
 
-    private UINode buildRoot() {
-        UINode page = new UINode().setId("page");
+    private UIElement buildRoot() {
+        UIElement page = new UIElement().setId("page");
 
         ScrollerView scroller = new ScrollerView();
         StyleGroup.inlinePipeline(scroller.getStyle().getLayoutGroup(),
                 l -> l.widthPercent(100f).height(0f).flexGrow(1f));
         page.append(scroller);
 
-        UINode column = new UINode().setId("column");
+        UIElement column = new UIElement().setId("column");
         scroller.append(column);
 
         Button disabled = new Button("Disabled");
         disabled.setEnabled(false);
         column.append(section("Button", row(
                 new Button("Ordinary"), disabled,
-                new Button("With icon").setPreIcon(new UINode()))));
+                new Button("With icon").setPreIcon(new UIElement()))));
 
         Checkbox one = new Checkbox("First");
         Checkbox two = new Checkbox("Second");
@@ -384,7 +384,7 @@ public class CgUiNewEngineGalleryScene
      * dividers, and a split inside a pane is the shape that gets that arithmetic wrong — the inner
      * one's travel must come from the pane it was given, not from the window.</p>
      */
-    private UINode splitView() {
+    private UIElement splitView() {
         SplitView split = new SplitView();
         split.addClass("split-demo");
         // 0..100, not 0..1 -- matching LDLib2's 5..95 defaults, which is what the widget documents.
@@ -406,7 +406,7 @@ public class CgUiNewEngineGalleryScene
      * post-layout hook, which replaced the two overrides the old engine needed ({@code setScroll} and
      * {@code onLayoutChanged}). If it never appears, that hook is not running.</p>
      */
-    private UINode tabView() {
+    private UIElement tabView() {
         TabView tabs = new TabView();
         tabs.addClass("tabs-demo");
         tabs.setTabSide(TabView.TabSide.TOP);
@@ -420,13 +420,13 @@ public class CgUiNewEngineGalleryScene
     }
 
     /** One page at a time, each built by the factory the first time it is asked for. */
-    private UINode pageStack() {
+    private UIElement pageStack() {
         PageStack<String> stack = new PageStack<>();
         stack.addClass("stage");
         stack.setPageFactory(key -> paneBody("page " + key));
         stack.setPlaceholder(paneBody("nothing shown"));
 
-        UINode controls = row();
+        UIElement controls = row();
         for (String key : new String[] {"alpha", "beta", "gamma"}) {
             Button open = new Button(key);
             open.attachListener(() -> stack.show(key));
@@ -436,7 +436,7 @@ public class CgUiNewEngineGalleryScene
         none.attachListener(() -> stack.show(null));
         controls.append(none);
 
-        UINode box = new UINode();
+        UIElement box = new UIElement();
         StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
                 l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(8f));
         box.append(controls);
@@ -452,8 +452,8 @@ public class CgUiNewEngineGalleryScene
      * resize mode over an edge band and 6.0 did not build one, so the three {@code UIResizer} hooks
      * were deleted with the port, and this is what that looks like on screen.</p>
      */
-    private UINode dialogs() {
-        UINode stage = new UINode().addClass("stage");
+    private UIElement dialogs() {
+        UIElement stage = new UIElement().addClass("stage");
         DialogManager manager = new DialogManager(stage);
 
         Dialog first = manager.manage(new Dialog("panel one"));
@@ -465,7 +465,7 @@ public class CgUiNewEngineGalleryScene
         Dialog third = manager.manage(new Dialog("panel three"));
         third.getContent().append(hint("click me to raise"));
 
-        UINode controls = row();
+        UIElement controls = row();
         Button openAll = new Button("open all");
         openAll.attachListener(manager::showAll);
         controls.append(openAll);
@@ -477,7 +477,7 @@ public class CgUiNewEngineGalleryScene
                 new Dialog("panel " + (manager.getDialogs().size() + 1))).show());
         controls.append(spawn);
 
-        UINode box = new UINode();
+        UIElement box = new UIElement();
         StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
                 l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(8f));
         box.append(controls);
@@ -493,8 +493,8 @@ public class CgUiNewEngineGalleryScene
      * hook, then drops the class. A prompt that flashes at the top-left before settling means that
      * hook ran before layout; one that never appears at all means the class was never dropped.</p>
      */
-    private UINode inputDialogs() {
-        UINode controls = row();
+    private UIElement inputDialogs() {
+        UIElement controls = row();
         Button ask = new Button("ask for a name");
         ask.attachListener(() -> InputDialog.ask(ask, "New file", "name", "untitled.txt", name -> { }));
         controls.append(ask);
@@ -506,8 +506,8 @@ public class CgUiNewEngineGalleryScene
     }
 
     /** A filled pane body, so an empty split or tab reads as empty rather than as broken. */
-    private UINode paneBody(String label) {
-        UINode body = new UINode().addClass("pane-body");
+    private UIElement paneBody(String label) {
+        UIElement body = new UIElement().addClass("pane-body");
         body.append(hint(label));
         return body;
     }
@@ -530,7 +530,7 @@ public class CgUiNewEngineGalleryScene
      * depth only reads as depth next to something that is not indented. The nested group is collapsed
      * to start, which is the state the arrow is easiest to get wrong in.</p>
      */
-    private UINode configKit() {
+    private UIElement configKit() {
         ConfiguratorPanel panel = new ConfiguratorPanel();
         panel.addClass("config-demo");
 
@@ -569,7 +569,7 @@ public class CgUiNewEngineGalleryScene
         // NEWEST FIRST AND CAPPED. A log that grows downward pushes itself off the page, and the only
         // line worth seeing is the one that just happened -- which is the whole point of showing the
         // panel's `changed` signal rather than trusting the controls to look right.
-        UINode log = new UINode().addClass("config-log");
+        UIElement log = new UIElement().addClass("config-log");
         List<String> lines = new ArrayList<>();
         panel.changed.connect((id, value) -> {
             lines.add(0, id + " = " + describe(value));
@@ -579,7 +579,7 @@ public class CgUiNewEngineGalleryScene
         });
         log.append(hint("scrub a number, type a name, open a colour — changes land here"));
 
-        UINode box = new UINode();
+        UIElement box = new UIElement();
         StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
                 l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(8f));
         box.append(panel);
@@ -604,20 +604,20 @@ public class CgUiNewEngineGalleryScene
      * counter under it reads what is actually realised, so the answer is on screen rather than in a
      * profiler.</p>
      */
-    private UINode listView() {
+    private UIElement listView() {
         ObservableList<String> model = new ObservableList<>();
         for (int i = 0; i < 10_000; i++) model.add("Row " + i);
         ListView<String> list = new ListView<>(model);
         list.setRenderer(new ListRenderer<>() {
             @Override
-            public UINode createTemplate() {
-                UINode row = new UINode();
+            public UIElement createTemplate() {
+                UIElement row = new UIElement();
                 row.append(new UIText(""));
                 return row;
             }
 
             @Override
-            public void bind(String item, int index, UINode template) {
+            public void bind(String item, int index, UIElement template) {
                 ((UIText) template.children().get(0)).setText(item);
             }
         }).setItemHeight(22f).setSelectionMode(SelectionMode.MULTIPLE);
@@ -633,7 +633,7 @@ public class CgUiNewEngineGalleryScene
             return true;
         });
 
-        UINode box = new UINode();
+        UIElement box = new UIElement();
         StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
                 l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(6f));
         box.append(list);
@@ -642,7 +642,7 @@ public class CgUiNewEngineGalleryScene
     }
 
     /** A three-level tree, so an indent reads as an indent and a twisty has somewhere to go. */
-    private UINode treeView() {
+    private UIElement treeView() {
         TreeDataSource<String> source = new TreeDataSource<>() {
             @Override
             public List<String> roots() {
@@ -668,10 +668,10 @@ public class CgUiNewEngineGalleryScene
         // A real chevron rather than a glyph: the bundled Minecraft font has no triangle character.
         tree.setRenderer(new TreeRenderer<>() {
             @Override
-            public UINode createTemplate() {
-                UINode row = new UINode().addClass("tv-row");
+            public UIElement createTemplate() {
+                UIElement row = new UIElement().addClass("tv-row");
                 row.setFocusPolicy(FocusPolicy.CLICK);
-                UINode twisty = new UINode().addClass("tv-twisty");
+                UIElement twisty = new UIElement().addClass("tv-twisty");
                 // ONCE per pooled element, reading the row's CURRENT index at click time -- it cannot
                 // capture one, because this element is a different row every time it is recycled.
                 twisty.onMouseDown.attachListener((el, event) -> {
@@ -687,7 +687,7 @@ public class CgUiNewEngineGalleryScene
             }
 
             @Override
-            public void bind(String item, TreeRow<String> row, int index, UINode template) {
+            public void bind(String item, TreeRow<String> row, int index, UIElement template) {
                 ((UIText) template.children().get(1))
                         .setText(row.depth() == 0 ? item : item.substring(item.lastIndexOf('/') + 1));
             }
@@ -705,7 +705,7 @@ public class CgUiNewEngineGalleryScene
      * whose weights are applied to the whole width rather than to the free space looks right until
      * exactly one column is fixed.</p>
      */
-    private UINode tableView() {
+    private UIElement tableView() {
         ObservableList<String> model = new ObservableList<>();
         for (String name : new String[] {"gui_quad.shader", "gui_glass.shader", "gui_blur.shader",
                                          "gui_gradient.shader", "gui_curve.shader"}) {
@@ -729,7 +729,7 @@ public class CgUiNewEngineGalleryScene
      * bar that DROPPED it would look tidier and be wrong — a menu whose rows are never in the same
      * place twice is the failure that rule exists to prevent.</p>
      */
-    private UINode menuBar() {
+    private UIElement menuBar() {
         CommandRegistry registry = new CommandRegistry();
         MenuId file = MenuId.of("gallery.file");
         MenuId edit = MenuId.of("gallery.edit");
@@ -749,7 +749,7 @@ public class CgUiNewEngineGalleryScene
         MenuBarView bar = new MenuBarView(registry).addMenu(file, "File").addMenu(edit, "Edit");
         StyleGroup.inlinePipeline(bar.getStyle().getLayoutGroup(), l -> l.widthPercent(100f));
 
-        UINode box = new UINode();
+        UIElement box = new UIElement();
         StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
                 l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(6f));
         box.append(bar);
@@ -763,7 +763,7 @@ public class CgUiNewEngineGalleryScene
      * <p>Both at once because the trail lives in the bar — showing it alone would demo a widget in a
      * context nothing uses it in, and its sizing comes from the bar around it.</p>
      */
-    private UINode statusBar() {
+    private UIElement statusBar() {
         StatusBarView status = new StatusBarView();
         StyleGroup.inlinePipeline(status.getStyle().getLayoutGroup(), l -> l.widthPercent(100f));
         status.breadcrumbs().setTrail(List.of("core", "src", "com", "crystalgui", "widget"));
@@ -777,7 +777,7 @@ public class CgUiNewEngineGalleryScene
      * against the surface rather than against whatever opened it, and dismissed by Escape or a press
      * outside. A picker demoed inline would be a list with a search box on top of it.</p>
      */
-    private UINode palette() {
+    private UIElement palette() {
         Button open = new Button("Open a QuickPick");
         open.attachListener(() -> {
             QuickPick pick = new QuickPick();
@@ -810,7 +810,7 @@ public class CgUiNewEngineGalleryScene
      * <p>The third node sits far enough right to be off screen at rest, so culling has something to
      * cull: a plane whose every node is visible demonstrates a viewport, not a canvas.</p>
      */
-    private UINode graphView() {
+    private UIElement graphView() {
         GraphView graph = new GraphView();
         StyleGroup.inlinePipeline(graph.getStyle().getLayoutGroup(),
                 l -> l.widthPercent(100f).height(320f));
@@ -849,7 +849,7 @@ public class CgUiNewEngineGalleryScene
             return true;
         });
 
-        UINode box = new UINode();
+        UIElement box = new UIElement();
         StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
                 l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(6f));
         box.append(graph);
@@ -869,14 +869,14 @@ public class CgUiNewEngineGalleryScene
      * plane is a viewport — which is only visible when there is more content than fits and a number
      * saying how much of it is currently culled.</p>
      */
-    private UINode canvasView() {
+    private UIElement canvasView() {
         CanvasView canvas = new CanvasView();
         StyleGroup.inlinePipeline(canvas.getStyle().getLayoutGroup(),
                 l -> l.widthPercent(100f).height(200f));
 
-        List<UINode> tiles = new ArrayList<>();
+        List<UIElement> tiles = new ArrayList<>();
         for (int i = 0; i < 60; i++) {
-            UINode tile = new UINode().addClass("canvas-tile");
+            UIElement tile = new UIElement().addClass("canvas-tile");
             tile.append(hint("#" + i));
             StyleGroup.inlinePipeline(tile.getStyle().getLayoutGroup(),
                     l -> l.width(70f).height(44f));
@@ -887,7 +887,7 @@ public class CgUiNewEngineGalleryScene
         UIText status = hint("");
         document.animation().every(canvas, delta -> {
             int visible = 0;
-            for (UINode tile : tiles) {
+            for (UIElement tile : tiles) {
                 Box box = tile.box();
                 if (box != null && box.width() > 0f) visible++;
             }
@@ -897,7 +897,7 @@ public class CgUiNewEngineGalleryScene
             return true;
         });
 
-        UINode box = new UINode();
+        UIElement box = new UIElement();
         StyleGroup.inlinePipeline(box.getStyle().getLayoutGroup(),
                 l -> l.widthPercent(100f).flexDirection(FlexDirection.COLUMN).gapAll(6f));
         box.append(canvas);
@@ -905,8 +905,8 @@ public class CgUiNewEngineGalleryScene
         return box;
     }
 
-    private UINode section(String heading, UINode body) {
-        UINode section = new UINode().addClass("section");
+    private UIElement section(String heading, UIElement body) {
+        UIElement section = new UIElement().addClass("section");
         UIText title = new UIText(heading);
         title.addClass("heading");
         section.append(title);
@@ -914,11 +914,11 @@ public class CgUiNewEngineGalleryScene
         return section;
     }
 
-    private UINode row(UINode... children) {
-        UINode row = new UINode().addClass("row");
+    private UIElement row(UIElement... children) {
+        UIElement row = new UIElement().addClass("row");
         StyleGroup.defaultPipeline(row.getStyle().getLayoutGroup(),
                 l -> l.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER));
-        for (UINode child : children) {
+        for (UIElement child : children) {
             if (child != null) row.append(child);
         }
         return row;

@@ -1,7 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgui.text.diff.ThreeWayMerge;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.control.Button;
 import com.crystalgui.widget.overlay.Dialog;
@@ -74,7 +74,7 @@ final class StagedMergeDemo {
      * with an edit in it is the ordinary state of a repository. Falls back to the synthesised pair when
      * the tree is clean, for the same reason F7 does.</p>
      */
-    static void openCommitDiff(UIDocument window, UINode over) {
+    static void openCommitDiff(UIDocument window, UIElement over) {
         Path root = repositoryRoot();
         String path = root == null ? null : firstJava(gitLines(root, "diff", "--name-only"));
         String head = path == null ? null : gitShow(root, "HEAD:" + path);
@@ -102,7 +102,7 @@ final class StagedMergeDemo {
         Dialog dialog = new Dialog(title + " - commit diff");
         dialog.getContent().append(view);
 
-        UINode actions = new UINode();
+        UIElement actions = new UIElement();
         actions.addClass(MergeView.DIALOG_ACTIONS_CLASS);
         dialog.getContent().append(actions);
         Button close = new Button("Close");
@@ -116,11 +116,11 @@ final class StagedMergeDemo {
     }
 
     /** Shift+F7 — the synthesised merge, which always has a conflict in it. */
-    static void openSynthesised(UIDocument window, UINode over) {
+    static void openSynthesised(UIDocument window, UIElement over) {
         show(window, over, synthesised());
     }
 
-    static void open(UIDocument window, UINode over) {
+    static void open(UIDocument window, UIElement over) {
         Sides sides = collect();
         // FALL THROUGH WHEN THERE IS NOTHING TO LOOK AT. A working tree with nothing staged produces a
         // merge whose "theirs" made no change at all, so every region auto-resolves and the three panes
@@ -138,7 +138,7 @@ final class StagedMergeDemo {
         show(window, over, sides == null ? synthesised() : sides);
     }
 
-    private static void show(UIDocument window, UINode over, Sides sides) {
+    private static void show(UIDocument window, UIElement over, Sides sides) {
         if (sides == null) {
             System.out.println(TAG + "nothing to merge - no repository, no git, and the fallback file "
                     + "could not be read. Nothing opened.");
@@ -158,7 +158,7 @@ final class StagedMergeDemo {
         Dialog dialog = new Dialog(sides.title());
         dialog.getContent().append(view);
 
-        UINode actions = new UINode();
+        UIElement actions = new UIElement();
         actions.addClass(MergeView.DIALOG_ACTIONS_CLASS);
         dialog.getContent().append(actions);
 

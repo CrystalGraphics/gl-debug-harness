@@ -4,7 +4,7 @@ import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.render.texture.CgUiSprite;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.ui.input.FocusPolicy;
@@ -12,7 +12,6 @@ import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.FlexWrap;
-import dev.vfyjxf.taffy.style.JustifyContent;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -193,10 +192,10 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
     @Override
     public void init(HarnessContext ctx) {
         Keyboard.enableRepeatEvents(true);
-        UINode root = createStylingDemo();
+        UIElement root = createStylingDemo();
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = root;
+        UIElement sceneRoot = root;
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -207,8 +206,8 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
         this.document.styles().addStylesheet(StyleSheet.parse(STYLE_SHEET));
     }
 
-    private UINode createStylingDemo() {
-        UINode root = new UINode()
+    private UIElement createStylingDemo() {
+        UIElement root = new UIElement()
                 .generalStyle(s -> s.background(panelSprite))
                 .layout(l -> l
                         .width(420)
@@ -222,7 +221,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
                 ).setFocusPolicy(FocusPolicy.NONE);
         root.addClass("panel");
 
-//        UINode row = new UINode()
+//        UIElement row = new UIElement()
 //                .layout(l -> l
 //                        .flexDirection(FlexDirection.ROW)
 //                        .gapAll(10)
@@ -241,7 +240,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
         // rule) — so a ".button:hover { width: ... }" rule could never win against an inline base
         // width, and the property would never appear to update or transition at all.
         for (int i = 0; i < 3; i++) {
-            UINode button = new UINode()
+            UIElement button = new UIElement()
                     .generalStyle(s -> s.background(buttonSprite));
             button.addClass("button");
 
@@ -260,7 +259,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
         // gui_rounded_rect.shader actually compiles under real GL, not just javac. border-width
         // (set via .borderAll below) now grows the layout box for real — it's the same
         // border-width-* longhand Taffy resolves, not a bespoke SDF-only number.
-        UINode roundedButton = new UINode()
+        UIElement roundedButton = new UIElement()
                 .generalStyle(s -> s.background(new com.crystalgui.render.texture.CgUiQuad(0xFFEE8822))
                         .borderRadius(10f)
                         .borderColor(0xFF224488))
@@ -270,42 +269,42 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
         // Phase 7 smoke-test: background/background-color parsers exercised through the real
         // stylesheet pipeline (not constructed directly in Java), plus the new sprite(...) CSS
         // function for 9-slice-from-CSS.
-        UINode colorSwatch = new UINode().layout(l -> l.width(24).height(48));
+        UIElement colorSwatch = new UIElement().layout(l -> l.width(24).height(48));
         colorSwatch.addClass("color-swatch");
         root.append(colorSwatch);
 
-        UINode slicedSwatch = new UINode().layout(l -> l.width(32).height(32));
+        UIElement slicedSwatch = new UIElement().layout(l -> l.width(32).height(32));
         slicedSwatch.addClass("sliced-swatch");
         root.append(slicedSwatch);
 
-        UINode croppedSwatch = new UINode().layout(l -> l.width(32).height(32));
+        UIElement croppedSwatch = new UIElement().layout(l -> l.width(32).height(32));
         croppedSwatch.addClass("cropped-swatch");
         root.append(croppedSwatch);
 
         // Background cross-fade demo — move the mouse over each swatch to trigger the
         // `background 700ms ease-in-out` transition. Each pairs a different CgUiDrawable
         // combination on either side of the fade:
-        UINode fadeColorColor = new UINode().layout(l -> l.width(48).height(48)); // flat color -> flat color
+        UIElement fadeColorColor = new UIElement().layout(l -> l.width(48).height(48)); // flat color -> flat color
         fadeColorColor.addClass("fade-color-color");
         root.append(fadeColorColor);
 
-        UINode fadeColorTexture = new UINode().layout(l -> l.width(48).height(48)); // flat color -> full texture
+        UIElement fadeColorTexture = new UIElement().layout(l -> l.width(48).height(48)); // flat color -> full texture
         fadeColorTexture.addClass("fade-color-texture");
         root.append(fadeColorTexture);
 
-        UINode fadeTextureTexture = new UINode().layout(l -> l.width(48).height(48)); // 9-slice -> 9-slice
+        UIElement fadeTextureTexture = new UIElement().layout(l -> l.width(48).height(48)); // 9-slice -> 9-slice
         fadeTextureTexture.addClass("fade-texture-texture");
         root.append(fadeTextureTexture);
 
-        UINode fadeSdfColor = new UINode().layout(l -> l.width(48).height(48)); // SDF rounded rect -> SDF rounded rect (color fill)
+        UIElement fadeSdfColor = new UIElement().layout(l -> l.width(48).height(48)); // SDF rounded rect -> SDF rounded rect (color fill)
         fadeSdfColor.addClass("fade-sdf-color");
         root.append(fadeSdfColor);
 
-        UINode fadeSdfTexture = new UINode().layout(l -> l.width(48).height(48)); // SDF rounded rect, color fill -> texture fill
+        UIElement fadeSdfTexture = new UIElement().layout(l -> l.width(48).height(48)); // SDF rounded rect, color fill -> texture fill
         fadeSdfTexture.addClass("fade-sdf-texture");
         root.append(fadeSdfTexture);
 
-        UINode roundedCorners = new UINode().layout(l -> l.width(48).height(48)); // per-corner radii: top rounded, bottom square
+        UIElement roundedCorners = new UIElement().layout(l -> l.width(48).height(48)); // per-corner radii: top rounded, bottom square
         roundedCorners.addClass("rounded-corners-swatch");
         root.append(roundedCorners);
 

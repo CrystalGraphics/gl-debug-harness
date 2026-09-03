@@ -4,7 +4,7 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
@@ -65,7 +65,7 @@ public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemIn
         org.lwjgl.input.Keyboard.enableRepeatEvents(false);
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = createDemo();
+        UIElement sceneRoot = createDemo();
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -76,13 +76,13 @@ public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemIn
         this.document.styles().addStylesheet(StyleSheet.parse(STYLES));
     }
 
-    private UINode createDemo() {
-        UINode root = new UINode()
+    private UIElement createDemo() {
+        UIElement root = new UIElement()
                 .layout(l -> l.paddingAll(12).flexDirection(FlexDirection.COLUMN).gapAll(6))
                 .setFocusPolicy(FocusPolicy.NONE);
 
         // Header row naming the two columns.
-        UINode header = new UINode().layout(l -> l.flexDirection(FlexDirection.ROW).gapAll(8));
+        UIElement header = new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).gapAll(8));
         header.addClass("row");
         header.append(label(""));
         header.append(label("CPU quads"));
@@ -90,7 +90,7 @@ public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemIn
         root.append(header);
 
         for (String mode : new String[]{"stretch", "repeat", "round", "space"}) {
-            UINode row = new UINode();
+            UIElement row = new UIElement();
             row.addClass("row");
             row.append(label(mode));
             row.append(cell(mode, false)); // plain -> CgUiSprite's quad loop
@@ -103,16 +103,16 @@ public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemIn
     /** Wrapped in a fixed-width container rather than sizing the UIText directly: UIText pushes its
      * own measured width at IMPORTANT origin, which outranks any stylesheet width and would leave
      * the rows misaligned (and the second column pushed off-screen). */
-    private UINode label(String text) {
-        UINode slot = new UINode().layout(l -> l.width(52));
+    private UIElement label(String text) {
+        UIElement slot = new UIElement().layout(l -> l.width(52));
         UIText t = new UIText(text);
         t.addClass("label");
         slot.append(t);
         return slot;
     }
 
-    private UINode cell(String mode, boolean rounded) {
-        UINode cell = new UINode();
+    private UIElement cell(String mode, boolean rounded) {
+        UIElement cell = new UIElement();
         cell.addClass("cell");
         cell.addClass("m-" + mode);
         if (rounded) cell.addClass("rounded");

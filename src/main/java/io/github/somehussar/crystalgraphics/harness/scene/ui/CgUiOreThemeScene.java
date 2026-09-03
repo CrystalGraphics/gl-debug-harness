@@ -5,7 +5,7 @@ import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.control.Button;
 import com.crystalgui.widget.control.Checkbox;
@@ -64,10 +64,10 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(false);
 
-        UINode root = createDemo();
+        UIElement root = createDemo();
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = root;
+        UIElement sceneRoot = root;
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -101,11 +101,11 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
             .ring-thick   { border-radius: 6px; outline: 3px #FFAA00; outline-offset: 2px; }
             """;
 
-    private UINode createDemo() {
+    private UIElement createDemo() {
         // Plain outer container purely for screen margin. Deliberately does NOT set padding/gap on
         // the panel itself — Java .layout(...) writes at INLINE origin, which outranks stylesheets,
         // so anything set here would suppress the theme's own .panel rules.
-        UINode root = new UINode()
+        UIElement root = new UIElement()
                 .layout(l -> l.paddingAll(10).flexDirection(FlexDirection.ROW).gapAll(10))
                 .setFocusPolicy(FocusPolicy.NONE);
 
@@ -113,7 +113,7 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         // Only width is set in Java; background/padding/gap all come from `.panel` in ore.css.
         // Default flex-direction COLUMN + align-items STRETCH make children fill the panel width,
         // which is exactly how LDLib2's own demo gets its full-width button.
-        UINode panel = new UINode().layout(l -> l.width(108));
+        UIElement panel = new UIElement().layout(l -> l.width(108));
         panel.addClass("panel");
         root.append(panel);
 
@@ -134,7 +134,7 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         // gap set in Java (INLINE origin) rather than a CSS class: a `.dense` class would tie with
         // `.panel` on specificity (both single-class) and lose. This panel has a lot of rows and
         // needs to stay on-screen.
-        UINode states = new UINode().layout(l -> l.width(108).gapAll(1));
+        UIElement states = new UIElement().layout(l -> l.width(108).gapAll(1));
         states.addClass("panel");
         root.append(states);
 
@@ -162,11 +162,11 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         // 40x24 boxes, one per fit mode. Proves the general feature rather than just the checkbox's
         // use of it: `fill` distorts to the box, `none` stays 10x10, `contain` fits inside keeping
         // aspect, `cover` overflows keeping aspect. All are centered (overlay-position default).
-        UINode fits = new UINode().layout(l -> l.width(86));
+        UIElement fits = new UIElement().layout(l -> l.width(86));
         fits.addClass("panel");
         root.append(fits);
         for (String mode : new String[]{"fill", "none", "contain", "cover"}) {
-            UINode demo = new UINode().layout(l -> l.width(34).height(20));
+            UIElement demo = new UIElement().layout(l -> l.width(34).height(20));
             demo.addClass("fit-demo");
             demo.addClass("fit-" + mode);
             fits.append(demo);
@@ -175,11 +175,11 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         // ── SDF outline-stroke matrix ──
         // Pure `outline: <width> <color>` — no texture. Generous gaps so offset rings (which draw
         // OUTSIDE the element box) don't overlap their neighbours.
-        UINode rings = new UINode().layout(l -> l.width(70).gapAll(9));
+        UIElement rings = new UIElement().layout(l -> l.width(70).gapAll(9));
         rings.addClass("panel");
         root.append(rings);
         for (String variant : new String[]{"square", "offset", "rounded", "thick"}) {
-            UINode demo = new UINode().layout(l -> l.width(30).height(16));
+            UIElement demo = new UIElement().layout(l -> l.width(30).height(16));
             demo.addClass("ring-demo");
             demo.addClass("ring-" + variant);
             rings.append(demo);

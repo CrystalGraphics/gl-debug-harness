@@ -1,12 +1,12 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgui.ui.dom.UIElement;
 import io.github.somehussar.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.platform.service.CgSoundService;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.dom.UINode;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.control.Button;
 import com.crystalgui.ui.input.FocusPolicy;
@@ -78,10 +78,10 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput
         org.lwjgl.input.Keyboard.enableRepeatEvents(false);
         PlatformServiceHarness.getInstance().soundImpl = soundId -> soundPlayCount++;
 
-        UINode root = createButtonDemo();
+        UIElement root = createButtonDemo();
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = root;
+        UIElement sceneRoot = root;
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -92,8 +92,8 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput
         this.document.styles().addStylesheet(StyleSheet.parse(STYLE_SHEET));
     }
 
-    private UINode createButtonDemo() {
-        UINode root = new UINode()
+    private UIElement createButtonDemo() {
+        UIElement root = new UIElement()
                 .layout(l -> l
                         .paddingAll(16)
                         .flexDirection(FlexDirection.ROW)
@@ -101,7 +101,7 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput
                         .alignItems(AlignItems.FLEX_START))
                 .setFocusPolicy(FocusPolicy.NONE);
 
-        UINode clickCard = new UINode();
+        UIElement clickCard = new UIElement();
         clickCard.addClass("card");
         Button clickButton = new Button("Click Me");
         clickButton.addClass("button");
@@ -109,7 +109,7 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput
         clickCard.append(clickButton);
         root.append(clickCard);
 
-        UINode keyboardCard = new UINode();
+        UIElement keyboardCard = new UIElement();
         keyboardCard.addClass("card");
         Button keyboardButton = new Button("Keyboard Test");
         keyboardButton.addClass("button");

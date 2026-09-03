@@ -8,16 +8,14 @@ import com.crystalgraphics.util.profiling.CgProfilerDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.core.async.FrameProfile;
-import com.crystalgui.core.command.CommandRegistry;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.render.text.FontFamilyCache;
 import com.crystalgui.workbench.chrome.palette.QuickPick;
 import com.crystalgui.workbench.search.GoToFile;
-import com.crystalgui.language.run.view.RunPanels;
 import com.crystalgui.language.run.view.ScriptWorkbench;
 import com.crystalgui.core.dispose.Disposer;
 import com.crystalgui.app.editor.CrystalEditor;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.widget.text.UIText;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.Resource;
@@ -41,7 +39,6 @@ import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 
-import java.nio.file.Paths;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -131,7 +128,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 ref -> {
                     // NAMED, so a drag that lands somewhere unexpected says which panel it was. An empty
                     // box would make all eight look identical the moment two end up in the same region.
-                    UINode body = new UINode();
+                    UIElement body = new UIElement();
                     body.append(new UIText(title + " (dummy)"));
                     return body;
                 });
@@ -151,7 +148,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = editor;
+        UIElement sceneRoot = editor;
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -210,7 +207,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             // AND NOT AT ALL UNDER THE SCRIPTED FLOW, which is not tidiness -- it is the difference
             // between a measurement and a coin toss. The session records which documents were open, so
             // a scripted run REOPENS whatever the previous scripted run left behind: the second run of
-            // this flow paid the whole cost of opening UINode during startup, before the picker was
+            // this flow paid the whole cost of opening UIElement during startup, before the picker was
             // ever touched, and its OPENED stage then measured 60ms instead of 237ms. Both numbers were
             // real and neither answered the question. A flow that measures opening a class has to begin
             // with that class shut. @see #printFlowSummary
@@ -276,7 +273,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private static final boolean flowEnabled = Boolean.getBoolean("crystalgui.harness.perfflow");
 
     /** What gets typed into Go to File. Overridable, because the point is a big class and not this one. */
-    private static final String QUERY = System.getProperty("crystalgui.harness.perfquery", "UINode");
+    private static final String QUERY = System.getProperty("crystalgui.harness.perfquery", "UIElement");
 
     private static final double OPEN_PICKER_AT = 5.0;
     private static final double ACCEPT_AT = 8.0;
@@ -520,7 +517,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // BY SELECTOR, not `activeEditor()`, which answers only for a PROJECT document -- and what this
         // flow opens is a `library://` viewer, so it answered null and the whole hover stage did nothing.
         // The class is what a viewer and a file editor share.
-        UINode found = document.querySelector("texteditor.__file-editor__");
+        UIElement found = document.querySelector("texteditor.__file-editor__");
         if (!(found instanceof TextEditor open)) {
             FrameProfile.note("FLOW no file editor on screen to hover in");
             hoveredSoFar = HOVER_TARGETS.size();
@@ -531,7 +528,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     /** Rests the pointer on the first occurrence of {@code name}, by offset rather than by pixel. */
     private void hoverSymbol(String name) {
-        UINode found = document.querySelector("texteditor.__file-editor__");
+        UIElement found = document.querySelector("texteditor.__file-editor__");
         if (!(found instanceof TextEditor open)) {
             FrameProfile.note("FLOW no file editor on screen to hover in");
             return;
@@ -991,7 +988,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private boolean dumpRequested;
 
     private void dumpProblemRows() {
-        UINode panel = editor.workbench().querySelector("problemspanel");
+        UIElement panel = editor.workbench().querySelector("problemspanel");
         if (panel == null) {
             System.out.println("DUMP no problems panel in the tree");
             return;
@@ -1000,11 +997,11 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         System.out.println("DUMP panel x=" + pb.x() + " y=" + pb.y()
                 + " w=" + pb.width() + " h=" + pb.height()
                 + " uiScale=" + document.boxes().uiScale());
-        for (UINode row : panel.getElementsByClassName("__problem__")) {
+        for (UIElement row : panel.getElementsByClassName("__problem__")) {
             var rb = row.box();
             System.out.println("DUMP  row y=" + rb.y() + " h=" + rb.height()
                     + " centre=" + (rb.y() + rb.height() / 2f));
-            for (UINode part : row.children()) {
+            for (UIElement part : row.children()) {
                 var qb = part.box();
                 String extra = part instanceof UIText
                         ? " ws=" + part.getStyle().getGeneralGroup().whiteSpace()

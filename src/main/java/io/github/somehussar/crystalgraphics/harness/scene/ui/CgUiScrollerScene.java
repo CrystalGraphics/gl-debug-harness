@@ -5,7 +5,7 @@ import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.scroll.ScrollerView;
 import com.crystalgui.widget.text.UIText;
@@ -18,7 +18,7 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 /**
  * Exercises scrolling — wheel over a list, or drag a scrollbar thumb.
  *
- * <p>The left column is the point: it's a <b>plain {@code UINode}</b> with {@code overflow: hidden},
+ * <p>The left column is the point: it's a <b>plain {@code UIElement}</b> with {@code overflow: hidden},
  * no widget at all. It scrolls because scrolling is an element capability in this engine, the same way
  * any {@code <div>} scrolls in a browser. The right column is {@code ScrollerView}, which adds nothing
  * but the two visible bars.</p>
@@ -32,7 +32,7 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
     private static final float SCALE = 2f;
 
     private UIDocument document;
-    private UINode bare;
+    private UIElement bare;
     private ScrollerView withBars;
 
     private static final String STYLES = """
@@ -55,7 +55,7 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = createDemo();
+        UIElement sceneRoot = createDemo();
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -68,15 +68,15 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
         this.document.styles().addStylesheet(StyleSheet.parse(STYLES));
     }
 
-    private UINode createDemo() {
-        UINode root = new UINode()
+    private UIElement createDemo() {
+        UIElement root = new UIElement()
                 .layout(l -> l.paddingAll(10).flexDirection(FlexDirection.ROW).gapAll(10))
                 .setFocusPolicy(FocusPolicy.NONE);
         root.addClass("panel");
         root.addClass("demo-root");
 
         // A PLAIN element. No widget — just overflow, exactly like a scrolling <div>.
-        bare = new UINode();
+        bare = new UIElement();
         bare.addClass("col");
         bare.addClass("bare");
         fill(bare, "bare");
@@ -93,9 +93,9 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
     }
 
     /** Rows go in via plain addChild — top-layer children, no content host to reach through. */
-    private void fill(UINode container, String tag) {
+    private void fill(UIElement container, String tag) {
         for (int i = 0; i < 30; i++) {
-            UINode row = new UINode();
+            UIElement row = new UIElement();
             row.addClass(i % 2 == 0 ? "row" : "row-alt");
             UIText t = new UIText(tag + " row " + i);
             if (i == 20) row.setFocusPolicy(FocusPolicy.FOCUSABLE);

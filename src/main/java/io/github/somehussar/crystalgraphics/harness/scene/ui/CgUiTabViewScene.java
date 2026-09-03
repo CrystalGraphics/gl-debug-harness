@@ -5,7 +5,7 @@ import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.dom.UINode;
+import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.widget.control.Button;
 import com.crystalgui.widget.control.Checkbox;
@@ -35,7 +35,7 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  *   <li><b>Real content, not empty panes.</b> The panes hold actual widgets, because a hidden pane
  *       whose children are still hit-testable or still in the tab order is invisible in a demo made of
  *       empty boxes — precisely the bug found while building this (see
- *       {@code UINode.hasFocusableDescendant}).</li>
+ *       {@code UIElement.hasFocusableDescendant}).</li>
  * </ul>
  */
 public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
@@ -64,7 +64,7 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInpu
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UINode sceneRoot = createDemo();
+        UIElement sceneRoot = createDemo();
         // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
         // root and took the window's size; here the DOCUMENT is the root and this is an
         // ordinary child, which sizes to its content -- so without this the scene lays out
@@ -77,8 +77,8 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInpu
         this.document.styles().addStylesheet(StyleSheet.parse(STYLES));
     }
 
-    private UINode createDemo() {
-        UINode root = new UINode()
+    private UIElement createDemo() {
+        UIElement root = new UIElement()
                 .layout(l -> l.width(380).height(270)
                         .paddingAll(6).flexDirection(FlexDirection.COLUMN).gapAll(6))
                 .setFocusPolicy(FocusPolicy.NONE);
@@ -102,7 +102,7 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInpu
         Tab third = tabs.addTab("Text");
         third.content().append(new UIText("Just some text in the third pane."));
 
-        UINode bottom = new UINode();
+        UIElement bottom = new UIElement();
         bottom.addClass("bottom");
         root.append(bottom);
 
@@ -110,7 +110,7 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInpu
         crowded = new TabView();
         crowded.addClass("crowded");
         for (int i = 1; i <= 8; i++) {
-            UINode filler = new UINode();
+            UIElement filler = new UIElement();
             filler.addClass("filler");
             crowded.addTab("tab " + i).content().append(filler);
         }
@@ -119,8 +119,8 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInpu
         return root;
     }
 
-    private UINode sideSwitcher() {
-        UINode row = new UINode();
+    private UIElement sideSwitcher() {
+        UIElement row = new UIElement();
         row.addClass("sides");
         for (TabView.TabSide side : TabView.TabSide.values()) {
             Button button = new Button(side.name().toLowerCase());

@@ -1,7 +1,8 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
-import com.crystalgui.ui.dom.ElementTreeSource;
-import com.crystalgui.net.mirror.ElementNodeMirror;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.dom.UIElementTreeSource;
+import com.crystalgui.net.mirror.UIElementMirror;
 import com.crystalgui.language.LanguageStack;
 import com.crystalgui.language.java.JavaLanguage;
 import com.crystalgui.language.js.JsLanguage;
@@ -19,7 +20,6 @@ import com.crystalgui.net.ClientUiSession;
 import com.crystalgui.net.InMemoryTransport;
 import com.crystalgui.net.ServerUiSession;
 import com.crystalgui.serialization.PlainOps;
-import com.crystalgui.ui.UIElement;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -94,13 +94,13 @@ final class HarnessWorkspace {
         fromServer = pair[0];
         fromClient = pair[1];
 
-        server = new ServerUiSession<>(1, new ElementTreeSource(new UIElement()),
-                new ElementNodeMirror<>(PlainOps.INSTANCE), fromServer, PlainOps.INSTANCE);
+        server = new ServerUiSession<>(1, new UIElementTreeSource(new UIElement()),
+                new UIElementMirror<>(PlainOps.INSTANCE), fromServer, PlainOps.INSTANCE);
         rpc = new WorkspaceRpc<>(service, WorkspaceActor.LOCAL);
         rpc.installOn(server::onCall);
         server.open();
 
-        session = new ClientUiSession<>(new ElementNodeMirror<>(PlainOps.INSTANCE), fromClient, PlainOps.INSTANCE);
+        session = new ClientUiSession<>(new UIElementMirror<>(PlainOps.INSTANCE), fromClient, PlainOps.INSTANCE);
         client = new WorkspaceClient<>(session, PlainOps.INSTANCE);
     }
 
