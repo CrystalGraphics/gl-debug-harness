@@ -138,10 +138,10 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
 
-        editor = new CrystalEditor(workspace.client());
+        editor = new CrystalEditor(workspace.workspace());
         // Beside the scratch workspace, not in it: a session record is private and must not become part of
         // the project a resource pack ships. See WorkbenchSession -- the same reason trash lives outside.
-        editor.useConfig(new com.crystalgui.fs.LocalConfigStorage(
+        editor.useConfig(new com.crystalgui.core.storage.LocalConfigStorage(
                 java.nio.file.Paths.get("workspace-config").toAbsolutePath().normalize()));
         editor.addClass("demo-root");
         registerDummyToolWindows();

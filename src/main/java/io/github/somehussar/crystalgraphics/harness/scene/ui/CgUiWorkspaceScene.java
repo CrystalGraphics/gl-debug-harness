@@ -6,20 +6,27 @@ import com.crystalgui.ui.dom.UIElementTreeSource;
 import com.crystalgui.net.mirror.UIElementMirror;
 import com.crystalgui.core.collection.tree.TreeDataSource;
 import com.crystalgui.core.collection.tree.TreeRow;
+import com.crystalgui.fs.CgFileEvent;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.LocalFileSystem;
-import com.crystalgui.fs.ProjectRegistry;
+import com.crystalgui.fs.project.ProjectRegistry;
 import com.crystalgui.fs.WorkspaceActor;
-import com.crystalgui.fs.WorkspaceClient;
+import com.crystalgui.fs.Resource;
+import com.crystalgui.fs.client.Workspace;
+import com.crystalgui.fs.protocol.FsError;
+import com.crystalgui.fs.protocol.FsMessages;
+import com.crystalgui.fs.protocol.FsMethods;
+import com.crystalgui.fs.server.WatchHub;
+import com.crystalgui.fs.server.WorkspaceBinding;
 import com.crystalgui.fs.WorkspacePermission;
-import com.crystalgui.fs.WorkspaceProject;
-import com.crystalgui.fs.WorkspaceRpc;
+import com.crystalgui.fs.project.WorkspaceProject;
 import com.crystalgui.fs.WorkspaceService;
 import com.crystalgui.net.ClientUiSession;
 import com.crystalgui.net.InMemoryTransport;
 import com.crystalgui.net.ServerUiSession;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.serialization.PlainOps;
+import com.crystalgui.serialization.StateMap;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
 import com.crystalgui.ui.dom.UIElement;
@@ -50,7 +57,7 @@ import java.util.Map;
  *
  * <p>A server owns a real directory on disk; a client browses and edits it through the RPC protocol,
  * over {@code InMemoryTransport}. Nothing here shortcuts the protocol — the client has no reference to
- * the filesystem, only to a {@link WorkspaceClient}, exactly as a client across a Minecraft connection
+ * the filesystem, only to a {@link Workspace}, exactly as a client across a Minecraft connection
  * would.</p>
  *
  * <h3>The scratch project is a REAL directory</h3>
@@ -60,7 +67,7 @@ import java.util.Map;
  * filesystem would have made this scene prove strictly less.</p>
  *
  * <h3>Why the tree is lazy and cached</h3>
- * <p>{@link TreeDataSource} is synchronous and {@link WorkspaceClient} is not, because one is a UI
+ * <p>{@link TreeDataSource} is synchronous and {@link Workspace} is not, because one is a UI
  * contract and the other is a network round trip. {@link WorkspaceTree} bridges them the way every remote
  * file browser does: answer from what has arrived, request what has not, and refresh when it lands.</p>
  */
@@ -76,13 +83,12 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
 
     // ── The server half ─────────────────────────────────────────────────────────────────────────
     private ServerUiSession<UIElement, Object> server;
-    private WorkspaceRpc<Object> rpc;
     private InMemoryTransport<Object> fromServer;
     private InMemoryTransport<Object> fromClient;
 
     // ── The client half ─────────────────────────────────────────────────────────────────────────
     private ClientUiSession<UIElement, Object> session;
-    private WorkspaceClient<Object> workspace;
+    private Workspace workspace;
     private WorkspaceTreeSource tree;
 
     private TreeView<CgPath> treeView;
@@ -119,8 +125,9 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
 
         // ALLOW_ALL, and worth being explicit about: there is no player here to guard against, and the
         // default is DENY_ALL precisely so that a real host has to make this choice on purpose.
-        WorkspaceService service = new WorkspaceService(
+        service = new WorkspaceService(
                 registry, new LocalFileSystem(registry), WorkspacePermission.ALLOW_ALL);
+        hub = new WatchHub(service);
 
         InMemoryTransport<Object>[] pair = InMemoryTransport.pair();
         fromServer = pair[0];
@@ -128,13 +135,16 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
 
         server = new ServerUiSession<>(1, new UIElementTreeSource(new UIElement()),
                 new UIElementMirror<>(PlainOps.INSTANCE), fromServer, PlainOps.INSTANCE);
-        rpc = new WorkspaceRpc<>(service, WorkspaceActor.LOCAL);
-        rpc.installOn(server::onCall);
+        binding = new WorkspaceBinding<>(service, hub, WorkspaceActor.LOCAL, PEER, PlainOps.INSTANCE);
+        binding.installOn(server::onCall);
         server.open();
 
         session = new ClientUiSession<>(new UIElementMirror<>(PlainOps.INSTANCE), fromClient, PlainOps.INSTANCE);
-        workspace = new WorkspaceClient<>(session, PlainOps.INSTANCE);
-        workspace.onFileChanged(this::onFileChangedOnServer);
+        workspace = Workspace.over(session::call, session::onNotify, PlainOps.INSTANCE);
+        // ONE RECURSIVE WATCH over the project, which is a real subscription over the wire -- so this
+        // scene pays the same round trip a client in a Minecraft world does.
+        workspace.watch(Resource.of(CgPath.ofProject(PROJECT_ID)), true).onChanged
+                .connect(changes -> changes.forEach(this::onFileChangedOnServer));
         tree = new WorkspaceTreeSource(workspace);
 
         this.document = new UIDocument().markFrameThread();
@@ -158,6 +168,24 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
 
     /** True once the session is connected and the project list has been asked for. */
     private boolean projectsRequested;
+
+    /** The one peer this process has. A hub keys its subscriptions by it, so it need only be stable. */
+    private static final Object PEER = new Object();
+
+    /** What each open file was when it was last read or written — what a conditional save quotes. */
+    private final Map<CgPath, String> etags = new HashMap<>();
+
+    private WorkspaceService service;
+    private WatchHub hub;
+    private WorkspaceBinding<Object> binding;
+
+    private void notifyChanges(Map<Object, List<FsMessages.FileChange>> byPeer) {
+        List<FsMessages.FileChange> mine = binding.changesFor(byPeer);
+        if (mine.isEmpty()) return;
+        server.call(FsMethods.CHANGED, new StateMap<>(PlainOps.INSTANCE,
+                FsMessages.changedNotification().encode(PlainOps.INSTANCE,
+                        new FsMessages.ChangedNotification(mine))), null, null);
+    }
 
     /**
      * Creates {@code gl-debug-harness/workspace/} with a few files, once.
@@ -318,17 +346,19 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
             tabs.selectTab(existing);
             return;
         }
-        workspace.read(path, document -> {
-            TextEditor editor = new TextEditor(document.text());
+        workspace.files().read(Resource.of(path)).then(answer -> {
+            String text = new String(answer.content(), StandardCharsets.UTF_8);
+            TextEditor editor = new TextEditor(text);
             editor.addClass("ws-editor");
             Tab tab = tabs.addTab(path.name());
             tab.content().append(editor);
             tabs.selectTab(tab);
             openTabs.put(path, tab);
             editors.put(path, editor);
-            baseline.put(path, document.text());
+            baseline.put(path, text);
+            etags.put(path, answer.etag());
             note = "opened " + path;
-        }, failure -> note = "open failed: " + failure.code());
+        }).onError(failure -> note = "open failed: " + failure.code());
     }
 
     private CgPath activePath() {
@@ -346,15 +376,22 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
             return;
         }
         TextEditor editor = editors.get(path);
-        workspace.save(path, editor.getText().getBytes(StandardCharsets.UTF_8),
-                etag -> {
+        // QUOTING THE ETAG THIS CLIENT LAST SAW, which is what makes a stale write a refusal rather than
+        // a silent overwrite of somebody else's edit.
+        workspace.files().write(Resource.of(path),
+                        editor.getText().getBytes(StandardCharsets.UTF_8), etags.get(path))
+                .then(etag -> {
                     baseline.put(path, editor.getText());
+                    etags.put(path, etag);
                     note = "saved " + path;
                     showBanner(null);
-                },
-                failure -> {
-                    if (failure.isConflict()) {
+                })
+                .onError(failure -> {
+                    if (failure instanceof FsError problem && problem.is(FsError.CONFLICT)) {
                         conflicted = path;
+                        // THE ETAG THE FILE ACTUALLY HOLDS, so Keep can write unconditionally without
+                        // a second round trip to find out what it is now.
+                        etags.put(path, problem.actualEtag());
                         showBanner("Changes have been made to '" + path.name()
                                 + "' in memory and on disk.");
                         note = "conflict on " + path;
@@ -374,28 +411,33 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     /**
      * Keeps the local edit, overwriting what is on disk — IntelliJ's second button.
      *
-     * <p>Goes through {@code overwrite}, not {@code save}: the whole point is to write without an etag
-     * check, and {@link WorkspaceClient#save} would quote the stale one and be refused again.</p>
+     * <p>Writes with a <b>null</b> etag, which is what "unconditional" means: quoting the stale one is
+     * what was just refused, and quoting the current one would be the same write dressed up as a
+     * condition it already knows the answer to.</p>
      */
     private void keepConflicted() {
         CgPath path = conflicted;
         if (path == null) return;
-        workspace.overwrite(path, editors.get(path).getText().getBytes(StandardCharsets.UTF_8),
-                etag -> {
+        workspace.files().write(Resource.of(path),
+                        editors.get(path).getText().getBytes(StandardCharsets.UTF_8), null)
+                .then(etag -> {
                     baseline.put(path, editors.get(path).getText());
+                    etags.put(path, etag);
                     showBanner(null);
                     note = "kept local changes to " + path;
-                },
-                failure -> note = "keep failed: " + failure.code());
+                })
+                .onError(failure -> note = "keep failed: " + failure.code());
     }
 
     private void reloadFromServer(CgPath path, String verb) {
-        workspace.read(path, document -> {
-            editors.get(path).setText(document.text());
-            baseline.put(path, document.text());
+        workspace.files().read(Resource.of(path)).then(answer -> {
+            String text = new String(answer.content(), StandardCharsets.UTF_8);
+            editors.get(path).setText(text);
+            baseline.put(path, text);
+            etags.put(path, answer.etag());
             showBanner(null);
             note = verb + path;
-        }, failure -> note = "reload failed: " + failure.code());
+        }).onError(failure -> note = "reload failed: " + failure.code());
     }
 
     private boolean isDirty(CgPath path) {
@@ -410,11 +452,11 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
      * edits is <b>reloaded silently</b>, because prompting about a file the user has not touched is noise.
      * Only a dirty one raises the banner — which is the case where something would genuinely be lost.</p>
      */
-    private void onFileChangedOnServer(WorkspaceClient.FileChanged change) {
-        CgPath path = change.path();
+    private void onFileChangedOnServer(FsMessages.FileChange change) {
+        CgPath path = CgPath.parse(change.path());
         if (!editors.containsKey(path)) return;
 
-        if (change.isDeleted()) {
+        if (change.kind() == FsMessages.ChangeKind.DELETED) {
             conflicted = null;
             showBanner("'" + path.name() + "' has been deleted on disk.");
             note = "deleted on disk: " + path;
@@ -450,7 +492,11 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
         untilPoll -= frame.getDeltaTime();
         if (untilPoll <= 0f) {
             untilPoll = 0.5f;
-            rpc.pollAndNotify((method, args) -> server.call(method, args, null, null), PlainOps.INSTANCE);
+            // THE EVENTS FIRST, then the reconciling rescan. A watcher loses events by design when its
+            // queue overflows, so the poll makes the answer eventually right rather than replacing it.
+            List<CgFileEvent> events = service.drainFileEvents();
+            if (!events.isEmpty()) notifyChanges(hub.tick(WorkspaceActor.LOCAL, events));
+            notifyChanges(hub.poll(WorkspaceActor.LOCAL));
         }
 
         if (tree.drainRefresh()) treeView.refresh();

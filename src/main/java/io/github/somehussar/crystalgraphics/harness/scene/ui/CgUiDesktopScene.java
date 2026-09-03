@@ -12,7 +12,7 @@ import com.crystalgui.desktop.Desktop;
 import com.crystalgui.desktop.DesktopCommands;
 import com.crystalgui.desktop.taskbar.TaskbarDesigner;
 import com.crystalgui.desktop.window.WindowFrame;
-import com.crystalgui.fs.LocalConfigStorage;
+import com.crystalgui.core.storage.LocalConfigStorage;
 import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.ui.dom.UIElement;
@@ -296,7 +296,7 @@ public class CgUiDesktopScene
      * would be no scene that runs the Run panel at all.</p>
      */
     private void openEditorWindow() {
-        editor = new CrystalEditor(workspace.client());
+        editor = new CrystalEditor(workspace.workspace());
         // Beside the scratch workspace, never inside it: a session record is private and must not become
         // part of a project a resource pack ships. The dock scene keeps its own for the same reason.
         editor.useConfig(new LocalConfigStorage(

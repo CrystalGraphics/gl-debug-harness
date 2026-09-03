@@ -7,19 +7,26 @@ import com.crystalgui.language.LanguageStack;
 import com.crystalgui.language.java.JavaLanguage;
 import com.crystalgui.language.js.JsLanguage;
 import com.crystalgui.language.run.ScriptPolicy;
+import com.crystalgui.fs.CgFileEvent;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.LocalFileSystem;
-import com.crystalgui.fs.ProjectRegistry;
+import com.crystalgui.fs.project.ProjectRegistry;
 import com.crystalgui.fs.WorkspaceActor;
-import com.crystalgui.fs.WorkspaceClient;
+import com.crystalgui.fs.Resource;
 import com.crystalgui.fs.WorkspacePermission;
-import com.crystalgui.fs.WorkspaceProject;
-import com.crystalgui.fs.WorkspaceRpc;
+import com.crystalgui.fs.client.Workspace;
+import com.crystalgui.fs.project.WorkspaceProject;
+import com.crystalgui.fs.protocol.FsError;
+import com.crystalgui.fs.protocol.FsMessages;
+import com.crystalgui.fs.protocol.FsMethods;
+import com.crystalgui.fs.server.WatchHub;
+import com.crystalgui.fs.server.WorkspaceBinding;
 import com.crystalgui.fs.WorkspaceService;
 import com.crystalgui.net.ClientUiSession;
 import com.crystalgui.net.InMemoryTransport;
 import com.crystalgui.net.ServerUiSession;
 import com.crystalgui.serialization.PlainOps;
+import com.crystalgui.serialization.StateMap;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,6 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -36,9 +44,9 @@ import java.util.function.Consumer;
  *
  * <p>Exists so a scene that wants real files does not have to reproduce the wiring. <b>Nothing here
  * shortcuts the protocol:</b> the client holds no reference to the filesystem, only a
- * {@link WorkspaceClient}, exactly as a client across a Minecraft connection would. That is the whole
- * value of the arrangement — a scene using this is exercising the real RPC path, not a local file API
- * wearing its clothes.</p>
+ * {@link Workspace}, exactly as a client across a Minecraft connection would. That is the whole value
+ * of the arrangement — a scene using this is exercising the real RPC path, not a local file API wearing
+ * its clothes.</p>
  *
  * <h3>The scratch project is a real directory on disk</h3>
  *
@@ -54,9 +62,11 @@ final class HarnessWorkspace {
     private final InMemoryTransport<Object> fromServer;
     private final InMemoryTransport<Object> fromClient;
     private final ServerUiSession<UIElement, Object> server;
-    private final WorkspaceRpc<Object> rpc;
+    private final WorkspaceBinding<Object> binding;
+    private final WatchHub hub;
+    private final WorkspaceService service;
     private final ClientUiSession<UIElement, Object> session;
-    private final WorkspaceClient<Object> client;
+    private final Workspace workspace;
 
     /** Seconds until the next watcher poll. Every poll stats each watched file, so a per-frame poll would
      * be a stat storm at 60 Hz for no benefit a human could perceive. The cadence is the HOST's call. */
@@ -87,8 +97,9 @@ final class HarnessWorkspace {
 
         // ALLOW_ALL, and worth being explicit about: there is no player here to guard against, and the
         // default is DENY_ALL precisely so a real host has to make this choice on purpose.
-        WorkspaceService service = new WorkspaceService(
+        service = new WorkspaceService(
                 registry, new LocalFileSystem(registry), WorkspacePermission.ALLOW_ALL);
+        hub = new WatchHub(service);
 
         InMemoryTransport<Object>[] pair = InMemoryTransport.pair();
         fromServer = pair[0];
@@ -96,20 +107,31 @@ final class HarnessWorkspace {
 
         server = new ServerUiSession<>(1, new UIElementTreeSource(new UIElement()),
                 new UIElementMirror<>(PlainOps.INSTANCE), fromServer, PlainOps.INSTANCE);
-        rpc = new WorkspaceRpc<>(service, WorkspaceActor.LOCAL);
-        rpc.installOn(server::onCall);
+        binding = new WorkspaceBinding<>(service, hub, WorkspaceActor.LOCAL, PEER, PlainOps.INSTANCE);
+        binding.installOn(server::onCall);
         server.open();
 
-        session = new ClientUiSession<>(new UIElementMirror<>(PlainOps.INSTANCE), fromClient, PlainOps.INSTANCE);
-        client = new WorkspaceClient<>(session, PlainOps.INSTANCE);
+        session = new ClientUiSession<>(new UIElementMirror<>(PlainOps.INSTANCE), fromClient,
+                PlainOps.INSTANCE);
+        workspace = Workspace.over(session::call, session::onNotify, PlainOps.INSTANCE);
     }
 
-    WorkspaceClient<Object> client() {
-        return client;
+    /** The one peer this process has. A hub keys its subscriptions by it, so it only has to be stable. */
+    private static final Object PEER = new Object();
+
+    Workspace workspace() {
+        return workspace;
     }
 
-    void onFileChanged(Consumer<WorkspaceClient.FileChanged> listener) {
-        client.onFileChanged(listener::accept);
+    /**
+     * Every change under the scratch project, as one recursive watch.
+     *
+     * <p>A watch is a real subscription over the wire, so this costs the same round trip a client in a
+     * Minecraft world pays — which is the point of the arrangement.</p>
+     */
+    void onFileChanged(Consumer<FsMessages.FileChange> listener) {
+        workspace.watch(Resource.of(CgPath.ofProject(PROJECT_ID)), true).onChanged
+                .connect(changes -> changes.forEach(listener));
     }
 
     /**
@@ -133,20 +155,38 @@ final class HarnessWorkspace {
         untilPoll -= deltaSeconds;
         if (untilPoll <= 0f) {
             untilPoll = 0.5f;
-            rpc.pollAndNotify((method, args) -> server.call(method, args, null, null), PlainOps.INSTANCE);
+            // THE EVENTS FIRST, then the reconciling rescan. A watcher loses events by design when its
+            // queue overflows, so the poll is what makes the answer eventually right rather than an
+            // alternative to listening.
+            List<CgFileEvent> events = service.drainFileEvents();
+            if (!events.isEmpty()) notifyChanges(hub.tick(WorkspaceActor.LOCAL, events));
+            notifyChanges(hub.poll(WorkspaceActor.LOCAL));
         }
     }
 
-    void read(CgPath path, Consumer<WorkspaceClient.Document> onLoaded, Consumer<String> onFailure) {
-        client.read(path, onLoaded::accept, failure -> onFailure.accept(failure.code()));
+    private void notifyChanges(Map<Object, List<FsMessages.FileChange>> byPeer) {
+        List<FsMessages.FileChange> mine = binding.changesFor(byPeer);
+        if (mine.isEmpty()) return;
+        server.call(FsMethods.CHANGED, new StateMap<>(PlainOps.INSTANCE,
+                FsMessages.changedNotification().encode(PlainOps.INSTANCE,
+                        new FsMessages.ChangedNotification(mine))), null, null);
     }
 
-    /** Saves, reporting a conflict distinctly — a stale write is the one failure with a recovery path
-     * rather than an error message. */
-    void save(CgPath path, String text, Runnable onSaved, Consumer<Boolean> onFailure) {
-        client.save(path, text.getBytes(StandardCharsets.UTF_8),
-                etag -> onSaved.run(),
-                failure -> onFailure.accept(failure.isConflict()));
+    void read(CgPath path, Consumer<FsMessages.ReadResponse> onLoaded, Consumer<String> onFailure) {
+        workspace.files().read(Resource.of(path))
+                .then(onLoaded::accept)
+                .onError(failure -> onFailure.accept(failure.code()));
+    }
+
+    /**
+     * Saves, reporting a conflict distinctly — a stale write is the one failure with a recovery path
+     * rather than an error message.
+     */
+    void save(CgPath path, String text, String etag, Runnable onSaved, Consumer<Boolean> onFailure) {
+        workspace.files().write(Resource.of(path), text.getBytes(StandardCharsets.UTF_8), etag)
+                .then(written -> onSaved.run())
+                .onError(failure -> onFailure.accept(
+                        failure instanceof FsError problem && problem.is(FsError.CONFLICT)));
     }
 
     /** Overrides the default filter — a prefix list, or {@code none} to switch it off. @see #applyScriptPolicy */
