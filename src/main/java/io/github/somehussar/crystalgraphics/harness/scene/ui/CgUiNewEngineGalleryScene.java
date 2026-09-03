@@ -675,7 +675,7 @@ public class CgUiNewEngineGalleryScene
                 // ONCE per pooled element, reading the row's CURRENT index at click time -- it cannot
                 // capture one, because this element is a different row every time it is recycled.
                 twisty.onMouseDown.attachListener((el, event) -> {
-                    int at = tree.indexOfRowElement(el.parent());
+                    int at = tree.indexOfRowElement(el.parentElement());
                     if (at >= 0) tree.toggleExpandedAt(at);
                     event.stopPropagation();
                 }, false, false);

@@ -1082,7 +1082,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 // click time — it cannot capture an index, because this element represents a different
                 // row every time it is recycled. That is exactly the split createTemplate/bind exists for.
                 twisty.onMouseDown.attachListener((el, event) -> {
-                    int index = treeView.indexOfRowElement(el.parent());
+                    int index = treeView.indexOfRowElement(el.parentElement());
                     if (index >= 0) treeView.toggleExpandedAt(index);
                 }, false, false);
                 row.append(twisty);
