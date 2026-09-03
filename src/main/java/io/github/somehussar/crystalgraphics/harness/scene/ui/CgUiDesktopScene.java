@@ -4,7 +4,7 @@ import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.core.command.CommandRegistry;
 import com.crystalgui.language.run.view.ScriptWorkbench;
-import com.crystalgui.app.editor.CrystalEditor;
+import com.crystalgui.app.crystaleditor.CrystalEditor;
 import com.crystalgui.core.dispose.Disposer;
 import com.crystalgui.core.window.WindowPolicy;
 import com.crystalgui.core.window.WindowState;

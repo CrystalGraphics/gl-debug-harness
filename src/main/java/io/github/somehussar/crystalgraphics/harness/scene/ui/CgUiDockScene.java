@@ -14,7 +14,7 @@ import com.crystalgui.workbench.chrome.palette.QuickPick;
 import com.crystalgui.workbench.search.GoToFile;
 import com.crystalgui.language.run.view.ScriptWorkbench;
 import com.crystalgui.core.dispose.Disposer;
-import com.crystalgui.app.editor.CrystalEditor;
+import com.crystalgui.app.crystaleditor.CrystalEditor;
 import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.widget.text.UIText;
 import com.crystalgui.fs.CgPath;
