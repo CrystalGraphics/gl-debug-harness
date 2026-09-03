@@ -30,8 +30,6 @@ public final class FontDebugHarnessMain {
                 listMode = true;
             } else if ("--help".equals(arg)) {
                 helpMode = true;
-            } else if (arg.startsWith("--engine=")) {
-                HarnessEngine.select(arg.substring("--engine=".length()));
             }
         }
 
@@ -109,16 +107,6 @@ public final class FontDebugHarnessMain {
             HarnessDeadline.arm(config.getSeconds());
 
             HarnessSceneLifecycle scene = entry.getFactory().create();
-            // THE SECOND ENGINE. A scene that cannot build its tree on the selected engine says so and
-            // exits cleanly rather than drawing the old tree under a flag that asked for the new one --
-            // which would look like the new engine working. Nothing is drawn; the context is torn down.
-            if (!HarnessEngine.canRun(scene)) {
-                LOGGER.info("[Harness] --engine=" + HarnessEngine.selected().name().toLowerCase()
-                        + ": mode '" + mode + "' runs on the old engine only; nothing to draw.");
-                CgGraphicsLifecycle.destroyContext();
-                return;
-            }
-
             boolean isInteractiveMode =
                     entry.getDescriptor().getLifecycleMode() == SceneDescriptor.LifecycleMode.INTERACTIVE;
 
@@ -189,7 +177,6 @@ public final class FontDebugHarnessMain {
         System.out.println("CrystalGraphics Debug Harness");
         System.out.println();
         System.out.println("Usage: --mode=<mode> [options]");
-        System.out.println("       --engine=old|new  Which CrystalGUI engine a UI scene runs on (default old)");
         System.out.println("       --list          List all available modes");
         System.out.println("       --help          Show this help");
         System.out.println();

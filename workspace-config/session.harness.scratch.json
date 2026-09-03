@@ -28,6 +28,19 @@
                 ]
               },
               {
+                "typeId": "file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:src/quickfix/QuickFixCast.java"
+                  },
+                  {
+                    "k": "title",
+                    "v": "QuickFixCast.java"
+                  }
+                ]
+              },
+              {
                 "typeId": "viewer",
                 "state": [
                   {
@@ -41,20 +54,46 @@
                 ]
               },
               {
-                "typeId": "file",
+                "typeId": "viewer",
                 "state": [
                   {
-                    "k": "path",
-                    "v": "harness.scratch:src/quickfix/QuickFixCast.java"
+                    "k": "resource",
+                    "v": "library://com.sun.javafx.font.coretext.CGPoint"
                   },
                   {
                     "k": "title",
-                    "v": "QuickFixCast.java"
+                    "v": "CGPoint"
+                  }
+                ]
+              },
+              {
+                "typeId": "viewer",
+                "state": [
+                  {
+                    "k": "resource",
+                    "v": "library://com.crystalgui.graph.NodeTypeRegistry"
+                  },
+                  {
+                    "k": "title",
+                    "v": "NodeTypeRegistry"
+                  }
+                ]
+              },
+              {
+                "typeId": "shadergraph.file",
+                "state": [
+                  {
+                    "k": "path",
+                    "v": "harness.scratch:src/maybe.shadergraph"
+                  },
+                  {
+                    "k": "title",
+                    "v": "maybe.shadergraph"
                   }
                 ]
               }
             ],
-            "active": 2,
+            "active": 5,
             "central": true
           }
         ]
@@ -64,15 +103,19 @@
   "toolWindows": [
     {
       "id": "project",
-      "visible": true,
+      "visible": false,
       "region": "SIDEBAR",
       "side": "PRIMARY",
-      "weight": 0.19977804,
+      "weight": 0.29871827,
       "sideWeight": 0.5,
       "order": 0,
       "active": true,
       "stripe": true,
-      "type": "DOCKED"
+      "type": "WINDOWED",
+      "fx": 6.0,
+      "fy": 33.5,
+      "fw": 319.5,
+      "fh": 228.5
     },
     {
       "id": "problems",
@@ -91,12 +134,16 @@
       "visible": false,
       "region": "AUXILIARY",
       "side": "PRIMARY",
-      "weight": 0.22,
+      "weight": 0.27032816,
       "sideWeight": 0.5,
       "order": 2,
       "active": true,
       "stripe": true,
-      "type": "DOCKED"
+      "type": "DOCKED",
+      "fx": 13.0,
+      "fy": 33.0,
+      "fw": 320.0,
+      "fh": 240.0
     },
     {
       "id": "run",
@@ -106,6 +153,18 @@
       "weight": 0.14720935,
       "sideWeight": 0.5,
       "order": 3,
+      "active": true,
+      "stripe": true,
+      "type": "DOCKED"
+    },
+    {
+      "id": "notifications",
+      "visible": false,
+      "region": "AUXILIARY",
+      "side": "PRIMARY",
+      "weight": 0.27032816,
+      "sideWeight": 0.5,
+      "order": 4,
       "active": true,
       "stripe": true,
       "type": "DOCKED"
@@ -131,7 +190,7 @@
       }
     }
   ],
-  "active": "harness.scratch:src/quickfix/QuickFixCast.java",
+  "active": "harness.scratch:src/maybe.shadergraph",
   "expanded": [
     {
       "path": "harness.scratch:"
@@ -142,16 +201,15 @@
   ],
   "files": [
     {
-      "path": "harness.scratch:src/quickfix/QuickFixCast.java",
+      "path": "harness.scratch:src/Main.java",
       "view": {
-        "caret": 0
+        "caret": 334
       }
     },
     {
-      "path": "harness.scratch:src/Main.java",
+      "path": "harness.scratch:src/quickfix/QuickFixCast.java",
       "view": {
-        "caret": 322,
-        "anchor": 314
+        "caret": 0
       }
     },
     {
