@@ -15,6 +15,7 @@ import com.crystalgui.workbench.search.GoToFile;
 import com.crystalgui.language.run.view.ScriptWorkbench;
 import com.crystalgui.core.dispose.Disposer;
 import com.crystalgui.app.crystaleditor.CrystalEditor;
+import com.crystalgui.example.notes.NotesKind;
 import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.widget.text.UIText;
 import com.crystalgui.fs.CgPath;
@@ -139,6 +140,10 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
 
         editor = new CrystalEditor(workspace.workspace());
+        // THE WORKED EXAMPLE, registered where it can be looked at. `com.crystalgui.example.notes` is
+        // the smallest complete document kind, and an example nothing builds is dead code -- so the
+        // harness opens `todo.notes` as a real checklist rather than as text.
+        NotesKind.register(editor.workbench().kinds());
         // Beside the scratch workspace, not in it: a session record is private and must not become part of
         // the project a resource pack ships. See WorkbenchSession -- the same reason trash lives outside.
         editor.useConfig(new com.crystalgui.core.storage.LocalConfigStorage(

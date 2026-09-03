@@ -266,6 +266,11 @@ final class HarnessWorkspace {
                     "public class Main {\n    public static void main(String[] args) {\n"
                             + "        System.out.println(\"hello\");\n    }\n}\n");
             writeIfAbsent(root.resolve("src/notes.txt"), "one\ntwo\nthree\n");
+            // THE WORKED EXAMPLE'S FILE. `.notes` is registered by the scenes that build a
+            // workbench, so this opens as a checklist -- which is the only way to tell a kind
+            // that is wired from one that merely compiles.
+            writeIfAbsent(root.resolve("todo.notes"),
+                    "[x] read the example\nwrite a document kind\ntick this off\n");
             // THE JAVASCRIPT FIXTURE, from a resource rather than from a string literal here. It is a
             // page long and grows a section per M10 milestone, so inlining it would put a document
             // nobody can read inside a method about directory setup -- and, worse, would make the copy

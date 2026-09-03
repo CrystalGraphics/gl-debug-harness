@@ -5,6 +5,7 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.core.command.CommandRegistry;
 import com.crystalgui.language.run.view.ScriptWorkbench;
 import com.crystalgui.app.crystaleditor.CrystalEditor;
+import com.crystalgui.example.notes.NotesKind;
 import com.crystalgui.core.dispose.Disposer;
 import com.crystalgui.core.window.WindowPolicy;
 import com.crystalgui.core.window.WindowState;
@@ -297,6 +298,10 @@ public class CgUiDesktopScene
      */
     private void openEditorWindow() {
         editor = new CrystalEditor(workspace.workspace());
+        // THE WORKED EXAMPLE, registered where it can be looked at. `com.crystalgui.example.notes` is
+        // the smallest complete document kind, and an example nothing builds is dead code -- so the
+        // harness opens `todo.notes` as a real checklist rather than as text.
+        NotesKind.register(editor.workbench().kinds());
         // Beside the scratch workspace, never inside it: a session record is private and must not become
         // part of a project a resource pack ships. The dock scene keeps its own for the same reason.
         editor.useConfig(new LocalConfigStorage(
