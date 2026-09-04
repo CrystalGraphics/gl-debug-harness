@@ -7,13 +7,14 @@ import com.crystalgui.language.LanguageStack;
 import com.crystalgui.language.java.JavaLanguage;
 import com.crystalgui.language.js.JsLanguage;
 import com.crystalgui.language.run.ScriptPolicy;
-import com.crystalgui.fs.CgFileEvent;
+import com.crystalgui.fs.provider.CgFileEvent;
 import com.crystalgui.fs.CgPath;
-import com.crystalgui.fs.LocalFileSystem;
+import com.crystalgui.fs.provider.LocalFileSystem;
 import com.crystalgui.fs.project.ProjectRegistry;
-import com.crystalgui.fs.WorkspaceActor;
+import com.crystalgui.fs.server.WorkspaceActor;
 import com.crystalgui.fs.Resource;
-import com.crystalgui.fs.WorkspacePermission;
+import com.crystalgui.fs.server.WorkspacePermission;
+import com.crystalgui.fs.client.FileOperations;
 import com.crystalgui.fs.client.Workspace;
 import com.crystalgui.fs.project.WorkspaceProject;
 import com.crystalgui.fs.protocol.FsError;
@@ -21,7 +22,7 @@ import com.crystalgui.fs.protocol.FsMessages;
 import com.crystalgui.fs.protocol.FsMethods;
 import com.crystalgui.fs.server.WatchHub;
 import com.crystalgui.fs.server.WorkspaceBinding;
-import com.crystalgui.fs.WorkspaceService;
+import com.crystalgui.fs.server.WorkspaceService;
 import com.crystalgui.net.ClientUiSession;
 import com.crystalgui.net.InMemoryTransport;
 import com.crystalgui.net.ServerUiSession;
@@ -172,8 +173,8 @@ final class HarnessWorkspace {
                         new FsMessages.ChangedNotification(mine))), null, null);
     }
 
-    void read(CgPath path, Consumer<FsMessages.ReadResponse> onLoaded, Consumer<String> onFailure) {
-        workspace.files().read(Resource.of(path))
+    void read(CgPath path, Consumer<FileOperations.Content> onLoaded, Consumer<String> onFailure) {
+        workspace.files().readWhole(Resource.of(path))
                 .then(onLoaded::accept)
                 .onError(failure -> onFailure.accept(failure.code()));
     }

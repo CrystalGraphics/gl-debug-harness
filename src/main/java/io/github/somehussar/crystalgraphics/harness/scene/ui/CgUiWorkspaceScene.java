@@ -6,11 +6,11 @@ import com.crystalgui.ui.dom.UIElementTreeSource;
 import com.crystalgui.net.mirror.UIElementMirror;
 import com.crystalgui.core.collection.tree.TreeDataSource;
 import com.crystalgui.core.collection.tree.TreeRow;
-import com.crystalgui.fs.CgFileEvent;
+import com.crystalgui.fs.provider.CgFileEvent;
 import com.crystalgui.fs.CgPath;
-import com.crystalgui.fs.LocalFileSystem;
+import com.crystalgui.fs.provider.LocalFileSystem;
 import com.crystalgui.fs.project.ProjectRegistry;
-import com.crystalgui.fs.WorkspaceActor;
+import com.crystalgui.fs.server.WorkspaceActor;
 import com.crystalgui.fs.Resource;
 import com.crystalgui.fs.client.Workspace;
 import com.crystalgui.fs.protocol.FsError;
@@ -18,9 +18,9 @@ import com.crystalgui.fs.protocol.FsMessages;
 import com.crystalgui.fs.protocol.FsMethods;
 import com.crystalgui.fs.server.WatchHub;
 import com.crystalgui.fs.server.WorkspaceBinding;
-import com.crystalgui.fs.WorkspacePermission;
+import com.crystalgui.fs.server.WorkspacePermission;
 import com.crystalgui.fs.project.WorkspaceProject;
-import com.crystalgui.fs.WorkspaceService;
+import com.crystalgui.fs.server.WorkspaceService;
 import com.crystalgui.net.ClientUiSession;
 import com.crystalgui.net.InMemoryTransport;
 import com.crystalgui.net.ServerUiSession;
@@ -346,8 +346,8 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
             tabs.selectTab(existing);
             return;
         }
-        workspace.files().read(Resource.of(path)).then(answer -> {
-            String text = new String(answer.content(), StandardCharsets.UTF_8);
+        workspace.files().readWhole(Resource.of(path)).then(answer -> {
+            String text = new String(answer.bytes(), StandardCharsets.UTF_8);
             TextEditor editor = new TextEditor(text);
             editor.addClass("ws-editor");
             Tab tab = tabs.addTab(path.name());
@@ -430,8 +430,8 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     }
 
     private void reloadFromServer(CgPath path, String verb) {
-        workspace.files().read(Resource.of(path)).then(answer -> {
-            String text = new String(answer.content(), StandardCharsets.UTF_8);
+        workspace.files().readWhole(Resource.of(path)).then(answer -> {
+            String text = new String(answer.bytes(), StandardCharsets.UTF_8);
             editors.get(path).setText(text);
             baseline.put(path, text);
             etags.put(path, answer.etag());
