@@ -176,6 +176,9 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
                 width: 100%;
                 flex-direction: column;
                 gap-all: 8px;
+                /* Clear of the scrollbar. The values are right-aligned, so without this the last
+                   digit sits against the bar and reads as touching it. */
+                padding-right: 10px;
             }
             .fx-note { color: var(--fg-hint); }
 
@@ -325,6 +328,7 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
             row.append(value);
 
             Button upgrade = new Button("+");
+            upgrade.addClass("rpg-upgrade");
             upgrade.setEnabled(false);
             row.append(upgrade);
             column.append(row);
