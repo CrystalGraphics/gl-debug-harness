@@ -6,16 +6,17 @@ import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.util.profiling.CgProfiler;
 import com.crystalgraphics.util.profiling.CgProfilerDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgui.style.StyleGroup;
 import com.crystalgui.core.async.FrameProfile;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.render.text.FontFamilyCache;
 import com.crystalgui.workbench.chrome.palette.QuickPick;
 import com.crystalgui.workbench.search.GoToFile;
 import com.crystalgui.language.run.view.ScriptWorkbench;
-import com.crystalgui.core.dispose.Disposer;
 import com.crystalgui.app.crystaleditor.CrystalEditor;
-import com.crystalgui.example.notes.NotesKind;
+import com.crystalgui.core.storage.LocalConfigStorage;
+import com.crystalgui.desktop.Desktop;
+import java.nio.file.Paths;
+import com.crystalgui.workbench.app.WorkbenchApplication;
 import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.widget.text.UIText;
 import com.crystalgui.fs.CgPath;
@@ -84,7 +85,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private final HarnessWorkspace workspace = new HarnessWorkspace();
 
     private UIDocument document;
-    private CrystalEditor editor;
+    private WorkbenchApplication editor;
 
     private boolean projectsAsked;
 
@@ -139,29 +140,35 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
 
-        editor = new CrystalEditor(workspace.workspace());
-        // THE WORKED EXAMPLE, registered where it can be looked at. `com.crystalgui.example.notes` is
-        // the smallest complete document kind, and an example nothing builds is dead code -- so the
-        // harness opens `todo.notes` as a real checklist rather than as text.
-        NotesKind.register(editor.workbench().kinds());
-        // Beside the scratch workspace, not in it: a session record is private and must not become part of
-        // the project a resource pack ships. See WorkbenchSession -- the same reason trash lives outside.
-        editor.useConfig(new com.crystalgui.core.storage.LocalConfigStorage(
-                java.nio.file.Paths.get("workspace-config").toAbsolutePath().normalize()));
-        editor.addClass("demo-root");
-        registerDummyToolWindows();
-
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
-        UIElement sceneRoot = editor;
-        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
-        // root and took the window's size; here the DOCUMENT is the root and this is an
-        // ordinary child, which sizes to its content -- so without this the scene lays out
-        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
-        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
-                l -> l.widthPercent(100f).heightPercent(100f));
-        this.document.append(sceneRoot);
         document.styles().addStylesheet(StyleSheet.DEFAULT);
+
+        // AN APPLICATION ON A DESKTOP, MAXIMISED -- which is what this scene always WAS, faked by
+        // appending the editor to the document root and forcing it to 100%/100%. The editor is launched
+        // from its manifest now, so the storage, the extensions, the title, the key, the policy, the
+        // icon, the project ask, the session restore and the initial focus all arrive with it; this
+        // scene decides only that its one window fills the screen.
+        //
+        // Beside the scratch workspace, not in it: a session record is private and must not become part
+        // of the project a resource pack ships. See WorkbenchSession -- the same reason trash lives
+        // outside.
+        //
+        // A SEPARATE DIRECTORY UNDER THE SCRIPTED FLOW, and it is the difference between a measurement
+        // and a coin toss rather than tidiness. The session records which documents were open, so a
+        // scripted run over the hand-driven record REOPENS whatever the last hand-driven run left: the
+        // second run of this flow paid the whole cost of opening UIElement during startup, before the
+        // picker was ever touched, and its OPENED stage measured 60ms instead of 237ms. Both numbers
+        // were real and neither answered the question. A flow that measures opening a class has to
+        // begin with that class shut -- and it must not write over the record either, which a
+        // directory of its own settles in one line where a "do not restore" flag settled only half.
+        String configDirectory = flowEnabled || HOVER_FLOW ? "workspace-config-flow" : "workspace-config";
+        editor = (WorkbenchApplication) Desktop.of(document).applications().launch(CrystalEditor.KIND,
+                workspace.workspace(),
+                new LocalConfigStorage(Paths.get(configDirectory).toAbsolutePath().normalize()));
+        editor.addClass("demo-root");
+        editor.mainWindow().maximize();
+        registerDummyToolWindows();
         //document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
         document.styles().addStylesheet(StyleSheet.parse(STYLES));
         // Commands and their keys are the editor's, not the scene's -- so Ctrl+S, Ctrl+Shift+S and Ctrl+O
@@ -203,20 +210,10 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         workspace.pump(frame.getDeltaTime());
         if (!projectsAsked && workspace.isConnected()) {
             projectsAsked = true;
-            // Deferred until the session has a window id: before that the server discards every packet
-            // addressed to another window, so an earlier call is dropped with no error at all.
-            editor.workbench().fileTree().loadProjects();
-            // AFTER loadProjects, not before: the restore parks the folders it wants expanded and retries
-            // until the listings that reveal them arrive, so asking first would simply park everything.
-            //
-            // AND NOT AT ALL UNDER THE SCRIPTED FLOW, which is not tidiness -- it is the difference
-            // between a measurement and a coin toss. The session records which documents were open, so
-            // a scripted run REOPENS whatever the previous scripted run left behind: the second run of
-            // this flow paid the whole cost of opening UIElement during startup, before the picker was
-            // ever touched, and its OPENED stage then measured 60ms instead of 237ms. Both numbers were
-            // real and neither answered the question. A flow that measures opening a class has to begin
-            // with that class shut. @see #printFlowSummary
-            if (!flowEnabled && !HOVER_FLOW) editor.restoreSession(HarnessWorkspace.PROJECT_ID);
+            // THE PROJECT ASK AND THE SESSION RESTORE WERE HERE, behind this flag. Both are the
+            // application's now: it hangs them off the greeting and the project listing, which is the
+            // ordering this scene and the 1.7.10 screen each enforced for themselves. The flow's own
+            // isolation is the config directory chosen in init(). @see WorkbenchApplication
         }
 
         // BEFORE THE PAINT, so a gesture's cost lands in the frame the flow attributes it to.
@@ -232,7 +229,6 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
         document.paint(paintContext);
         paintContext.endFrame();
-        editor.giveInitialFocus();
         paintNanos = System.nanoTime() - painted;
 
         // AFTER THE WHOLE TREE, in its own frame — see paintOverlay.
@@ -846,12 +842,11 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         if (!flowEnabled && editor != null && document != null) {
             // The document's own box: this is teardown, so there is no render context to ask, and
             // the size a session records is the logical one anyway.
-            editor.saveSession(HarnessWorkspace.PROJECT_ID,
-                    (int) (document.box() == null ? 0f : document.box().width()),
-                    (int) (document.box() == null ? 0f : document.box().height()));
-            editor.savePreferences();
+            editor.saveState();
         }
-        if (editor != null) Disposer.dispose(editor);
+        // QUITTING IT, which writes its state on the way out -- closing the window would not, because a
+        // workbench under HIDE_ON_CLOSE is still running with everything in it.
+        if (editor != null) editor.dispose();
         document = null;
     }
 

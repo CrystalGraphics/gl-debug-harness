@@ -2,11 +2,8 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgui.core.command.CommandRegistry;
-import com.crystalgui.language.run.view.ScriptWorkbench;
 import com.crystalgui.app.crystaleditor.CrystalEditor;
-import com.crystalgui.example.notes.NotesKind;
-import com.crystalgui.core.dispose.Disposer;
+import com.crystalgui.workbench.app.WorkbenchApplication;
 import com.crystalgui.core.window.WindowPolicy;
 import com.crystalgui.core.window.WindowState;
 import com.crystalgui.desktop.Desktop;
@@ -188,8 +185,7 @@ public class CgUiDesktopScene
     /** Both halves of a real workspace, in this process — the same fixture the dock scene runs on. */
     private final HarnessWorkspace workspace = new HarnessWorkspace();
 
-    private CrystalEditor editor;
-    private ScriptWorkbench scripting;
+    private WorkbenchApplication editor;
     private boolean projectsAsked;
     private boolean focusGiven;
     private int backgroundWindows;
@@ -297,33 +293,22 @@ public class CgUiDesktopScene
      * would be no scene that runs the Run panel at all.</p>
      */
     private void openEditorWindow() {
-        editor = new CrystalEditor(workspace.workspace());
-        // THE WORKED EXAMPLE, registered where it can be looked at. `com.crystalgui.example.notes` is
-        // the smallest complete document kind, and an example nothing builds is dead code -- so the
-        // harness opens `todo.notes` as a real checklist rather than as text.
-        NotesKind.register(editor.workbench().kinds());
+        // ONE CALL, AND NO ASSEMBLY. The title, the key, the policy, the icon, the storage, the
+        // extensions, the project ask, the session restore and the initial focus were all written here
+        // and in the 1.7.10 screen, twice, and they are the same answer on both -- so they are the
+        // manifest's and the engine's. What is left is what this SCENE decides: where the window sits,
+        // and a class for the readout to style it by.
+        //
         // Beside the scratch workspace, never inside it: a session record is private and must not become
         // part of a project a resource pack ships. The dock scene keeps its own for the same reason.
-        editor.useConfig(new LocalConfigStorage(
-                Paths.get("workspace-config").toAbsolutePath().normalize()));
+        editor = (WorkbenchApplication) desktop.applications().launch(CrystalEditor.KIND,
+                workspace.workspace(),
+                new LocalConfigStorage(Paths.get("workspace-config").toAbsolutePath().normalize()));
+        if (editor == null) return;
         editor.addClass("desktop-editor");
-
-        // RUN AND STOP, for the file in front. Null when no engine band was staged, and the commands
-        // are then deliberately NOT registered -- a Run row that cannot run anything teaches people
-        // the feature is broken rather than unavailable.
-        scripting = ScriptWorkbench.install(
-                CommandRegistry.global(), editor.workbench(),
-                Paths.get("build", "script-cache").toAbsolutePath().normalize());
-
-        WindowFrame frame = desktop.addWindow(new WindowFrame("Crystal Editor"));
-        // HIDE_ON_CLOSE: a workbench is not a dialog, so its close button minimises and its taskbar
-        // entry is the way back -- with every document, the dock arrangement and the undo history intact.
-        frame.setPolicy(WindowPolicy.HIDE_ON_CLOSE).setKey("editor:main");
-        frame.setIcon("crystalgui:logo");
-        frame.moveTo(300, 55).resizeTo(600, 400);
-        // setContent, not content().append -- it is what ADOPTS the editor's menu bar into the caption.
-        // Without it the editor keeps its own header and the window has two.
-        frame.setContent(editor);
+        // A SIZE THIS SCENE CHOOSES, over whatever the arrangement record says: the whole exercise here
+        // is watching the editor share a desktop, so it starts small enough to see the other windows.
+        editor.mainWindow().moveTo(300, 55).resizeTo(600, 400);
     }
 
     private UIElement paragraph(String... lines) {
@@ -396,15 +381,10 @@ public class CgUiDesktopScene
 
         // ONE NETWORK TICK, before anything reads the workspace.
         workspace.pump(frame.getDeltaTime());
-        if (!projectsAsked && workspace.isConnected()) {
-            projectsAsked = true;
-            // Deferred until the session has a window id: before that the server discards every packet
-            // addressed to another window, so an earlier call is dropped with no error at all.
-            editor.workbench().fileTree().loadProjects();
-            // AFTER loadProjects: the restore parks the folders it wants expanded and retries until the
-            // listings that reveal them arrive, so asking first would park everything.
-            editor.restoreSession(HarnessWorkspace.PROJECT_ID);
-        }
+        // THE PROJECT ASK AND THE SESSION RESTORE WERE HERE, behind a "have I asked yet" flag this scene
+        // kept for itself and the 1.7.10 screen kept for itself. Both are the application's now: it
+        // hangs them off the greeting and the project listing, so the ordering is stated once and a
+        // reconnect re-asks. @see WorkbenchApplication
 
         int w = ctx.getScreenWidth();
         int h = ctx.getScreenHeight();
@@ -426,13 +406,6 @@ public class CgUiDesktopScene
         // types in `core.window` both engines name -- and on this engine nothing reads it yet.
         document.paint(context);
         context.endFrame();
-
-        // ONCE, not per frame. The dock scene can call this every frame because the editor is the whole
-        // UI there; on a desktop it would haul focus back out of whatever window you just clicked.
-        if (!focusGiven) {
-            focusGiven = true;
-            editor.giveInitialFocus();
-        }
 
         // Late enough that the first window's placement, the entry animations and the editor's own
         // deferred rebuilds have all settled -- a capture at frame 5 photographs a desktop that is
@@ -605,10 +578,9 @@ public class CgUiDesktopScene
         // detaching is the moment each of these would otherwise write itself. WHAT to write is still
         // theirs; this only says when.
         if (desktop != null) desktop.savePersistedState();
-        if (editor != null) {
-            editor.saveState();
-            Disposer.dispose(editor);
-        }
+        // QUITTING IT, which writes its state on the way out. Closing the window would not: a
+        // workbench under HIDE_ON_CLOSE is still running with everything in it.
+        if (editor != null) editor.dispose();
         editor = null;
         document = null;
         desktop = null;

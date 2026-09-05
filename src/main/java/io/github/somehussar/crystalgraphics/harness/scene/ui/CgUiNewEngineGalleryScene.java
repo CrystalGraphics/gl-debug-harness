@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgui.core.notify.StatusBar;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.workbench.chrome.menu.MenuBarView;
@@ -764,7 +765,7 @@ public class CgUiNewEngineGalleryScene
      * context nothing uses it in, and its sizing comes from the bar around it.</p>
      */
     private UIElement statusBar() {
-        StatusBarView status = new StatusBarView();
+        StatusBarView status = new StatusBarView(new StatusBar());
         StyleGroup.inlinePipeline(status.getStyle().getLayoutGroup(), l -> l.widthPercent(100f));
         status.breadcrumbs().setTrail(List.of("core", "src", "com", "crystalgui", "widget"));
         return status;

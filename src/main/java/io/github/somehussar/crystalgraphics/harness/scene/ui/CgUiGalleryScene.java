@@ -133,7 +133,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // EditorCommands, GraphView installs GraphCommands plus the edit.undo/edit.redo chords, each
         // bound on itself so the bare letters cannot fire while typing somewhere else in the window.
         //
-        // An APPLICATION's commands are still the application's -- see CrystalEditor.install, which
+        // An APPLICATION's commands are still the application's -- see WorkbenchApplication, which
         // registers the dock, palette and file commands it decides to offer.
         // The graph theme. Added once and never toggled: the Ore toggle is about Minecraft chrome, and
         // a node graph has no Ore look to switch to — without it the nodes are unstyled boxes and the

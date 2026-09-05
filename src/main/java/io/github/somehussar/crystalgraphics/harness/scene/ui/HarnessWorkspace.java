@@ -3,7 +3,7 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIElementTreeSource;
 import com.crystalgui.net.mirror.UIElementMirror;
-import com.crystalgui.language.LanguageStack;
+import com.crystalgui.text.syntax.LanguageRegistry;
 import com.crystalgui.language.java.JavaLanguage;
 import com.crystalgui.language.js.JsLanguage;
 import com.crystalgui.language.run.ScriptPolicy;
@@ -74,21 +74,18 @@ final class HarnessWorkspace {
     private float untilPoll;
 
     HarnessWorkspace() {
-        // BEFORE anything opens a document, because LanguageRegistry is consulted when an editor is built
-        // and a file already open would keep whichever tokenizer it was given. core/ ships word-list
-        // lexers so it can load with no natives; this puts the real parsers in front of them, which is
-        // what makes a declaration distinguishable from a call and a constant from an identifier.
+        // WARMING THE LANGUAGES, and nothing more. `language/` declares its grammars, ECJ and Rhino as
+        // a LanguageKinds service, so LanguageRegistry finds them on its own first read -- what this
+        // line buys is paying for them HERE rather than on the keystroke that opens the first editor
+        // (443ms on a Minecraft client, measured; see LanguageStack). Drop it and the harness still has
+        // every language, just later.
         //
-        // The grammars, ECJ and Rhino, in one call. This used to be three blocks here and three more in
-        // the Minecraft client, and the two copies had already diverged on the one thing that matters:
-        // this one caught nothing, so a band that is present but UNOPENABLE threw NoClassDefFoundError
-        // straight out of the constructor. Which engines exist and what a missing one means are facts
-        // about language/, so they live there now -- a host only says when.
-        //
-        // Reports rather than throws where the bands are not staged (`./gradlew :language:stageEngines`,
-        // which runHarness depends on). That is a legitimate environment: the editor colours and does
-        // not analyse.
-        LanguageStack.registerAll();
+        // This used to be `LanguageStack.registerAll()`, which the 1.7.10 loader also called, and before
+        // that it was three blocks here and three more in the client that had already diverged on the one
+        // thing that mattered: this copy caught nothing, so a band that is present but UNOPENABLE threw
+        // NoClassDefFoundError straight out of the constructor. Which engines exist, and what a missing
+        // one means, are facts about language/ -- and now a host does not even say when.
+        LanguageRegistry.bootstrap();
 
         applyScriptPolicy();
 
