@@ -18,7 +18,7 @@ import com.crystalgui.widget.control.Slider;
 import com.crystalgui.widget.control.Switch;
 import com.crystalgui.widget.control.TextField;
 import com.crystalgui.widget.display.ProgressBar;
-import com.crystalgui.widget.display.RadarChart;
+import com.crystalgui.widget.composite.RadarChart;
 import com.crystalgui.widget.display.SymbolIcon;
 import com.crystalgui.widget.layout.SplitView;
 import com.crystalgui.widget.layout.Tab;
@@ -100,14 +100,13 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
      * in the sheet. The values are the fixture's own and deliberately uneven: a sheet of equal values
      * draws a plain hexagon, which cannot show whether the chart maps a value to a radius at all.
      *
-     * <p>The alpha is the FILL's, and it is what makes the chart read as a chart: at full opacity six
-     * saturated wedges meeting at a point are a pie, and the web behind them is invisible. The rim is
-     * drawn opaque by the widget whatever this says. The label takes the same colour and is legible at
-     * this alpha, since it sits on the backdrop rather than on the fill.</p>
+     * <p>Opaque, which is what {@code CoreAttributes} actually registers. The chart washes the fill
+     * itself from {@code ::part(fill)} and draws the rim and the label at full strength, so a caller
+     * hands over a palette and nothing else.</p>
      */
     private static final String[][] ATTRIBUTES = {
-            {"STR", "99FF0000", "8"}, {"CON", "99FF6A00", "5"}, {"DEX", "99FFD800", "6"},
-            {"WIL", "9900FF77", "3"}, {"SPI", "99B200FF", "7"}, {"FOC", "9900FFFF", "4"},
+            {"STR", "FFFF0000", "8"}, {"CON", "FFFF6A00", "5"}, {"DEX", "FFFFD800", "6"},
+            {"WIL", "FF00FF77", "3"}, {"SPI", "FFB200FF", "7"}, {"FOC", "FF00FFFF", "4"},
     };
 
     private static final String[][] RESOURCES = {
@@ -302,8 +301,11 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
         radar.addClass("rpg-radar");
         List<RadarChart.Axis> spokes = new ArrayList<>();
         for (String[] attribute : ATTRIBUTES) {
+            // The detail is the CALLER's words -- the widget formats nothing, so a mod decides how its
+            // own numbers read.
             spokes.add(new RadarChart.Axis(attribute[0], Double.parseDouble(attribute[2]),
-                    (int) Long.parseLong(attribute[1], 16)));
+                    (int) Long.parseLong(attribute[1], 16),
+                    attribute[0] + ": " + attribute[2]));
         }
         radar.setAxes(spokes);
         column.append(radar);
