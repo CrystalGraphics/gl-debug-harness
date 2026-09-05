@@ -5,22 +5,43 @@ import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
+import com.crystalgui.text.lang.SymbolKind;
+import com.crystalgui.text.lang.SymbolModifier;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.widget.composite.ColorSelector;
+import com.crystalgui.widget.composite.SearchField;
 import com.crystalgui.widget.control.Button;
 import com.crystalgui.widget.control.Checkbox;
+import com.crystalgui.widget.control.CheckboxGroup;
 import com.crystalgui.widget.control.Slider;
+import com.crystalgui.widget.control.Switch;
 import com.crystalgui.widget.control.TextField;
 import com.crystalgui.widget.display.ProgressBar;
+import com.crystalgui.widget.display.SymbolIcon;
+import com.crystalgui.widget.layout.SplitView;
+import com.crystalgui.widget.layout.Tab;
+import com.crystalgui.widget.layout.TabView;
+import com.crystalgui.widget.overlay.Dialog;
+import com.crystalgui.widget.overlay.DialogManager;
+import com.crystalgui.widget.overlay.Dropdown;
+import com.crystalgui.widget.overlay.Menu;
+import com.crystalgui.widget.overlay.MenuItem;
+import com.crystalgui.widget.overlay.Popover;
+import com.crystalgui.widget.overlay.Tooltip;
+import com.crystalgui.widget.scroll.ScrollerView;
 import com.crystalgui.widget.text.UIText;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessThemes;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import org.joml.Matrix4f;
 
 /**
- * <b>RPG-Core's Status screen, as a stylesheet fixture.</b> {@code --mode=rpg-console}.
+ * <b>RPG-Core's menu, as a stylesheet fixture.</b> {@code --mode=rpg-console}.
  *
  * <h3>What it is for</h3>
  *
@@ -30,26 +51,30 @@ import org.joml.Matrix4f;
  * the sheets through {@code StyleEngine.reloadStylesheets()}, which the runner pairs because neither
  * covers the other.</p>
  *
+ * <h3>Two pages, and the rail switches them</h3>
+ *
+ * <p><b>Status</b> is the screen the mod actually ships, and is what {@code menu.css} is judged
+ * against. <b>Options</b> is a widget gallery — every stock control the theme restyles, on one
+ * scrolling page, which is the only way to see whether a theme rule matches anything: a rule that
+ * misses looks exactly like a rule that works. The remaining five tabs draw the placeholder the mod
+ * draws, which is also what a rail button in its ordinary state looks like.</p>
+ *
+ * <p>The rail is buttons rather than a {@code TabView}, because the mod swaps whole screens rather
+ * than panes. Switching rebuilds the body — safe here and only here, since the rail is outside it;
+ * a widget must never rebuild the elements it is being clicked on.</p>
+ *
  * <h3>It is a fixture, not the product</h3>
  *
- * <p>The tree here is built from stock CrystalGUI widgets wearing the {@code .rpg-*} classes the
- * plan defines. RPG-Core's own screens will build the same shapes from the same classes when
- * {@code plan/ui/plan.md} reaches U2, and the CSS carries across untouched — that is the whole point
- * of the split, and the same relationship {@code cgui-gallery} has with the workbench. Nothing in
- * this file may become the product: it holds no game state, reads no character, and its numbers are
- * the ones in {@code plan/ui/OPEN_STATUS_SCREEN.png} typed out by hand.</p>
+ * <p>The tree is built from stock widgets wearing the {@code .rpg-*} classes the plan defines.
+ * RPG-Core's own screens will build the same shapes from the same classes at U2, and the CSS carries
+ * across untouched — the same relationship {@code cgui-gallery} has with the workbench. Nothing here
+ * holds game state or reads a character; the numbers are the ones in
+ * {@code plan/ui/OPEN_STATUS_SCREEN.png}, typed out.</p>
  *
- * <p><b>It needs RPG-Core's resources on the resolver</b>, which is not automatic:</p>
- *
- * <pre>
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=rpg-console" \
- *     -Pharness.assetRoots=X:/projects/RPG-Core-NeoForge/src/main/resources
- * </pre>
- *
- * <p>Put that property in {@code ~/.gradle/gradle.properties} once and it applies to every run.
- * Without it the theme is refused with a log line naming the file it could not find, and the scene
- * draws on the bare user-agent sheet — which is a legible state rather than a broken one, and is
- * also what {@code -Dcrystalgui.theme=none} asks for deliberately.</p>
+ * <p><b>It needs RPG-Core's resources on the resolver</b>, which {@code ./gradlew runHarness} from
+ * that project arranges. Run from here instead and the theme is refused with a log line naming the
+ * file it could not find, leaving the bare user-agent sheet — which is legible rather than broken,
+ * and is also what {@code -Dcrystalgui.theme=none} asks for on purpose.</p>
  */
 public class RpgConsoleScene implements InteractiveSceneLifecycle,
         CgSystemInput.Keyboard, CgSystemInput.Mouse {
@@ -64,21 +89,23 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
      */
     private static final float SCALE = 2f;
 
+    private static final String STATUS = "Status";
+    private static final String OPTIONS = "Options";
     private static final String[] TABS =
-            {"Status", "Skills", "Abilities", "Forms", "Styles", "Slots", "Options"};
+            {STATUS, "Skills", "Abilities", "Forms", "Styles", "Slots", OPTIONS};
 
     /** {@code CoreAttributes}, verbatim — these are DATA, which is why they are not in the sheet. */
     private static final String[][] ATTRIBUTES = {
-            {"STR", "0xFFFF0000"}, {"CON", "0xFFFF6A00"}, {"DEX", "0xFFFFD800"},
-            {"WIL", "0xFF00FF77"}, {"SPI", "0xFFB200FF"}, {"FOC", "0xFF00FFFF"},
+            {"STR", "FFFF0000"}, {"CON", "FFFF6A00"}, {"DEX", "FFFFD800"},
+            {"WIL", "FF00FF77"}, {"SPI", "FFB200FF"}, {"FOC", "FF00FFFF"},
     };
 
     private static final String[][] RESOURCES = {
-            {"Energy", "0", "3", "5"},
-            {"Stamina", "0", "0.01", "2"},
-            {"Mobility", "0", "5", "100"},
-            {"Posture", "0", "0.02", "10"},
-            {"Health", "0", "0.10", "20"},
+            {"Energy", "3", "5"},
+            {"Stamina", "0.01", "2"},
+            {"Mobility", "5", "100"},
+            {"Posture", "0.02", "10"},
+            {"Health", "0.10", "20"},
     };
 
     private static final String[][] STATS = {
@@ -87,7 +114,10 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
     };
 
     private UIDocument document;
-    private ProgressBar health;
+    private UIElement body;
+    private UIText ribbonTitle;
+    private final List<Button> railButtons = new ArrayList<>();
+    private ProgressBar walking;
     private float elapsed;
 
     @Override
@@ -110,15 +140,19 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
         // tree for anything under it to match.
         document.styles().addStylesheet(StyleSheetRegistry.of("rpgcore:menu"), backdrop);
         document.styles().addStylesheet(StyleSheet.parse(SCENE_CSS), backdrop);
+
+        // Straight to the page being styled: -Dcrystalgui.rpg.tab=Options. runHarness forwards every
+        // -Dcrystalgui.*, so this needs no Gradle plumbing.
+        show(System.getProperty("crystalgui.rpg.tab", STATUS));
     }
 
     /**
-     * Fixture-only rules: the two placeholders and the widget strip.
+     * Fixture-only rules: the two placeholders and the gallery's own layout.
      *
-     * <p>Separate from {@code menu.css} on purpose. Anything in here is scaffolding for something the
-     * mod has and the engine does not yet — a radar chart (U4) and a live entity preview (U6) — plus a
-     * strip of stock widgets that exists so the theme's widget rules are visible on screen. If a rule
-     * here starts describing how RPG-Core should look, it belongs in {@code menu.css} instead.</p>
+     * <p>Separate from {@code menu.css} on purpose. Everything here is scaffolding for something the
+     * mod has and the engine does not yet — a radar chart (U4) and a live entity preview (U6) — or for
+     * the gallery, which is not a screen the mod will ever build. If a rule here starts describing how
+     * RPG-Core should look, it belongs in {@code menu.css} instead.</p>
      */
     private static final String SCENE_CSS = """
             .fx-placeholder {
@@ -130,17 +164,52 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
             }
             .fx-radar { height: 180px; flex-grow: 0; }
             .fx-note { color: var(--fg-hint); }
-            .fx-strip {
+
+            /* The gallery: one scrolling column of labelled sections. */
+            .fx-gallery {
                 width: 100%;
+                height: 0;
+                flex-grow: 1;
+            }
+            .fx-column {
+                width: 100%;
+                flex-direction: column;
+                gap-all: 10px;
+                padding-right: 14px;
+            }
+            .fx-section {
+                width: 100%;
+                flex-direction: column;
+                align-items: flex-start;
+                gap-all: 6px;
+                padding-all: 10px;
+            }
+            .fx-row {
                 flex-direction: row;
                 align-items: center;
                 gap-all: 10px;
-                flex-shrink: 0;
-                padding-all: 8px;
+                flex-wrap: wrap;
             }
-            .fx-strip textfield { width: 130px; }
-            .fx-strip progressbar { width: 90px; }
+            .fx-wide { width: 220px; }
+            .fx-bar { width: 180px; height: 6px; }
+            .fx-stage {
+                width: 100%;
+                height: 200px;
+                background-color: #13222A;
+                border-radius: 4px;
+            }
+            .fx-split { width: 100%; height: 150px; }
+            .fx-tabs { width: 100%; height: 170px; }
+            .fx-pane {
+                width: 100%;
+                height: 0;
+                flex-grow: 1;
+                align-items: center;
+                justify-content: center;
+            }
             """;
+
+    // ── The shell ───────────────────────────────────────────────────────────────────────────────
 
     private UIElement buildRoot() {
         UIElement backdrop = new UIElement().addClass("rpg-backdrop");
@@ -149,20 +218,19 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
         UIElement content = new UIElement().addClass("rpg-content");
         content.append(buildRibbon());
         content.append(new UIElement().addClass("rpg-hairline"));
-        content.append(buildColumns());
-        content.append(buildWidgetStrip());
+        body = new UIElement().addClass("rpg-body");
+        content.append(body);
         backdrop.append(content);
         return backdrop;
     }
 
     private UIElement buildRail() {
         UIElement rail = new UIElement().addClass("rpg-tabs");
-        for (int i = 0; i < TABS.length; i++) {
-            Button tab = new Button(TABS[i]);
+        for (String name : TABS) {
+            Button tab = new Button(name);
             tab.addClass("rpg-tab");
-            // The open one. A CLASS rather than :checked, because these are buttons that swap whole
-            // screens -- the screen knows which is current, the widget cannot.
-            if (i == 0) tab.addClass("__selected__");
+            tab.attachListener(() -> show(name));
+            railButtons.add(tab);
             rail.append(tab);
         }
         return rail;
@@ -170,15 +238,37 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
 
     private UIElement buildRibbon() {
         UIElement ribbon = new UIElement().addClass("rpg-ribbon");
-        UIElement body = new UIElement().addClass("rpg-ribbon-body");
-        body.append(new UIText("Status").addClass("rpg-ribbon-title"));
-        body.append(new UIText("  \u2014  Dev").addClass("rpg-ribbon-subject"));
-        ribbon.append(body);
+        UIElement bar = new UIElement().addClass("rpg-ribbon-body");
+        ribbonTitle = new UIText(STATUS);
+        ribbonTitle.addClass("rpg-ribbon-title");
+        bar.append(ribbonTitle);
+        // A HYPHEN, not an em dash. The bundled Minecraft font has no U+2014, so the screen drew a
+        // tofu box where the separator should be -- the same gap `UIText` already documents for the
+        // ellipsis, met by a fixture rather than by the engine.
+        bar.append(new UIText("  -  Dev").addClass("rpg-ribbon-subject"));
+        ribbon.append(bar);
         ribbon.append(new UIElement().addClass("rpg-ribbon-cap"));
         return ribbon;
     }
 
-    private UIElement buildColumns() {
+    /** Swaps the body and moves the rail's selection. The rail is outside the body, so this is safe. */
+    private void show(String tab) {
+        ribbonTitle.setText(tab);
+        for (Button button : railButtons) {
+            if (button.getText().equals(tab)) button.addClass("__selected__");
+            else button.removeClass("__selected__");
+        }
+        body.removeAll();
+        body.append(switch (tab) {
+            case STATUS -> buildStatusPage();
+            case OPTIONS -> buildGalleryPage();
+            default -> buildPlaceholderPage(tab);
+        });
+    }
+
+    // ── Status: the screen the mod ships ────────────────────────────────────────────────────────
+
+    private UIElement buildStatusPage() {
         UIElement columns = new UIElement().addClass("rpg-columns");
         columns.append(buildAttributes());
         columns.append(buildPreview());
@@ -190,16 +280,18 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
         UIElement column = new UIElement().addClass("rpg-column");
         column.append(new UIText("Attributes").addClass("rpg-heading"));
 
-        UIElement radar = new UIElement().addClass("rpg-plate").addClass("fx-placeholder").addClass("fx-radar");
-        radar.append(new UIText("RadarChart \u2014 U4").addClass("fx-note"));
+        UIElement radar = new UIElement()
+                .addClass("rpg-plate").addClass("fx-placeholder").addClass("fx-radar");
+        radar.append(new UIText("RadarChart - U4").addClass("fx-note"));
         column.append(radar);
 
         for (String[] attribute : ATTRIBUTES) {
             UIElement row = new UIElement().addClass("rpg-row");
-            UIElement name = new UIText(attribute[0]).addClass("rpg-row-name").addClass("rpg-radar-label");
+            UIElement name = new UIText(attribute[0])
+                    .addClass("rpg-row-name").addClass("rpg-radar-label");
             // INLINE, and legitimately so: an attribute's colour is registry data, and a mod may
             // register one in any hue, so no stylesheet can enumerate them.
-            int argb = (int) Long.parseLong(attribute[1].substring(2), 16);
+            int argb = (int) Long.parseLong(attribute[1], 16);
             StyleGroup.inlinePipeline(name.getStyle().getGeneralGroup(), g -> g.color(argb));
             row.append(name);
 
@@ -219,25 +311,37 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
         UIElement column = new UIElement().addClass("rpg-column");
         UIElement plate = new UIElement()
                 .addClass("rpg-plate").addClass("rpg-lamp").addClass("fx-placeholder");
-        plate.append(new UIText("EntityPreview \u2014 U6").addClass("fx-note"));
+        plate.append(new UIText("EntityPreview - U6").addClass("fx-note"));
         column.append(plate);
         return column;
     }
 
+    /**
+     * The readouts, in a scroller.
+     *
+     * <p>The mod puts these lists in {@code ScrollPane}s with a capped height, and without one the
+     * column simply overflowed its own box and drew across whatever was beneath it — the engine does
+     * not clip a child that overruns unless something establishes a scroll container.</p>
+     */
     private UIElement buildResources() {
         UIElement column = new UIElement().addClass("rpg-column");
+        ScrollerView scroller = new ScrollerView();
+        scroller.addClass("fx-gallery");
 
-        column.append(new UIText("Resources").addClass("rpg-heading"));
+        UIElement list = new UIElement().addClass("rpg-column");
+        list.append(new UIText("Resources").addClass("rpg-heading"));
         for (String[] resource : RESOURCES) {
-            column.append(new UIText(resource[0] + ":").addClass("rpg-heading"));
-            column.append(labelled("Regen:", resource[2]));
-            column.append(labelled("Max Value:", resource[3]));
+            list.append(new UIText(resource[0] + ":").addClass("rpg-heading"));
+            list.append(labelled("Regen:", resource[1]));
+            list.append(labelled("Max Value:", resource[2]));
+        }
+        list.append(new UIText("Stats").addClass("rpg-heading"));
+        for (String[] stat : STATS) {
+            list.append(labelled(stat[0] + ":", stat[1]));
         }
 
-        column.append(new UIText("Stats").addClass("rpg-heading"));
-        for (String[] stat : STATS) {
-            column.append(labelled(stat[0] + ":", stat[1]));
-        }
+        scroller.append(list);
+        column.append(scroller);
         return column;
     }
 
@@ -251,36 +355,179 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
         return row;
     }
 
+    private UIElement buildPlaceholderPage(String tab) {
+        UIElement plate = new UIElement().addClass("rpg-plate").addClass("fx-placeholder");
+        plate.append(new UIText(tab + " has no content yet").addClass("fx-note"));
+        return plate;
+    }
+
+    // ── Options: the widget gallery ─────────────────────────────────────────────────────────────
+
     /**
-     * Stock widgets, so the theme's own rules are visible.
+     * Every stock widget the theme restyles, on one scrolling page.
      *
-     * <p>Not part of the screen and never will be. It is here because {@code console.css} styles the
-     * button bevel, the checkbox ring, the slider and the field, and a screen made only of plates and
-     * labels would show none of them — a theme rule that matches nothing looks exactly like a theme
-     * rule that works.</p>
+     * <p>Deliberately not every widget the engine has: the ones left out ({@code ListView},
+     * {@code TreeView}, {@code TableView}, {@code GraphView}, {@code ConfiguratorPanel}) need a model
+     * and a renderer, which is fixture code that says nothing about a stylesheet. What is here is
+     * everything {@code console.css} has a rule for plus the composites those rules reach through.</p>
      */
-    private UIElement buildWidgetStrip() {
-        UIElement strip = new UIElement().addClass("rpg-plate").addClass("fx-strip");
-        strip.append(new Button("Button"));
+    private UIElement buildGalleryPage() {
+        ScrollerView scroller = new ScrollerView();
+        scroller.addClass("fx-gallery");
+        UIElement column = new UIElement().addClass("fx-column");
+        scroller.append(column);
 
         Button disabled = new Button("Disabled");
         disabled.setEnabled(false);
-        strip.append(disabled);
+        column.append(section("Button - the plate bevel, its hover and its pressed state",
+                row(new Button("Ordinary"), disabled)));
 
-        strip.append(new Checkbox("Unchecked"));
-        strip.append(new Checkbox("Checked").setChecked(true));
+        Checkbox first = new Checkbox("First");
+        Checkbox second = new Checkbox("Second");
+        CheckboxGroup group = new CheckboxGroup().allowEmpty(false);
+        first.setGroup(group);
+        second.setGroup(group);
+        first.setChecked(true);
+        column.append(section("Checkbox - the steel ring, and the green tick that replaced a bare mark",
+                row(new Checkbox("Standalone"), first, second)));
+
+        column.append(section("Switch", row(new Switch(), new Switch().setChecked(true))));
 
         Slider slider = new Slider();
         slider.setRange(0f, 100f);
         slider.setValue(40f);
-        strip.append(slider);
+        slider.addClass("fx-wide");
+        column.append(section("Slider - drag it", row(slider)));
 
-        strip.append(new TextField().setPlaceholder("type anything"));
+        walking = new ProgressBar();
+        walking.addClass("fx-bar");
+        ProgressBar indeterminate = new ProgressBar();
+        indeterminate.setFraction(-1f);
+        indeterminate.addClass("fx-bar");
+        column.append(section("ProgressBar - determinate walks, indeterminate sweeps",
+                row(walking, indeterminate)));
 
-        health = new ProgressBar();
-        strip.append(health);
-        return strip;
+        TextField field = new TextField();
+        field.setPlaceholder("type anything");
+        field.addClass("fx-wide");
+        column.append(section("TextField - the recess, and the holo edge it takes on focus",
+                row(field)));
+
+        SearchField search = new SearchField();
+        search.addClass("fx-wide");
+        column.append(section("SearchField", row(search)));
+
+        Dropdown dropdown = new Dropdown("Pick one");
+        dropdown.addOption("Alpha");
+        dropdown.addOption("Beta");
+        dropdown.addOption("Gamma");
+        column.append(section("Dropdown - click to open its Menu", row(dropdown)));
+
+        Button menuAnchor = new Button("Open a menu");
+        Menu menu = new Menu();
+        menu.addItem(new MenuItem("Cut"));
+        menu.addItem(new MenuItem("Copy"));
+        menu.addItem(new MenuItem("Paste"));
+        column.append(menu);
+        menuAnchor.attachListener(() -> menu.showFor(menuAnchor, menuAnchor));
+
+        Button tipped = new Button("Hover me");
+        Tooltip.attach(tipped, "Black glass, like the menus");
+
+        Button popAnchor = new Button("Toggle a popover");
+        Popover popover = new Popover();
+        popover.append(new UIText("A bare popover."));
+        column.append(popover);
+        popAnchor.attachListener(() -> {
+            if (popover.isOpen()) popover.hide();
+            else popover.showFor(popAnchor, popAnchor);
+        });
+        column.append(section("Menu, Tooltip and Popover - one overlay surface, three doors",
+                row(menuAnchor, tipped, popAnchor)));
+
+        SymbolIcon cls = new SymbolIcon();
+        cls.show(SymbolKind.CLASS, Set.of());
+        SymbolIcon iface = new SymbolIcon();
+        iface.show(SymbolKind.INTERFACE, Set.of());
+        SymbolIcon method = new SymbolIcon();
+        method.show(SymbolKind.METHOD, Set.of(SymbolModifier.STATIC, SymbolModifier.FINAL));
+        column.append(section("SymbolIcon - class, interface, and a method with its marks",
+                row(cls, iface, method)));
+
+        column.append(section("ColorSelector - the deepest composite the theme reaches",
+                row(new ColorSelector())));
+
+        column.append(section("SplitView - drag the divider", splitView()));
+        column.append(section("TabView - the engine's own tabs, which are glass here too", tabView()));
+        column.append(section("Dialog - the plate, its title bar, and the backdrop behind it", dialogs()));
+        return scroller;
     }
+
+    private UIElement splitView() {
+        SplitView split = new SplitView();
+        split.addClass("fx-split");
+        split.setPercentage(40f).setLimits(15f, 85f);
+        split.first().append(pane("first pane"));
+        split.second().append(pane("second pane"));
+        return split;
+    }
+
+    private UIElement tabView() {
+        TabView tabs = new TabView();
+        tabs.addClass("fx-tabs");
+        for (String name : new String[] {"one", "two", "three"}) {
+            Tab tab = tabs.addTab(name);
+            tab.setClosable(true);
+            tab.onCloseRequested.connect(() -> tabs.removeTab(tab));
+            tab.content().append(pane("pane " + name));
+        }
+        return tabs;
+    }
+
+    private UIElement dialogs() {
+        UIElement stage = new UIElement().addClass("fx-stage");
+        DialogManager manager = new DialogManager(stage);
+
+        Dialog panel = manager.manage(new Dialog("A dialog"));
+        panel.getContent().append(new UIText("Drag my title bar."));
+
+        Button open = new Button("open");
+        open.attachListener(manager::showAll);
+        Button close = new Button("close");
+        close.attachListener(manager::closeAll);
+
+        UIElement box = new UIElement().addClass("fx-column");
+        box.append(row(open, close));
+        box.append(stage);
+        return box;
+    }
+
+    private UIElement pane(String label) {
+        UIElement body = new UIElement().addClass("fx-pane");
+        UIText text = new UIText(label);
+        text.addClass("fx-note");
+        // A pane's label must not shadow the pane it names.
+        text.setHitTest(false);
+        body.append(text);
+        return body;
+    }
+
+    private UIElement section(String heading, UIElement content) {
+        UIElement section = new UIElement().addClass("rpg-plate").addClass("fx-section");
+        section.append(new UIText(heading).addClass("rpg-heading"));
+        section.append(content);
+        return section;
+    }
+
+    private UIElement row(UIElement... children) {
+        UIElement row = new UIElement().addClass("fx-row");
+        for (UIElement child : children) {
+            if (child != null) row.append(child);
+        }
+        return row;
+    }
+
+    // ── Frame ───────────────────────────────────────────────────────────────────────────────────
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
@@ -288,10 +535,12 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
         int h = ctx.getScreenHeight();
         float delta = frame.getDeltaTime();
 
-        // A walking bar, so one glance says the accent reaches a fill that is being written every
-        // frame -- a frozen bar and a correct one look identical at rest.
+        // A walking bar, so one glance says the accent reaches a fill that is written every frame --
+        // a frozen bar and a correct one look identical at rest. Null on every page but the gallery.
         elapsed += delta;
-        health.setFraction((elapsed % 4f) / 4f);
+        if (walking != null && walking.document() != null) {
+            walking.setFraction((elapsed % 4f) / 4f);
+        }
 
         document.frame(delta, w / SCALE, h / SCALE);
 
@@ -306,7 +555,10 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
     @Override
     public void dispose() {
         document = null;
-        health = null;
+        body = null;
+        ribbonTitle = null;
+        walking = null;
+        railButtons.clear();
     }
 
     @Override

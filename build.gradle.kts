@@ -53,6 +53,17 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 }
 
+// UTF-8, stated rather than inherited -- the same rule core/ already keeps, and this module needed it
+// for the same reason one build later.
+//
+// CrystalGUI's own gradle.properties puts -Dfile.encoding=UTF-8 on its daemon, so building from HERE
+// works by luck. A consumer that includes this build brings its own daemon: RPG-Core's defaults to
+// windows-1252, and every non-ASCII character in these sources became "unmappable character" the first
+// time it recompiled the harness. Invisible until somebody builds from the other side.
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+}
+
 val extractLwjglNatives by tasks.registering(Copy::class) {
     group = "harness"
     from(configurations.runtimeClasspath.get().incoming.files.elements.map { elements ->
