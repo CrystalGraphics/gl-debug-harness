@@ -18,6 +18,7 @@ import com.crystalgui.widget.control.Slider;
 import com.crystalgui.widget.control.Switch;
 import com.crystalgui.widget.control.TextField;
 import com.crystalgui.widget.display.ProgressBar;
+import com.crystalgui.widget.display.RadarChart;
 import com.crystalgui.widget.display.SymbolIcon;
 import com.crystalgui.widget.layout.SplitView;
 import com.crystalgui.widget.layout.Tab;
@@ -94,10 +95,19 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
     private static final String[] TABS =
             {STATUS, "Skills", "Abilities", "Forms", "Styles", "Slots", OPTIONS};
 
-    /** {@code CoreAttributes}, verbatim — these are DATA, which is why they are not in the sheet. */
+    /**
+     * {@code CoreAttributes}' six, with their registered colours — DATA, which is why none of this is
+     * in the sheet. The values are the fixture's own and deliberately uneven: a sheet of equal values
+     * draws a plain hexagon, which cannot show whether the chart maps a value to a radius at all.
+     *
+     * <p>The alpha is the FILL's, and it is what makes the chart read as a chart: at full opacity six
+     * saturated wedges meeting at a point are a pie, and the web behind them is invisible. The rim is
+     * drawn opaque by the widget whatever this says. The label takes the same colour and is legible at
+     * this alpha, since it sits on the backdrop rather than on the fill.</p>
+     */
     private static final String[][] ATTRIBUTES = {
-            {"STR", "FFFF0000"}, {"CON", "FFFF6A00"}, {"DEX", "FFFFD800"},
-            {"WIL", "FF00FF77"}, {"SPI", "FFB200FF"}, {"FOC", "FF00FFFF"},
+            {"STR", "99FF0000", "8"}, {"CON", "99FF6A00", "5"}, {"DEX", "99FFD800", "6"},
+            {"WIL", "9900FF77", "3"}, {"SPI", "99B200FF", "7"}, {"FOC", "9900FFFF", "4"},
     };
 
     private static final String[][] RESOURCES = {
@@ -163,6 +173,11 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
                 justify-content: center;
             }
             .fx-radar { height: 180px; flex-grow: 0; }
+            .fx-readouts {
+                width: 100%;
+                flex-direction: column;
+                gap-all: 8px;
+            }
             .fx-note { color: var(--fg-hint); }
 
             /* The gallery: one scrolling column of labelled sections. */
@@ -213,6 +228,9 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
 
     private UIElement buildRoot() {
         UIElement backdrop = new UIElement().addClass("rpg-backdrop");
+        // FIRST, so painter's order draws it under everything. Absolutely positioned, so it
+        // contributes nothing to the row the rail and the content lay out in.
+        backdrop.append(new UIElement().addClass("rpg-grid"));
         backdrop.append(buildRail());
 
         UIElement content = new UIElement().addClass("rpg-content");
@@ -280,9 +298,14 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
         UIElement column = new UIElement().addClass("rpg-column");
         column.append(new UIText("Attributes").addClass("rpg-heading"));
 
-        UIElement radar = new UIElement()
-                .addClass("rpg-plate").addClass("fx-placeholder").addClass("fx-radar");
-        radar.append(new UIText("RadarChart - U4").addClass("fx-note"));
+        RadarChart radar = new RadarChart();
+        radar.addClass("rpg-radar");
+        List<RadarChart.Axis> spokes = new ArrayList<>();
+        for (String[] attribute : ATTRIBUTES) {
+            spokes.add(new RadarChart.Axis(attribute[0], Double.parseDouble(attribute[2]),
+                    (int) Long.parseLong(attribute[1], 16)));
+        }
+        radar.setAxes(spokes);
         column.append(radar);
 
         for (String[] attribute : ATTRIBUTES) {
@@ -296,7 +319,7 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
             row.append(name);
 
             UIElement value = new UIElement().addClass("rpg-value");
-            value.append(new UIText("1"));
+            value.append(new UIText(attribute[2]));
             row.append(value);
 
             Button upgrade = new Button("+");
@@ -328,7 +351,11 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
         ScrollerView scroller = new ScrollerView();
         scroller.addClass("fx-gallery");
 
-        UIElement list = new UIElement().addClass("rpg-column");
+        // NOT .rpg-column. That carries the ROW fill idiom (`width: 0; flex-grow: 1`), which is right
+        // for a column sitting in .rpg-columns and wrong inside a scroller: flex-grow works on the
+        // MAIN axis, so in a column parent the width stayed 0, every row measured 0 wide, and the
+        // right-aligned value drew straight over its own label.
+        UIElement list = new UIElement().addClass("fx-readouts");
         list.append(new UIText("Resources").addClass("rpg-heading"));
         for (String[] resource : RESOURCES) {
             list.append(new UIText(resource[0] + ":").addClass("rpg-heading"));
