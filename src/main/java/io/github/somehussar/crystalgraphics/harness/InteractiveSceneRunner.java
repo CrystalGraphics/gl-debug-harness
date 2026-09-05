@@ -368,8 +368,16 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      */
     private void reloadStyleSheets() {
         try {
+            // THEMES FIRST, AND BOTH CALLS ARE NEEDED. A theme is not in the stylesheet cache: it
+            // captures its source and its token table at registration, so reloading the sheets alone
+            // re-substitutes every one of them against the table the theme had when it was registered
+            // -- the log says "re-read N stylesheets", and an edited token changes nothing. Reloading
+            // the theme rebinds the table and restyles; the sheets then re-read their files against
+            // the NEW table, which is why this order and not the other.
+            int themes = com.crystalgui.style.theme.UiThemeManager.getInstance().reloadFromDisk();
             int reloaded = com.crystalgui.style.StyleEngine.reloadStylesheets();
-            LOGGER.info("[InteractiveSceneRunner] Ctrl+R: reloaded " + reloaded + " stylesheet(s)");
+            LOGGER.info("[InteractiveSceneRunner] Ctrl+R: reloaded " + reloaded + " stylesheet(s) and "
+                    + themes + " theme file(s)");
         } catch (Throwable t) {
             // Never let a bad stylesheet take the harness down -- a half-written file mid-save is the
             // normal case for this key, not an exceptional one.

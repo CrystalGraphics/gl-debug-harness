@@ -119,12 +119,37 @@ tasks.register<JavaExec>("runHarness") {
     val alreadyChosen = System.getProperties().stringPropertyNames().any {
         it == "crystalgraphics.resourceOverrideDirs" || it == "crystalgraphics.shader.resourceOverrideDir"
     }
+    // A CONSUMER'S resources, so a mod's theme and stylesheets can be authored here rather than in a
+    // game client. Several roots may be given, separated by the platform path separator:
+    //
+    //   -Pharness.assetRoots=X:/projects/RPG-Core-NeoForge/src/main/resources
+    //
+    // APPENDED to the three below, never replacing them: those are what makes Ctrl+R reach default.css.
+    // Appended LAST because CgIO takes the first root that answers, so a consumer cannot shadow an
+    // engine asset by accident.
+    val extraRoots = (project.findProperty("harness.assetRoots") as String?)
+        ?.split(File.pathSeparator)
+        .orEmpty()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .map { file(it) }
+
+    if (alreadyChosen && extraRoots.isNotEmpty()) {
+        logger.warn("[harness] -Pharness.assetRoots is ignored: -Dcrystalgraphics.resourceOverrideDirs " +
+            "was set explicitly and takes the whole list. Add your root to that property instead.")
+    }
+    extraRoots.filterNot { it.isDirectory }.forEach {
+        // Loud, because the silent version is a scene whose theme is simply never found -- which looks
+        // exactly like a theme that failed to parse.
+        logger.warn("[harness] -Pharness.assetRoots names '${it.absolutePath}', which is not a directory")
+    }
+
     if (!alreadyChosen) {
-        val roots = listOf(
+        val roots = (listOf(
             file("src/main/resources"),                                   // the harness's own
             project(":core").file("src/main/resources"),                  // CrystalGUI
             rootProject.file("CrystalGraphics/core/src/main/resources")   // CrystalGraphics (composite)
-        ).filter { it.isDirectory }
+        ) + extraRoots).filter { it.isDirectory }
         systemProperty("crystalgraphics.resourceOverrideDirs",
             roots.joinToString(File.pathSeparator) { it.absolutePath })
         // Also under the ORIGINAL name, with the single most useful root. A CgIO built before multi-root
@@ -134,6 +159,24 @@ tasks.register<JavaExec>("runHarness") {
         project(":core").file("src/main/resources").takeIf { it.isDirectory }?.let {
             systemProperty("crystalgraphics.shader.resourceOverrideDir", it.absolutePath)
         }
+    }
+
+    // The scene, for a caller that cannot pass `--args` -- a task in another build can only
+    // `dependsOn` this one, so a consumer including CrystalGUI has no other way to pick a scene.
+    // Project properties are shared across a composite, which is what makes it work from either side.
+    //
+    // An argumentProvider, not `args(...)`: providers are asked at EXECUTION time, after Gradle has
+    // applied `--args`, so this stands down when the caller passed a mode. Set eagerly it would append
+    // AFTER theirs and win, since the parser takes the last `--mode=` -- an override that silently
+    // does the opposite of what it says.
+    val requestedMode = project.findProperty("harness.mode") as String?
+    if (requestedMode != null) {
+        argumentProviders.add(CommandLineArgumentProvider {
+            // `args` on a JavaExec is a nullable List, not a Provider -- `.orNull` does not exist on it,
+            // and the unresolved type cascades into the `startsWith` below reading as a second error.
+            if (args.orEmpty().any { it.startsWith("--mode=") }) emptyList()
+            else listOf("--mode=$requestedMode")
+        })
     }
 
     if (project.hasProperty("harness.debug")) {
