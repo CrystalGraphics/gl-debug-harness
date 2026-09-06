@@ -3,14 +3,14 @@
 Queue = "Geometry"
 
 Properties {
-    // Samplers — remain as individual uniform sampler* declarations
+    // Samplers -- remain as individual uniform sampler* declarations
     // Default values are quoted strings: "white" | "black" | "normal" | "transparent"
     _MainTex    ("Main Texture",    sampler2D)     = "white"
     _NormalMap  ("Normal Map",      sampler2D)     = "normal"
     _TexArray   ("Texture Array",   sampler2DArray)
     _Volume     ("Volume Texture",  sampler3D)
     _Skybox     ("Cubemap",         samplerCube)
-    // Non-samplers — all go into layout(std140) uniform CgMaterialBlock { ... }
+    // Non-samplers -- all go into layout(std140) uniform CgMaterialBlock { ... }
     _Color      ("Tint Color",      color)         = (1.0, 1.0, 1.0, 1.0)
     _BaseColor  ("Base Color",      vec4)          = (0.2, 0.4, 0.8, 1.0)
     _Offset     ("UV Offset",       vec2)          = (0.0, 0.0)
@@ -24,19 +24,19 @@ Pass {
     Tags { "LightMode" = "Forward" "Name" = "Main" }
 
     RenderState {
-        // ── Blend ──────────────────────────────────────────────────────────────
+        // -- Blend --------------------------------------------------------------
 //         Blend SRC_ALPHA ONE_MINUS_SRC_ALPHA
         BlendEquation ADD
-        // ── Depth ─────────────────────────────────────────────────────────────
+        // -- Depth -------------------------------------------------------------
         DepthTest LEQUAL
 //         DepthWrite OFF
-        // ── Cull ──────────────────────────────────────────────────────────────
+        // -- Cull --------------------------------------------------------------
         Cull OFF
-        // ── AlphaTest ─────────────────────────────────────────────────────────
+        // -- AlphaTest ---------------------------------------------------------
         AlphaTest GREATER 0.05
-        // ── ColorMask ─────────────────────────────────────────────────────────
+        // -- ColorMask ---------------------------------------------------------
         ColorMask RGBA
-        // ── Stencil ───────────────────────────────────────────────────────────
+        // -- Stencil -----------------------------------------------------------
         Stencil {
             Ref 1
             ReadMask 255

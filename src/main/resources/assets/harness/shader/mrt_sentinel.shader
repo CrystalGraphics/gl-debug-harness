@@ -1,7 +1,7 @@
 #type spatial
 
 // Sentinel material for MRT readback verification.
-// Uses a quad built with CgMeshBuilder.quad2D(-1,-1,1,1) — vertices already in NDC space,
+// Uses a quad built with CgMeshBuilder.quad2D(-1,-1,1,1) -- vertices already in NDC space,
 // so no MVP transform is applied. RenderState disables culling so winding never matters.
 
 Pass {
@@ -31,8 +31,8 @@ Pass {
 
     void fragment(in v2f i, out GBuffer o) {
         // Sentinel: each RT gets a distinct primary color so readback can validate each channel.
-        o.albedo   = vec4(1.0, 0.0, 0.0, 1.0);  // RT0 → red
-        o.normal   = vec4(0.0, 1.0, 0.0, 1.0);  // RT1 → green
-        o.emission = vec4(0.0, 0.0, 1.0, 1.0);  // RT2 → blue
+        o.albedo   = vec4(1.0, 0.0, 0.0, 1.0);  // RT0 -> red
+        o.normal   = vec4(0.0, 1.0, 0.0, 1.0);  // RT1 -> green
+        o.emission = vec4(0.0, 0.0, 1.0, 1.0);  // RT2 -> blue
     }
 }

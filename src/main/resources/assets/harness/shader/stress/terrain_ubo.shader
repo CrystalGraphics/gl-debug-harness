@@ -18,7 +18,7 @@ Pass {
     }
 
     void fragment(in v2f i, out vec4 fragColor) {
-        // TerrainParams UBO fields are in direct scope — no prefix
+        // TerrainParams UBO fields are in direct scope -- no prefix
         vec3 sun = sunDirAndAmbient.xyz;
         float ambient = sunDirAndAmbient.w;
         float diffuse = clamp(dot(normalize(i.normal), normalize(sun)), 0.0, 1.0);

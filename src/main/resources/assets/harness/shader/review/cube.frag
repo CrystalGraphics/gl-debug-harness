@@ -23,15 +23,15 @@ void main(){
     vec3 L = O - C;
 
     // Ray equation:     P(t) = O + t*D
-    // Sphere equation:  x² + y² + z² = r²
+    // Sphere equation:  x^2 + y^2 + z^2 = r^2
 
-    // Point on sphere:  |P - C|² = r²
-    // Subtitute point:  |t*D + O - C|² = r²
-    // Let L = O - C:    |t*D + L|² = r²
-    // Expand: (D·D)t² + 2(D·L)t + L·L = r²
+    // Point on sphere:  |P - C|^2 = r^2
+    // Subtitute point:  |t*D + O - C|^2 = r^2
+    // Let L = O - C:    |t*D + L|^2 = r^2
+    // Expand: (D.D)t^2 + 2(D.L)t + L.L = r^2
 
     // Ray sphere interesection equation
-    // (D·D)t² + 2(D·L)t + L·L - r² = 0
+    // (D.D)t^2 + 2(D.L)t + L.L - r^2 = 0
 
     float a = dot(D, D);
     float b = 2 * dot(D, L);
