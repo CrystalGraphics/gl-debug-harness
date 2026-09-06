@@ -2508,7 +2508,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         // The library IS the shader node set — the create menu, its search and the widget factory all
         // come from one bridge call, with no shader-specific UI code anywhere on this page.
-        var library = com.crystalgui.app.shadergraph.ShaderGraphBridge.asNodeLibrary(shaderNodes);
+        // ShaderNodeLibrary.of, NOT ShaderGraphBridge.asNodeLibrary: the bridge builds the type map and
+        // deliberately installs no widgets -- it is kept free of the UI -- so a caller that asks it
+        // directly gets a library whose COLOR and VECTOR fields have no editor at all. Not a text field
+        // as a fallback: NOTHING, so a Color node draws its output port and nothing else.
+        var library = com.crystalgui.app.shadergraph.ShaderNodeLibrary.of(shaderNodes);
         shaderGraph.setNodeLibrary(library, NodeWidgetFactory.of(library).build(),
                 com.crystalgui.app.shadergraph.ShaderGraphBridge.GLSL_PROMOTION);
 
