@@ -5,6 +5,12 @@ import com.crystalgraphics.gl.render.CgVectorRenderer;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgMouseCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
+import java.util.function.BiConsumer;
+import java.util.Locale;
+import java.util.List;
+import java.util.ArrayList;
+import com.crystalgui.style.property.visual.transform.Transform;
+import com.crystalgui.render.texture.CgUiGlass;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.input.keymap.KeyStroke;
@@ -216,8 +222,148 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         shaderGraphPage(page("shadergraph", "P6.3 end to end: wire nodes, watch the .shader compile live. Space adds a node."));
         colorSelectorPage(page("colorselector", "The general colour picker: hue ring, SV square, live channel tracks."));
         configuratorPage(page("configurator", "P6.1.8: the whole control kit on one rhythm. Compare against docs/research/unity-inspector/."));
+        glassPage(page("glass", "Backdrop material: blur, refraction, specular, noise. Drag the sliders."));
 
         return root;
+    }
+
+    // ── glass page ──────────────────────────────────────────────────────────────
+
+    /** Every specimen on the page, so one slider retunes all of them at once. */
+    private final List<CgUiGlass> glassSpecimens = new ArrayList<>();
+
+    private float glassPhase;
+
+    /**
+     * Liquid glass, with the parameters exposed.
+     *
+     * <p>The point of this page is that glass cannot be judged from a screenshot of a flat panel: the
+     * blur has to have something to average, the saturation lift has to have colour to rescue, and the
+     * refraction has to have a straight edge to bend. So the stage is deliberately busy and the blobs
+     * DRIFT — a still frame hides the one property that separates a captured backdrop from a texture,
+     * which is that it is live.</p>
+     */
+    private void glassPage(UIElement pane) {
+        UIElement stage = new UIElement();
+        stage.addClass("gl-stage");
+
+        // The backdrop. A container the hook transforms, so one write moves every blob and none of them
+        // re-lays-out: a transform is layout-free by construction, which is what makes it safe to
+        // animate sixty times a second behind a live capture.
+        UIElement blobs = new UIElement();
+        blobs.addClass("gl-blobs");
+        for (int i = 1; i <= 5; i++) {
+            UIElement blob = new UIElement();
+            blob.addClass("gl-blob");
+            blob.addClass("gl-b" + i);
+            blobs.append(blob);
+        }
+        stage.append(blobs);
+
+        UIText label = new UIText("REFRACT");
+        label.addClass("gl-label");
+        stage.append(label);
+        UIText sub = new UIText("a straight edge is what makes a lens legible");
+        sub.addClass("gl-sub");
+        stage.append(sub);
+
+        // The specimens. Four shapes because a bezel behaves differently on each — see the sheet.
+        stage.append(glassPanel("gl-capsule"));
+
+        UIElement card = glassPanel("gl-card");
+        UIText cardTitle = new UIText("Liquid Glass");
+        cardTitle.addClass("gl-card-title");
+        UIText cardBody = new UIText("blur + refraction + specular, over a live backdrop");
+        cardBody.addClass("gl-card-body");
+        card.append(cardTitle);
+        card.append(cardBody);
+        stage.append(card);
+
+        stage.append(glassPanel("gl-circle"));
+
+        UIElement tiles = new UIElement();
+        tiles.addClass("gl-tiles");
+        for (int i = 0; i < 5; i++) tiles.append(glassPanel("gl-tile"));
+        stage.append(tiles);
+
+        pane.append(stage);
+
+        // A COMPOSITOR OVERRIDE, not the cascade: the drift is not a transition and must not become an
+        // animation slot somebody then has to end. Written every frame, so a rebuilt box heals itself
+        // on the next one. The hook is OWNED by the blobs and stops when they leave the tree.
+        document.animation().every(blobs, delta -> {
+            glassPhase += delta;
+            Box box = blobs.box();
+            if (box != null) {
+                box.setTransform(Transform.translate((float) Math.sin(glassPhase * 0.23) * 26f,
+                        (float) Math.cos(glassPhase * 0.17) * 18f));
+            }
+            return true;
+        });
+
+        UIElement controls = new UIElement();
+        controls.addClass("gl-controls");
+        UIElement left = new UIElement();
+        left.addClass("gl-col");
+        UIElement right = new UIElement();
+        right.addClass("gl-col");
+
+        left.append(glassControl("blur", 0f, 30f, 12f, "%.0f", CgUiGlass::setBlurRadius));
+        left.append(glassControl("bezel", 0f, 30f, 10f, "%.0f", CgUiGlass::setBezel));
+        left.append(glassControl("ior", 1f, 2.5f, 1.5f, "%.2f", CgUiGlass::setIor));
+        right.append(glassControl("specular", 0f, 1.5f, 0.3f, "%.2f", CgUiGlass::setSpecular));
+        right.append(glassControl("noise", 0f, 0.25f, 0.035f, "%.3f", CgUiGlass::setNoise));
+        right.append(glassControl("saturation", 0f, 3f, 1.4f, "%.2f", CgUiGlass::setSaturation));
+
+        controls.append(left);
+        controls.append(right);
+        pane.append(controls);
+    }
+
+    /** A specimen: an element whose background IS a glass material, registered for the sliders. */
+    private UIElement glassPanel(String styleClass) {
+        CgUiGlass glass = new CgUiGlass()
+                .setBlurRadius(12f).setBezel(10f).setIor(1.5f)
+                .setSpecular(0.3f).setNoise(0.035f).setSaturation(1.4f)
+                .setTint(0x40FFFFFF).setFallbackColor(0x66202430);
+        glassSpecimens.add(glass);
+
+        UIElement panel = new UIElement();
+        panel.addClass(styleClass);
+        StyleGroup.inlinePipeline(panel.getStyle().getGeneralGroup(), g -> g.background(glass));
+        return panel;
+    }
+
+    /**
+     * One labelled slider that retunes every specimen live.
+     *
+     * <p>Mutating the drawable in place rather than rebuilding it is deliberate and is why this is
+     * immediate: the same {@link CgUiGlass} instance is what the cascade holds and what gets drawn each
+     * frame, so a setter IS the update. Re-parsing a {@code glass(...)} declaration per drag frame would
+     * churn the cascade for a value the shader reads directly.</p>
+     */
+    private UIElement glassControl(String name, float min, float max, float initial,
+                                   String format, BiConsumer<CgUiGlass, Float> apply) {
+        UIElement row = new UIElement();
+        row.addClass("gl-ctl");
+
+        UIText nameLabel = new UIText(name);
+        nameLabel.addClass("gl-ctl-name");
+        UIText valueLabel = new UIText(String.format(Locale.ROOT, format, initial));
+        valueLabel.addClass("gl-ctl-val");
+
+        Slider slider = new Slider();
+        slider.addClass("gl-slider");
+        slider.setRange(min, max).setValue(initial);
+        slider.onValueChanged.connect(v -> {
+            for (CgUiGlass glass : glassSpecimens) apply.accept(glass, v);
+            valueLabel.setText(String.format(Locale.ROOT, format, v));
+        });
+
+        row.append(nameLabel);
+        row.append(slider);
+        row.append(valueLabel);
+        return row;
     }
 
     private UIElement header() {
@@ -2128,8 +2274,25 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                         continuous.getValue()))
                 .font(context.getFont().atSize(14)).submit();
 
-        if (frame.getFrameNumber() == 5) {
-            ctx.getArtifactService().requestCapture("startup");
+        // OPEN ON A NAMED PAGE, AND PHOTOGRAPH IT. `-Dcrystalgui.gallery.page=glass` with `--seconds=N`
+        // turns this scene into an unattended diagnostic: a run that leaves a PNG of ONE page on disk.
+        // The property prefix must be crystalgui. or crystalgraphics. -- the build forwards only those
+        // two, and a differently-named flag is accepted on the command line and reaches nothing.
+        //
+        // Frame 5 is too early for a page whose content is a captured backdrop: the capture is taken
+        // during paint, and anything animating behind it has barely moved. 90 is about a second and a
+        // half in, by which point the drift has travelled and a stale capture would be obvious.
+        String wanted = System.getProperty("crystalgui.gallery.page");
+        if (wanted != null && frame.getFrameNumber() == 2) {
+            for (int i = 0; i < pages.getTabCount(); i++) {
+                if (wanted.equalsIgnoreCase(pages.getTab(i).getText())) {
+                    pages.selectIndex(i);
+                    break;
+                }
+            }
+        }
+        if (frame.getFrameNumber() == (wanted == null ? 5 : 90)) {
+            ctx.getArtifactService().requestCapture(wanted == null ? "startup" : wanted);
         }
 
     }
