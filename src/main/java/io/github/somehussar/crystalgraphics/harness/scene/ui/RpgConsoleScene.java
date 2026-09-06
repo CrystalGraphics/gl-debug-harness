@@ -37,6 +37,7 @@ import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessThemes;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.List;
 import java.util.Set;
 import org.joml.Matrix4f;
@@ -52,7 +53,7 @@ import org.joml.Matrix4f;
  * the sheets through {@code StyleEngine.reloadStylesheets()}, which the runner pairs because neither
  * covers the other.</p>
  *
- * <h3>Two pages, and the rail switches them</h3>
+ * <h3>Two pages, and the shell's rail switches them</h3>
  *
  * <p><b>Status</b> is the screen the mod actually ships, and is what {@code menu.css} is judged
  * against. <b>Options</b> is a widget gallery — every stock control the theme restyles, on one
@@ -60,22 +61,20 @@ import org.joml.Matrix4f;
  * misses looks exactly like a rule that works. The remaining five tabs draw the placeholder the mod
  * draws, which is also what a rail button in its ordinary state looks like.</p>
  *
- * <p>The rail is buttons rather than a {@code TabView}, because the mod swaps whole screens rather
- * than panes. Switching rebuilds the body — safe here and only here, since the rail is outside it;
- * a widget must never rebuild the elements it is being clicked on.</p>
+ * <h3>The shell is RPG-Core's; the pages are this fixture's</h3>
  *
- * <h3>It is a fixture, not the product</h3>
+ * <p>Since U2 the backdrop, the rail, the ribbon and the slot are the mod's own {@code MenuShell},
+ * loaded off the classpath by {@link RpgShell} — so what a screenshot shows is the thing that ships
+ * rather than a copy of it that has drifted. The shell lights its own rail button and retitles its own
+ * ribbon; all this scene does is hand it a page when it says a tab was pressed.</p>
  *
- * <p>The tree is built from stock widgets wearing the {@code .rpg-*} classes the plan defines.
- * RPG-Core's own screens will build the same shapes from the same classes at U2, and the CSS carries
- * across untouched — the same relationship {@code cgui-gallery} has with the workbench. Nothing here
- * holds game state or reads a character; the numbers are the ones in
- * {@code plan/ui/OPEN_STATUS_SCREEN.png}, typed out.</p>
+ * <p>The PAGES stay here, and stay a fixture. They hold no game state and read no character: the
+ * numbers are the ones in {@code plan/ui/OPEN_STATUS_SCREEN.png}, typed out. Status becomes the mod's
+ * at U3; the gallery never will, being a page RPG-Core has no reason to build.</p>
  *
- * <p><b>It needs RPG-Core's resources on the resolver</b>, which {@code ./gradlew runHarness} from
- * that project arranges. Run from here instead and the theme is refused with a log line naming the
- * file it could not find, leaving the bare user-agent sheet — which is legible rather than broken,
- * and is also what {@code -Dcrystalgui.theme=none} asks for on purpose.</p>
+ * <p><b>It needs RPG-Core on the classpath and on the resolver</b>, which {@code ./gradlew runHarness}
+ * from that project arranges. Run from here instead and the scene says so outright rather than drawing
+ * a lookalike, because a screenshot of a stand-in is evidence about the stand-in.</p>
  */
 public class RpgConsoleScene implements InteractiveSceneLifecycle,
         CgSystemInput.Keyboard, CgSystemInput.Mouse {
@@ -90,10 +89,10 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
      */
     private static final float SCALE = 2f;
 
-    private static final String STATUS = "Status";
-    private static final String OPTIONS = "Options";
-    private static final String[] TABS =
-            {STATUS, "Skills", "Abilities", "Forms", "Styles", "Slots", OPTIONS};
+    // THE SHELL OWNS THE TAB LIST. These are the two this fixture has a page for, spelled as
+    // MenuTab's own constant names because that is what arrives through onSelect.
+    private static final String STATUS = "STATUS";
+    private static final String OPTIONS = "OPTIONS";
 
     /**
      * {@code CoreAttributes}' six, with their registered colours — DATA, which is why none of this is
@@ -123,9 +122,7 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
     };
 
     private UIDocument document;
-    private UIElement body;
-    private UIText ribbonTitle;
-    private final List<Button> railButtons = new ArrayList<>();
+    private RpgShell shell;
     private ProgressBar walking;
     private float elapsed;
 
@@ -141,18 +138,34 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
 
         document.boxes().setRootTransform(new Matrix4f().scale(SCALE, SCALE, 1f));
 
-        UIElement backdrop = buildRoot();
+        shell = RpgShell.load();
+        if (shell == null) {
+            document.append(new UIText("RPG-Core is not on the classpath. Run ./gradlew runHarness "
+                    + "from RPG-Core-NeoForge, which puts its classes there and this scene builds "
+                    + "the mod's own MenuShell."));
+            return;
+        }
+
+        // Whatever the mod puts here in game is the player's name. The fixture needs SOMETHING, or the
+        // ribbon reads as a bar with one word in it and the separator never gets looked at.
+        shell.setSubject("Dev");
+
+        UIElement backdrop = shell.element();
         document.append(backdrop);
 
-        // SCOPED to the backdrop, exactly as the mod will add it -- so the fixture proves the scoping
-        // works rather than assuming it. Added after the append because a scope root has to be in the
-        // tree for anything under it to match.
-        document.styles().addStylesheet(StyleSheetRegistry.of("rpgcore:menu"), backdrop);
+        // menu.css is NOT added here: MenuShell scopes it to itself when it joins a document, which is
+        // exactly what the mod does in game. Adding it again would append a second copy at the highest
+        // priority -- correct-looking, and the first rule anyone edited afterwards would appear to
+        // have no effect.
         document.styles().addStylesheet(StyleSheet.parse(SCENE_CSS), backdrop);
 
-        // Straight to the page being styled: -Dcrystalgui.rpg.tab=Options. runHarness forwards every
+        // Straight to the page being styled: -Dcrystalgui.rpg.tab=options. runHarness forwards every
         // -Dcrystalgui.*, so this needs no Gradle plumbing.
-        show(System.getProperty("crystalgui.rpg.tab", STATUS));
+        String start = System.getProperty("crystalgui.rpg.tab", STATUS).toUpperCase(Locale.ROOT);
+        shell.select(start);
+        show(start);
+        // LAST, so the two calls above do not build the first page twice.
+        shell.onSelect(this::show);
     }
 
     /**
@@ -226,60 +239,12 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
             }
             """;
 
-    // ── The shell ───────────────────────────────────────────────────────────────────────────────
-
-    private UIElement buildRoot() {
-        UIElement backdrop = new UIElement().addClass("rpg-backdrop");
-        // FIRST, so painter's order draws it under everything. Absolutely positioned, so it
-        // contributes nothing to the row the rail and the content lay out in.
-        backdrop.append(new UIElement().addClass("rpg-grid"));
-        backdrop.append(buildRail());
-
-        UIElement content = new UIElement().addClass("rpg-content");
-        content.append(buildRibbon());
-        content.append(new UIElement().addClass("rpg-hairline"));
-        body = new UIElement().addClass("rpg-body");
-        content.append(body);
-        backdrop.append(content);
-        return backdrop;
-    }
-
-    private UIElement buildRail() {
-        UIElement rail = new UIElement().addClass("rpg-tabs");
-        for (String name : TABS) {
-            Button tab = new Button(name);
-            tab.addClass("rpg-tab");
-            tab.attachListener(() -> show(name));
-            railButtons.add(tab);
-            rail.append(tab);
-        }
-        return rail;
-    }
-
-    private UIElement buildRibbon() {
-        UIElement ribbon = new UIElement().addClass("rpg-ribbon");
-        UIElement bar = new UIElement().addClass("rpg-ribbon-body");
-        ribbonTitle = new UIText(STATUS);
-        ribbonTitle.addClass("rpg-ribbon-title");
-        bar.append(ribbonTitle);
-        // A HYPHEN, not an em dash. The bundled Minecraft font has no U+2014, so the screen drew a
-        // tofu box where the separator should be -- the same gap `UIText` already documents for the
-        // ellipsis, met by a fixture rather than by the engine.
-        bar.append(new UIText("  -  Dev").addClass("rpg-ribbon-subject"));
-        ribbon.append(bar);
-        ribbon.append(new UIElement().addClass("rpg-ribbon-cap"));
-        return ribbon;
-    }
-
-    /** Swaps the body and moves the rail's selection. The rail is outside the body, so this is safe. */
+    /**
+     * Fills the shell's slot. The rail and the ribbon are the SHELL's -- it lights its own button and
+     * retitles itself, and tells this method afterwards, which is why nothing here touches either.
+     */
     private void show(String tab) {
-        ribbonTitle.setText(tab);
-        for (Button button : railButtons) {
-            if (button.getText().equals(tab)) button.addClass("__selected__");
-            else button.removeClass("__selected__");
-        }
-        body.removeAll();
-        body.append(switch (tab) {
+        shell.setPage(switch (tab) {
             case STATUS -> buildStatusPage();
             case OPTIONS -> buildGalleryPage();
             default -> buildPlaceholderPage(tab);
@@ -391,8 +356,12 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
     }
 
     private UIElement buildPlaceholderPage(String tab) {
-        UIElement plate = new UIElement().addClass("rpg-plate").addClass("fx-placeholder");
-        plate.append(new UIText(tab + " has no content yet").addClass("fx-note"));
+        // `rpg-lamp` too: the plate-corner icon is chrome nothing else on the Status page shows, and an
+        // unbuilt tab is the one page with room to look at it.
+        UIElement plate = new UIElement()
+                .addClass("rpg-plate").addClass("rpg-lamp").addClass("fx-placeholder");
+        String name = tab.charAt(0) + tab.substring(1).toLowerCase(Locale.ROOT);
+        plate.append(new UIText(name + " has no content yet").addClass("fx-note"));
         return plate;
     }
 
@@ -590,10 +559,8 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
     @Override
     public void dispose() {
         document = null;
-        body = null;
-        ribbonTitle = null;
+        shell = null;
         walking = null;
-        railButtons.clear();
     }
 
     @Override

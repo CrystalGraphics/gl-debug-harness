@@ -78,7 +78,26 @@ tasks.register<JavaExec>("runHarness") {
     group = "harness"
     dependsOn(extractLwjglNatives)
 
-    classpath = sourceSets.main.get().runtimeClasspath
+    // A CONSUMER'S OWN CLASSES, so a scene can build that project's real screens instead of a copy:
+    //
+    //   -Pharness.extraClasspath=X:/projects/RPG-Core-NeoForge/build/classes/java/main
+    //
+    // A copy is what the alternative always becomes -- the harness cannot depend on a project that
+    // depends on it, so without this every mod screen worth previewing gets re-implemented here and
+    // drifts from the one that ships. Reflection at the scene's end keeps the compile dependency at
+    // zero in both directions; see RpgConsoleScene.
+    val extraClasspath = (project.findProperty("harness.extraClasspath") as String?)
+        ?.split(File.pathSeparator)
+        .orEmpty()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .map { file(it) }
+    extraClasspath.filterNot { it.exists() }.forEach {
+        // Loud, because the silent version is a scene that reports the consumer's class as absent --
+        // which looks exactly like the consumer not having written it.
+        logger.warn("[harness] -Pharness.extraClasspath names '${'$'}{it.absolutePath}', which does not exist")
+    }
+    classpath = sourceSets.main.get().runtimeClasspath + files(extraClasspath)
     mainClass.set("io.github.somehussar.crystalgraphics.harness.FontDebugHarnessMain")
 
     val lwjglNativesDir = file("build/lwjgl-natives").absolutePath
