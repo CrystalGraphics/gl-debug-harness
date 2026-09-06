@@ -20,7 +20,7 @@
  *   scan cannot see it and passes; the LOADER GATE (ScriptClassLoader.loadClass) catches it when the
  *   name is actually resolved. To watch that half on its own, comment out sections 1-3.
  *
- * WHAT THIS IS NOT. Read plan_syntax.md 19.1. For Java this is a guardrail, not a security boundary:
+ * WHAT THIS IS NOT. Read plan/lang-stack.md 19.1. For Java this is a guardrail, not a security boundary:
  * compiled bytecode links what it links, SecurityManager is gone from modern JVMs, and a script that can
  * reach reflection can resolve names neither half of this ever sees. It stops accidents and casual
  * reach, and it keeps the editor from teaching an API the runtime will refuse. It does not contain a

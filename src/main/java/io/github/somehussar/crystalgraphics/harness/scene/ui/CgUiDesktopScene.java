@@ -41,7 +41,7 @@ import java.nio.file.Paths;
  * <h3>This is the {@code windowing} scene, on the M6 engine</h3>
  *
  * <p>A PORT of that file rather than a fresh scene, and deliberately: it is the compositor's manual,
- * written a W at a time as {@code plan_windowing.md} shipped, and everything it tells you to try is a
+ * written a W at a time as {@code plan/shell-windowing.md} shipped, and everything it tells you to try is a
  * thing somebody built the demonstration for on the day. Rewriting it would have thrown that away and
  * quietly replaced it with whatever this engine happened to make easy — the difference between a scene
  * that can find a regression and one that can only show what already works.</p>
