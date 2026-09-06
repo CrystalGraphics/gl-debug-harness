@@ -1,6 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.core.storage.StorageLayout;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.ui.dom.UIElementTreeSource;
 import com.crystalgui.net.mirror.UIElementMirror;
@@ -198,7 +199,8 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
      * unrelated clean would be losing work.</p>
      */
     private static Path seedScratchProject(HarnessContext ctx) {
-        Path root = Paths.get("workspace").toAbsolutePath().normalize();
+        Path root = StorageLayout.projectsIn(Paths.get(".").toAbsolutePath().normalize())
+                .resolve("scratch").normalize();
         try {
             Files.createDirectories(root.resolve("src"));
             writeIfAbsent(root.resolve("README.md"),

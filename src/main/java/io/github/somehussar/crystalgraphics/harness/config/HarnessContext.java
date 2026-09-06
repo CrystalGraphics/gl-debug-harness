@@ -1,5 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.config;
 
+import java.nio.file.Paths;
+import java.nio.file.Path;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.capture.ArtifactService;
 import io.github.somehussar.crystalgraphics.harness.scheduler.TaskScheduler;
@@ -278,6 +280,22 @@ public final class HarnessContext {
     }
 
     // ── Output configuration — delegate to OutputSettings ──
+
+    /**
+     * Where the harness keeps anything CrystalGUI stores — the {@code crystalgui/} tree goes here.
+     *
+     * <p>The harness's answer to {@code HostServices.storageRoot()}: the directory it was launched
+     * from. A scene asks for it rather than deciding one, so every scene writes to the same place and
+     * none of them spells a path.</p>
+     *
+     * <pre>{@code
+     * desktop.useStorage(ctx.installation());
+     * desktop.persistAs("my-scene");
+     * }</pre>
+     */
+    public Path installation() {
+        return Paths.get(".").toAbsolutePath().normalize();
+    }
 
     /**
      * Returns the output directory for screenshots and artifacts.

@@ -10,7 +10,6 @@ import com.crystalgui.desktop.Desktop;
 import com.crystalgui.desktop.DesktopCommands;
 import com.crystalgui.desktop.taskbar.TaskbarDesigner;
 import com.crystalgui.desktop.window.WindowFrame;
-import com.crystalgui.core.storage.LocalConfigStorage;
 import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.ui.dom.UIElement;
@@ -33,7 +32,6 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 
 import org.joml.Matrix4f;
 
-import java.nio.file.Paths;
 
 /**
  * CrystalOS, hands-on — the compositor scene, and the one place any of it can be driven by hand.
@@ -256,14 +254,17 @@ public class CgUiDesktopScene
         inspector.content().append(focusRow("Gamma", "Delta"));
         inspector.content().append(modalButton(inspector));
 
+        // WHERE THIS HARNESS WRITES, asked of the harness rather than decided here -- and before
+        // anything launches onto the desktop, since that is what an application is given.
+        desktop.useStorage(ctx.installation());
+
         openEditorWindow();
 
         // WHERE THE ARRANGEMENT LIVES -- W12 -- and LAST, so it is applied over whatever the scene above
         // set up rather than under it. Every window this scene opens carries a key, which is what a
         // record can name one by; a key from an older version of this scene simply matches nothing.
         // With no record at all it does nothing, so a first run looks exactly as it always has.
-        desktop.persistTo(new LocalConfigStorage(
-                Paths.get("workspace-config").toAbsolutePath().normalize()), DESKTOP_ID);
+        desktop.persistAs(DESKTOP_ID);
     }
 
     /**
@@ -302,8 +303,7 @@ public class CgUiDesktopScene
         // Beside the scratch workspace, never inside it: a session record is private and must not become
         // part of a project a resource pack ships. The dock scene keeps its own for the same reason.
         editor = (WorkbenchApplication) desktop.applications().launch(CrystalEditor.KIND,
-                workspace.workspace(),
-                new LocalConfigStorage(Paths.get("workspace-config").toAbsolutePath().normalize()));
+                workspace.workspace());
         if (editor == null) return;
         editor.addClass("desktop-editor");
         // A SIZE THIS SCENE CHOOSES, over whatever the arrangement record says: the whole exercise here

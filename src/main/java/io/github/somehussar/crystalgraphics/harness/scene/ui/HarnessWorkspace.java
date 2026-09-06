@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgui.core.storage.StorageLayout;
 import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIElementTreeSource;
 import com.crystalgui.net.mirror.UIElementMirror;
@@ -255,7 +256,8 @@ final class HarnessWorkspace {
     }
 
     private static Path seedScratchProject() {
-        Path root = Paths.get("workspace").toAbsolutePath().normalize();
+        Path root = StorageLayout.projectsIn(Paths.get(".").toAbsolutePath().normalize())
+                .resolve("scratch").normalize();
         try {
             Files.createDirectories(root.resolve("src"));
             writeIfAbsent(root.resolve("README.md"),

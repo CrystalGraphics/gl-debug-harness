@@ -6,6 +6,7 @@ import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.util.profiling.CgProfiler;
 import com.crystalgraphics.util.profiling.CgProfilerDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.core.storage.StorageLayout;
 import com.crystalgui.core.async.FrameProfile;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.render.text.FontFamilyCache;
@@ -13,7 +14,6 @@ import com.crystalgui.workbench.chrome.palette.QuickPick;
 import com.crystalgui.workbench.search.GoToFile;
 import com.crystalgui.language.run.view.ScriptWorkbench;
 import com.crystalgui.app.crystaleditor.CrystalEditor;
-import com.crystalgui.core.storage.LocalConfigStorage;
 import com.crystalgui.desktop.Desktop;
 import java.nio.file.Paths;
 import com.crystalgui.workbench.app.WorkbenchApplication;
@@ -162,10 +162,14 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // were real and neither answered the question. A flow that measures opening a class has to
         // begin with that class shut -- and it must not write over the record either, which a
         // directory of its own settles in one line where a "do not restore" flag settled only half.
-        String configDirectory = flowEnabled || HOVER_FLOW ? "workspace-config-flow" : "workspace-config";
+        // ITS OWN INSTALLATION for the flow variant, which is a measurement fixture rather than
+        // configuration: a flow that measures opening a class has to begin with that class shut, and
+        // the session record is what would reopen it. Everywhere else it is the harness's own.
+        Desktop.of(document).useStorage(flowEnabled || HOVER_FLOW
+                ? ctx.installation().resolve("harness-flow")
+                : ctx.installation());
         editor = (WorkbenchApplication) Desktop.of(document).applications().launch(CrystalEditor.KIND,
-                workspace.workspace(),
-                new LocalConfigStorage(Paths.get(configDirectory).toAbsolutePath().normalize()));
+                workspace.workspace());
         editor.addClass("demo-root");
         editor.mainWindow().maximize();
         registerDummyToolWindows();
