@@ -183,9 +183,14 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     private void notifyChanges(Map<Object, List<FsMessages.FileChange>> byPeer) {
         List<FsMessages.FileChange> mine = binding.changesFor(byPeer);
         if (mine.isEmpty()) return;
-        server.call(FsMethods.CHANGED, new StateMap<>(PlainOps.INSTANCE,
+        // NOTIFY, not call. The client subscribes to CHANGED on the NOTIFICATION channel
+        // (Workspace.over(session::call, session::onNotify)), so a request went out on a channel
+        // nothing there listens to and was dropped -- silently, since onError was null. Every file
+        // watch in the harness was dead: no reload of an open file, no tree refresh, and a conflict
+        // discovered only at save time by the etag check. WorkspaceHost fans out with notify too.
+        server.notify(FsMethods.CHANGED, new StateMap<>(PlainOps.INSTANCE,
                 FsMessages.changedNotification().encode(PlainOps.INSTANCE,
-                        new FsMessages.ChangedNotification(mine))), null, null);
+                        new FsMessages.ChangedNotification(mine))));
     }
 
     /**
