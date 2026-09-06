@@ -158,7 +158,11 @@ final class HarnessWorkspace {
             // queue overflows, so the poll is what makes the answer eventually right rather than an
             // alternative to listening.
             List<CgFileEvent> events = service.drainFileEvents();
-            if (!events.isEmpty()) notifyChanges(hub.tick(WorkspaceActor.LOCAL, events));
+            // OR SOMETHING THE SERVER DID: a tick carries both, and gating on the watcher alone leaves
+            // an operation queued until an unrelated file happens to move.
+            if (!events.isEmpty() || hub.hasStated()) {
+                notifyChanges(hub.tick(WorkspaceActor.LOCAL, events));
+            }
             notifyChanges(hub.poll(WorkspaceActor.LOCAL));
         }
     }

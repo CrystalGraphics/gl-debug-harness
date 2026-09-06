@@ -502,7 +502,11 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
             // THE EVENTS FIRST, then the reconciling rescan. A watcher loses events by design when its
             // queue overflows, so the poll makes the answer eventually right rather than replacing it.
             List<CgFileEvent> events = service.drainFileEvents();
-            if (!events.isEmpty()) notifyChanges(hub.tick(WorkspaceActor.LOCAL, events));
+            // OR SOMETHING THE SERVER DID: a tick carries both, and gating on the watcher alone leaves
+            // an operation queued until an unrelated file happens to move.
+            if (!events.isEmpty() || hub.hasStated()) {
+                notifyChanges(hub.tick(WorkspaceActor.LOCAL, events));
+            }
             notifyChanges(hub.poll(WorkspaceActor.LOCAL));
         }
 
