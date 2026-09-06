@@ -284,7 +284,7 @@ public final class HarnessContext {
     /**
      * Where the harness keeps anything CrystalGUI stores — the {@code crystalgui/} tree goes here.
      *
-     * <p>The harness's answer to {@code HostServices.storageRoot()}: the directory it was launched
+     * <p>The harness's answer to {@code HostServices.installationDirectory()}: the directory it was launched
      * from. A scene asks for it rather than deciding one, so every scene writes to the same place and
      * none of them spells a path.</p>
      *
