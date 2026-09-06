@@ -1,7 +1,0 @@
-{
-  "editor.appearance.showIndentGuides": "true",
-  "build.shaders.warningsAsErrors": "false",
-  "build.shaders.target": "GL 3.3",
-  "appearance.theme": "Crystal Dark",
-  "appearance.editorScheme": "Eclipse Dark"
-}

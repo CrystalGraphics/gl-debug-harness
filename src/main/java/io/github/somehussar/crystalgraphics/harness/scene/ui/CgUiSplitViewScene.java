@@ -1,14 +1,14 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.SplitView;
-import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.layout.SplitView;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -32,7 +32,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiSplitViewScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
     private SplitView horizontal;
     private SplitView vertical;
 
@@ -52,14 +55,23 @@ public class CgUiSplitViewScene implements InteractiveSceneLifecycle, CgSystemIn
     @Override
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
-        this.uiWindow = new UIWindow(Ui.of(createDemo()));
-//        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLES));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        UIElement sceneRoot = createDemo();
+        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
+        // root and took the window's size; here the DOCUMENT is the root and this is an
+        // ordinary child, which sizes to its content -- so without this the scene lays out
+        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
+        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).heightPercent(100f));
+        this.document.append(sceneRoot);
+//        this.document.styles().addStylesheet(StyleSheet.DEFAULT);
+        this.document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
+        this.document.styles().addStylesheet(StyleSheet.parse(STYLES));
     }
 
     private UIElement createDemo() {
-        // Sized from the stylesheet (.demo-root below), which only works because UIWindow now
+        // Sized from the stylesheet (.demo-root below), which only works because UIDocument now
         // recomputes the root's placement per layout instead of once in init(). It used to have to be
         // set in Java: init() measured the root before any stylesheet had been applied and then
         // early-returned forever, leaving a CSS-sized root permanently mis-positioned.
@@ -73,32 +85,32 @@ public class CgUiSplitViewScene implements InteractiveSceneLifecycle, CgSystemIn
         horizontal = new SplitView();
         horizontal.setPercentage(40f);
         horizontal.first().addClass("pane-a");
-        horizontal.first().addChild(label("left 40%"));
+        horizontal.first().append(label("left 40%"));
 
         SplitView nested = new SplitView();
         nested.setOrientation(SplitView.Orientation.VERTICAL);
         nested.setPercentage(50f);
         nested.first().addClass("pane-b");
-        nested.first().addChild(label("nested top"));
+        nested.first().append(label("nested top"));
         nested.second().addClass("pane-c");
-        nested.second().addChild(label("nested bottom"));
-        horizontal.second().addChild(nested);
+        nested.second().append(label("nested bottom"));
+        horizontal.second().append(nested);
 
-        root.addChild(frame(horizontal));
+        root.append(frame(horizontal));
 
         // Vertical, whose top pane holds far more content than its share.
         vertical = new SplitView();
         vertical.setOrientation(SplitView.Orientation.VERTICAL);
         vertical.setPercentage(35f);
         vertical.first().addClass("pane-d");
-        vertical.first().addChild(label("top 35% — holds a 2000px child"));
+        vertical.first().append(label("top 35% — holds a 2000px child"));
         UIElement huge = new UIElement();
         huge.addClass("huge");
-        vertical.first().addChild(huge);
+        vertical.first().append(huge);
         vertical.second().addClass("pane-a");
-        vertical.second().addChild(label("bottom"));
+        vertical.second().append(label("bottom"));
 
-        root.addChild(frame(vertical));
+        root.append(frame(vertical));
 
         return root;
     }
@@ -107,7 +119,7 @@ public class CgUiSplitViewScene implements InteractiveSceneLifecycle, CgSystemIn
     private UIElement frame(UIElement content) {
         UIElement frame = new UIElement();
         frame.addClass("frame");
-        frame.addChild(content);
+        frame.append(content);
         return frame;
     }
 
@@ -119,8 +131,16 @@ public class CgUiSplitViewScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
-        uiWindow.paintFrame();
+        int w = ctx.getScreenWidth();
+        int h = ctx.getScreenHeight();
+        // SURFACE pixels in, LOGICAL units to lay out in -- the scale lives on the box
+        // tree's root transform, so this is the only place the two spaces meet.
+        document.frame(frame.getDeltaTime(), w / SCALE, h / SCALE);
+
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(w, h);
+        document.paint(paintContext);
+        paintContext.endFrame();
 
         var context = CgUiPaintContext.getInstance();
         context.text().draw().at(0, 0)
@@ -135,7 +155,7 @@ public class CgUiSplitViewScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -155,11 +175,11 @@ public class CgUiSplitViewScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

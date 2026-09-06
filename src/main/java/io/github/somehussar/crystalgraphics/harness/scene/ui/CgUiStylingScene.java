@@ -1,17 +1,17 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgui.style.StyleGroup;
+import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.render.texture.CgUiSprite;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.FlexWrap;
-import dev.vfyjxf.taffy.style.JustifyContent;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -25,7 +25,7 @@ import org.lwjgl.input.Keyboard;
  * cross-fades ({@code CgUiCrossFade}, via {@code TextureProperty}'s interpolator) between
  * color/texture/9-slice drawable pairs, triggered by hovering the {@code .fade-*} swatches.
  *
- * <p>Built on the same real {@link UIWindow}/input plumbing as {@link CgUiTestScene}, so
+ * <p>Built on the same real {@link UIDocument}/input plumbing as {@link CgUiTestScene}, so
  * {@code :hover}/{@code :active} are driven by genuine mouse input in the harness window — move
  * the cursor over a button, click and hold it, tab between them (focus policy is default CLICK).</p>
  *
@@ -34,7 +34,10 @@ import org.lwjgl.input.Keyboard;
  */
 public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
 
     private final CgUiSprite panelSprite = new CgUiSprite()
             .setTexture("crystalgui:textures/gui/gdp_styles.png")
@@ -190,8 +193,17 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
     public void init(HarnessContext ctx) {
         Keyboard.enableRepeatEvents(true);
         UIElement root = createStylingDemo();
-        this.uiWindow = new UIWindow(Ui.of(root));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLE_SHEET));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        UIElement sceneRoot = root;
+        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
+        // root and took the window's size; here the DOCUMENT is the root and this is an
+        // ordinary child, which sizes to its content -- so without this the scene lays out
+        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
+        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).heightPercent(100f));
+        this.document.append(sceneRoot);
+        this.document.styles().addStylesheet(StyleSheet.parse(STYLE_SHEET));
     }
 
     private UIElement createStylingDemo() {
@@ -215,7 +227,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
 //                        .gapAll(10)
 //                        .alignItems(AlignItems.CENTER)
 //                );
-//        root.addChild(row);
+//        root.append(row);
 
         // button 0: "#submit", starts disabled -> demonstrates the #id:pseudo-class combo
         // button 1: "primary" class -> demonstrates compound selector + !important
@@ -239,7 +251,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
                 button.addClass("primary");
             }
 
-            root.addChild(button);
+            root.append(button);
         }
 
         // SDF rounded-rect smoke-test: border-radius/border-width/border-color as a universal
@@ -252,62 +264,70 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
                         .borderRadius(10f)
                         .borderColor(0xFF224488))
                 .layout(l -> l.width(48).height(48).borderAll(3));
-        root.addChild(roundedButton);
+        root.append(roundedButton);
 
         // Phase 7 smoke-test: background/background-color parsers exercised through the real
         // stylesheet pipeline (not constructed directly in Java), plus the new sprite(...) CSS
         // function for 9-slice-from-CSS.
         UIElement colorSwatch = new UIElement().layout(l -> l.width(24).height(48));
         colorSwatch.addClass("color-swatch");
-        root.addChild(colorSwatch);
+        root.append(colorSwatch);
 
         UIElement slicedSwatch = new UIElement().layout(l -> l.width(32).height(32));
         slicedSwatch.addClass("sliced-swatch");
-        root.addChild(slicedSwatch);
+        root.append(slicedSwatch);
 
         UIElement croppedSwatch = new UIElement().layout(l -> l.width(32).height(32));
         croppedSwatch.addClass("cropped-swatch");
-        root.addChild(croppedSwatch);
+        root.append(croppedSwatch);
 
         // Background cross-fade demo — move the mouse over each swatch to trigger the
         // `background 700ms ease-in-out` transition. Each pairs a different CgUiDrawable
         // combination on either side of the fade:
         UIElement fadeColorColor = new UIElement().layout(l -> l.width(48).height(48)); // flat color -> flat color
         fadeColorColor.addClass("fade-color-color");
-        root.addChild(fadeColorColor);
+        root.append(fadeColorColor);
 
         UIElement fadeColorTexture = new UIElement().layout(l -> l.width(48).height(48)); // flat color -> full texture
         fadeColorTexture.addClass("fade-color-texture");
-        root.addChild(fadeColorTexture);
+        root.append(fadeColorTexture);
 
         UIElement fadeTextureTexture = new UIElement().layout(l -> l.width(48).height(48)); // 9-slice -> 9-slice
         fadeTextureTexture.addClass("fade-texture-texture");
-        root.addChild(fadeTextureTexture);
+        root.append(fadeTextureTexture);
 
         UIElement fadeSdfColor = new UIElement().layout(l -> l.width(48).height(48)); // SDF rounded rect -> SDF rounded rect (color fill)
         fadeSdfColor.addClass("fade-sdf-color");
-        root.addChild(fadeSdfColor);
+        root.append(fadeSdfColor);
 
         UIElement fadeSdfTexture = new UIElement().layout(l -> l.width(48).height(48)); // SDF rounded rect, color fill -> texture fill
         fadeSdfTexture.addClass("fade-sdf-texture");
-        root.addChild(fadeSdfTexture);
+        root.append(fadeSdfTexture);
 
         UIElement roundedCorners = new UIElement().layout(l -> l.width(48).height(48)); // per-corner radii: top rounded, bottom square
         roundedCorners.addClass("rounded-corners-swatch");
-        root.addChild(roundedCorners);
+        root.append(roundedCorners);
 
         return root;
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
-        uiWindow.paintFrame();
+        int w = ctx.getScreenWidth();
+        int h = ctx.getScreenHeight();
+        // SURFACE pixels in, LOGICAL units to lay out in -- the scale lives on the box
+        // tree's root transform, so this is the only place the two spaces meet.
+        document.frame(frame.getDeltaTime(), w / SCALE, h / SCALE);
+
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(w, h);
+        document.paint(paintContext);
+        paintContext.endFrame();
     }
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -327,14 +347,14 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        final var styleEngine = uiWindow.getStyleEngine();
+        final var styleEngine = document.styles();
         if (!styleEngine.getSheets().isEmpty())
             styleEngine.removeStylesheet(styleEngine.getSheets().getFirst());
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

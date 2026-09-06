@@ -1,13 +1,13 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.Checkbox;
-import com.crystalgui.ui.elements.CheckboxGroup;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.control.Checkbox;
+import com.crystalgui.widget.control.CheckboxGroup;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -32,7 +32,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiCheckboxScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
     private Checkbox standaloneA;
     private Checkbox standaloneB;
     private CheckboxGroup emptyAllowedGroup;
@@ -86,8 +89,17 @@ public class CgUiCheckboxScene implements InteractiveSceneLifecycle, CgSystemInp
         org.lwjgl.input.Keyboard.enableRepeatEvents(false);
 
         UIElement root = createCheckboxDemo();
-        this.uiWindow = new UIWindow(Ui.of(root));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLE_SHEET));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        UIElement sceneRoot = root;
+        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
+        // root and took the window's size; here the DOCUMENT is the root and this is an
+        // ordinary child, which sizes to its content -- so without this the scene lays out
+        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
+        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).heightPercent(100f));
+        this.document.append(sceneRoot);
+        this.document.styles().addStylesheet(StyleSheet.parse(STYLE_SHEET));
     }
 
     private UIElement createCheckboxDemo() {
@@ -103,9 +115,9 @@ public class CgUiCheckboxScene implements InteractiveSceneLifecycle, CgSystemInp
         standaloneCard.addClass("card");
         standaloneA = new Checkbox("Standalone A");
         standaloneB = new Checkbox("Standalone B");
-        standaloneCard.addChild(standaloneA);
-        standaloneCard.addChild(standaloneB);
-        root.addChild(standaloneCard);
+        standaloneCard.append(standaloneA);
+        standaloneCard.append(standaloneB);
+        root.append(standaloneCard);
 
         emptyAllowedGroup = new CheckboxGroup().allowEmpty(true);
         UIElement emptyGroupCard = new UIElement();
@@ -113,9 +125,9 @@ public class CgUiCheckboxScene implements InteractiveSceneLifecycle, CgSystemInp
         for (String label : new String[]{"Option 1", "Option 2", "Option 3"}) {
             Checkbox cb = new Checkbox(label);
             cb.setGroup(emptyAllowedGroup);
-            emptyGroupCard.addChild(cb);
+            emptyGroupCard.append(cb);
         }
-        root.addChild(emptyGroupCard);
+        root.append(emptyGroupCard);
 
         requiredGroup = new CheckboxGroup().allowEmpty(false);
         UIElement requiredGroupCard = new UIElement();
@@ -125,18 +137,26 @@ public class CgUiCheckboxScene implements InteractiveSceneLifecycle, CgSystemInp
             Checkbox cb = new Checkbox(label);
             if (first == null) first = cb;
             cb.setGroup(requiredGroup);
-            requiredGroupCard.addChild(cb);
+            requiredGroupCard.append(cb);
         }
         first.setChecked(true); // required group must start with exactly one checked
-        root.addChild(requiredGroupCard);
+        root.append(requiredGroupCard);
 
         return root;
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
-        uiWindow.paintFrame();
+        int w = ctx.getScreenWidth();
+        int h = ctx.getScreenHeight();
+        // SURFACE pixels in, LOGICAL units to lay out in -- the scale lives on the box
+        // tree's root transform, so this is the only place the two spaces meet.
+        document.frame(frame.getDeltaTime(), w / SCALE, h / SCALE);
+
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(w, h);
+        document.paint(paintContext);
+        paintContext.endFrame();
 
         var context = CgUiPaintContext.getInstance();
         String status = String.format(
@@ -156,7 +176,7 @@ public class CgUiCheckboxScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -176,11 +196,11 @@ public class CgUiCheckboxScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

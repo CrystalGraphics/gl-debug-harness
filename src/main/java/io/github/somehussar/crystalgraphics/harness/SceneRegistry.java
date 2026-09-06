@@ -14,6 +14,8 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRenderer
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCheckboxScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiGalleryScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiDesktopScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNewEngineGalleryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiScrollerScene;
@@ -31,6 +33,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextStressScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiVisualLayersScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.RpgConsoleScene;
 import io.github.somehussar.crystalgraphics.harness.tool.CapabilityReport;
 import io.github.somehussar.crystalgraphics.harness.tool.GlStateDumper;
 import io.github.somehussar.crystalgraphics.harness.tool.ShaderCompileAuditScene;
@@ -339,6 +342,7 @@ public final class SceneRegistry {
             () -> new CgUiButtonScene()
         );
 
+
         reg.register(
             SceneDescriptor.builder("cgui-checkbox")
                 .description("CrystalGUI Checkbox/CheckboxGroup: click/keyboard toggle, :checked-driven mark, group exclusivity (allowEmpty vs required)")
@@ -349,6 +353,42 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiCheckboxScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-new-gallery")
+                .description("M6 NEW ENGINE: every ported widget in one scrolling column, over UIDocument + the box tree -- the counterpart to cgui-gallery, and the only thing that can see whether a ported widget actually DRAWS")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiNewEngineGalleryScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-desktop")
+                .description("M6 NEW ENGINE: CrystalOS -- stacking windows, drag, resize, cascade, the taskbar, per-window modality, maximise, and CrystalEditor running as a window. The counterpart to cgui-new-gallery: that one answers whether a ported WIDGET draws, this one whether a ported WINDOW behaves")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.06f, 0.06f, 0.08f, 1.0f)
+                .build(),
+            () -> new CgUiDesktopScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("rpg-console")
+                .description("RPG-Core's Status screen as a STYLESHEET FIXTURE: authors rpgcore:console and rpgcore:menu with no Minecraft client. Needs -Pharness.assetRoots pointing at the mod's src/main/resources; Ctrl+R re-reads the theme AND the sheets")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.02f, 0.10f, 0.14f, 1.0f)
+                .build(),
+            () -> new RpgConsoleScene()
         );
 
         reg.register(

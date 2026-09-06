@@ -1,13 +1,13 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgui.text.diff.ThreeWayMerge;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.Button;
-import com.crystalgui.ui.elements.Dialog;
-import com.crystalgui.ui.elements.UIText;
-import com.crystalgui.ui.elements.workbench.DiffView;
-import com.crystalgui.ui.elements.workbench.MergeView;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.control.Button;
+import com.crystalgui.widget.overlay.Dialog;
+import com.crystalgui.widget.text.UIText;
+import com.crystalgui.workbench.diff.DiffView;
+import com.crystalgui.workbench.diff.MergeView;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -74,7 +74,7 @@ final class StagedMergeDemo {
      * with an edit in it is the ordinary state of a repository. Falls back to the synthesised pair when
      * the tree is clean, for the same reason F7 does.</p>
      */
-    static void openCommitDiff(UIWindow window, UIElement over) {
+    static void openCommitDiff(UIDocument window, UIElement over) {
         Path root = repositoryRoot();
         String path = root == null ? null : firstJava(gitLines(root, "diff", "--name-only"));
         String head = path == null ? null : gitShow(root, "HEAD:" + path);
@@ -100,27 +100,27 @@ final class StagedMergeDemo {
         System.out.println(TAG + view.differenceCount() + " difference(s)");
 
         Dialog dialog = new Dialog(title + " - commit diff");
-        dialog.getContent().addChild(view);
+        dialog.getContent().append(view);
 
         UIElement actions = new UIElement();
         actions.addClass(MergeView.DIALOG_ACTIONS_CLASS);
-        dialog.getContent().addChild(actions);
+        dialog.getContent().append(actions);
         Button close = new Button("Close");
-        actions.addChild(close);
+        actions.append(close);
         close.onPressed.connect(dialog::close);
 
         window.addOverlay(dialog, over);
         dialog.onClosed.connect(dialog::removeSelf);
         dialog.showModal();
-        window.getInputHandler().requestFocus(close);
+        window.focus().requestFocus(close);
     }
 
     /** Shift+F7 — the synthesised merge, which always has a conflict in it. */
-    static void openSynthesised(UIWindow window, UIElement over) {
+    static void openSynthesised(UIDocument window, UIElement over) {
         show(window, over, synthesised());
     }
 
-    static void open(UIWindow window, UIElement over) {
+    static void open(UIDocument window, UIElement over) {
         Sides sides = collect();
         // FALL THROUGH WHEN THERE IS NOTHING TO LOOK AT. A working tree with nothing staged produces a
         // merge whose "theirs" made no change at all, so every region auto-resolves and the three panes
@@ -138,7 +138,7 @@ final class StagedMergeDemo {
         show(window, over, sides == null ? synthesised() : sides);
     }
 
-    private static void show(UIWindow window, UIElement over, Sides sides) {
+    private static void show(UIDocument window, UIElement over, Sides sides) {
         if (sides == null) {
             System.out.println(TAG + "nothing to merge - no repository, no git, and the fallback file "
                     + "could not be read. Nothing opened.");
@@ -156,18 +156,18 @@ final class StagedMergeDemo {
         MergeView view = new MergeView(merge);
 
         Dialog dialog = new Dialog(sides.title());
-        dialog.getContent().addChild(view);
+        dialog.getContent().append(view);
 
         UIElement actions = new UIElement();
         actions.addClass(MergeView.DIALOG_ACTIONS_CLASS);
-        dialog.getContent().addChild(actions);
+        dialog.getContent().append(actions);
 
         UIText where = new UIText("");
         Button write = new Button("Write merged…");
         Button close = new Button("Close");
-        actions.addChild(where);
-        actions.addChild(write);
-        actions.addChild(close);
+        actions.append(where);
+        actions.append(write);
+        actions.append(close);
 
         // GATED THE SAME WAY THE REAL ONE IS, so the harness exercises the gate rather than a copy of the
         // view with the safety taken off. An undecided conflict still produces text.
@@ -195,7 +195,7 @@ final class StagedMergeDemo {
         window.addOverlay(dialog, over);
         dialog.onClosed.connect(dialog::removeSelf);
         dialog.showModal();
-        window.getInputHandler().requestFocus(close);
+        window.focus().requestFocus(close);
     }
 
     // ── Where the text comes from ───────────────────────────────────────────────────────────────

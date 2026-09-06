@@ -2,62 +2,71 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.gl.render.CgVectorRenderer;
-import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.platform.input.CgKeyCodes;
+import com.crystalgraphics.platform.input.CgMouseCodes;
+import com.crystalgraphics.platform.input.CgSystemInput;
+import java.util.function.BiConsumer;
+import java.util.Locale;
+import java.util.List;
+import java.util.ArrayList;
+import com.crystalgui.style.property.visual.transform.Transform;
+import com.crystalgui.render.texture.CgUiGlass;
+import com.crystalgui.style.StyleGroup;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.input.keymap.KeyStroke;
+import com.crystalgui.ui.input.keymap.KeymapResolver;
+import com.crystalgui.ui.input.keymap.Keymap;
+import com.crystalgui.ui.service.Drag;
+import com.crystalgui.ui.box.Box;
+import com.crystalgui.core.collection.list.SelectionMode;
+import com.crystalgui.core.collection.tree.TreeDataSource;
+import com.crystalgui.core.collection.tree.TreeRow;
+import com.crystalgui.core.command.Command;
+import com.crystalgui.core.config.ConfigDescriptor;
+import com.crystalgui.core.property.ObservableList;
 import com.crystalgui.core.property.Property;
-import com.crystalgui.graph.shader.ShaderGraphBridge;
-import com.crystalgui.render.CgUiPaintContext;
-import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.style.property.visual.Resize;
-import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.Button;
 import com.crystalgui.graph.NodeType;
 import com.crystalgui.graph.NodeTypeRegistry;
-import com.crystalgui.ui.elements.graph.GraphNode;
-import com.crystalgui.ui.elements.graph.NodeWidgetFactory;
-import com.crystalgui.ui.elements.graph.GraphView;
-import com.crystalgui.ui.elements.graph.NodePort;
-import com.crystalgui.ui.elements.graph.PortType;
-import com.crystalgui.ui.elements.Checkbox;
-import com.crystalgui.ui.elements.ColorSelector;
-import com.crystalgui.ui.elements.config.ConfigDescriptor;
-import com.crystalgui.ui.elements.config.ConfiguratorGroup;
-import com.crystalgui.ui.elements.config.ConfiguratorPanel;
-import com.crystalgui.ui.elements.Dialog;
-import com.crystalgui.ui.elements.DialogManager;
-import com.crystalgui.ui.elements.CheckboxGroup;
-import com.crystalgui.ui.elements.ScrollerView;
-import com.crystalgui.ui.elements.Slider;
-import com.crystalgui.ui.elements.SplitView;
-import com.crystalgraphics.platform.input.CgMouseCodes;
-import com.crystalgui.ui.AnchoredPlacement;
-import com.crystalgui.ui.elements.Dropdown;
-import com.crystalgui.ui.elements.Menu;
-import com.crystalgui.ui.elements.MenuItem;
-import com.crystalgui.ui.elements.Switch;
-import com.crystalgui.ui.elements.Tab;
-import com.crystalgui.ui.elements.TabView;
-import com.crystalgui.ui.elements.TextField;
-import com.crystalgui.ui.elements.Tooltip;
-import com.crystalgui.ui.elements.UIText;
-import com.crystalgui.core.command.Command;
-import com.crystalgui.ui.input.keymap.KeyEventType;
-import com.crystalgui.core.property.ObservableList;
-import com.crystalgui.ui.elements.list.ListRenderer;
-import com.crystalgui.ui.elements.list.ListView;
-import com.crystalgui.ui.elements.list.SelectionMode;
-import com.crystalgui.ui.elements.tree.TreeDataSource;
-import com.crystalgui.ui.elements.tree.TreeRenderer;
-import com.crystalgui.ui.elements.tree.TreeRow;
+import com.crystalgui.graph.port.PortType;
+import com.crystalgui.app.shadergraph.ShaderGraphBridge;
+import com.crystalgui.render.CgUiPaintContext;
+import com.crystalgui.style.property.visual.Resize;
+import com.crystalgui.style.sheet.StyleSheet;
+import com.crystalgui.style.sheet.StyleSheetRegistry;
 import com.crystalgui.text.syntax.KeywordTokenizer;
-import com.crystalgui.ui.elements.editor.TextEditor;
-import com.crystalgui.ui.elements.tree.TreeView;
-import com.crystalgui.ui.text.TextRange;
+import com.crystalgui.ui.service.AnchoredPlacement;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.control.Button;
+import com.crystalgui.widget.control.Checkbox;
+import com.crystalgui.widget.control.CheckboxGroup;
+import com.crystalgui.widget.composite.ColorSelector;
+import com.crystalgui.widget.overlay.Dialog;
+import com.crystalgui.widget.overlay.DialogManager;
+import com.crystalgui.widget.overlay.Dropdown;
+import com.crystalgui.widget.overlay.Menu;
+import com.crystalgui.widget.scroll.ScrollerView;
+import com.crystalgui.widget.control.Slider;
+import com.crystalgui.widget.layout.SplitView;
+import com.crystalgui.widget.control.Switch;
+import com.crystalgui.widget.layout.Tab;
+import com.crystalgui.widget.layout.TabView;
+import com.crystalgui.widget.control.TextField;
+import com.crystalgui.widget.overlay.Tooltip;
+import com.crystalgui.widget.text.UIText;
+import com.crystalgui.widget.config.ConfiguratorGroup;
+import com.crystalgui.widget.config.ConfiguratorPanel;
+import com.crystalgui.widget.texteditor.TextEditor;
+import com.crystalgui.widget.graph.GraphNode;
+import com.crystalgui.widget.graph.GraphView;
+import com.crystalgui.widget.graph.NodePort;
+import com.crystalgui.widget.graph.NodeWidgetFactory;
+import com.crystalgui.widget.collection.list.ListRenderer;
+import com.crystalgui.widget.collection.list.ListView;
+import com.crystalgui.widget.collection.tree.TreeRenderer;
+import com.crystalgui.widget.collection.tree.TreeView;
 import com.crystalgui.ui.input.FocusPolicy;
-import com.crystalgui.ui.input.UIDragController;
+import com.crystalgui.ui.input.keymap.KeyEventType;
+import com.crystalgui.text.TextRange;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -85,7 +94,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
     private TabView pages;
     private Button themeToggle;
 
@@ -107,8 +119,17 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         this.oreSheet = StyleSheetRegistry.of("crystalgui:ore");
         this.sceneSheet = StyleSheetRegistry.of("harness:gallery");
 
-        this.uiWindow = new UIWindow(Ui.of(createDemo()));
-        var engine = uiWindow.getStyleEngine();
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        UIElement sceneRoot = createDemo();
+        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
+        // root and took the window's size; here the DOCUMENT is the root and this is an
+        // ordinary child, which sizes to its content -- so without this the scene lays out
+        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
+        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).heightPercent(100f));
+        this.document.append(sceneRoot);
+        var engine = document.styles();
         engine.addStylesheet(StyleSheet.DEFAULT);   // USER_AGENT origin — stays through every toggle
         // NO COMMAND INSTALLS HERE ANY MORE, deliberately.
         //
@@ -118,7 +139,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // EditorCommands, GraphView installs GraphCommands plus the edit.undo/edit.redo chords, each
         // bound on itself so the bare letters cannot fire while typing somewhere else in the window.
         //
-        // An APPLICATION's commands are still the application's -- see CrystalEditor.install, which
+        // An APPLICATION's commands are still the application's -- see WorkbenchApplication, which
         // registers the dock, palette and file commands it decides to offer.
         // The graph theme. Added once and never toggled: the Ore toggle is about Minecraft chrome, and
         // a node graph has no Ore look to switch to — without it the nodes are unstyled boxes and the
@@ -128,9 +149,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         engine.addStylesheet(sceneSheet);
 
         // After the window exists, because commands live on it — see installKeymap.
-        installKeymap(uiWindow);
-        installListStats(uiWindow);
-        installTreeStats(uiWindow);
+        installKeymap(document);
+        installListStats(document);
+        installTreeStats(document);
     }
 
     /**
@@ -145,7 +166,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * re-adding Ore would start winning this scene's own layout rules at equal specificity.</p>
      */
     private void toggleTheme() {
-        var engine = uiWindow.getStyleEngine();
+        var engine = document.styles();
         engine.removeStylesheet(sceneSheet);
         if (oreOn) {
             engine.removeStylesheet(oreSheet);
@@ -164,14 +185,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         root.addClass("gallery-root");
         root.addClass("panel");
 
-        root.addChild(header());
+        root.append(header());
 
         pages = new TabView();
         pages.addClass("gallery-tabs");
         // A sidebar, not a top strip: twelve tabs across the top is the overflow case cgui-tabview
         // exists to demonstrate. The rail is a ScrollerView either way, so a long list still scrolls.
         pages.setTabSide(TabView.TabSide.LEFT);
-        root.addChild(pages);
+        root.append(pages);
 
         buttonPage(page("Button", "Press-and-release on the same element. Space/Enter when focused."));
         checkboxPage(page("Checkbox", "Standalone toggles, plus a CheckboxGroup that refuses to empty."));
@@ -201,8 +222,148 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         shaderGraphPage(page("shadergraph", "P6.3 end to end: wire nodes, watch the .shader compile live. Space adds a node."));
         colorSelectorPage(page("colorselector", "The general colour picker: hue ring, SV square, live channel tracks."));
         configuratorPage(page("configurator", "P6.1.8: the whole control kit on one rhythm. Compare against docs/research/unity-inspector/."));
+        glassPage(page("glass", "Backdrop material: blur, refraction, specular, noise. Drag the sliders."));
 
         return root;
+    }
+
+    // ── glass page ──────────────────────────────────────────────────────────────
+
+    /** Every specimen on the page, so one slider retunes all of them at once. */
+    private final List<CgUiGlass> glassSpecimens = new ArrayList<>();
+
+    private float glassPhase;
+
+    /**
+     * Liquid glass, with the parameters exposed.
+     *
+     * <p>The point of this page is that glass cannot be judged from a screenshot of a flat panel: the
+     * blur has to have something to average, the saturation lift has to have colour to rescue, and the
+     * refraction has to have a straight edge to bend. So the stage is deliberately busy and the blobs
+     * DRIFT — a still frame hides the one property that separates a captured backdrop from a texture,
+     * which is that it is live.</p>
+     */
+    private void glassPage(UIElement pane) {
+        UIElement stage = new UIElement();
+        stage.addClass("gl-stage");
+
+        // The backdrop. A container the hook transforms, so one write moves every blob and none of them
+        // re-lays-out: a transform is layout-free by construction, which is what makes it safe to
+        // animate sixty times a second behind a live capture.
+        UIElement blobs = new UIElement();
+        blobs.addClass("gl-blobs");
+        for (int i = 1; i <= 5; i++) {
+            UIElement blob = new UIElement();
+            blob.addClass("gl-blob");
+            blob.addClass("gl-b" + i);
+            blobs.append(blob);
+        }
+        stage.append(blobs);
+
+        UIText label = new UIText("REFRACT");
+        label.addClass("gl-label");
+        stage.append(label);
+        UIText sub = new UIText("a straight edge is what makes a lens legible");
+        sub.addClass("gl-sub");
+        stage.append(sub);
+
+        // The specimens. Four shapes because a bezel behaves differently on each — see the sheet.
+        stage.append(glassPanel("gl-capsule"));
+
+        UIElement card = glassPanel("gl-card");
+        UIText cardTitle = new UIText("Liquid Glass");
+        cardTitle.addClass("gl-card-title");
+        UIText cardBody = new UIText("blur + refraction + specular, over a live backdrop");
+        cardBody.addClass("gl-card-body");
+        card.append(cardTitle);
+        card.append(cardBody);
+        stage.append(card);
+
+        stage.append(glassPanel("gl-circle"));
+
+        UIElement tiles = new UIElement();
+        tiles.addClass("gl-tiles");
+        for (int i = 0; i < 5; i++) tiles.append(glassPanel("gl-tile"));
+        stage.append(tiles);
+
+        pane.append(stage);
+
+        // A COMPOSITOR OVERRIDE, not the cascade: the drift is not a transition and must not become an
+        // animation slot somebody then has to end. Written every frame, so a rebuilt box heals itself
+        // on the next one. The hook is OWNED by the blobs and stops when they leave the tree.
+        document.animation().every(blobs, delta -> {
+            glassPhase += delta;
+            Box box = blobs.box();
+            if (box != null) {
+                box.setTransform(Transform.translate((float) Math.sin(glassPhase * 0.23) * 26f,
+                        (float) Math.cos(glassPhase * 0.17) * 18f));
+            }
+            return true;
+        });
+
+        UIElement controls = new UIElement();
+        controls.addClass("gl-controls");
+        UIElement left = new UIElement();
+        left.addClass("gl-col");
+        UIElement right = new UIElement();
+        right.addClass("gl-col");
+
+        left.append(glassControl("blur", 0f, 30f, 12f, "%.0f", CgUiGlass::setBlurRadius));
+        left.append(glassControl("bezel", 0f, 30f, 10f, "%.0f", CgUiGlass::setBezel));
+        left.append(glassControl("ior", 1f, 2.5f, 1.5f, "%.2f", CgUiGlass::setIor));
+        right.append(glassControl("specular", 0f, 1.5f, 0.3f, "%.2f", CgUiGlass::setSpecular));
+        right.append(glassControl("noise", 0f, 0.25f, 0.035f, "%.3f", CgUiGlass::setNoise));
+        right.append(glassControl("saturation", 0f, 3f, 1.4f, "%.2f", CgUiGlass::setSaturation));
+
+        controls.append(left);
+        controls.append(right);
+        pane.append(controls);
+    }
+
+    /** A specimen: an element whose background IS a glass material, registered for the sliders. */
+    private UIElement glassPanel(String styleClass) {
+        CgUiGlass glass = new CgUiGlass()
+                .setBlurRadius(12f).setBezel(10f).setIor(1.5f)
+                .setSpecular(0.3f).setNoise(0.035f).setSaturation(1.4f)
+                .setTint(0x40FFFFFF).setFallbackColor(0x66202430);
+        glassSpecimens.add(glass);
+
+        UIElement panel = new UIElement();
+        panel.addClass(styleClass);
+        StyleGroup.inlinePipeline(panel.getStyle().getGeneralGroup(), g -> g.background(glass));
+        return panel;
+    }
+
+    /**
+     * One labelled slider that retunes every specimen live.
+     *
+     * <p>Mutating the drawable in place rather than rebuilding it is deliberate and is why this is
+     * immediate: the same {@link CgUiGlass} instance is what the cascade holds and what gets drawn each
+     * frame, so a setter IS the update. Re-parsing a {@code glass(...)} declaration per drag frame would
+     * churn the cascade for a value the shader reads directly.</p>
+     */
+    private UIElement glassControl(String name, float min, float max, float initial,
+                                   String format, BiConsumer<CgUiGlass, Float> apply) {
+        UIElement row = new UIElement();
+        row.addClass("gl-ctl");
+
+        UIText nameLabel = new UIText(name);
+        nameLabel.addClass("gl-ctl-name");
+        UIText valueLabel = new UIText(String.format(Locale.ROOT, format, initial));
+        valueLabel.addClass("gl-ctl-val");
+
+        Slider slider = new Slider();
+        slider.addClass("gl-slider");
+        slider.setRange(min, max).setValue(initial);
+        slider.onValueChanged.connect(v -> {
+            for (CgUiGlass glass : glassSpecimens) apply.accept(glass, v);
+            valueLabel.setText(String.format(Locale.ROOT, format, v));
+        });
+
+        row.append(nameLabel);
+        row.append(slider);
+        row.append(valueLabel);
+        return row;
     }
 
     private UIElement header() {
@@ -211,16 +372,16 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         UIText title = new UIText("CrystalGUI - widget gallery");
         title.addClass("label");
-        head.addChild(title);
+        head.append(title);
 
         UIElement spacer = new UIElement();
         spacer.addClass("spacer");
-        head.addChild(spacer);
+        head.append(spacer);
 
         themeToggle = new Button("theme: ore");
         themeToggle.addClass("theme-btn");
         themeToggle.attachListener(this::toggleTheme);
-        head.addChild(themeToggle);
+        head.append(themeToggle);
 
         return head;
     }
@@ -233,14 +394,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         UIText desc = new UIText(description);
         desc.addClass("desc");
-        pane.addChild(desc);
+        pane.append(desc);
         return pane;
     }
 
     private UIElement row(UIElement... children) {
         UIElement row = new UIElement();
         row.addClass("page-row");
-        for (UIElement child : children) row.addChild(child);
+        for (UIElement child : children) row.append(child);
         return row;
     }
 
@@ -250,7 +411,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         slot.addClass("slot");
         UIText label = new UIText(text);
         label.addClass("label");
-        slot.addChild(label);
+        slot.append(label);
         return slot;
     }
 
@@ -272,9 +433,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         Button disabled = new Button("disabled");
         disabled.setEnabled(false);
 
-        pane.addChild(row(slot("plain"), plain));
-        pane.addChild(row(slot("pre-icon"), withIcon));
-        pane.addChild(row(slot("disabled"), disabled));
+        pane.append(row(slot("plain"), plain));
+        pane.append(row(slot("pre-icon"), withIcon));
+        pane.append(row(slot("disabled"), disabled));
     }
 
     private int buttonClicks = 0;
@@ -290,19 +451,19 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         for (String name : new String[]{"red", "green", "blue"}) {
             Checkbox option = new Checkbox(name);
             option.setGroup(group);
-            radios.addChild(option);
+            radios.append(option);
         }
 
-        pane.addChild(row(slot("standalone"), one, two));
-        pane.addChild(radios);
+        pane.append(row(slot("standalone"), one, two));
+        pane.append(radios);
     }
 
     private void switchPage(UIElement pane) {
         Switch off = new Switch();
         Switch on = new Switch();
         on.setChecked(true);
-        pane.addChild(row(slot("off"), off));
-        pane.addChild(row(slot("on"), on));
+        pane.append(row(slot("off"), off));
+        pane.append(row(slot("on"), on));
     }
 
     private Slider continuous;
@@ -315,8 +476,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         stepped = new Slider();
         stepped.setRange(0, 100).setStep(25).setValue(50);
 
-        pane.addChild(row(slot("continuous"), continuous));
-        pane.addChild(row(slot("step 25"), stepped));
+        pane.append(row(slot("continuous"), continuous));
+        pane.append(row(slot("step 25"), stepped));
     }
 
     private TextField plainField;
@@ -344,11 +505,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         mirror.bindValueBidirectional(boundText);
         mirror.addClass("field");
 
-        pane.addChild(row(slot("plain"), plainField));
-        pane.addChild(row(slot("placeholder"), placeholder));
-        pane.addChild(row(slot("int 0..100"), number));
-        pane.addChild(row(slot("bound"), bound));
-        pane.addChild(row(slot("...mirrors it"), mirror));
+        pane.append(row(slot("plain"), plainField));
+        pane.append(row(slot("placeholder"), placeholder));
+        pane.append(row(slot("int 0..100"), number));
+        pane.append(row(slot("bound"), bound));
+        pane.append(row(slot("...mirrors it"), mirror));
     }
 
     private void textPage(UIElement pane) {
@@ -361,8 +522,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                         + "as an !important candidate either way.");
         wrapped.addClass("desc");
 
-        pane.addChild(self);
-        pane.addChild(wrapped);
+        pane.append(self);
+        pane.append(wrapped);
     }
 
     private ScrollerView scroller;
@@ -376,10 +537,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             if (i % 2 == 0) rowEl.addClass("scroll-row-alt");
             UIText label = new UIText("row " + i);
             label.addClass("label");
-            rowEl.addChild(label);
-            scroller.addChild(rowEl);
+            rowEl.append(label);
+            scroller.append(rowEl);
         }
-        pane.addChild(scroller);
+        pane.append(scroller);
     }
 
     /**
@@ -402,8 +563,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         Button multi = new Button("longer text");
         Tooltip.attach(multi, "Long enough to wrap against the tooltip's max-width from default.css.");
 
-        pane.addChild(row(slot("basic"), plain));
-        pane.addChild(row(slot("wrapping"), multi));
+        pane.append(row(slot("basic"), plain));
+        pane.append(row(slot("wrapping"), multi));
 
         // Right edge: a left-aligned tooltip would overflow, so placement clamps it inward.
         UIElement edgeRow = row(slot("clamps"), new UIElement());
@@ -411,9 +572,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         Tooltip.attach(atEdge, "Clamped inside the window instead of overflowing.");
         UIElement pusher = new UIElement();
         pusher.addClass("spacer");
-        edgeRow.addChild(pusher);
-        edgeRow.addChild(atEdge);
-        pane.addChild(edgeRow);
+        edgeRow.append(pusher);
+        edgeRow.append(atEdge);
+        pane.append(edgeRow);
 
         // The one that matters: anchors inside a clipping, scrolling container.
         ScrollerView list = new ScrollerView();
@@ -424,11 +585,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             if (i % 2 == 0) rowEl.addClass("scroll-row-alt");
             UIText label = new UIText("row " + i + " - hover me");
             label.addClass("label");
-            rowEl.addChild(label);
+            rowEl.append(label);
             Tooltip.attach(rowEl, "Row " + i + ": anchored inside the scroller, drawn outside it.");
-            list.addChild(rowEl);
+            list.append(rowEl);
         }
-        pane.addChild(list);
+        pane.append(list);
     }
 
     /**
@@ -449,20 +610,20 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private void dragPage(UIElement pane) {
         UIText status = new UIText("drag a chip onto a bin");
         status.addClass("label");
-        pane.addChild(status);
+        pane.append(status);
 
         UIElement chips = new UIElement();
         chips.addClass("page-row");
         for (String name : new String[]{"alpha", "beta", "gamma"}) {
-            chips.addChild(draggableChip(name, status));
+            chips.append(draggableChip(name, status));
         }
-        pane.addChild(chips);
+        pane.append(chips);
 
         UIElement bins = new UIElement();
         bins.addClass("page-row");
-        bins.addChild(dropBin("bin one", status));
-        bins.addChild(dropBin("bin two", status));
-        pane.addChild(bins);
+        bins.append(dropBin("bin one", status));
+        bins.append(dropBin("bin two", status));
+        pane.append(bins);
     }
 
     private UIElement draggableChip(String name, UIText status) {
@@ -471,7 +632,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         UIText label = new UIText(name);
         label.addClass("label");
         label.setHitTest(false);
-        chip.addChild(label);
+        chip.append(label);
 
         // The ghost lives INSIDE the chip on purpose: the drag controller excludes the source and
         // its descendants from drop targeting, so a ghost parented here can never become the drop
@@ -481,19 +642,23 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         ghost.addClass("chip-ghost");
         UIText ghostLabel = new UIText(name);
         ghostLabel.addClass("label");
-        ghost.addChild(ghostLabel);
-        chip.addChild(ghost);
+        ghost.append(ghostLabel);
+        chip.append(ghost);
 
         chip.onMouseDown.attachListener((el, event) -> {
-            var handler = chip.getAttachedWindow().getInputHandler();
-            var drag = handler.getDragController();
-            drag.setGhost(ghost);
-            // Payload overload => default activation threshold, so a plain click stays a click.
-            drag.startDrag(chip, event.getPosition().x(), event.getPosition().y(), name,
-                    new UIDragController.DragListener() {
-                        @Override public void onDragUpdate(float mx, float my, float sx, float sy, float dx, float dy) { }
+            // THE GHOST IS OFFERED, not set on a controller: `Drag.start` collects it, because
+            // `DragGhost.follow` runs from the mouse-down handler that is about to call it and so has
+            // no drag to hand it to yet.
+            chip.document().input().offerGhost(ghost);
+            // The payload overload => the default activation threshold, so a plain click stays a click.
+            Drag.startWithPayload(chip, event.getPosition().x(), event.getPosition().y(), name,
+                    new Drag.Listener() {
+                        @Override public void onDragUpdate(float mx, float my, float sx, float sy,
+                                                           float dx, float dy) { }
                         @Override public void onDragEnd(float mx, float my) {
-                            status.setText(drag.getDropTarget() == null ? name + ": dropped on nothing" : status.getText());
+                            Drag live = chip.document().input().mode(Drag.class);
+                            status.setText(live == null || live.dropTarget() == null
+                                    ? name + ": dropped on nothing" : status.getText());
                         }
                         @Override public void onDragCancel() { status.setText(name + ": cancelled"); }
                     });
@@ -507,7 +672,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         UIText label = new UIText(name);
         label.addClass("label");
         label.setHitTest(false);
-        bin.addChild(label);
+        bin.append(label);
 
         // preventDefault() is how a target accepts a drop — HTML5 DnD's one good idea, kept: an
         // element that never opts in cannot silently become a drop target.
@@ -556,10 +721,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * </ul>
      */
     private void resizePage(UIElement pane) {
-        pane.addChild(row(slot("both"), resizablePanel("resize: both", Resize.BOTH, false)));
-        pane.addChild(row(slot("horizontal"), resizablePanel("width only", Resize.HORIZONTAL, false)));
-        pane.addChild(row(slot("vertical"), resizablePanel("height only", Resize.VERTICAL, false)));
-        pane.addChild(row(slot("min/max"), resizablePanel("clamped 70-160 x 40-90", Resize.BOTH, true)));
+        pane.append(row(slot("both"), resizablePanel("resize: both", Resize.BOTH, false)));
+        pane.append(row(slot("horizontal"), resizablePanel("width only", Resize.HORIZONTAL, false)));
+        pane.append(row(slot("vertical"), resizablePanel("height only", Resize.VERTICAL, false)));
+        pane.append(row(slot("min/max"), resizablePanel("clamped 70-160 x 40-90", Resize.BOTH, true)));
     }
 
     private UIElement resizablePanel(String label, Resize mode, boolean capped) {
@@ -571,7 +736,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         UIText text = new UIText(label);
         text.addClass("label");
         text.setHitTest(false);
-        panel.addChild(text);
+        panel.append(text);
         return panel;
     }
 
@@ -597,7 +762,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private void dialogPage(UIElement pane) {
         UIElement stage = new UIElement();
         stage.addClass("dlg-stage");
-        pane.addChild(stage);
+        pane.append(stage);
 
         // The manager owns placement and stacking. Everything the page used to do by hand — a z
         // counter, per-title-bar raise listeners, manual moveTo calls — is now its job.
@@ -608,36 +773,36 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         UIText firstBody = new UIText("drag my title bar");
         firstBody.addClass("label");
         firstBody.setHitTest(false);
-        first.getContent().addChild(firstBody);
+        first.getContent().append(firstBody);
 
         Dialog second = manager.manage(new Dialog("panel two (resizable)"));
         second.addClass("dlg-b");
         second.generalStyle(g -> g.resize(Resize.BOTH));
-        second.getContent().addChild(new Button("a button"));
+        second.getContent().append(new Button("a button"));
 
         Dialog third = manager.manage(new Dialog("panel three"));
         third.addClass("dlg-a");
         UIText thirdBody = new UIText("click me to raise");
         thirdBody.addClass("label");
         thirdBody.setHitTest(false);
-        third.getContent().addChild(thirdBody);
+        third.getContent().append(thirdBody);
 
         UIElement controls = new UIElement();
         controls.addClass("page-row");
         Button reopen = new Button("open all");
         reopen.attachListener(manager::showAll);
-        controls.addChild(reopen);
+        controls.append(reopen);
         Button closeAll = new Button("close all");
         closeAll.attachListener(manager::closeAll);
-        controls.addChild(closeAll);
+        controls.append(closeAll);
         Button spawn = new Button("new window");
         spawn.attachListener(() -> {
             Dialog extra = manager.manage(new Dialog("panel " + (manager.getDialogs().size())));
             extra.addClass("dlg-a");
             extra.show();
         });
-        controls.addChild(spawn);
-        pane.addChild(controls);
+        controls.append(spawn);
+        pane.append(controls);
 
         manager.showAll();
     }
@@ -652,14 +817,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * {@code text-align} on the <em>wrapper</em>, so it also proves both inherit.</p>
      */
     private void textCssPage(UIElement pane) {
-        pane.addChild(row(slot("wrapping"), txBox("this label wraps because its box is narrower than the text", null)));
-        pane.addChild(row(slot("align left"), txBox("aligned left", "tx-left")));
-        pane.addChild(row(slot("align center"), txBox("aligned center", "tx-center")));
-        pane.addChild(row(slot("align right"), txBox("aligned right", "tx-right")));
-        pane.addChild(row(slot("nowrap"), txBox("one long line that will not wrap and so overflows", "tx-nowrap")));
-        pane.addChild(row(slot("ellipsis"), txBox("one long line that gets cut short with an ellipsis", "tx-ellipsis")));
-        pane.addChild(row(slot("shadow"), txBox("drop shadow behind me", "tx-shadow")));
-        pane.addChild(row(slot("inherited"), txBox("set on the WRAPPER, not the text", "tx-inherit")));
+        pane.append(row(slot("wrapping"), txBox("this label wraps because its box is narrower than the text", null)));
+        pane.append(row(slot("align left"), txBox("aligned left", "tx-left")));
+        pane.append(row(slot("align center"), txBox("aligned center", "tx-center")));
+        pane.append(row(slot("align right"), txBox("aligned right", "tx-right")));
+        pane.append(row(slot("nowrap"), txBox("one long line that will not wrap and so overflows", "tx-nowrap")));
+        pane.append(row(slot("ellipsis"), txBox("one long line that gets cut short with an ellipsis", "tx-ellipsis")));
+        pane.append(row(slot("shadow"), txBox("drop shadow behind me", "tx-shadow")));
+        pane.append(row(slot("inherited"), txBox("set on the WRAPPER, not the text", "tx-inherit")));
 
         // ── 6.1.1: ::highlight() ──────────────────────────────────────────────
         //
@@ -669,26 +834,26 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         //
         // The first row is a line of GLSL because that is the real consumer waiting downstream: the
         // shader graph's node inspector, and 6.1.7's code editor after it.
-        pane.addChild(row(slot("syntax"), highlightBox("vec3 n = normalize(pos);", null, hl -> hl
+        pane.append(row(slot("syntax"), highlightBox("vec3 n = normalize(pos);", null, hl -> hl
                 .mark("keyword", "vec3")
                 .mark("function", "normalize")
                 .mark("variable", "pos"))));
 
         // Decoration and background WITHOUT a colour: the text keeps its own, which is what makes a
         // search hit or a spelling mark readable rather than merely visible.
-        pane.addChild(row(slot("decoration"), highlightBox("a misspelled word, and a deleted one", null,
+        pane.append(row(slot("decoration"), highlightBox("a misspelled word, and a deleted one", null,
                 hl -> hl
                         .mark("spelling", "misspelled")
                         .mark("removed", "deleted"))));
 
         // Two ranges under ONE name — what a search actually produces, and the case that makes the
         // registry's sorted/disjoint rule worth having.
-        pane.addChild(row(slot("search hits"), highlightBox("find the needle, then the next needle", null,
+        pane.append(row(slot("search hits"), highlightBox("find the needle, then the next needle", null,
                 hl -> hl.mark("search", "needle").mark("search", "needle"))));
 
         // Compare against the rows above: each coloured word's shadow must be a DARKER version of that
         // word, never the same brightness and never uniformly grey.
-        pane.addChild(row(slot("+shadow"), highlightBox("red green blue, each with its own shadow",
+        pane.append(row(slot("+shadow"), highlightBox("red green blue, each with its own shadow",
                 "tx-shadow-row", hl -> hl
                         .mark("red", "red")
                         .mark("green", "green")
@@ -699,7 +864,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         //
         // `.tx-ellipsis`, NOT `.tx-nowrap` — they differ by one declaration and render almost
         // identically, which is exactly the trap the stylesheet comment above `.tx-nowrap` warns about.
-        pane.addChild(row(slot("+ellipsis"), highlightBox(
+        pane.append(row(slot("+ellipsis"), highlightBox(
                 "a highlighted range that runs straight past where this line gets cut", "tx-ellipsis",
                 hl -> hl.mark("search", "runs straight past where this line gets cut"))));
     }
@@ -737,7 +902,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         if (extraClass != null) box.addClass(extraClass);
         UIText label = new UIText(text);
         label.addClass("label");
-        box.addChild(label);
+        box.append(label);
         return box;
     }
 
@@ -751,7 +916,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         UIText label = new UIText(text);
         label.addClass("label");
-        box.addChild(label);
+        box.append(label);
         build.accept(new HighlightBuilder(text, label));
         return box;
     }
@@ -778,7 +943,12 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      *
      * <p><b>Space</b> is bound twice — press and release — which is the axis space-to-pan is built on.</p>
      */
-    private void keymapPage(UIElement pane) {
+    private void keymapPage(UIElement host) {
+        // THE PAGE IS ITS OWN SCOPE. A keymap belongs to a node that declares one, and the tab's
+        // content is an ordinary UIElement -- so the page roots itself in a KeymapNode and everything
+        // below is inside it. That is what makes "page-scoped" mean anything here.
+        KeymapNode pane = new KeymapNode();
+        host.append(pane);
         UIText log = new UIText("(nothing yet)");
         // Never blank. An empty line is indistinguishable from a broken one, and this row exists
         // precisely to prove that a half-entered chord is visible — so it has to say what to press.
@@ -789,18 +959,18 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pendingLabel = pending;
         keymapLog = log;
 
-        pane.addChild(row(slot("scoped"), focusPanel("editor"), focusPanel("canvas"),
+        pane.append(row(slot("scoped"), focusPanel("editor"), focusPanel("canvas"),
                 hint("same chord, two panels")));
 
         UIElement logBox = new UIElement();
         logBox.addClass("km-log");
-        logBox.addChild(log);
-        pane.addChild(row(slot("last command"), logBox, hint("Mod+A in a panel")));
+        logBox.append(log);
+        pane.append(row(slot("last command"), logBox, hint("Mod+A in a panel")));
 
         UIElement pendingBox = new UIElement();
         pendingBox.addClass("km-pending");
-        pendingBox.addChild(pending);
-        pane.addChild(row(slot("chord"), pendingBox, hint("then Mod+S -> saveAll (page-scoped)")));
+        pendingBox.append(pending);
+        pane.append(row(slot("chord"), pendingBox, hint("then Mod+S -> saveAll (page-scoped)")));
 
         TextField typing = new TextField();
         typing.addClass("km-field");
@@ -808,12 +978,12 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // Spelled out as a two-step check, because the interesting outcome here is a NON-event: the
         // point is that `last command` does NOT change. A hint that only names the rule leaves the
         // reader with nothing to look at.
-        pane.addChild(row(slot("B vs typing"), typing,
+        pane.append(row(slot("B vs typing"), typing,
                 hint("1. press B in a panel -> tool.brush")));
-        pane.addChild(row(slot(""), hint("2. type b in the box -> last command must NOT change")));
+        pane.append(row(slot(""), hint("2. type b in the box -> last command must NOT change")));
 
-        pane.addChild(row(slot("global"), hint("Mod+Shift+P - bound on the window root, so it needs no focus")));
-        pane.addChild(row(slot("hold"), hint("Space fires on press AND release")));
+        pane.append(row(slot("global"), hint("Mod+Shift+P - declared on the command, so it needs no focus")));
+        pane.append(row(slot("hold"), hint("Space fires on press AND release")));
 
         keymapRoot = pane;
     }
@@ -827,8 +997,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     }
 
     /** A focusable panel that owns its own binding for a chord the other panel also binds. */
-    private UIElement focusPanel(String name) {
-        UIElement panel = new UIElement();
+    private KeymapNode focusPanel(String name) {
+        KeymapNode panel = new KeymapNode();
         panel.addClass("km-panel");
         panel.setFocusPolicy(FocusPolicy.CLICK);
         UIText label = new UIText(name);
@@ -845,50 +1015,78 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // focused them perfectly throughout, which is the clue separating "not focusable" from
         // "unclickable".
         label.setHitTest(false);
-        panel.addChild(label);
+        panel.append(label);
         keymapPanels.put(name, panel);
         return panel;
     }
 
-    private final java.util.Map<String, UIElement> keymapPanels = new java.util.LinkedHashMap<>();
-    private UIElement keymapRoot;
+    /**
+     * A node that owns a keymap.
+     *
+     * <p>{@code UIElement} implements {@code KeymapScope} but owns no {@code Keymap} — {@code
+     * keymapOrNull} defaults to null, which is right for the overwhelming majority of nodes and is
+     * exactly what a page about SCOPING has to override. The old engine gave every element a lazily
+     * created keymap; this engine makes owning one a decision, the same way {@code GraphView} and
+     * {@code TextEditor} each declare theirs.</p>
+     */
+    private static final class KeymapNode extends UIElement {
+        private final Keymap keymap = new Keymap();
+
+        @Override
+        public Keymap keymapOrNull() {
+            return keymap;
+        }
+    }
+
+    private final java.util.Map<String, KeymapNode> keymapPanels = new java.util.LinkedHashMap<>();
+    private KeymapNode keymapRoot;
     private UIText keymapLog;
     private UIText pendingLabel;
 
     /**
      * Registers the commands and bindings once a window exists.
      *
-     * <p>Separate from page construction because commands live on the {@code UIWindow} — deliberately,
+     * <p>Separate from page construction because commands live on the {@code UIDocument} — deliberately,
      * rather than in a global static, so two windows can disagree about what an id means and so tests do
      * not leak registrations into each other.</p>
      */
-    private void installKeymap(UIWindow window) {
+    private void installKeymap(UIDocument window) {
         var commands = window.getCommands();
         for (var entry : keymapPanels.entrySet()) {
             String id = entry.getKey() + ".selectAll";
             commands.register(Command.of(id, "Select All in " + entry.getKey()).run(() -> logCommand(id)));
-            entry.getValue().keymap().bind("Mod+A", id);
+            entry.getValue().keymap.bind("Mod+A", id);
         }
-        commands.register(Command.of("palette.open", "Command Palette").run(() -> logCommand("palette.open")));
+
+        // "WORKS FROM ANYWHERE" IS A DECLARED BINDING NOW, not a binding on the window root.
+        //
+        // The point of the page is unchanged and the mechanism is not. The resolver walks the focus
+        // path OUTWARD, so a binding on a page's pane is reachable only from inside it — descendants
+        // are not ancestors. The old engine's outermost scope was the root ELEMENT, which owned a
+        // keymap like every other element. Here the outermost scope is the COMMAND'S OWN declared
+        // chord: `Keymap.acceleratorFor` falls through to `declaredBindings()` after every scope has
+        // been asked, which is the same "reachable from anywhere" with one fewer place to put it.
+        commands.register(Command.of("palette.open", "Command Palette")
+                .binding("Mod+Shift+P").run(() -> logCommand("palette.open")));
         commands.register(Command.of("edit.saveAll", "Save All").run(() -> logCommand("edit.saveAll")));
         commands.register(Command.of("tool.brush", "Brush").run(() -> logCommand("tool.brush")));
         commands.register(Command.of("pan.begin", "Pan").run(() -> logCommand("pan.begin")));
         commands.register(Command.of("pan.end", "Pan end").run(() -> logCommand("pan.end")));
 
-        // On the WINDOW ROOT, not on this page's pane — and the difference is the whole point of the
-        // scoping model, so getting it wrong here made the demo lie.
-        //
-        // The resolver walks the focus path OUTWARD. A binding on the page pane is reachable only from
-        // inside that pane, so with nothing focused the walk starts at the window root and never
-        // descends into the page: descendants are not ancestors. "Works from anywhere" therefore has to
-        // mean "bound on the outermost scope there is", which is exactly what the root is.
-        window.ui.rootElement.keymap().bind("Mod+Shift+P", "palette.open");
-        keymapRoot.keymap().bind("Mod+K Mod+S", "edit.saveAll");
-        keymapRoot.keymap().bind("B", "tool.brush");
-        keymapRoot.keymap().bind("Space", "pan.begin");
-        keymapRoot.keymap().bind("Space", "pan.end").on(KeyEventType.RELEASE);
+        keymapRoot.keymap.bind("Mod+K Mod+S", "edit.saveAll");
+        keymapRoot.keymap.bind("B", "tool.brush");
+        keymapRoot.keymap.bind("Space", "pan.begin");
+        keymapRoot.keymap.bind("Space", "pan.end").on(KeyEventType.RELEASE);
 
-        window.getInputHandler().getKeymapResolver().onPendingChanged.connect(chord ->
+        // ITS OWN RESOLVER, INSTALLED. The service builds a default one internally when no host has
+        // supplied a `Chords`, and does not hand it out — so a page that wants to WATCH resolution
+        // (the pending-chord readout below is the whole point of the multi-stroke demo) installs one
+        // it holds a reference to. That is what `setChords` is documented for.
+        KeymapResolver resolver = new KeymapResolver(commands);
+        window.input().setChords((from, key, modifiers, pressed, repeat, millis) ->
+                resolver.resolve(from, new KeyStroke(key, modifiers),
+                        pressed ? KeyEventType.PRESS : KeyEventType.RELEASE, millis, repeat));
+        resolver.onPendingChanged.connect(chord ->
                 pendingLabel.setText(chord == null ? "press Mod+K" : chord + " ... waiting"));
     }
 
@@ -930,25 +1128,25 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 row.setFocusPolicy(FocusPolicy.CLICK);
                 UIText label = new UIText("");
                 label.setHitTest(false);   // or the label eats the click and the row never focuses
-                row.addChild(label);
+                row.append(label);
                 return row;
             }
 
             @Override
             public void bind(String item, int index, UIElement template) {
-                ((UIText) template.getChildren().get(0)).setText(item);
+                ((UIText) template.children().get(0)).setText(item);
             }
         });
-        pane.addChild(row(slot("100k rows"), list));
+        pane.append(row(slot("100k rows"), list));
 
         UIText stats = new UIText("...");
         stats.addClass("lv-stat");
-        pane.addChild(row(slot("counts"), stats));
-        pane.addChild(row(slot(""), hint("realised stays bounded; created stops growing")));
-        pane.addChild(row(slot(""), hint("click a row, scroll far away and back - focus returns")));
-        pane.addChild(row(slot(""), hint("arrows / Home / End / PageUp / PageDown all navigate")));
-        pane.addChild(row(slot(""), hint("Shift+arrow extends, Ctrl+arrow moves without selecting")));
-        pane.addChild(row(slot(""), hint("then Space ADDS that row; Enter replaces with just it")));
+        pane.append(row(slot("counts"), stats));
+        pane.append(row(slot(""), hint("realised stays bounded; created stops growing")));
+        pane.append(row(slot(""), hint("click a row, scroll far away and back - focus returns")));
+        pane.append(row(slot(""), hint("arrows / Home / End / PageUp / PageDown all navigate")));
+        pane.append(row(slot(""), hint("Shift+arrow extends, Ctrl+arrow moves without selecting")));
+        pane.append(row(slot(""), hint("then Space ADDS that row; Enter replaces with just it")));
 
         listView = list;
         listStats = stats;
@@ -959,8 +1157,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     /** Live counters. A ticker rather than a per-frame poll in render(), because the numbers are UI state
      * and the engine already has a place for that. */
-    private void installListStats(UIWindow window) {
-        window.registerTicker(delta -> {
+    private void installListStats(UIDocument window) {
+        document.animation().every(window, delta -> {
             if (listView == null || listStats == null) return false;
             listStats.setText("realised " + listView.realisedCount()
                     + "   pooled " + listView.pooledCount()
@@ -1030,13 +1228,13 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 // click time — it cannot capture an index, because this element represents a different
                 // row every time it is recycled. That is exactly the split createTemplate/bind exists for.
                 twisty.onMouseDown.attachListener((el, event) -> {
-                    int index = treeView.indexOfRowElement(el.getParent());
+                    int index = treeView.indexOfRowElement(el.parentElement());
                     if (index >= 0) treeView.toggleExpandedAt(index);
                 }, false, false);
-                row.addChild(twisty);
+                row.append(twisty);
                 UIText label = new UIText("");
                 label.setHitTest(false);
-                row.addChild(label);
+                row.append(label);
                 return row;
             }
 
@@ -1046,21 +1244,21 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 // __leaf__ classes TreeView already applies to `template` — see gallery.css's
                 // .tv-twisty rules. No Java decision needed here any more.
                 String name = item.substring(item.lastIndexOf('/') + 1);
-                ((UIText) template.getChildren().get(1)).setText(row.depth() == 0 ? item : name);
+                ((UIText) template.children().get(1)).setText(row.depth() == 0 ? item : name);
             }
         });
         treeView = tree;
-        pane.addChild(row(slot("tree"), tree));
+        pane.append(row(slot("tree"), tree));
 
         treeStatus = new UIText("...");
         treeStatus.addClass("tv-status");
-        pane.addChild(row(slot("state"), treeStatus));
+        pane.append(row(slot("state"), treeStatus));
 
-        pane.addChild(row(slot(""), hint("click the > to open, or use the arrows")));
-        pane.addChild(row(slot(""), hint("Right opens WITHOUT moving focus; again steps in")));
-        pane.addChild(row(slot(""), hint("Left closes, or jumps to the parent when closed")));
-        pane.addChild(row(slot(""), hint("* opens every sibling at this level")));
-        pane.addChild(row(slot(""), hint("8,000 nodes if fully opened; children made on demand")));
+        pane.append(row(slot(""), hint("click the > to open, or use the arrows")));
+        pane.append(row(slot(""), hint("Right opens WITHOUT moving focus; again steps in")));
+        pane.append(row(slot(""), hint("Left closes, or jumps to the parent when closed")));
+        pane.append(row(slot(""), hint("* opens every sibling at this level")));
+        pane.append(row(slot(""), hint("8,000 nodes if fully opened; children made on demand")));
     }
 
     private TreeView<String> treeView;
@@ -1068,8 +1266,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     /** Live tree state. The focused index is the one the arrows act on, and seeing it is the difference
      * between "Right is broken" and "nothing was focused". */
-    private void installTreeStats(UIWindow window) {
-        window.registerTicker(delta -> {
+    private void installTreeStats(UIDocument window) {
+        document.animation().every(window, delta -> {
             if (treeView == null || treeStatus == null) return false;
             treeStatus.setText("focus " + treeView.getFocusedIndex()
                     + "   rows " + treeView.visibleRows().size()
@@ -1095,20 +1293,20 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private void focusPage(UIElement pane) {
         Button before = new Button("before");
         before.addClass("fc-btn");
-        pane.addChild(before);
+        pane.append(before);
 
         TabView strip = new TabView();
         strip.addClass("fc-strip");
         for (String name : new String[] { "one", "two", "three" }) {
             UIText body = new UIText("pane " + name);
             body.addClass("label");
-            strip.addTab(name).content().addChild(body);
+            strip.addTab(name).content().append(body);
         }
-        pane.addChild(strip);
+        pane.append(strip);
 
         Button after = new Button("after");
         after.addClass("fc-btn");
-        pane.addChild(after);
+        pane.append(after);
     }
 
     /**
@@ -1133,30 +1331,30 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private void modalPage(UIElement pane) {
         UIElement stage = new UIElement();
         stage.addClass("md-stage");
-        pane.addChild(stage);
+        pane.append(stage);
 
         UIText counter = new UIText("clicks behind the modal: 0");
         counter.addClass("label");
-        stage.addChild(counter);
+        stage.append(counter);
 
         int[] behindClicks = { 0 };
         Button behind = new Button("click me (should be blocked)");
         behind.addClass("md-btn");
         behind.attachListener(() -> counter.setText("clicks behind the modal: " + (++behindClicks[0])));
-        stage.addChild(behind);
+        stage.append(behind);
 
         Dialog modal = new Dialog("a modal dialog");
         modal.addClass("md-dialog");
         // Two focusables, so the Tab cycle is visibly a cycle rather than a single stuck stop.
-        modal.getContent().addChild(new Button("first"));
-        modal.getContent().addChild(new Button("second"));
-        stage.addChild(modal);
+        modal.getContent().append(new Button("first"));
+        modal.getContent().append(new Button("second"));
+        stage.append(modal);
 
         Checkbox veto = new Checkbox("veto Escape");
         modal.onCancel.attachListener((el, event) -> {
             if (veto.isChecked()) event.preventDefault();
         }, false, false);
-        modal.getContent().addChild(veto);
+        modal.getContent().append(veto);
 
         UIElement controls = new UIElement();
         controls.addClass("page-row");
@@ -1165,14 +1363,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             modal.moveTo(60f, 20f);
             modal.showModal();
         });
-        controls.addChild(openModal);
+        controls.append(openModal);
         Button openModeless = new Button("show()");
         openModeless.attachListener(() -> {
             modal.moveTo(60f, 20f);
             modal.show();
         });
-        controls.addChild(openModeless);
-        pane.addChild(controls);
+        controls.append(openModeless);
+        pane.append(controls);
     }
 
     /**
@@ -1197,17 +1395,17 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private void menuPage(UIElement pane) {
         UIElement stage = new UIElement();
         stage.addClass("mn-stage");
-        pane.addChild(stage);
+        pane.append(stage);
 
         UIText report = new UIText("nothing chosen yet");
         report.addClass("label");
-        stage.addChild(report);
+        stage.append(report);
 
         Dropdown quality = new Dropdown("quality...");
         quality.addClass("mn-drop");
         quality.addOptions("Low", "Medium", "High", "Ultra");
         quality.attachSelectionListener(index -> report.setText("chose " + quality.getSelectedOption()));
-        stage.addChild(quality);
+        stage.append(quality);
 
         // A submenu of the dropdown's own menu. addSubmenu wires all of it: the item does not close its
         // parent, the child anchors to the row, and it prefers Side.RIGHT so it sits beside rather than over.
@@ -1215,7 +1413,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         more.addItem("Ultra+");
         more.addItem("Ridiculous");
         more.onItemActivated.connect(item -> report.setText("chose " + item.getText()));
-        stage.addChild(more);
+        stage.append(more);
 
         quality.getMenu().addSubmenu("More...", more);
 
@@ -1224,20 +1422,20 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         UIText hint = new UIText("right-click me");
         hint.addClass("label");
         hint.setHitTest(false);
-        canvas.addChild(hint);
-        stage.addChild(canvas);
+        canvas.append(hint);
+        stage.append(canvas);
 
         Menu context = new Menu();
         context.addItem("Add node");
         context.addItem("Paste");
         context.addItem("Select all");
         context.onItemActivated.connect(item -> report.setText(item.getText() + " (context)"));
-        stage.addChild(context);
+        stage.append(context);
 
         canvas.onMouseDown.attachListener((el, event) -> {
             if (event.getButtonId() != CgMouseCodes.RIGHT_BUTTON) return;
             var pos = event.getPosition();
-            var at = AnchoredPlacement.pointerToRoot(canvas.getAttachedWindow(), pos.x(), pos.y());
+            var at = AnchoredPlacement.pointerToRoot(canvas.document(), pos.x(), pos.y());
             // NO invoker: an invoker is spared by light dismiss, which is what a toggle button needs and
             // what a context menu must not have. Naming the canvas here made the whole canvas unable to
             // dismiss the menu, so left-clicking the area you had just right-clicked did nothing.
@@ -1255,7 +1453,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         split.first().addClass("pane-a");
         UIText left = new UIText("first pane");
         left.addClass("label");
-        split.first().addChild(left);
+        split.first().append(left);
 
         // Splits nest, and the nested one is where a divider-drag bug would show first.
         SplitView nested = new SplitView();
@@ -1266,11 +1464,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         top.addClass("label");
         UIText bottom = new UIText("nested bottom");
         bottom.addClass("label");
-        nested.first().addChild(top);
-        nested.second().addChild(bottom);
-        split.second().addChild(nested);
+        nested.first().append(top);
+        nested.second().append(bottom);
+        split.second().append(nested);
 
-        pane.addChild(split);
+        pane.append(split);
     }
 
     private void tabViewPage(UIElement pane) {
@@ -1282,10 +1480,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             filler.addClass("pane-filler");
             UIText label = new UIText("pane " + name);
             label.addClass("label");
-            filler.addChild(label);
-            nested.addTab(name).content().addChild(filler);
+            filler.append(label);
+            nested.addTab(name).content().append(filler);
         }
-        pane.addChild(nested);
+        pane.append(nested);
     }
 
     private void elementPage(UIElement pane) {
@@ -1301,11 +1499,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         sprite.addClass("box");
         sprite.addClass("box-sprite");
 
-        pane.addChild(row(slot("colour"), flat));
-        pane.addChild(row(slot("border-radius"), rounded));
-        pane.addChild(row(slot("9-slice"), sprite));
-        pane.addChild(row(slot("radius, no bg"), box("box-none-round")));
-        pane.addChild(row(slot("border only"), box("box-border-only")));
+        pane.append(row(slot("colour"), flat));
+        pane.append(row(slot("border-radius"), rounded));
+        pane.append(row(slot("9-slice"), sprite));
+        pane.append(row(slot("radius, no bg"), box("box-none-round")));
+        pane.append(row(slot("border only"), box("box-border-only")));
     }
 
     private UIElement box(String cssClass) {
@@ -1325,14 +1523,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * disagreement between them looks perfectly fine on screen.</p>
      */
     private void transformPage(UIElement pane) {
-        pane.addChild(row(slot("none"), transformDemo("tf-none")));
-        pane.addChild(row(slot("scale(1.6)"), transformDemo("tf-scale")));
-        pane.addChild(row(slot("origin 0 0"), transformDemo("tf-origin")));
-        pane.addChild(row(slot("rotate(-8deg)"), transformDemo("tf-rotate")));
-        pane.addChild(row(slot("skewX(20deg)"), transformDemo("tf-skew")));
-        pane.addChild(row(slot("translate + scale"), transformDemo("tf-chain")));
-        pane.addChild(row(slot("scale + translate"), transformDemo("tf-chain-rev")));
-        pane.addChild(row(slot("on :hover"), transformDemo("tf-hover")));
+        pane.append(row(slot("none"), transformDemo("tf-none")));
+        pane.append(row(slot("scale(1.6)"), transformDemo("tf-scale")));
+        pane.append(row(slot("origin 0 0"), transformDemo("tf-origin")));
+        pane.append(row(slot("rotate(-8deg)"), transformDemo("tf-rotate")));
+        pane.append(row(slot("skewX(20deg)"), transformDemo("tf-skew")));
+        pane.append(row(slot("translate + scale"), transformDemo("tf-chain")));
+        pane.append(row(slot("scale + translate"), transformDemo("tf-chain-rev")));
+        pane.append(row(slot("on :hover"), transformDemo("tf-hover")));
     }
 
     private UIElement transformDemo(String cssClass) {
@@ -1461,7 +1659,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             refresh.run();
         });
 
-        pane.addChild(row(slot("language"), javaButton, glslButton,
+        pane.append(row(slot("language"), javaButton, glslButton,
                 hint("the editor knows neither -- it publishes capture names and the sheet colours them")));
         // ── §G view decorations ────────────────────────────────────────────────────────────────
         Button guidesButton = new Button("Indent guides");
@@ -1504,22 +1702,22 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             else pastEndButton.removeClass("ed-lang-on");
         });
 
-        pane.addChild(row(slot("wrap"), wrapButton, indentButton,
+        pane.append(row(slot("wrap"), wrapButton, indentButton,
                 hint("a VIEW setting -- the document is byte-identical either way, and this is not undoable")));
-        pane.addChild(row(slot("view"), guidesButton, wsButton, rulerButton, pastEndButton,
+        pane.append(row(slot("view"), guidesButton, wsButton, rulerButton, pastEndButton,
                 hint("guides run through blank lines; boundary whitespace skips lone spaces")));
-        pane.addChild(row(slot("editor"), editor));
-        pane.addChild(row(slot(""), status));
-        pane.addChild(row(slot("find"), findField, previous, next, replaceField, replaceAll,
+        pane.append(row(slot("editor"), editor));
+        pane.append(row(slot(""), status));
+        pane.append(row(slot("find"), findField, previous, next, replaceField, replaceAll,
                 hint("replace all is ONE undo step")));
-        pane.addChild(row(slot(""), hint("Alt+Click adds a caret - type at several at once, then one Ctrl+Z")));
-        pane.addChild(row(slot(""), hint("Ctrl+Arrow and Ctrl+Backspace by word; Home toggles indent/col 0")));
-        pane.addChild(row(slot(""), hint("Tab indents a selection, Shift+Tab outdents; Enter keeps the indent")));
-        pane.addChild(row(slot(""), hint("Put the caret on a bracket to match it; drag the corner to resize")));
-        pane.addChild(row(slot(""), hint("Ctrl+D next occurrence; Ctrl+Alt+Up/Down caret above/below; Ctrl+/ comment")));
-        pane.addChild(row(slot(""), hint("Alt+Up/Down move line; Shift+Alt+Up/Down duplicate; Ctrl+Shift+K delete")));
-        pane.addChild(row(slot(""), hint("Soft wrap: Up/Down follow VISUAL rows, Home/End the visual line")));
-        pane.addChild(row(slot(""), hint("Ctrl+= / Ctrl+- zoom, Ctrl+0 resets -- the size pops up at the bottom")));
+        pane.append(row(slot(""), hint("Alt+Click adds a caret - type at several at once, then one Ctrl+Z")));
+        pane.append(row(slot(""), hint("Ctrl+Arrow and Ctrl+Backspace by word; Home toggles indent/col 0")));
+        pane.append(row(slot(""), hint("Tab indents a selection, Shift+Tab outdents; Enter keeps the indent")));
+        pane.append(row(slot(""), hint("Put the caret on a bracket to match it; drag the corner to resize")));
+        pane.append(row(slot(""), hint("Ctrl+D next occurrence; Ctrl+Alt+Up/Down caret above/below; Ctrl+/ comment")));
+        pane.append(row(slot(""), hint("Alt+Up/Down move line; Shift+Alt+Up/Down duplicate; Ctrl+Shift+K delete")));
+        pane.append(row(slot(""), hint("Soft wrap: Up/Down follow VISUAL rows, Home/End the visual line")));
+        pane.append(row(slot(""), hint("Ctrl+= / Ctrl+- zoom, Ctrl+0 resets -- the size pops up at the bottom")));
     }
 
     private static String join(String[] lines) {
@@ -1619,10 +1817,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // cases are visual rather than interactive, so it is worth showing all of them and scrolling.
         ScrollerView scroll = new ScrollerView();
         scroll.addClass("curve-scroll");
-        pane.addChild(scroll);
+        pane.append(scroll);
 
         for (CurveCanvas.Mode mode : CurveCanvas.Mode.values()) {
-            scroll.addChild(row(slot(mode.label), new CurveCanvas(mode)));
+            scroll.append(row(slot(mode.label), new CurveCanvas(mode)));
         }
     }
 
@@ -1673,14 +1871,16 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         }
 
         @Override
-        protected void paintSelf(CgUiPaintContext ctx) {
-            super.paintSelf(ctx);
-            // Absolute layout origin, the same pair UIElement.paintSelf itself paints its background
-            // from. The strokes below are offset from it, so they follow the element wherever the
-            // gallery's layout puts it rather than being pinned to screen coordinates — which also
-            // means they stay correct while the page scrolls, with no scroll-aware code here at all.
-            float x = getRuntimeCache().getX();
-            float y = getRuntimeCache().getY();
+        public void paintContent(CgUiPaintContext ctx, Box box) {
+            super.paintContent(ctx, box);
+            // ZERO, not box.x()/box.y(). BoxPainter poses every box in its OWN space, so the origin
+            // the strokes are offset from is already this canvas's top-left -- and it stays correct
+            // while the page scrolls, with no scroll-aware code here, because the pose carries the
+            // scroll too. Adding the box's own offset on top shifted every stroke right by however
+            // far along its row the canvas sat, which draws a perfectly correct picture in the wrong
+            // place and reads as the strokes overflowing their canvas.
+            float x = 0f;
+            float y = 0f;
             float t = (System.nanoTime() - START_NANOS) / 1_000_000_000f;
 
             switch (mode) {
@@ -2027,7 +2227,6 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         // `CgPreviewRenderer` deliberately reuses the shared `CgRenderPipeline` singleton's ONE
         // `CgFrameData` rather than owning a separate one — that's what lets a Time node's preview
         // thumbnail animate for free, inheriting whatever clock the app already drives. But nothing
@@ -2055,7 +2254,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // explicit width/height — that is what CSS resize means — so turning that into a scale is the
         // host's job: read the box the dialog now offers and hand the picker a multiple of its natural
         // size. Done per frame because a resize is a drag; setScale ignores an unchanged value.
-        uiWindow.paintFrame();
+        document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
+
+        // AND THE PAINT. `paintFrame()` did both; `frame()` only advances, so a scene that
+        // lost this half advanced perfectly and drew nothing.
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
+        document.paint(paintContext);
+        paintContext.endFrame();
 
         var context = CgUiPaintContext.getInstance();
         Tab selected = pages.getSelectedTab();
@@ -2063,13 +2269,30 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 .text(String.format("Gallery — page=%s   theme=%s   uiScale=%.2f ([ ])   clicks=%d   slider=%.0f",
                         selected == null ? "none" : selected.getText(),
                         oreOn ? "ore" : "default",
-                        uiWindow.getUiScale(),
+                        document.boxes().uiScale(),
                         buttonClicks,
                         continuous.getValue()))
                 .font(context.getFont().atSize(14)).submit();
 
-        if (frame.getFrameNumber() == 5) {
-            ctx.getArtifactService().requestCapture("startup");
+        // OPEN ON A NAMED PAGE, AND PHOTOGRAPH IT. `-Dcrystalgui.gallery.page=glass` with `--seconds=N`
+        // turns this scene into an unattended diagnostic: a run that leaves a PNG of ONE page on disk.
+        // The property prefix must be crystalgui. or crystalgraphics. -- the build forwards only those
+        // two, and a differently-named flag is accepted on the command line and reaches nothing.
+        //
+        // Frame 5 is too early for a page whose content is a captured backdrop: the capture is taken
+        // during paint, and anything animating behind it has barely moved. 90 is about a second and a
+        // half in, by which point the drift has travelled and a stale capture would be obvious.
+        String wanted = System.getProperty("crystalgui.gallery.page");
+        if (wanted != null && frame.getFrameNumber() == 2) {
+            for (int i = 0; i < pages.getTabCount(); i++) {
+                if (wanted.equalsIgnoreCase(pages.getTab(i).getText())) {
+                    pages.selectIndex(i);
+                    break;
+                }
+            }
+        }
+        if (frame.getFrameNumber() == (wanted == null ? 5 : 90)) {
+            ctx.getArtifactService().requestCapture(wanted == null ? "startup" : wanted);
         }
 
     }
@@ -2083,7 +2306,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             shaderPreviews = null;
             shaderPreviewsAttached = false;
         }
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -2115,17 +2338,17 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         if (event.pressed() && bare) {
             switch (event.key()) {
                 case CgKeyCodes.KEY_RBRACKET -> {
-                    setScale(Math.min(8f, uiWindow.getUiScale() + 0.1f));
+                    setScale(Math.min(8f, document.boxes().uiScale() + 0.1f));
                     return true;
                 }
                 case CgKeyCodes.KEY_LBRACKET -> {
-                    setScale(Math.max(0.1f, uiWindow.getUiScale() - 0.1f));
+                    setScale(Math.max(0.1f, document.boxes().uiScale() - 0.1f));
                     return true;
                 }
                 default -> { }
             }
         }
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     /**
@@ -2138,8 +2361,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * the physical dimensions are unchanged, and they are. Same trick {@code CgUiTextScene} uses.</p>
      */
     private void setScale(float scale) {
-        uiWindow.setUiScale(scale);
-        uiWindow.init(0, 0);
+        document.boxes().setUiScale(scale);
     }
 
     // ── graph page (P6.2.2 canvas + P6.2.3 nodes, ports and wires) ──────────────────────────────
@@ -2204,9 +2426,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     private GraphView shaderGraph;
     private TextEditor shaderSource;
-    private com.crystalgui.graph.shader.ShaderGraphPreviews shaderPreviews;
+    private com.crystalgui.app.shadergraph.preview.ShaderGraphPreviews shaderPreviews;
     /** P6.3.12 — the finished shader on a mesh. Right-click it for the shape menu, drag to orbit. */
-    private com.crystalgui.graph.shader.MainPreviewPanel shaderMainPreview;
+    private com.crystalgui.app.shadergraph.preview.MainPreviewPanel shaderMainPreview;
     private boolean shaderMainPreviewAttached;
     private com.crystalgraphics.shadergraph.CgShaderEmitter.Result shaderLineOwners;
     private boolean shaderPreviewsAttached;
@@ -2250,16 +2472,16 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         UIElement side = new UIElement();
         side.addClass("color-side");
-        side.addChild(swatch);
-        side.addChild(readout);
-        side.addChild(hint("Every control edits ONE colour — the ring, square and sliders are all views"));
-        side.addChild(hint("Mode changes how the channels are shown, never the colour"));
+        side.append(swatch);
+        side.append(readout);
+        side.append(hint("Every control edits ONE colour — the ring, square and sliders are all views"));
+        side.append(hint("Mode changes how the channels are shown, never the colour"));
 
         // In a Dialog, which already owns a draggable title bar and its own position — so the picker
         // stays a plain content widget rather than growing a second identity as a window.
         Dialog window = new Dialog("Color");
         window.addClass("color-dialog");
-        window.getContent().addChild(picker);
+        window.getContent().append(picker);
 
         Button open = new Button("open picker");
         open.addClass("canvas-btn");
@@ -2270,10 +2492,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         UIElement row = new UIElement();
         row.addClass("color-row");
-        row.addChild(side);
-        pane.addChild(row(slot("picker"), open));
-        pane.addChild(row);
-        pane.addChild(window);
+        row.append(side);
+        pane.append(row(slot("picker"), open));
+        pane.append(row);
+        pane.append(window);
         window.show().moveTo(40f, 90f);
     }
 
@@ -2286,9 +2508,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         // The library IS the shader node set — the create menu, its search and the widget factory all
         // come from one bridge call, with no shader-specific UI code anywhere on this page.
-        var library = com.crystalgui.graph.shader.ShaderGraphBridge.asNodeLibrary(shaderNodes);
+        var library = com.crystalgui.app.shadergraph.ShaderGraphBridge.asNodeLibrary(shaderNodes);
         shaderGraph.setNodeLibrary(library, NodeWidgetFactory.of(library).build(),
-                com.crystalgui.graph.shader.ShaderGraphBridge.GLSL_PROMOTION);
+                com.crystalgui.app.shadergraph.ShaderGraphBridge.GLSL_PROMOTION);
 
         shaderStatus = new UIText("");
         shaderStatus.addClass("canvas-status");
@@ -2326,11 +2548,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         frame.addClass("canvas-btn");
         frame.attachListener(() -> shaderGraph.fitToContent(24f));
 
-        pane.addChild(row(slot("view"), compile, frame, shaderStatus));
+        pane.append(row(slot("view"), compile, frame, shaderStatus));
         // Hints BEFORE the split: the split takes the pane's slack, so anything after it is pushed off
         // the bottom.
-        pane.addChild(row(slot(""), hint("Space opens the create menu - all five built-in nodes are in it")));
-        pane.addChild(row(slot(""), hint("Wire into Output's BaseColor and watch the source recompile")));
+        pane.append(row(slot(""), hint("Space opens the create menu - all five built-in nodes are in it")));
+        pane.append(row(slot(""), hint("Wire into Output's BaseColor and watch the source recompile")));
 
         // A real SplitView rather than a fixed-width column, so the divider can be dragged: a generated
         // shader is sometimes the thing you are reading and sometimes just confirmation, and which one
@@ -2345,9 +2567,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // Either pane collapsed to nothing is a state with no way back — the divider would have no
         // width left to grab.
         split.setLimits(20f, 95f);
-        split.first().addChild(shaderGraph);
-        split.second().addChild(shaderSource);
-        pane.addChild(split);
+        split.first().append(shaderGraph);
+        split.second().append(shaderSource);
+        pane.append(split);
 
         // A starter graph: Color * Time, into the master. Small enough to read at a glance and it
         // exercises dynamic widening (vec4 * float) plus an engine builtin, so the generated source
@@ -2380,7 +2602,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         // 6.3.7 — live thumbnails. Constructed here but NOT attached: attaching registers a frame
         // ticker, and there is no window yet at page-build time. render() does it on the first frame.
-        shaderPreviews = new com.crystalgui.graph.shader.ShaderGraphPreviews(
+        shaderPreviews = new com.crystalgui.app.shadergraph.preview.ShaderGraphPreviews(
                 shaderGraph, shaderNodes, master);
         // A Space dropdown changes the emitted GLSL but not the graph's shape, so onConnectionsChanged
         // never fires for it — without this the source pane silently shows the previous variant.
@@ -2389,7 +2611,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // 6.3.12 — the Main Preview. Parented to the graph's own pane rather than promoted into the top
         // layer: Unity's floats over the canvas, but a top-layer panel would sit above the create menu
         // and every dialog in the gallery too, which is a different claim than "above the graph".
-        shaderMainPreview = new com.crystalgui.graph.shader.MainPreviewPanel(
+        shaderMainPreview = new com.crystalgui.app.shadergraph.preview.MainPreviewPanel(
                 shaderGraph.getDocument(), shaderNodes, master);
         // Over the canvas, not beside it: addOverlay puts it in the viewport rather than on the plane,
         // so it stays put while the graph pans underneath — which is what "floating preview" means.
@@ -2415,7 +2637,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         var shaderNodes = com.crystalgraphics.shadergraph.CgShaderNodeRegistry.builtins();
         var master = new com.crystalgraphics.shadergraph.CgMasterNode();
 
-        var result = com.crystalgui.graph.shader.ShaderGraphBridge.compile(
+        var result = com.crystalgui.app.shadergraph.ShaderGraphBridge.compile(
                 shaderGraph.getDocument(), shaderNodes, master);
 
         shaderSource.setText(result.source().isEmpty()
@@ -2485,8 +2707,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             updateGraphStatus();
         });
 
-        pane.addChild(row(slot("view"), fit, reset, graphCullToggle, save, reload, graphStatus));
-        pane.addChild(graph);
+        pane.append(row(slot("view"), fit, reset, graphCullToggle, save, reload, graphStatus));
+        pane.append(graph);
 
         // The library the create-node menu offers from -- and the same descriptions the four nodes below
         // are built from, so what you can add and what is already there cannot drift apart.
@@ -2648,11 +2870,11 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // A group, so the foldout and the indent are visible next to ungrouped rows rather than on a
         // page of their own — depth only reads as depth against something that is not indented.
         ConfiguratorGroup advanced = new ConfiguratorGroup("Advanced");
-        panel.addChild(advanced);
+        panel.append(advanced);
         panel.addTo(advanced.content(), ConfigDescriptor.number("bias", "Bias"), 0.0);
         panel.addTo(advanced.content(), ConfigDescriptor.bool("clamp", "Clamp"), false);
         ConfiguratorGroup nested = new ConfiguratorGroup("Nested", true);
-        advanced.content().addChild(nested);
+        advanced.content().append(nested);
         panel.addTo(nested.content(), ConfigDescriptor.text("note", "Note"), "two levels deep");
 
         panel.add(ConfigDescriptor.of("entries", "Entries", ConfigDescriptor.Kind.ARRAY)
@@ -2661,7 +2883,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // Step 6's four remaining leaves — a group of their own so they're easy to find and compare
         // side by side rather than scattered through the page.
         ConfiguratorGroup leaves = new ConfiguratorGroup("Step 6");
-        panel.addChild(leaves);
+        panel.append(leaves);
         panel.addTo(leaves.content(), ConfigDescriptor.color("tint", "Tint"), 0xFF3C8CFF);
         panel.addTo(leaves.content(), ConfigDescriptor.mask("layers", "Layers",
                 java.util.List.of("Default", "Water", "UI", "PostProcessing")),
@@ -2682,30 +2904,30 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
             while (lines.size() > 12) lines.remove(lines.size() - 1);
             // Rebuilt wholesale, which is safe only because nothing here is being clicked or dragged —
             // the rule that bit the table header. These are read-only labels in a side panel.
-            log.clearAllChildren();
+            log.removeAll();
             for (String line : lines) {
                 UIText entry = new UIText(line);
                 entry.addClass("cfg-log-line");
-                log.addChild(entry);
+                log.append(entry);
             }
         });
 
         UIElement side = new UIElement();
         side.addClass("cfg-side");
-        side.addChild(hint("Every control sits on ONE height - that is the property to check"));
-        side.addChild(hint("Labels are LEFT-aligned and fixed-width, so controls share a left edge"));
-        side.addChild(hint("A checkbox is square and does NOT fill - the one deliberate exception"));
-        side.addChild(hint("Opacity has a range, so it is a slider; Scale has none, so it is a field"));
-        side.addChild(hint("Groups INDENT, they do not draw a box - Unity's choice, not LDLib2's"));
-        side.addChild(hint("Reference: docs/research/unity-inspector/01-inspector-property.png"));
-        side.addChild(log);
+        side.append(hint("Every control sits on ONE height - that is the property to check"));
+        side.append(hint("Labels are LEFT-aligned and fixed-width, so controls share a left edge"));
+        side.append(hint("A checkbox is square and does NOT fill - the one deliberate exception"));
+        side.append(hint("Opacity has a range, so it is a slider; Scale has none, so it is a field"));
+        side.append(hint("Groups INDENT, they do not draw a box - Unity's choice, not LDLib2's"));
+        side.append(hint("Reference: docs/research/unity-inspector/01-inspector-property.png"));
+        side.append(log);
 
         // In a Dialog: it already owns a draggable title bar, its own position, and the resize handles,
         // so the panel stays a plain content widget instead of growing a second identity as a window.
         // Same reasoning as the colour picker page above.
         Dialog window = new Dialog("Inspector");
         window.addClass("cfg-window");
-        window.getContent().addChild(panel);
+        window.getContent().append(panel);
 
         Button open = new Button("open inspector");
         open.addClass("canvas-btn");
@@ -2716,10 +2938,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // rather than sit beside it. The side panel is inset instead, to clear where the window opens.
         UIElement row = new UIElement();
         row.addClass("cfg-row");
-        row.addChild(side);
-        pane.addChild(row(slot("panel"), open));
-        pane.addChild(row);
-        pane.addChild(window);
+        row.append(side);
+        pane.append(row(slot("panel"), open));
+        pane.append(row);
+        pane.append(window);
         window.show().moveTo(16f, 78f);
     }
 
@@ -2731,6 +2953,6 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

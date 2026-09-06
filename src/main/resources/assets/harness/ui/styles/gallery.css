@@ -41,7 +41,14 @@
  * thickens it, so: compact the tabs enough that twenty fit without scrolling at the harness's
  * default window size, AND widen the bar so the moment a twenty-first is added the overflow
  * is visible and draggable rather than silently unreachable. */
-.gallery-tabs tab            { height: 13px; font-size: 7; }
+/* NO `font-size` here, and that is the whole rule. It used to say 7 and the label went on drawing at
+ * 10, because `default.css` opens with `* { font-size: 10 }` -- a STYLESHEET candidate on every
+ * element, and inheritance only applies where there is no candidate at any origin, so a size set on a
+ * wrapper never reached the UIText inside it. The new engine puts a widget's label in its SHADOW tree,
+ * which no outer rule reaches, so the label finally has no candidate and inherits -- and the 7 nobody
+ * had ever seen applied started applying, shrinking the rail from ~153px to ~107px. Saying nothing
+ * lets the tab take the universal 10 and the label inherit it, which is what this always rendered. */
+.gallery-tabs tab            { height: 13px; }
 .gallery-tabs .__strip-bar__ { width: 5px; }
 .theme-btn     { width: 118px; }
 
@@ -53,7 +60,14 @@
 .slot          { width: 86px; }
 .field         { width: 150px; }
 
-.swatch        { width: 14px; height: 14px; background: #6FA8DC; }
+/* The button page's pre-icon. `setPreIcon` puts a CALLER'S node into the button's SHADOW tree as
+ * `::part(pre-icon)`, and an outer bare-class rule cannot reach into a shadow tree -- so `.swatch`
+ * alone matched nothing and the icon drew at 0x0 with no background: an invisible node inside a
+ * button that otherwise looked right. Combining the class with the part is what every other
+ * consumer in the engine already does (`taskbar .__entry__::part(pre-icon).__tile-1__`,
+ * `::part(pre-icon).__completion-icon__`). The bare spelling stays for a swatch in the light tree. */
+.swatch,
+::part(pre-icon).swatch { width: 14px; height: 14px; background: #6FA8DC; }
 .box           { width: 96px; height: 40px; }
 /* Canvas for the curve page. A plain element with a background — everything drawn on it
  * comes from ctx.curve() in paintSelf, so its only job is to give the strokes a box with
@@ -378,4 +392,55 @@
 .mn-drop       { width: 130px; }
 /* The right-click surface. Deliberately tall enough to aim at, and it reports where the menu
  * was opened so pointer->root conversion is visibly correct rather than merely plausible. */
-.mn-canvas     { width: 300px; height: 56px; background: #31363F; padding-all: 6px; }
+.mn-canvas     { width: 300px; height: 56px; background: #31363F; padding-all: 6px; }
+
+/* ── glass page ─────────────────────────────────────────────────────────────────────────────────
+ * A backdrop worth refracting. Glass over a flat colour is a rectangle with a slightly different
+ * flat colour in it -- it tells you nothing, and it is exactly the case the `noise` layer exists to
+ * rescue. So the stage under these panels is deliberately BUSY: saturated overlapping blobs for the
+ * blur to average and for the saturation lift to fight over, and hard-edged type for the refraction
+ * to bend, because a straight edge crossing a bezel is the only thing that makes a lens legible.
+ *
+ * The stage CLIPS. The blobs are larger than it and hang off every side on purpose, so there is no
+ * frame of empty ground anywhere a glass panel might sit. */
+.gl-stage      { width: 100%; height: 300px; overflow: hidden; border-radius: 14px;
+                 background: #140B26; }
+
+/* Everything inside is out of flow: this page is a picture, not a column. */
+.gl-blobs      { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.gl-blob       { position: absolute; border-radius: 999px; }
+.gl-b1         { left: -40px;  top: -50px;  width: 240px; height: 240px; background: #E0409B; }
+.gl-b2         { left: 150px;  top: 60px;   width: 300px; height: 300px; background: #3C5BF0; }
+.gl-b3         { left: 380px;  top: -70px;  width: 260px; height: 260px; background: #F07A2B; }
+.gl-b4         { left: 520px;  top: 120px;  width: 300px; height: 300px; background: #17C4A8; }
+.gl-b5         { left: 260px;  top: 170px;  width: 220px; height: 220px; background: #8B3CF0; }
+
+/* Type behind the glass. Big, tight, high-contrast: the refraction shows up as letterforms bending
+ * at a bezel long before it shows up on a colour gradient. */
+.gl-label      { position: absolute; left: 24px; top: 116px; font-size: 44px; color: #FFFFFFEE; }
+.gl-sub        { position: absolute; left: 26px; top: 168px; font-size: 15px; color: #FFFFFFAA; }
+
+/* The specimens. Four shapes because the bezel behaves differently on each: a capsule is all corner,
+ * a card is mostly straight edge, a circle has no straight edge at all, and the tiles are small
+ * enough that the bezel is a large fraction of the whole -- which is where a too-wide bezel stops
+ * looking like glass and starts looking like a bubble. */
+.gl-capsule    { position: absolute; left: 40px;  top: 30px;  width: 300px; height: 62px;
+                 border-radius: 31px; }
+.gl-card       { position: absolute; left: 372px; top: 30px;  width: 210px; height: 150px;
+                 border-radius: 18px; padding-all: 12px; gap-all: 4px; }
+.gl-circle     { position: absolute; left: 612px; top: 40px;  width: 120px; height: 120px;
+                 border-radius: 999px; }
+.gl-tiles      { position: absolute; left: 40px;  top: 214px; flex-direction: row; gap-all: 10px; }
+.gl-tile       { width: 58px; height: 58px; border-radius: 16px; }
+
+.gl-card-title { font-size: 15px; color: #FFFFFF; }
+.gl-card-body  { font-size: 11px; color: #FFFFFFCC; }
+
+/* Controls. A fixed label column so the numbers line up as they change -- a readout that reflows
+ * while you drag is unreadable, which is the whole reason `slot()` exists on this page too. */
+.gl-controls   { flex-direction: row; gap-all: 18px; }
+.gl-col        { gap-all: 4px; }
+.gl-ctl        { flex-direction: row; align-items: center; gap-all: 8px; }
+.gl-ctl-name   { width: 74px; font-size: 11px; color: #B9BCC4; }
+.gl-ctl-val    { width: 42px; font-size: 11px; color: #6E7681; }
+.gl-slider     { width: 132px; }

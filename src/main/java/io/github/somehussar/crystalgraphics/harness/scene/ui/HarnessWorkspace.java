@@ -1,23 +1,34 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
-import com.crystalgui.language.LanguageStack;
+import com.crystalgui.core.storage.StorageLayout;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.dom.UIElementTreeSource;
+import com.crystalgui.net.mirror.UIElementMirror;
+import com.crystalgui.text.syntax.LanguageRegistry;
 import com.crystalgui.language.java.JavaLanguage;
 import com.crystalgui.language.js.JsLanguage;
 import com.crystalgui.language.run.ScriptPolicy;
+import com.crystalgui.fs.provider.CgFileEvent;
 import com.crystalgui.fs.CgPath;
-import com.crystalgui.fs.LocalFileSystem;
-import com.crystalgui.fs.ProjectRegistry;
-import com.crystalgui.fs.WorkspaceActor;
-import com.crystalgui.fs.WorkspaceClient;
-import com.crystalgui.fs.WorkspacePermission;
-import com.crystalgui.fs.WorkspaceProject;
-import com.crystalgui.fs.WorkspaceRpc;
-import com.crystalgui.fs.WorkspaceService;
+import com.crystalgui.fs.provider.LocalFileSystem;
+import com.crystalgui.fs.project.ProjectRegistry;
+import com.crystalgui.fs.server.WorkspaceActor;
+import com.crystalgui.fs.Resource;
+import com.crystalgui.fs.server.WorkspacePermission;
+import com.crystalgui.fs.client.FileOperations;
+import com.crystalgui.fs.client.Workspace;
+import com.crystalgui.fs.project.WorkspaceProject;
+import com.crystalgui.fs.protocol.FsError;
+import com.crystalgui.fs.protocol.FsMessages;
+import com.crystalgui.fs.protocol.FsMethods;
+import com.crystalgui.fs.server.WatchHub;
+import com.crystalgui.fs.server.WorkspaceBinding;
+import com.crystalgui.fs.server.WorkspaceService;
 import com.crystalgui.net.ClientUiSession;
 import com.crystalgui.net.InMemoryTransport;
 import com.crystalgui.net.ServerUiSession;
 import com.crystalgui.serialization.PlainOps;
-import com.crystalgui.ui.UIElement;
+import com.crystalgui.serialization.StateMap;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,6 +38,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -34,9 +46,9 @@ import java.util.function.Consumer;
  *
  * <p>Exists so a scene that wants real files does not have to reproduce the wiring. <b>Nothing here
  * shortcuts the protocol:</b> the client holds no reference to the filesystem, only a
- * {@link WorkspaceClient}, exactly as a client across a Minecraft connection would. That is the whole
- * value of the arrangement — a scene using this is exercising the real RPC path, not a local file API
- * wearing its clothes.</p>
+ * {@link Workspace}, exactly as a client across a Minecraft connection would. That is the whole value
+ * of the arrangement — a scene using this is exercising the real RPC path, not a local file API wearing
+ * its clothes.</p>
  *
  * <h3>The scratch project is a real directory on disk</h3>
  *
@@ -51,31 +63,30 @@ final class HarnessWorkspace {
 
     private final InMemoryTransport<Object> fromServer;
     private final InMemoryTransport<Object> fromClient;
-    private final ServerUiSession<Object> server;
-    private final WorkspaceRpc<Object> rpc;
-    private final ClientUiSession<Object> session;
-    private final WorkspaceClient<Object> client;
+    private final ServerUiSession<UIElement, Object> server;
+    private final WorkspaceBinding<Object> binding;
+    private final WatchHub hub;
+    private final WorkspaceService service;
+    private final ClientUiSession<UIElement, Object> session;
+    private final Workspace workspace;
 
     /** Seconds until the next watcher poll. Every poll stats each watched file, so a per-frame poll would
      * be a stat storm at 60 Hz for no benefit a human could perceive. The cadence is the HOST's call. */
     private float untilPoll;
 
     HarnessWorkspace() {
-        // BEFORE anything opens a document, because LanguageRegistry is consulted when an editor is built
-        // and a file already open would keep whichever tokenizer it was given. core/ ships word-list
-        // lexers so it can load with no natives; this puts the real parsers in front of them, which is
-        // what makes a declaration distinguishable from a call and a constant from an identifier.
+        // WARMING THE LANGUAGES, and nothing more. `language/` declares its grammars, ECJ and Rhino as
+        // a LanguageKinds service, so LanguageRegistry finds them on its own first read -- what this
+        // line buys is paying for them HERE rather than on the keystroke that opens the first editor
+        // (443ms on a Minecraft client, measured; see LanguageStack). Drop it and the harness still has
+        // every language, just later.
         //
-        // The grammars, ECJ and Rhino, in one call. This used to be three blocks here and three more in
-        // the Minecraft client, and the two copies had already diverged on the one thing that matters:
-        // this one caught nothing, so a band that is present but UNOPENABLE threw NoClassDefFoundError
-        // straight out of the constructor. Which engines exist and what a missing one means are facts
-        // about language/, so they live there now -- a host only says when.
-        //
-        // Reports rather than throws where the bands are not staged (`./gradlew :language:stageEngines`,
-        // which runHarness depends on). That is a legitimate environment: the editor colours and does
-        // not analyse.
-        LanguageStack.registerAll();
+        // This used to be `LanguageStack.registerAll()`, which the 1.7.10 loader also called, and before
+        // that it was three blocks here and three more in the client that had already diverged on the one
+        // thing that mattered: this copy caught nothing, so a band that is present but UNOPENABLE threw
+        // NoClassDefFoundError straight out of the constructor. Which engines exist, and what a missing
+        // one means, are facts about language/ -- and now a host does not even say when.
+        LanguageRegistry.bootstrap();
 
         applyScriptPolicy();
 
@@ -85,28 +96,41 @@ final class HarnessWorkspace {
 
         // ALLOW_ALL, and worth being explicit about: there is no player here to guard against, and the
         // default is DENY_ALL precisely so a real host has to make this choice on purpose.
-        WorkspaceService service = new WorkspaceService(
+        service = new WorkspaceService(
                 registry, new LocalFileSystem(registry), WorkspacePermission.ALLOW_ALL);
+        hub = new WatchHub(service);
 
         InMemoryTransport<Object>[] pair = InMemoryTransport.pair();
         fromServer = pair[0];
         fromClient = pair[1];
 
-        server = new ServerUiSession<>(1, new UIElement(), fromServer, PlainOps.INSTANCE);
-        rpc = new WorkspaceRpc<>(service, WorkspaceActor.LOCAL);
-        rpc.installOn(server::onCall);
+        server = new ServerUiSession<>(1, new UIElementTreeSource(new UIElement()),
+                new UIElementMirror<>(PlainOps.INSTANCE), fromServer, PlainOps.INSTANCE);
+        binding = new WorkspaceBinding<>(service, hub, WorkspaceActor.LOCAL, PEER, PlainOps.INSTANCE);
+        binding.installOn(server::onCall);
         server.open();
 
-        session = new ClientUiSession<>(fromClient, PlainOps.INSTANCE);
-        client = new WorkspaceClient<>(session, PlainOps.INSTANCE);
+        session = new ClientUiSession<>(new UIElementMirror<>(PlainOps.INSTANCE), fromClient,
+                PlainOps.INSTANCE);
+        workspace = Workspace.over(session::call, session::onNotify, PlainOps.INSTANCE);
     }
 
-    WorkspaceClient<Object> client() {
-        return client;
+    /** The one peer this process has. A hub keys its subscriptions by it, so it only has to be stable. */
+    private static final Object PEER = new Object();
+
+    Workspace workspace() {
+        return workspace;
     }
 
-    void onFileChanged(Consumer<WorkspaceClient.FileChanged> listener) {
-        client.onFileChanged(listener::accept);
+    /**
+     * Every change under the scratch project, as one recursive watch.
+     *
+     * <p>A watch is a real subscription over the wire, so this costs the same round trip a client in a
+     * Minecraft world pays — which is the point of the arrangement.</p>
+     */
+    void onFileChanged(Consumer<FsMessages.FileChange> listener) {
+        workspace.watch(Resource.of(CgPath.ofProject(PROJECT_ID)), true).onChanged
+                .connect(changes -> changes.forEach(listener));
     }
 
     /**
@@ -130,20 +154,38 @@ final class HarnessWorkspace {
         untilPoll -= deltaSeconds;
         if (untilPoll <= 0f) {
             untilPoll = 0.5f;
-            rpc.pollAndNotify((method, args) -> server.call(method, args, null, null), PlainOps.INSTANCE);
+            // THE EVENTS FIRST, then the reconciling rescan. A watcher loses events by design when its
+            // queue overflows, so the poll is what makes the answer eventually right rather than an
+            // alternative to listening.
+            List<CgFileEvent> events = service.drainFileEvents();
+            if (!events.isEmpty()) notifyChanges(hub.tick(WorkspaceActor.LOCAL, events));
+            notifyChanges(hub.poll(WorkspaceActor.LOCAL));
         }
     }
 
-    void read(CgPath path, Consumer<WorkspaceClient.Document> onLoaded, Consumer<String> onFailure) {
-        client.read(path, onLoaded::accept, failure -> onFailure.accept(failure.code()));
+    private void notifyChanges(Map<Object, List<FsMessages.FileChange>> byPeer) {
+        List<FsMessages.FileChange> mine = binding.changesFor(byPeer);
+        if (mine.isEmpty()) return;
+        server.call(FsMethods.CHANGED, new StateMap<>(PlainOps.INSTANCE,
+                FsMessages.changedNotification().encode(PlainOps.INSTANCE,
+                        new FsMessages.ChangedNotification(mine))), null, null);
     }
 
-    /** Saves, reporting a conflict distinctly — a stale write is the one failure with a recovery path
-     * rather than an error message. */
-    void save(CgPath path, String text, Runnable onSaved, Consumer<Boolean> onFailure) {
-        client.save(path, text.getBytes(StandardCharsets.UTF_8),
-                etag -> onSaved.run(),
-                failure -> onFailure.accept(failure.isConflict()));
+    void read(CgPath path, Consumer<FileOperations.Content> onLoaded, Consumer<String> onFailure) {
+        workspace.files().readWhole(Resource.of(path))
+                .then(onLoaded::accept)
+                .onError(failure -> onFailure.accept(failure.code()));
+    }
+
+    /**
+     * Saves, reporting a conflict distinctly — a stale write is the one failure with a recovery path
+     * rather than an error message.
+     */
+    void save(CgPath path, String text, String etag, Runnable onSaved, Consumer<Boolean> onFailure) {
+        workspace.files().write(Resource.of(path), text.getBytes(StandardCharsets.UTF_8), etag)
+                .then(written -> onSaved.run())
+                .onError(failure -> onFailure.accept(
+                        failure instanceof FsError problem && problem.is(FsError.CONFLICT)));
     }
 
     /** Overrides the default filter — a prefix list, or {@code none} to switch it off. @see #applyScriptPolicy */
@@ -214,7 +256,8 @@ final class HarnessWorkspace {
     }
 
     private static Path seedScratchProject() {
-        Path root = Paths.get("workspace").toAbsolutePath().normalize();
+        Path root = StorageLayout.projectsIn(Paths.get(".").toAbsolutePath().normalize())
+                .resolve("scratch").normalize();
         try {
             Files.createDirectories(root.resolve("src"));
             writeIfAbsent(root.resolve("README.md"),
@@ -223,6 +266,11 @@ final class HarnessWorkspace {
                     "public class Main {\n    public static void main(String[] args) {\n"
                             + "        System.out.println(\"hello\");\n    }\n}\n");
             writeIfAbsent(root.resolve("src/notes.txt"), "one\ntwo\nthree\n");
+            // THE WORKED EXAMPLE'S FILE. `.notes` is registered by the scenes that build a
+            // workbench, so this opens as a checklist -- which is the only way to tell a kind
+            // that is wired from one that merely compiles.
+            writeIfAbsent(root.resolve("todo.notes"),
+                    "[x] read the example\nwrite a document kind\ntick this off\n");
             // THE JAVASCRIPT FIXTURE, from a resource rather than from a string literal here. It is a
             // page long and grows a section per M10 milestone, so inlining it would put a document
             // nobody can read inside a method about directory setup -- and, worse, would make the copy

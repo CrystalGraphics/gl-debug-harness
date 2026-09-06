@@ -3,12 +3,12 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 import com.crystalgraphics.util.profiling.CgProfiler;
 import com.crystalgraphics.util.profiling.CgProfilerReport;
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -23,7 +23,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Logger;
@@ -63,6 +62,9 @@ import java.util.logging.Logger;
  * into it would make both jobs worse.
  */
 public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
+
+    /** Logical-to-surface scale, as the harness's other new-engine scenes use. */
+    private static final float SCALE = 2f;
 
     private static final Logger LOGGER = Logger.getLogger(CgUiTextStressScene.class.getName());
 
@@ -126,7 +128,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
     };
 
     private HarnessContext ctx;
-    private UIWindow uiWindow;
+    private UIDocument document;
     private final List<UIText> labels = new ArrayList<>(LABEL_COUNT);
 
     private Mode mode = Mode.STATIC;
@@ -144,9 +146,18 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
         this.ctx = ctx;
         Keyboard.enableRepeatEvents(false);
         CgProfiler.setEnabled(true);
-        uiWindow = new UIWindow(Ui.of(buildStressPanel()));
-        uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLE_SHEET));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        UIElement sceneRoot = buildStressPanel();
+        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
+        // root and took the window's size; here the DOCUMENT is the root and this is an
+        // ordinary child, which sizes to its content -- so without this the scene lays out
+        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
+        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).heightPercent(100f));
+        this.document.append(sceneRoot);
+        document.styles().addStylesheet(StyleSheet.DEFAULT);
+        document.styles().addStylesheet(StyleSheet.parse(STYLE_SHEET));
         csvRows.add(String.join(",", CSV_HEADER));
     }
 
@@ -165,8 +176,8 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
             cell.addClass("stress-cell");
             UIText label = new UIText(staticTextFor(i));
             label.addClass("stress-label");
-            cell.addChild(label);
-            root.addChild(cell);
+            cell.append(label);
+            root.append(cell);
             labels.add(label);
         }
         return root;
@@ -207,7 +218,6 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
         double now = frame.getElapsedTime();
         if (modeStartedAt < 0) modeStartedAt = now;
 
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
 
         long f = frame.getFrameNumber();
         try (CgProfiler.Scope ignored = CgProfiler.scope("uiText.setText")) {
@@ -220,11 +230,18 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
             }
         }
 
-        try (CgProfiler.Scope ignored = CgProfiler.scope("uiWindow.paintFrame")) {
+        try (CgProfiler.Scope ignored = CgProfiler.scope("document.paintFrame")) {
             if (DRAW_LABELS) {
-                uiWindow.paintFrame();
+                document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
+
+                // AND THE PAINT. `paintFrame()` did both; `frame()` only advances, so a scene that
+                // lost this half advanced perfectly and drew nothing.
+                CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+                paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
+                document.paint(paintContext);
+                paintContext.endFrame();
             } else {
-                uiWindow.updateWithoutPainting();
+                document.update(ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
             }
         }
 
@@ -276,7 +293,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
                 frame.getFrameNumber(), frame.getElapsedTime(), mode.name(), measured ? 1 : 0,
                 frame.getDeltaTime() * 1000.0,
                 scope(report, "uiText.setText"),
-                scope(report, "uiWindow.paintFrame"),
+                scope(report, "document.paintFrame"),
                 scope(report, "resolveGlyphs"),
                 scope(report, "submitBatchedQuads"),
                 scope(report, "quadLoop"),
@@ -368,7 +385,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
         labels.clear();
     }
 
@@ -389,11 +406,11 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

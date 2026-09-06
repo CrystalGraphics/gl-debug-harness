@@ -1,12 +1,12 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -36,7 +36,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
 
     /** Ore's switch graphic (24x14) with a 4px border, chosen because its centre region is visibly
      * PATTERNED. A flat-centred sprite renders identically under every mode, which would make this
@@ -60,8 +63,17 @@ public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemIn
     @Override
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(false);
-        this.uiWindow = new UIWindow(Ui.of(createDemo()));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLES));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        UIElement sceneRoot = createDemo();
+        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
+        // root and took the window's size; here the DOCUMENT is the root and this is an
+        // ordinary child, which sizes to its content -- so without this the scene lays out
+        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
+        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).heightPercent(100f));
+        this.document.append(sceneRoot);
+        this.document.styles().addStylesheet(StyleSheet.parse(STYLES));
     }
 
     private UIElement createDemo() {
@@ -72,18 +84,18 @@ public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemIn
         // Header row naming the two columns.
         UIElement header = new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).gapAll(8));
         header.addClass("row");
-        header.addChild(label(""));
-        header.addChild(label("CPU quads"));
-        header.addChild(label("SDF shader"));
-        root.addChild(header);
+        header.append(label(""));
+        header.append(label("CPU quads"));
+        header.append(label("SDF shader"));
+        root.append(header);
 
         for (String mode : new String[]{"stretch", "repeat", "round", "space"}) {
             UIElement row = new UIElement();
             row.addClass("row");
-            row.addChild(label(mode));
-            row.addChild(cell(mode, false)); // plain -> CgUiSprite's quad loop
-            row.addChild(cell(mode, true));  // border-radius -> WITH_9SLICE_FILL shader branch
-            root.addChild(row);
+            row.append(label(mode));
+            row.append(cell(mode, false)); // plain -> CgUiSprite's quad loop
+            row.append(cell(mode, true));  // border-radius -> WITH_9SLICE_FILL shader branch
+            root.append(row);
         }
         return root;
     }
@@ -95,7 +107,7 @@ public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemIn
         UIElement slot = new UIElement().layout(l -> l.width(52));
         UIText t = new UIText(text);
         t.addClass("label");
-        slot.addChild(t);
+        slot.append(t);
         return slot;
     }
 
@@ -109,8 +121,16 @@ public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
-        uiWindow.paintFrame();
+        int w = ctx.getScreenWidth();
+        int h = ctx.getScreenHeight();
+        // SURFACE pixels in, LOGICAL units to lay out in -- the scale lives on the box
+        // tree's root transform, so this is the only place the two spaces meet.
+        document.frame(frame.getDeltaTime(), w / SCALE, h / SCALE);
+
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(w, h);
+        document.paint(paintContext);
+        paintContext.endFrame();
 
         var context = CgUiPaintContext.getInstance();
         context.text().draw().at(0, 0)
@@ -124,7 +144,7 @@ public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -144,11 +164,11 @@ public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

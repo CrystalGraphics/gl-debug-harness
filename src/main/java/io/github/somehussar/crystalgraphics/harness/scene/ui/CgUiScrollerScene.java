@@ -1,14 +1,14 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.ScrollerView;
-import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.scroll.ScrollerView;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -28,7 +28,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness's other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
     private UIElement bare;
     private ScrollerView withBars;
 
@@ -50,10 +53,19 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
     @Override
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
-        this.uiWindow = new UIWindow(Ui.of(createDemo()));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLES));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        UIElement sceneRoot = createDemo();
+        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
+        // root and took the window's size; here the DOCUMENT is the root and this is an
+        // ordinary child, which sizes to its content -- so without this the scene lays out
+        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
+        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).heightPercent(100f));
+        this.document.append(sceneRoot);
+        this.document.styles().addStylesheet(StyleSheet.DEFAULT);
+        this.document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
+        this.document.styles().addStylesheet(StyleSheet.parse(STYLES));
     }
 
     private UIElement createDemo() {
@@ -68,14 +80,14 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
         bare.addClass("col");
         bare.addClass("bare");
         fill(bare, "bare");
-        root.addChild(bare);
+        root.append(bare);
 
         // Same thing plus visible bars.
         withBars = new ScrollerView();
         withBars.addClass("col");
         withBars.addClass("barred");
         fill(withBars, "bars");
-        root.addChild(withBars);
+        root.append(withBars);
 
         return root;
     }
@@ -88,14 +100,13 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
             UIText t = new UIText(tag + " row " + i);
             if (i == 20) row.setFocusPolicy(FocusPolicy.FOCUSABLE);
             t.addClass("label");
-            row.addChild(t);
-            container.addChild(row);
+            row.append(t);
+            container.append(row);
         }
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         // Content size is only known after a layout, so the bars are synced once it exists.
         withBars.refreshScrollers();
 
@@ -103,15 +114,24 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
         // the point it's here to make: scrolling is a capability any element has, reachable through
         // scrollTop, with no widget and no wrapper. It mirrors the right column so the two can be
         // compared directly.
-        bare.setScrollTop(withBars.getScrollTop());
+        if (bare.box() != null && withBars.box() != null) {
+            bare.box().setScroll(bare.box().scrollLeft(), withBars.box().scrollTop());
+        }
 
-        uiWindow.paintFrame();
+        document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
+
+        // AND THE PAINT. `paintFrame()` did both; `frame()` only advances, so a scene that
+        // lost this half advanced perfectly and drew nothing.
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
+        document.paint(paintContext);
+        paintContext.endFrame();
 
         var context = CgUiPaintContext.getInstance();
         context.text().draw().at(0, 0)
                 .text(String.format("Wheel/drag the RIGHT column; the left is scrolled from code."
                                 + "  bare=%.0f  bars=%.0f",
-                        bare.getScrollTop(), withBars.getScrollTop()))
+                        bare.scrollTop(), withBars.scrollTop()))
                 .font(context.getFont().atSize(14)).submit();
 
         if (frame.getFrameNumber() == 5) {
@@ -121,7 +141,7 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -141,11 +161,11 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

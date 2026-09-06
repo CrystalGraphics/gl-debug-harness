@@ -80,6 +80,14 @@ public final class PlatformServiceHarness implements CgPlatformService {
      */
     public static void onPreInit() {
         CgPlatform.register(PlatformServiceHarness.getInstance());
+        // NATIVE CONTENT IS NOT DECLARED HERE, and it used to be.
+        //
+        // `com.crystalgui.ui.elements.slot` lives only on core's `native-content-slots` branch, which
+        // was never merged to master -- so this branch of the harness has not compiled against master
+        // core since it was written, and `cgui-slot` went with it. The declaration is worth restoring
+        // the moment that branch lands: a native-content slot refuses to paint on a platform that
+        // never said whether it renders items, and the harness is genuinely such a platform, so
+        // saying so out loud is what separates it from a loader that forgot.
     }
 
 }

@@ -107,7 +107,6 @@ public final class FontDebugHarnessMain {
             HarnessDeadline.arm(config.getSeconds());
 
             HarnessSceneLifecycle scene = entry.getFactory().create();
-
             boolean isInteractiveMode =
                     entry.getDescriptor().getLifecycleMode() == SceneDescriptor.LifecycleMode.INTERACTIVE;
 

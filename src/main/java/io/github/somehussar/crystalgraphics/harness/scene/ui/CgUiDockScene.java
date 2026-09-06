@@ -6,30 +6,28 @@ import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.util.profiling.CgProfiler;
 import com.crystalgraphics.util.profiling.CgProfilerDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.core.storage.StorageLayout;
 import com.crystalgui.core.async.FrameProfile;
-import com.crystalgui.core.command.CommandRegistry;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.render.text.FontFamilyCache;
-import com.crystalgui.ui.elements.chrome.QuickPick;
-import com.crystalgui.ui.elements.workbench.GoToFile;
-import com.crystalgui.language.run.view.RunPanels;
+import com.crystalgui.workbench.chrome.palette.QuickPick;
+import com.crystalgui.workbench.search.GoToFile;
 import com.crystalgui.language.run.view.ScriptWorkbench;
-import com.crystalgui.core.dispose.Disposer;
-import com.crystalgui.editor.CrystalEditor;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.app.crystaleditor.CrystalEditor;
+import com.crystalgui.desktop.Desktop;
+import java.nio.file.Paths;
+import com.crystalgui.workbench.app.WorkbenchApplication;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.fs.CgPath;
 import com.crystalgui.fs.Resource;
-import com.crystalgui.ui.elements.dock.DockArea;
-import com.crystalgui.text.syntax.SyntaxToken;
-import com.crystalgui.ui.elements.editor.CompletionSession;
-import com.crystalgui.ui.elements.editor.TextEditor;
-import com.crystalgui.ui.elements.dock.DockPanelDescriptor;
-import com.crystalgui.ui.elements.dock.DockPanelRef;
-import com.crystalgui.ui.elements.dock.DockRegion;
-import com.crystalgui.ui.elements.dock.RegionSide;
+import com.crystalgui.workbench.dock.DockArea;
+import com.crystalgui.widget.texteditor.TextEditor;
+import com.crystalgui.workbench.dock.panel.DockPanelDescriptor;
+import com.crystalgui.workbench.dock.layout.DockPanelRef;
+import com.crystalgui.workbench.region.DockRegion;
+import com.crystalgui.workbench.region.RegionSide;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.Ui;
 import com.crystalgui.core.notify.Notification;
 import com.crystalgui.core.notify.Notifications;
 import com.crystalgui.core.async.JobKey;
@@ -38,12 +36,11 @@ import com.crystalgui.core.async.JobScheduler;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgModifiers;
 import com.crystalgraphics.platform.input.CgMouseCodes;
-import com.crystalgui.ui.UIWindow;
+import com.crystalgui.ui.dom.UIDocument;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 
-import java.nio.file.Paths;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +72,9 @@ import java.util.Map;
  */
 public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
     /** No room reserved at the top any more: the status line is a real StatusBarView inside the
      * workbench now, so it is laid out rather than painted over everything. @see #init */
     private static final String STYLES = """
@@ -84,8 +84,8 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     /** Both halves of a real workspace, in this process — the one genuinely fake thing here. */
     private final HarnessWorkspace workspace = new HarnessWorkspace();
 
-    private UIWindow uiWindow;
-    private CrystalEditor editor;
+    private UIDocument document;
+    private WorkbenchApplication editor;
 
     private boolean projectsAsked;
 
@@ -131,7 +131,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
                     // NAMED, so a drag that lands somewhere unexpected says which panel it was. An empty
                     // box would make all eight look identical the moment two end up in the same region.
                     UIElement body = new UIElement();
-                    body.addChild(new UIText(title + " (dummy)"));
+                    body.append(new UIText(title + " (dummy)"));
                     return body;
                 });
     }
@@ -140,32 +140,50 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
 
-        editor = new CrystalEditor(workspace.client());
-        // Beside the scratch workspace, not in it: a session record is private and must not become part of
-        // the project a resource pack ships. See WorkbenchSession -- the same reason trash lives outside.
-        editor.useConfig(new com.crystalgui.fs.LocalConfigStorage(
-                java.nio.file.Paths.get("workspace-config").toAbsolutePath().normalize()));
-        editor.addClass("demo-root");
-        registerDummyToolWindows();
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        document.styles().addStylesheet(StyleSheet.DEFAULT);
 
-        uiWindow = new UIWindow(Ui.of(editor));
-        uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        //uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
-        uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLES));
+        // AN APPLICATION ON A DESKTOP, MAXIMISED -- which is what this scene always WAS, faked by
+        // appending the editor to the document root and forcing it to 100%/100%. The editor is launched
+        // from its manifest now, so the storage, the extensions, the title, the key, the policy, the
+        // icon, the project ask, the session restore and the initial focus all arrive with it; this
+        // scene decides only that its one window fills the screen.
+        //
+        // Beside the scratch workspace, not in it: a session record is private and must not become part
+        // of the project a resource pack ships. See WorkbenchSession -- the same reason trash lives
+        // outside.
+        //
+        // A SEPARATE DIRECTORY UNDER THE SCRIPTED FLOW, and it is the difference between a measurement
+        // and a coin toss rather than tidiness. The session records which documents were open, so a
+        // scripted run over the hand-driven record REOPENS whatever the last hand-driven run left: the
+        // second run of this flow paid the whole cost of opening UIElement during startup, before the
+        // picker was ever touched, and its OPENED stage measured 60ms instead of 237ms. Both numbers
+        // were real and neither answered the question. A flow that measures opening a class has to
+        // begin with that class shut -- and it must not write over the record either, which a
+        // directory of its own settles in one line where a "do not restore" flag settled only half.
+        // ITS OWN INSTALLATION for the flow variant, which is a measurement fixture rather than
+        // configuration: a flow that measures opening a class has to begin with that class shut, and
+        // the session record is what would reopen it. Everywhere else it is the harness's own.
+        Desktop.of(document).useStorage(flowEnabled || HOVER_FLOW
+                ? ctx.installation().resolve("harness-flow")
+                : ctx.installation());
+        editor = (WorkbenchApplication) Desktop.of(document).applications().launch(CrystalEditor.KIND,
+                workspace.workspace());
+        editor.addClass("demo-root");
+        editor.mainWindow().maximize();
+        registerDummyToolWindows();
+        //document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
+        document.styles().addStylesheet(StyleSheet.parse(STYLES));
         // Commands and their keys are the editor's, not the scene's -- so Ctrl+S, Ctrl+Shift+S and Ctrl+O
         // are registered commands here rather than a switch on scan codes, and appear in the palette with
         // their accelerators like everything else.
         // Nothing to install: constructing the editor registered its commands.
 
-        // RUN AND STOP, for the .java file in front. Null when no engine band was staged, and the
-        // commands are then deliberately NOT registered -- a Run row that cannot run anything teaches
-        // people the feature is broken rather than unavailable.
-        scripting = ScriptWorkbench.install(
-                CommandRegistry.global(), editor.workbench(),
-                Paths.get("build", "script-cache").toAbsolutePath().normalize());
-        // OPEN ON LAUNCH, which is a harness decision and not the panel's: this scene exists to be
-        // looked at while the console is being built. A real workbench leaves it on the rail until asked.
-        if (scripting != null) editor.workbench().revealPanel(RunPanels.RUN_TYPE);
+        // RUN AND STOP MOVED TO cgui-desktop. `ScriptWorkbench` is on the new engine now and takes the
+        // new `Workbench`; this scene is the OLD engine's and is deleted at 6.9b, so there is nothing
+        // to install here any more. The comment in CgUiDesktopScene.openEditorWindow saying this scene
+        // is the one that runs the editor with everything on was true and is not any longer.
 
         // The counter's font, before any frame is timed. @see #overlayFont
         overlayFont();
@@ -196,30 +214,25 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         workspace.pump(frame.getDeltaTime());
         if (!projectsAsked && workspace.isConnected()) {
             projectsAsked = true;
-            // Deferred until the session has a window id: before that the server discards every packet
-            // addressed to another window, so an earlier call is dropped with no error at all.
-            editor.workbench().fileTree().loadProjects();
-            // AFTER loadProjects, not before: the restore parks the folders it wants expanded and retries
-            // until the listings that reveal them arrive, so asking first would simply park everything.
-            //
-            // AND NOT AT ALL UNDER THE SCRIPTED FLOW, which is not tidiness -- it is the difference
-            // between a measurement and a coin toss. The session records which documents were open, so
-            // a scripted run REOPENS whatever the previous scripted run left behind: the second run of
-            // this flow paid the whole cost of opening UIElement during startup, before the picker was
-            // ever touched, and its OPENED stage then measured 60ms instead of 237ms. Both numbers were
-            // real and neither answered the question. A flow that measures opening a class has to begin
-            // with that class shut. @see #printFlowSummary
-            if (!flowEnabled && !HOVER_FLOW) editor.restoreSession(HarnessWorkspace.PROJECT_ID);
+            // THE PROJECT ASK AND THE SESSION RESTORE WERE HERE, behind this flag. Both are the
+            // application's now: it hangs them off the greeting and the project listing, which is the
+            // ordering this scene and the 1.7.10 screen each enforced for themselves. The flow's own
+            // isolation is the config directory chosen in init(). @see WorkbenchApplication
         }
 
         // BEFORE THE PAINT, so a gesture's cost lands in the frame the flow attributes it to.
         elapsed = frame.getElapsedTime();
         if (flowEnabled || HOVER_FLOW) advanceFlow();
 
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         long painted = System.nanoTime();
-        uiWindow.paintFrame();
-        editor.giveInitialFocus();
+        document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
+
+        // AND THE PAINT. `paintFrame()` did both; `frame()` only advances, so a scene that
+        // lost this half advanced perfectly and drew nothing.
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
+        document.paint(paintContext);
+        paintContext.endFrame();
         paintNanos = System.nanoTime() - painted;
 
         // AFTER THE WHOLE TREE, in its own frame — see paintOverlay.
@@ -271,18 +284,12 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private static final double ACCEPT_AT = 8.0;
 
     /**
-     * The BACKSTOP, not the schedule — the run ends when the last stage settles. @see #isRunning
+     * When the run ends by itself.
      *
-     * <p>It used to be the schedule, and that is a second statement of how long the flow is: the flow
-     * itself says so by advancing, and a number beside it can only ever agree or go stale. It had already
-     * gone stale, and silently — at {@code 22.0} it looked generous while the last two gestures were
-     * scheduled for 14 and 17 seconds and had stopped firing at all, so it stopped a flow that had been
-     * over since second thirteen and reported nothing missing.</p>
-     *
-     * <p>Comfortably above the whole chain, so reaching it means a stage stopped advancing rather than
-     * that the run was cut short — which is the only thing a backstop should ever mean.</p>
+     * <p>Long enough after the accept for the frame rate to come back — the summary's whole claim is that
+     * a stall belongs to one gesture, which is only true if the run outlives it.</p>
      */
-    private static final double RUN_FOR = 45.0;
+    private static final double RUN_FOR = 22.0;
 
     private enum Stage {
         /** Everything up to the picker: the editor built, the project listed, the dock settling. */
@@ -297,16 +304,8 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         HOVERING,
         /** Parked on one symbol after another, long enough for each to open its popup. @see #hoverNextSymbol */
         DOC_HOVER,
-        /** The open document is being scrolled, a step per frame. @see #scrollDocument */
-        SCROLLING,
         /** A PROJECT file is open beside the viewer, settling before it is closed. */
         PROJECT_OPEN,
-        /** A JAVASCRIPT file is open, settling. The counterpart measurement. @see #JS_SUBJECT */
-        JS_OPEN,
-        /** Characters are going into that document, one per frame. @see #typeIntoDocument */
-        EDITING,
-        /** A completion is being driven: a prefix filtered letter by letter, then a dot. @see #typeCompletion */
-        COMPLETING,
         /** The tab has been closed; whatever closing costs lands in this stage's worst frame. */
         CLOSED
     }
@@ -386,112 +385,11 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      * <p>{@code DocShowcase.java} is the largest thing the seeded workspace has (22KB) and carries real
      * language services, which is what makes its close representative.</p>
      */
-    /**
-     * How long a stage that is only settling is held for, before the next gesture.
-     *
-     * <h3>A DURATION, and the two before it used to be absolute clocks</h3>
-     *
-     * <p>They were {@code OPEN_PROJECT_AT = 14.0} and {@code CLOSE_AT = 17.0}, and both were guarded on
-     * {@code stage == HOVERING} — so the two of them raced whichever other stage also left {@code
-     * HOVERING}. Adding the documentation-hover stage at {@code t=13.0} won that race, and from then on
-     * nothing was ever in {@code HOVERING} at 14 seconds: <b>opening a project file and closing a tab
-     * silently stopped happening</b>, in the very next commit after the one that added them to measure a
-     * close. Neither the run nor the summary said so — a stage that never runs files no worst frame, and
-     * the summary prints only the stages it has, so the two rows were simply absent from a table nobody
-     * counts the rows of.</p>
-     *
-     * <p>So the tail is a CHAIN: each stage names its successor and holds for a duration from the moment
-     * it was entered. Inserting one now shifts everything after it instead of orphaning it, and the run
-     * ends when the last stage does rather than at a clock that has to be remembered to keep up.</p>
-     */
-    private static final double SETTLE_FOR = 3.0;
+    private static final double OPEN_PROJECT_AT = 14.0;
+    private static final double CLOSE_AT = 17.0;
 
-    /** How long the document is scrolled for. @see #scrollDocument */
-    private static final double SCROLL_FOR = 2.5;
-
-    /** How long characters go into the document for. @see #typeIntoDocument */
-    private static final double EDIT_FOR = 2.5;
-
-    /** How long the completion gesture runs. @see #typeCompletion */
-    private static final double COMPLETE_FOR = 4.5;
-
-    /**
-     * Seconds between completion keystrokes — <b>a typing speed, not a frame</b>.
-     *
-     * <h3>One character per frame is ~60 a second, and no query can answer that fast</h3>
-     *
-     * <p>Every other gesture here types once per frame, which is right for them: they measure what a
-     * keystroke costs, and the faster they arrive the more of them get measured. It is wrong the moment
-     * the thing being measured answers ASYNCHRONOUSLY. A completion query takes tens of milliseconds, and
-     * the session supersedes an outstanding request on every keystroke — so at one per frame not a single
-     * answer ever landed, and the popup truthfully reported zero rows for the whole gesture. The flow was
-     * measuring a list that never arrived.</p>
-     *
-     * <p>120ms is about eight characters a second — brisk human typing, and slow enough that an answer
-     * has a chance to come back between two of them, which is the case worth measuring.</p>
-     */
-    private static final double COMPLETE_INTERVAL = 0.12;
-
-    private double nextCompleteAt;
-
-    /**
-     * The two completion shapes in one string, typed left to right.
-     *
-     * <p><b>{@code CgUi} is the first half</b> — a prefix that matches a great many types on this
-     * classpath, so each letter refilters a long list rather than a short one, which is the case that was
-     * reported as dropping frames. <b>The trailing dot is the second</b>: it is not a filter at all but a
-     * fresh member query against a resolved receiver, and it was reported as a 60ms frame on its own.</p>
-     *
-     * <p>One gesture rather than two because they are consecutive in real use and the second needs the
-     * first to have typed a receiver. Each keystroke still gets its own span, so the dot's cost is read
-     * off its own line and never averaged with the letters around it.</p>
-     */
-    private static final String COMPLETE_TEXT = "CgUi";
-
-    /**
-     * How long to wait after the prefix before ACCEPTING the row, and after that before reading colours.
-     *
-     * <p>The list has to have arrived for Enter to accept anything, and the analysis has to have landed
-     * for the colours to be the ones the editor settles on. Both are debounced; a shorter wait would
-     * report whatever was on screen mid-flight and call it the answer.</p>
-     */
-    private static final double ACCEPT_AFTER = 1.2;
-    private static final double READ_COLOURS_AFTER = 2.0;
-
-    /**
-     * What gets typed into the document.
-     *
-     * <h3>Letters and spaces, and deliberately nothing that opens a popup</h3>
-     *
-     * <p>A {@code .} would summon the completion list, which is a large cost of its own and a different
-     * question — the one being asked here is what an ORDINARY keystroke costs. Word-shaped text also
-     * keeps the tokenizer doing real work: a run of one repeated character re-lexes to the same token
-     * every time and would flatter whatever caches sit behind it.</p>
-     */
-    private static final String EDIT_TEXT = "the quick brown fox jumps over the lazy dog ";
-
-    /** The project file opened and closed to measure a close. @see #SETTLE_FOR */
+    /** The project file opened and closed to measure a close. @see #OPEN_PROJECT_AT */
     private static final String CLOSE_SUBJECT = "src/DocShowcase.java";
-
-    /**
-     * Its JavaScript counterpart, opened straight afterwards.
-     *
-     * <p>The same file in the other language, so the two timings differ by the LANGUAGE and by nothing
-     * else -- same workspace, same window, same frame loop, one run. The report is that a first
-     * JavaScript file takes about twice as long to finish colouring as a first Java one, which is a
-     * comparison and therefore needs both halves measured the same way.</p>
-     *
-     * <p>Held longer than the others: what is being waited for is the semantic pass landing, not layout.</p>
-     */
-    private static final String JS_SUBJECT =
-            System.getProperty("crystalgui.harness.jssubject", "src/other/Import.js");
-
-    private static final double JS_SETTLE_FOR = 6.0;
-
-    /** Opened after {@link #JS_SUBJECT}, to tell a per-process warmup from a per-file one. */
-    private static final String SECOND_JS_SUBJECT = "src/main/js/util/Greeter.js";
-
-    private boolean secondJsOpened;
 
     private Stage stage = Stage.STARTUP;
     private int typed;
@@ -506,7 +404,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
         if (stage == Stage.STARTUP && elapsed >= OPEN_PICKER_AT) {
             long timed = FrameProfile.enter("FLOW open Go to File");
-            picker = GoToFile.open(uiWindow, editor.workbench());
+            picker = GoToFile.open(document, editor.workbench());
             FrameProfile.leave(timed, "FLOW open Go to File");
             enterStage(Stage.TYPING, "Go to File opened");
             return;
@@ -554,6 +452,25 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             return;
         }
 
+        if (stage == Stage.HOVERING && elapsed >= OPEN_PROJECT_AT) {
+            long timed = FrameProfile.enter("FLOW open " + CLOSE_SUBJECT);
+            editor.workbench().openFile(CgPath.of(HarnessWorkspace.PROJECT_ID, CLOSE_SUBJECT));
+            FrameProfile.leave(timed, "FLOW open a project file");
+            enterStage(Stage.PROJECT_OPEN, "opened " + CLOSE_SUBJECT);
+            return;
+        }
+
+        if (stage == Stage.PROJECT_OPEN && elapsed >= CLOSE_AT) {
+            // THROUGH THE DOCK, the way the tab's own close button does -- `DockArea.closePanel`, which
+            // is what `Tab.onCloseRequested` is wired to. Reaching past it to the workbench would measure
+            // a path a user cannot take and would skip the layout collapse and the rebuild.
+            long timed = FrameProfile.enter("FLOW close the open tab");
+            closeOpenTab();
+            FrameProfile.leave(timed, "FLOW close the open tab");
+            enterStage(Stage.CLOSED, "closed the tab");
+            return;
+        }
+
         if (stage == Stage.HOVERING && elapsed >= HOVER_SYMBOLS_AT) {
             enterStage(Stage.DOC_HOVER, "resting on symbols to open the documentation popup");
             nextHoverAt = elapsed;
@@ -561,379 +478,16 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
 
         if (stage == Stage.DOC_HOVER) {
-            if (hoveredSoFar < HOVER_TARGETS.size()) {
-                if (elapsed >= nextHoverAt) {
-                    hoverNextSymbol();
-                    nextHoverAt = elapsed + PER_SYMBOL_SECONDS;
-                }
-                // AND NOTHING ELSE while symbols remain. The pointer must be left alone between them --
-                // a move is what resets the rest timer, so sweeping here would guarantee no popup opens.
-                return;
+            if (elapsed >= nextHoverAt && hoveredSoFar < HOVER_TARGETS.size()) {
+                hoverNextSymbol();
+                nextHoverAt = elapsed + PER_SYMBOL_SECONDS;
             }
-            // EXHAUSTED, so this stage is over. It used to have no exit at all, which is what made it a
-            // dead end for the two gestures that came after it. @see #SETTLE_FOR
-            if (elapsed >= nextHoverAt) {
-                parkPointer();
-                enterStage(Stage.SCROLLING, "scrolling the open document", SCROLL_FOR);
-            }
-            return;
-        }
-
-        if (stage == Stage.SCROLLING) {
-            if (elapsed < stageEndsAt) {
-                scrollDocument();
-                return;
-            }
-            long timed = FrameProfile.enter("FLOW open " + CLOSE_SUBJECT);
-            editor.workbench().openFile(CgPath.of(HarnessWorkspace.PROJECT_ID, CLOSE_SUBJECT));
-            FrameProfile.leave(timed, "FLOW open a project file");
-            enterStage(Stage.PROJECT_OPEN, "opened " + CLOSE_SUBJECT, SETTLE_FOR);
-            return;
-        }
-
-        if (stage == Stage.PROJECT_OPEN && elapsed >= stageEndsAt) {
-            long jsTimed = FrameProfile.enter("FLOW open " + JS_SUBJECT);
-            editor.workbench().openFile(CgPath.of(HarnessWorkspace.PROJECT_ID, JS_SUBJECT));
-            FrameProfile.leave(jsTimed, "FLOW open a JavaScript file");
-            enterStage(Stage.JS_OPEN, "opened " + JS_SUBJECT, JS_SETTLE_FOR);
-            return;
-        }
-
-        if (stage == Stage.JS_OPEN && elapsed < stageEndsAt) {
-            // A SECOND, DIFFERENT JAVASCRIPT FILE, halfway through the stage.
-            //
-            // The whole question is whether the first-file cost is paid once per PROCESS or once per
-            // FILE, and one file cannot answer it: re-analysing the same document is warm by definition.
-            // Two distinct files in one run is the only shape that separates "the engine woke up" from
-            // "every JavaScript file pays this".
-            if (!secondJsOpened && elapsed >= stageEndsAt - JS_SETTLE_FOR / 2) {
-                secondJsOpened = true;
-                editor.workbench().openFile(CgPath.of(HarnessWorkspace.PROJECT_ID, SECOND_JS_SUBJECT));
-                FrameProfile.note("FLOW opened a SECOND JavaScript file: " + SECOND_JS_SUBJECT);
-            }
-            return;
-        }
-
-        if (stage == Stage.JS_OPEN && elapsed >= stageEndsAt) {
-            // COMPLETION FIRST, ON UNTOUCHED CODE. The editing gesture types prose at the same anchor, and
-            // a completion asked in the middle of it is asked about something no author would write --
-            // the first run of this reported a row reading `CgUiSvgthe quick brown fox jumps over...`,
-            // whose colours say nothing about either gesture.
-            enterStage(Stage.COMPLETING, "driving a completion", COMPLETE_FOR);
-            return;
-        }
-
-        if (stage == Stage.COMPLETING) {
-            if (elapsed < stageEndsAt) {
-                typeCompletion();
-                return;
-            }
-            enterStage(Stage.EDITING, "typing into the open document", EDIT_FOR);
-            return;
-        }
-
-        if (stage == Stage.EDITING) {
-            if (elapsed < stageEndsAt) {
-                typeIntoDocument();
-                return;
-            }
-            // THROUGH THE DOCK, the way the tab's own close button does -- `DockArea.closePanel`, which
-            // is what `Tab.onCloseRequested` is wired to. Reaching past it to the workbench would measure
-            // a path a user cannot take and would skip the layout collapse and the rebuild.
-            long timed = FrameProfile.enter("FLOW close the open tab");
-            closeOpenTab();
-            FrameProfile.leave(timed, "FLOW close the open tab");
-            enterStage(Stage.CLOSED, "closed the tab", SETTLE_FOR);
+            // AND NOTHING ELSE. The pointer must be left alone between symbols -- a move is what resets
+            // the rest timer, so sweeping here would guarantee no popup ever opens.
             return;
         }
 
         if (stage == Stage.HOVERING) sweepPointer();
-    }
-
-    /**
-     * Scrolls the open document by a step, once per frame.
-     *
-     * <h3>The scroll POSITION rather than a wheel event, and the distinction is worth stating</h3>
-     *
-     * <p>What a scroll costs per frame is not the wheel: it is everything that follows the offset moving
-     * — rows realised and recycled, {@code ensureRowSyntax} colouring the ones that arrived,
-     * {@code measureWidestRealisedLine} re-scanning for the horizontal extent, the error stripe re-placing
-     * its marks. Driving the offset reaches all of that. The wheel's own half — a hit test and a listener
-     * — is already measured every frame of the sweep above, so going through it here would add a
-     * coordinate conversion that can silently miss the editor and measure nothing.</p>
-     *
-     * <p><b>Immediate, not smooth.</b> {@code setScrollTop} may animate, and an animation retargeted every
-     * frame would measure the animator rather than the scroll. A new position per frame is also what a
-     * trackpad or a drag actually produces.</p>
-     *
-     * <p>It SAYS when it did nothing, which is the lesson the orphaned stages taught: a scripted gesture
-     * that quietly no-ops is worse than one that fails, because the summary still prints a row for it.</p>
-     */
-    private void scrollDocument() {
-        UIElement found = uiWindow.ui.rootElement.querySelector("texteditor.__file-editor__");
-        if (!(found instanceof TextEditor open)) {
-            if (scrollStep == 0) FrameProfile.note("FLOW no file editor on screen to scroll");
-            scrollStep++;
-            return;
-        }
-        float max = open.getMaxScrollTop();
-        if (max <= 0f) {
-            if (scrollStep == 0) FrameProfile.note("FLOW the open document does not scroll");
-            scrollStep++;
-            return;
-        }
-        // DOWN THEN BACK UP, so the pass realises rows in both directions -- a one-way scroll measures
-        // only the arriving edge, and recycling a row that is being scrolled back onto is the other half.
-        scrollStep++;
-        float span = max * 2f;
-        float at = (scrollStep * SCROLL_PIXELS_PER_FRAME) % span;
-        open.setScrollImmediate(0f, at <= max ? at : span - at);
-    }
-
-    /** Fast enough to cross a long document in the time the stage is held, slow enough to realise rows. */
-    private static final float SCROLL_PIXELS_PER_FRAME = 24f;
-
-    private int scrollStep;
-
-    /**
-     * Types one character into the open document, per frame, through the real input path.
-     *
-     * <h3>Why this is not the {@code TYPING} stage, which also types</h3>
-     *
-     * <p>That one types into <b>Go to File</b> — a {@code TextField} in a popup, over a search index.
-     * This one types into the editor, and they share nothing that costs anything: a document keystroke
-     * runs an {@code Edit} through the rope, remaps every tracked range, reprojects, re-tokenizes the
-     * touched rows and re-announces to the language services. The flow measured the picker and never the
-     * editor, so "a keystroke costs 60ms" was a report the harness had no way to confirm or deny.</p>
-     *
-     * <h3>It must be a PROJECT document, which is why it runs after the project file is open</h3>
-     *
-     * <p>What the earlier stages open is a {@code library://} viewer, and a viewer is read-only: every
-     * keystroke into it would be refused by {@code applyEdit}'s first line and measure the cost of
-     * declining to edit. {@code Workbench.activeEditor} answers only for a project document, which makes
-     * it exactly the right accessor here and the wrong one for the hover stage above.</p>
-     *
-     * <p>Each keystroke gets its own span, so the report is per-keystroke rather than per-stage. A worst
-     * frame tells you a keystroke was expensive; a span per keystroke tells you whether it is the FIRST
-     * one that is expensive — a debounce expiring, an analysis landing — or every one of them, and those
-     * have nothing in common but the symptom.</p>
-     */
-    private void typeIntoDocument() {
-        TextEditor open = editor.workbench().activeEditor();
-        if (open == null) {
-            if (editStep == 0) FrameProfile.note("FLOW no project editor to type into");
-            editStep++;
-            return;
-        }
-        if (editStep == 0) {
-            if (open.isReadOnly()) {
-                FrameProfile.note("FLOW the open document is read-only -- nothing will be typed");
-                editStep++;
-                return;
-            }
-            // FOCUSED FIRST, or the keystrokes reach whatever the open left focused and the stage
-            // measures nothing. Through the input handler, which is what a click would do.
-            uiWindow.getInputHandler().requestFocus(open);
-            if (!caretIntoCode(open)) {
-                editStep++;
-                return;
-            }
-            lengthBeforeTyping = open.getText().length();
-        }
-        char next = EDIT_TEXT.charAt(editStep % EDIT_TEXT.length());
-        editStep++;
-        String label = "FLOW keystroke '" + next + "' into the document (#" + editStep + ")";
-        long timed = FrameProfile.enter(label);
-        press(next, keyFor(next));
-        FrameProfile.leave(timed, label);
-        // AND IT SAYS WHEN NOTHING WENT IN. A refused keystroke costs almost nothing and would report as
-        // a beautifully fast stage -- the most misleading answer a measurement can give.
-        if (editStep == 2 && open.getText().length() == lengthBeforeTyping) {
-            FrameProfile.note("FLOW the document did not change -- keystrokes are not reaching it");
-        }
-    }
-
-    /**
-     * Where the typing gestures put the caret — <b>found in the text, not a byte offset</b>.
-     *
-     * <h3>Offset 400 was inside the fixture's javadoc, and every completion was refused</h3>
-     *
-     * <p>{@code CARET_AT = 400} looked like an ordinary "far enough in to be a real edit" constant and
-     * landed in the {@code /** … *}{@code /} block that opens {@code DocShowcase.java}. Completion
-     * declines inside a comment or a string — correctly — so the whole completion gesture measured the
-     * cost of <b>refusing</b>: seventeen keystrokes, seventeen {@code refused: the caret is in a comment
-     * or a string}, and a stage summary that looked healthy because nothing had happened.</p>
-     *
-     * <p>An anchor cannot drift into a comment when the fixture is edited, and if it ever stops matching
-     * the gesture says so instead of typing at offset zero. Same shape {@link #hoverSymbol} already uses
-     * to find what to rest on.</p>
-     */
-    private static final String CODE_ANCHOR = "this.count = count;";
-
-    /**
-     * Types {@link #COMPLETE_TEXT} one character per frame, on a line of its own.
-     *
-     * <h3>A fresh line, because the context is what the provider answers about</h3>
-     *
-     * <p>{@link #typeIntoDocument} leaves prose in the middle of a statement, and a completion asked
-     * inside that is asked about something no author would have written — so it measures a recovery path
-     * rather than the one being reported. A newline first puts the caret somewhere a completion request
-     * is an ordinary thing to make.</p>
-     *
-     * <h3>Every keystroke on its own span, and the dot is the one that matters</h3>
-     *
-     * <p>The letters refilter a list that already exists; the dot throws it away and asks for the members
-     * of a resolved type. Averaging the two would hide whichever is worse, and the report says they are
-     * different costs — "a lot of entries drops the frames a little" against "the dot alone is 60ms".</p>
-     */
-    private void typeCompletion() {
-        TextEditor open = editor.workbench().activeEditor();
-        if (open == null) {
-            if (completeStep == 0) FrameProfile.note("FLOW no project editor to complete in");
-            completeStep++;
-            return;
-        }
-        if (completeStep == 0) {
-            uiWindow.getInputHandler().requestFocus(open);
-            if (!caretIntoCode(open)) {
-                completeStep = COMPLETE_TEXT.length() + 1;
-                return;
-            }
-            // A LINE OF ITS OWN. Typed rather than inserted, so the editor takes the same path it would
-            // for a real Enter -- which is also the one gesture here that changes the line count.
-            long timed = FrameProfile.enter("FLOW newline before the completion");
-            press('\n', CgKeyCodes.KEY_RETURN);
-            FrameProfile.leave(timed, "FLOW newline before the completion");
-            completeStep++;
-            nextCompleteAt = elapsed + COMPLETE_INTERVAL;
-            return;
-        }
-        if (elapsed < nextCompleteAt) return;
-        int at = completeStep - 1;
-        // THE PREFIX IS IN. Accept the highlighted row, then read what the row ends up coloured with --
-        // which is the reported bug: the letters typed by hand keep the colour they had while they were
-        // an unresolvable name of their own, and the inserted remainder gets the right one.
-        if (at == COMPLETE_TEXT.length()) {
-            if (elapsed < nextCompleteAt + ACCEPT_AFTER) return;
-            completeStep++;
-            nextCompleteAt = elapsed;
-            FrameProfile.note("FLOW accepting: " + completionState());
-            reportRowColours("BEFORE");
-            long accepted = FrameProfile.enter("FLOW completion ACCEPT (Enter)");
-            press('\n', CgKeyCodes.KEY_RETURN);
-            FrameProfile.leave(accepted, "FLOW completion ACCEPT (Enter)");
-            return;
-        }
-        if (at > COMPLETE_TEXT.length()) {
-            if (colourRead || elapsed < nextCompleteAt + READ_COLOURS_AFTER) return;
-            colourRead = true;
-            reportRowColours("AFTER ");
-            return;
-        }
-        nextCompleteAt = elapsed + COMPLETE_INTERVAL;
-        char next = COMPLETE_TEXT.charAt(at);
-        completeStep++;
-        // NAMED FOR WHAT IT IS, so the two halves are legible in the log without counting characters.
-        String what = next == '.' ? "DOT trigger" : "filter '" + next + "'";
-        String label = "FLOW completion " + what + " (" + (at + 1) + "/" + COMPLETE_TEXT.length() + ")";
-        long timed = FrameProfile.enter(label);
-        press(next, keyFor(next));
-        FrameProfile.leave(timed, label);
-        FrameProfile.note("FLOW   -> " + completionState());
-    }
-
-    /**
-     * Puts the caret at the end of {@link #CODE_ANCHOR}, or says why it could not.
-     *
-     * @return false when the anchor is gone — the caller must then do nothing at all rather than type
-     *         somewhere arbitrary, which is how the last version measured seventeen refusals
-     */
-    private boolean caretIntoCode(TextEditor open) {
-        int at = open.getText().indexOf(CODE_ANCHOR);
-        if (at < 0) {
-            FrameProfile.note("FLOW the code anchor \"" + CODE_ANCHOR + "\" is not in this document"
-                    + " -- nothing will be typed");
-            return false;
-        }
-        open.setCaret(at + CODE_ANCHOR.length());
-        return true;
-    }
-
-    /**
-     * What the completion list holds right now, for the log.
-     *
-     * <p>Read OUTSIDE the measured span, because {@code visibleRows()} builds a list and
-     * {@code EditorSuggest} says so in as many words. It still costs the frame something, which is the
-     * right trade: the alternative is the run this replaces, where every keystroke was refused and the
-     * summary reported a healthy stage because nothing had happened.</p>
-     */
-    private String completionState() {
-        TextEditor open = editor.workbench().activeEditor();
-        CompletionSession session = open == null ? null : open.completionSession();
-        if (session == null) return "no session";
-        return session.isClosed() ? "closed" : session.visibleRows().size() + " rows";
-    }
-
-    private boolean colourRead;
-
-    /**
-     * Prints the caret row's text and every token colouring it.
-     *
-     * <p>The row cache is what decides a character's colour and it cannot be read off the screen — two
-     * producers write into it and a semantic token replaces a grammar one where they overlap, so a stale
-     * entry looks exactly like a correct colour on the wrong word.</p>
-     */
-    private void reportRowColours(String when) {
-        TextEditor open = editor.workbench().activeEditor();
-        if (open == null) {
-            FrameProfile.note("FLOW no editor to read colours from");
-            return;
-        }
-        int row = open.buffer().offsetToPoint(open.getCaret()).row();
-        String text = open.buffer().line(row);
-        System.out.println("[colours] " + when + " row " + row + " caret=" + open.getCaret()
-                + " lines=" + open.buffer().lineCount() + " = \"" + text + "\"");
-        // THE TOP OF THE FILE, because accepting an unimported type also writes an import --
-        // which moves every row below it, and is the likeliest reason a row's cached colours
-        // stop describing the row they are filed under.
-        for (int head = 0; head < 6 && head < open.buffer().lineCount(); head++) {
-            System.out.println("[colours] " + when + "   head " + head + ": "
-                    + open.buffer().line(head));
-        }
-        for (SyntaxToken token : open.rowSyntaxForTest(row)) {
-            int from = Math.max(0, Math.min(token.start(), text.length()));
-            int to = Math.max(from, Math.min(token.end(), text.length()));
-            System.out.println("[colours]   " + when + "   [" + token.start() + "," + token.end() + ") "
-                    + token.name() + "  \"" + text.substring(from, to) + "\"");
-        }
-    }
-
-    private int completeStep;
-
-    private int editStep;
-    private int lengthBeforeTyping;
-
-    /**
-     * Moves the pointer off the document, so the stages after the hover measure only themselves.
-     *
-     * <h3>A resting pointer is a live gesture, and it outlives the stage that set it up</h3>
-     *
-     * <p>{@code DOC_HOVER} leaves the pointer parked on a symbol, deliberately — that is how a rest timer
-     * is made to fire. Nothing then moved it, so every later stage ran with a loaded hover: opening a
-     * project file put a NEW document under that same point, which resolved a symbol and built a
-     * documentation popup, and the worst frame of the close came out as <b>31.8ms of
-     * {@code style:drainDirtyMatch}, 40 invalidations of it raised by {@code Popover.applyOpenState}</b>.
-     * A real close is a third of that. The number was not noise — it was a correctly measured frame of
-     * the wrong thing, filed under the gesture that happened to be current.</p>
-     *
-     * <p>The corner rather than a computed empty spot: it is outside every panel by construction, needs no
-     * knowledge of the layout, and cannot drift when the workbench is rearranged.</p>
-     */
-    private void parkPointer() {
-        uiWindow.getInputHandler().consumeMouseEvent(new CgSystemInput.Mouse.Event(
-                1, 1, 1 - lastSweepX, 1 - lastSweepY, CgMouseCodes.NONE, false, 0f, -1L));
-        lastSweepX = 1;
-        lastSweepY = 1;
     }
 
     /**
@@ -968,7 +522,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // BY SELECTOR, not `activeEditor()`, which answers only for a PROJECT document -- and what this
         // flow opens is a `library://` viewer, so it answered null and the whole hover stage did nothing.
         // The class is what a viewer and a file editor share.
-        UIElement found = uiWindow.ui.rootElement.querySelector("texteditor.__file-editor__");
+        UIElement found = document.querySelector("texteditor.__file-editor__");
         if (!(found instanceof TextEditor open)) {
             FrameProfile.note("FLOW no file editor on screen to hover in");
             hoveredSoFar = HOVER_TARGETS.size();
@@ -979,7 +533,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     /** Rests the pointer on the first occurrence of {@code name}, by offset rather than by pixel. */
     private void hoverSymbol(String name) {
-        UIElement found = uiWindow.ui.rootElement.querySelector("texteditor.__file-editor__");
+        UIElement found = document.querySelector("texteditor.__file-editor__");
         if (!(found instanceof TextEditor open)) {
             FrameProfile.note("FLOW no file editor on screen to hover in");
             return;
@@ -1022,15 +576,17 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      * elements.</p>
      */
     private void sweepPointer() {
-        int width = Math.max(1, (int) uiWindow.getScreenWidth());
-        int height = Math.max(1, (int) uiWindow.getScreenHeight());
+        // THE DOCUMENT'S OWN BOX, because `ctx` belongs to the render call and this does not run in
+        // one. It is already in logical units, which is the space the sweep is expressed in.
+        int width = Math.max(1, (int) (document.box() == null ? 0f : document.box().width()));
+        int height = Math.max(1, (int) (document.box() == null ? 0f : document.box().height()));
         sweepStep++;
         // A LISSAJOUS rather than a line: two incommensurate rates cover an area over time without ever
         // repeating the same path, which is what makes a fixed number of frames worth more than a sweep
         // that retraces itself.
         int x = (int) (width * (0.5 + 0.42 * Math.sin(sweepStep * 0.07)));
         int y = (int) (height * (0.5 + 0.42 * Math.sin(sweepStep * 0.031)));
-        uiWindow.getInputHandler().consumeMouseEvent(new CgSystemInput.Mouse.Event(
+        document.input().consumeMouseEvent(new CgSystemInput.Mouse.Event(
                 x, y, x - lastSweepX, y - lastSweepY, CgMouseCodes.NONE, false, 0f, -1L));
         lastSweepX = x;
         lastSweepY = y;
@@ -1051,9 +607,9 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      */
     private void press(char character, int key) {
         long now = System.currentTimeMillis();
-        uiWindow.getInputHandler().consumeKeyboardEvent(
+        document.input().consumeKeyboardEvent(
                 new CgSystemInput.Keyboard.Event(character, key, true, false, now));
-        uiWindow.getInputHandler().consumeKeyboardEvent(
+        document.input().consumeKeyboardEvent(
                 new CgSystemInput.Keyboard.Event(character, key, false, false, now));
     }
 
@@ -1065,39 +621,22 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     }
 
     private void enterStage(Stage next, String what) {
-        // NO DEADLINE: the stage decides for itself when it is done -- typing runs out of characters,
-        // doc-hover runs out of symbols. Far enough ahead that a stage which forgets to advance is caught
-        // by the backstop rather than hanging the run. @see #isRunning
-        enterStage(next, what, Double.MAX_VALUE);
-    }
-
-    /** @param holdSeconds how long this stage lasts, from now. @see #SETTLE_FOR */
-    private void enterStage(Stage next, String what, double holdSeconds) {
         recordStage();
         stage = next;
-        stageEndsAt = holdSeconds == Double.MAX_VALUE ? Double.MAX_VALUE : elapsed + holdSeconds;
         stageWorstMs = 0f;
         stageWorstPaintMs = 0f;
         stageWorstOverlayMs = 0f;
         stageFrames = 0;
-        stagePaintSumMs = 0f;
-        stagePaintFrames = 0;
-        stageOverBudget = 0;
         System.out.println(String.format("[flow] t=%.2fs  %s", elapsed, what));
         FrameProfile.note("FLOW " + what);
     }
-
-    /** When the current stage hands over, or {@code MAX_VALUE} for one that ends on its own terms. */
-    private double stageEndsAt = Double.MAX_VALUE;
 
     private final Map<Stage, Worst> worstPerStage = new EnumMap<>(Stage.class);
 
     /** Files the stage that is ending under its own name, so the summary can be printed at the end. */
     private void recordStage() {
         if (stageFrames > 0) {
-            worstPerStage.put(stage, new Worst(stageWorstMs, stageWorstPaintMs, stageWorstOverlayMs,
-                    stagePaintFrames == 0 ? 0f : stagePaintSumMs / stagePaintFrames,
-                    stageOverBudget, stagePaintFrames));
+            worstPerStage.put(stage, new Worst(stageWorstMs, stageWorstPaintMs, stageWorstOverlayMs));
         }
     }
 
@@ -1108,8 +647,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      * @param paintMs   what {@code paintFrame()} cost on the frame thread
      * @param overlayMs what the counter itself cost, so the probe can be ruled out
      */
-    private record Worst(float deltaMs, float paintMs, float overlayMs,
-                         float meanPaintMs, int overBudget, int frames) {
+    private record Worst(float deltaMs, float paintMs, float overlayMs) {
     }
 
     /**
@@ -1122,15 +660,13 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      */
     private void printFlowSummary() {
         recordStage();
-        System.out.println("[flow] ---- per gesture ------------------------------------------");
-        System.out.println("[flow]            delta    paint  overlay     mean   over/frames");
+        System.out.println("[flow] ---- worst frame per gesture -----------------------------");
+        System.out.println("[flow]            delta    paint  overlay");
         for (Stage each : Stage.values()) {
             Worst worst = worstPerStage.get(each);
             if (worst == null) continue;
-            System.out.println(String.format(
-                    "[flow]   %-12s %6.1f   %6.1f   %6.1f   %6.2f   %4d/%-4d  (%s)",
-                    each, worst.deltaMs(), worst.paintMs(), worst.overlayMs(),
-                    worst.meanPaintMs(), worst.overBudget(), worst.frames(), describe(each)));
+            System.out.println(String.format("[flow]   %-8s %6.1f   %6.1f   %6.1f ms   (%s)",
+                    each, worst.deltaMs(), worst.paintMs(), worst.overlayMs(), describe(each)));
         }
         // SAID EVERY TIME, not left to be remembered. A delta far above its own paint is the shape of
         // something outside this process, and one run is one sample either way.
@@ -1160,13 +696,6 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             case SEARCHED: return "query typed, idle -- should be back to baseline";
             case OPENED: return "Enter: the class opening";
             case HOVERING: return "pointer sweeping -- hover invalidation per frame";
-            case DOC_HOVER: return "resting on symbols -- resolve, quote, build the popup";
-            case SCROLLING: return "scrolling -- rows realised, coloured and measured";
-            case PROJECT_OPEN: return "a project file opened beside the viewer";
-            case JS_OPEN: return "a JavaScript file opened -- the first one of the session";
-            case EDITING: return "typing into the document -- one keystroke per frame";
-            case COMPLETING: return "completion: a prefix refiltered per letter, then a dot trigger";
-            case CLOSED: return "the tab closed -- dispose, collapse, rebuild";
             default: return "";
         }
     }
@@ -1234,29 +763,12 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // line, and a spike that appears only in the delta is a reason to run it again before believing
         // it.
         if (stageFrames > 1) {
-            float paintMs = paintNanos / 1_000_000f;
-            stageWorstPaintMs = Math.max(stageWorstPaintMs, paintMs);
+            stageWorstPaintMs = Math.max(stageWorstPaintMs, paintNanos / 1_000_000f);
             stageWorstOverlayMs = Math.max(stageWorstOverlayMs, overlayNanos / 1_000_000f);
-            // THE MEAN AND THE COUNT, because a MAX is the noisiest statistic there is and this summary
-            // is read across runs. The same gesture on unchanged code reported 95, 132 and 569ms on three
-            // consecutive runs -- one outlier from anything else on the machine sets it, and it never
-            // comes back down. A mean over a stage's frames and "how many missed the budget" both move
-            // when the code moves and stay still when it does not, which is the whole requirement for a
-            // number you are trying to optimise against.
-            stagePaintSumMs += paintMs;
-            stagePaintFrames++;
-            if (paintMs > BUDGET_MS) stageOverBudget++;
         }
     }
 
-    /** 120Hz. What "missed the budget" means in the count beside each gesture. */
-    private static final float BUDGET_MS = 8.3f;
-
-    private float stagePaintSumMs;
-    private int stagePaintFrames;
-    private int stageOverBudget;
-
-    /** What {@code uiWindow.paintFrame()} cost this frame — CPU, the same span [frame] reports. */
+    /** What {@code document.frame(...)} cost this frame — CPU, the same span [frame] reports. */
     private long paintNanos;
 
     /** What the counter itself cost. A probe has to be able to rule itself out. @see #paintOverlay */
@@ -1331,13 +843,15 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // AND THE SCRIPTED RUN WRITES NO SESSION -- the other half of the rule above. Restoring one
         // would be harmless if nothing ever wrote one; it is the write that makes run N+1 differ from
         // run N, so the flow leaves the record exactly as the last hand-driven run left it.
-        if (!flowEnabled && editor != null && uiWindow != null) {
-            editor.saveSession(HarnessWorkspace.PROJECT_ID,
-                    (int) uiWindow.getScreenWidth(), (int) uiWindow.getScreenHeight());
-            editor.savePreferences();
+        if (!flowEnabled && editor != null && document != null) {
+            // The document's own box: this is teardown, so there is no render context to ask, and
+            // the size a session records is the logical one anyway.
+            editor.saveState();
         }
-        if (editor != null) Disposer.dispose(editor);
-        uiWindow = null;
+        // QUITTING IT, which writes its state on the way out -- closing the window would not, because a
+        // workbench under HIDE_ON_CLOSE is still running with everything in it.
+        if (editor != null) editor.dispose();
+        document = null;
     }
 
     @Override
@@ -1345,15 +859,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // The scripted run ends by itself; a hand-driven one never does. A measurement nobody has to
         // close is one that can be run from a script, which is the whole difference being bought here.
         if (HOVER_FLOW) return elapsed < HOVER_FLOW_RUN_FOR;
-        if (!flowEnabled) return true;
-        // WHEN THE LAST STAGE SETTLES, and RUN_FOR only as a backstop for a stage that never advances.
-        //
-        // It was RUN_FOR alone, which makes the clock a second statement of how long the flow is -- and a
-        // second statement is one that goes stale. It already had: the run stopped at 22 seconds while
-        // the last two gestures were scheduled for 14 and 17 and had stopped firing entirely, so the
-        // number said the flow was complete and covered a flow that was not.
-        if (stage == Stage.CLOSED && elapsed >= stageEndsAt) return false;
-        return elapsed < RUN_FOR;
+        return !flowEnabled || elapsed < RUN_FOR;
     }
 
     @Override
@@ -1384,7 +890,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         if (event.pressed() && noModifiers() && event.key() == CgKeyCodes.KEY_F6) {
-            StagedMergeDemo.openCommitDiff(uiWindow, editor);
+            StagedMergeDemo.openCommitDiff(document, editor);
             return true;
         }
         // F7 reads the REPOSITORY; Shift+F7 synthesises. Two keys because they answer different
@@ -1395,11 +901,11 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         if (event.pressed() && event.key() == CgKeyCodes.KEY_F7) {
             int modifiers = CgPlatform.input().getCurrentModifiers();
             if (modifiers == CgModifiers.NONE) {
-                StagedMergeDemo.open(uiWindow, editor);
+                StagedMergeDemo.open(document, editor);
                 return true;
             }
             if (modifiers == CgModifiers.SHIFT) {
-                StagedMergeDemo.openSynthesised(uiWindow, editor);
+                StagedMergeDemo.openSynthesised(document, editor);
                 return true;
             }
         }
@@ -1418,7 +924,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             dumpRequested = true;
             return true;
         }
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     /**
@@ -1491,23 +997,23 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             System.out.println("DUMP no problems panel in the tree");
             return;
         }
-        var pb = panel.getRuntimeCache();
-        System.out.println("DUMP panel x=" + pb.getX() + " y=" + pb.getY()
-                + " w=" + pb.getWidth() + " h=" + pb.getHeight()
-                + " uiScale=" + uiWindow.getUiScale());
+        var pb = panel.box();
+        System.out.println("DUMP panel x=" + pb.x() + " y=" + pb.y()
+                + " w=" + pb.width() + " h=" + pb.height()
+                + " uiScale=" + document.boxes().uiScale());
         for (UIElement row : panel.getElementsByClassName("__problem__")) {
-            var rb = row.getRuntimeCache();
-            System.out.println("DUMP  row y=" + rb.getY() + " h=" + rb.getHeight()
-                    + " centre=" + (rb.getY() + rb.getHeight() / 2f));
-            for (UIElement part : row.getChildren()) {
-                var qb = part.getRuntimeCache();
+            var rb = row.box();
+            System.out.println("DUMP  row y=" + rb.y() + " h=" + rb.height()
+                    + " centre=" + (rb.y() + rb.height() / 2f));
+            for (UIElement part : row.children()) {
+                var qb = part.box();
                 String extra = part instanceof UIText
                         ? " ws=" + part.getStyle().getGeneralGroup().whiteSpace()
                                 + " shown=" + ((UIText) part).displayedText().length()
                         : "";
-                System.out.println("DUMP    " + part.getClasses() + " y=" + qb.getY()
-                        + " h=" + qb.getHeight() + " w=" + qb.getWidth()
-                        + " centre=" + (qb.getY() + qb.getHeight() / 2f) + extra);
+                System.out.println("DUMP    " + part.classes() + " y=" + qb.y()
+                        + " h=" + qb.height() + " w=" + qb.width()
+                        + " centre=" + (qb.y() + qb.height() / 2f) + extra);
             }
         }
     }
@@ -1545,6 +1051,6 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

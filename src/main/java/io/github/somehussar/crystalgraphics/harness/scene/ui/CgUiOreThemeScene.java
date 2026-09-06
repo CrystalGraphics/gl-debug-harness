@@ -1,14 +1,14 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.Button;
-import com.crystalgui.ui.elements.Checkbox;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.control.Button;
+import com.crystalgui.widget.control.Checkbox;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -46,7 +46,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
     private Button demoButton;
     private Button hoverButton;
     private Button pressedButton;
@@ -62,12 +65,21 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         org.lwjgl.input.Keyboard.enableRepeatEvents(false);
 
         UIElement root = createDemo();
-        this.uiWindow = new UIWindow(Ui.of(root));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        UIElement sceneRoot = root;
+        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
+        // root and took the window's size; here the DOCUMENT is the root and this is an
+        // ordinary child, which sizes to its content -- so without this the scene lays out
+        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
+        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).heightPercent(100f));
+        this.document.append(sceneRoot);
+        this.document.styles().addStylesheet(StyleSheet.DEFAULT);
+        this.document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
         // Demo-only rules for the overlay-fit matrix — deliberately NOT in ore.css, which is the
         // shippable theme.
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(FIT_DEMO_STYLES));
+        this.document.styles().addStylesheet(StyleSheet.parse(FIT_DEMO_STYLES));
     }
 
     private static final String FIT_DEMO_STYLES = """
@@ -103,15 +115,15 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         // which is exactly how LDLib2's own demo gets its full-width button.
         UIElement panel = new UIElement().layout(l -> l.width(108));
         panel.addClass("panel");
-        root.addChild(panel);
+        root.append(panel);
 
         demoButton = new Button("Button");
         demoButton.attachListener(() -> clickCount++);
-        panel.addChild(demoButton);
+        panel.append(demoButton);
 
         Checkbox disableToggle = new Checkbox("Toggle");
         disableToggle.attachListener(isChecked -> demoButton.setEnabled(!isChecked));
-        panel.addChild(disableToggle);
+        panel.append(disableToggle);
 
         // ── Forced-state matrix ──
         // Every visual state driven programmatically (see forceStates()), so hover/pressed/checked
@@ -124,14 +136,14 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         // needs to stay on-screen.
         UIElement states = new UIElement().layout(l -> l.width(108).gapAll(1));
         states.addClass("panel");
-        root.addChild(states);
+        root.append(states);
 
         hoverButton = new Button("Btn hover");
         pressedButton = new Button("Btn pressed");
         focusButton = new Button("Btn focus");
         Button disabledButton = new Button("Btn disabled");
         disabledButton.setEnabled(false);
-        states.addChildren(new Button("Btn default"), hoverButton, pressedButton, focusButton, disabledButton);
+        states.append(new Button("Btn default"), hoverButton, pressedButton, focusButton, disabledButton);
 
         hoverBox = new Checkbox("hover");
         pressedBox = new Checkbox("pressed");
@@ -142,7 +154,7 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         checkedBox.setChecked(true);
         Checkbox disabledBox = new Checkbox("disabled");
         disabledBox.setEnabled(false);
-        states.addChildren(new Checkbox("default"), hoverBox, pressedBox, focusBox,
+        states.append(new Checkbox("default"), hoverBox, pressedBox, focusBox,
                 checkedBox, checkedHoverBox, disabledBox);
 
         // ── overlay-fit matrix ──
@@ -152,12 +164,12 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         // aspect, `cover` overflows keeping aspect. All are centered (overlay-position default).
         UIElement fits = new UIElement().layout(l -> l.width(86));
         fits.addClass("panel");
-        root.addChild(fits);
+        root.append(fits);
         for (String mode : new String[]{"fill", "none", "contain", "cover"}) {
             UIElement demo = new UIElement().layout(l -> l.width(34).height(20));
             demo.addClass("fit-demo");
             demo.addClass("fit-" + mode);
-            fits.addChild(demo);
+            fits.append(demo);
         }
 
         // ── SDF outline-stroke matrix ──
@@ -165,12 +177,12 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         // OUTSIDE the element box) don't overlap their neighbours.
         UIElement rings = new UIElement().layout(l -> l.width(70).gapAll(9));
         rings.addClass("panel");
-        root.addChild(rings);
+        root.append(rings);
         for (String variant : new String[]{"square", "offset", "rounded", "thick"}) {
             UIElement demo = new UIElement().layout(l -> l.width(30).height(16));
             demo.addClass("ring-demo");
             demo.addClass("ring-" + variant);
-            rings.addChild(demo);
+            rings.append(demo);
         }
 
         return root;
@@ -190,9 +202,15 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
         forceStates();
-        uiWindow.paintFrame();
+        document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
+
+        // AND THE PAINT. `paintFrame()` did both; `frame()` only advances, so a scene that
+        // lost this half advanced perfectly and drew nothing.
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(ctx.getScreenWidth(), ctx.getScreenHeight());
+        document.paint(paintContext);
+        paintContext.endFrame();
 
         var context = CgUiPaintContext.getInstance();
         String status = String.format("clicks: %d | button enabled: %s", clickCount, demoButton.isEnabled());
@@ -205,7 +223,7 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -225,11 +243,11 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

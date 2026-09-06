@@ -1,9 +1,10 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgui.style.StyleGroup;
+import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -45,7 +46,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
     // TEMP diagnostic (Item 4a corner hit-test) — set only by the isolated corner-test branch in createDemo().
     private UIElement cornerTestBox;
     private UIElement cornerTestMarker;
@@ -256,8 +260,17 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
     @Override
     public void init(HarnessContext ctx) {
         UIElement root = createDemo();
-        this.uiWindow = new UIWindow(Ui.of(root));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLE_SHEET));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        UIElement sceneRoot = root;
+        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
+        // root and took the window's size; here the DOCUMENT is the root and this is an
+        // ordinary child, which sizes to its content -- so without this the scene lays out
+        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
+        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).heightPercent(100f));
+        this.document.append(sceneRoot);
+        this.document.styles().addStylesheet(StyleSheet.parse(STYLE_SHEET));
 
         // Captures a screenshot then exits so it can be inspected directly instead of relying
         // on a human to relay one back.
@@ -298,8 +311,8 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 //            box.addClass("padding-gap-test-box");
 //            UIElement child = new UIElement();
 //            child.addClass("padding-gap-test-child");
-//            box.addChild(child);
-//            root.addChild(box);
+//            box.append(child);
+//            root.append(box);
 //            this.paddingGapTestBox = box;
 //            this.paddingGapTestChild = child;
 //            return root;
@@ -312,8 +325,8 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 //            maskOn.addClass("mask-on");
 //            UIElement maskOnChild = new UIElement();
 //            maskOnChild.addClass("mask-child");
-//            maskOn.addChild(maskOnChild);
-//            root.addChild(maskOn);
+//            maskOn.append(maskOnChild);
+//            root.append(maskOn);
 //            return root;
 //        }
 
@@ -321,22 +334,22 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 //        if (true) {
 //            UIElement row = new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER));
 //            row.addClass("row");
-//            root.addChild(row);
+//            root.append(row);
 //
 //            UIElement on = new UIElement().layout(l -> l.width(48).height(48));
 //            on.addClass("mask-override-box");
 //            on.addClass("mask-override-on");
 //            UIElement onChild = new UIElement();
 //            onChild.addClass("mask-child");
-//            on.addChild(onChild);
-//            row.addChild(on);
+//            on.append(onChild);
+//            row.append(on);
 //
 //            UIElement off = new UIElement().layout(l -> l.width(48).height(48));
 //            off.addClass("mask-override-box");
 //            UIElement offChild = new UIElement();
 //            offChild.addClass("mask-child");
-//            off.addChild(offChild);
-//            row.addChild(off);
+//            off.append(offChild);
+//            row.append(off);
 //
 //            return root;
 //        }
@@ -354,8 +367,8 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 //            box.addClass("corner-test-box");
 //            UIElement marker = new UIElement();
 //            marker.addClass("corner-test-marker");
-//            box.addChild(marker);
-//            root.addChild(box);
+//            box.append(marker);
+//            root.append(box);
 //            this.cornerTestBox = box;
 //            this.cornerTestMarker = marker;
 //            return root;
@@ -377,8 +390,8 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 //            box.addClass("sprite-mask-box");
 //            UIElement marker = new UIElement();
 //            marker.addClass("sprite-mask-marker");
-//            box.addChild(marker);
-//            root.addChild(box);
+//            box.append(marker);
+//            root.append(box);
 //            return root;
 //        }
 
@@ -396,15 +409,15 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 //            maskBox.addClass("sprite-mask-box");
 //            UIElement maskMarker = new UIElement();
 //            maskMarker.addClass("sprite-mask-marker");
-//            maskBox.addChild(maskMarker);
-//            root.addChild(maskBox);
+//            maskBox.append(maskMarker);
+//            root.append(maskBox);
 //
 //            UIElement box = new UIElement().layout(l -> l.width(80).height(80).marginTop(20));
 //            box.addClass("sprite-scissor-default-box");
 //            UIElement marker = new UIElement();
 //            marker.addClass("sprite-scissor-default-marker");
-//            box.addChild(marker);
-//            root.addChild(box);
+//            box.append(marker);
+//            root.append(box);
 //            return root;
 //        }
 
@@ -430,12 +443,12 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 //            box.addClass("asset-registry-box");
 //            UIElement marker = new UIElement();
 //            marker.addClass("asset-registry-marker");
-//            box.addChild(marker);
-//            root.addChild(box);
+//            box.append(marker);
+//            root.append(box);
 //
 //            UIElement broken = new UIElement().layout(l -> l.width(80).height(80).marginTop(20));
 //            broken.addClass("asset-registry-broken-box");
-//            root.addChild(broken);
+//            root.append(broken);
 //            return root;
 //        }
 
@@ -449,10 +462,10 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 //        if (true) {
 //            UIElement front = new UIElement().layout(l -> l.width(60).height(60));
 //            front.addClass("zorder-front");
-//            root.addChild(front);
+//            root.append(front);
 //            UIElement back = new UIElement().layout(l -> l.width(60).height(60));
 //            back.addClass("zorder-back");
-//            root.addChild(back);
+//            root.append(back);
 //            return root;
 //        }
 
@@ -475,34 +488,34 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 //            box.addClass("crossfade-mask-box");
 //            UIElement marker = new UIElement();
 //            marker.addClass("crossfade-mask-marker");
-//            box.addChild(marker);
-//            root.addChild(box);
+//            box.append(marker);
+//            root.append(box);
 //            this.crossfadeMaskBox = box;
 //            return root;
 //        }
 
         UIElement maskRow = new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER));
         maskRow.addClass("row");
-        root.addChild(maskRow);
+        root.append(maskRow);
 
         UIElement maskOn = new UIElement().layout(l -> l.width(48).height(48));
         maskOn.addClass("mask-box");
         maskOn.addClass("mask-on");
         UIElement maskOnChild = new UIElement();
         maskOnChild.addClass("mask-child");
-        maskOn.addChild(maskOnChild);
-        maskRow.addChild(maskOn);
+        maskOn.append(maskOnChild);
+        maskRow.append(maskOn);
 
         UIElement maskOff = new UIElement().layout(l -> l.width(48).height(48));
         maskOff.addClass("mask-box");
         UIElement maskOffChild = new UIElement();
         maskOffChild.addClass("mask-child");
-        maskOff.addChild(maskOffChild);
-        maskRow.addChild(maskOff);
+        maskOff.append(maskOffChild);
+        maskRow.append(maskOff);
 
         UIElement opacityRow = new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER));
         opacityRow.addClass("row");
-        root.addChild(opacityRow);
+        root.append(opacityRow);
 
         UIElement opacityOn = new UIElement();
         opacityOn.addClass("opacity-box");
@@ -511,9 +524,9 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
         opacityOnA.addClass("opacity-child-a");
         UIElement opacityOnB = new UIElement();
         opacityOnB.addClass("opacity-child-b");
-        opacityOn.addChild(opacityOnA);
-        opacityOn.addChild(opacityOnB);
-        opacityRow.addChild(opacityOn);
+        opacityOn.append(opacityOnA);
+        opacityOn.append(opacityOnB);
+        opacityRow.append(opacityOn);
 
         UIElement opacityOff = new UIElement();
         opacityOff.addClass("opacity-box");
@@ -521,32 +534,32 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
         opacityOffA.addClass("opacity-child-a");
         UIElement opacityOffB = new UIElement();
         opacityOffB.addClass("opacity-child-b");
-        opacityOff.addChild(opacityOffA);
-        opacityOff.addChild(opacityOffB);
-        opacityRow.addChild(opacityOff);
+        opacityOff.append(opacityOffA);
+        opacityOff.append(opacityOffB);
+        opacityRow.append(opacityOff);
 
         UIElement scissorRow = new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER));
         scissorRow.addClass("row");
-        root.addChild(scissorRow);
+        root.append(scissorRow);
 
         UIElement scissorOn = new UIElement().layout(l -> l.width(48).height(48));
         scissorOn.addClass("scissor-box");
         scissorOn.addClass("scissor-on");
         UIElement scissorOnChild = new UIElement();
         scissorOnChild.addClass("scissor-child");
-        scissorOn.addChild(scissorOnChild);
-        scissorRow.addChild(scissorOn);
+        scissorOn.append(scissorOnChild);
+        scissorRow.append(scissorOn);
 
         UIElement scissorOff = new UIElement().layout(l -> l.width(48).height(48));
         scissorOff.addClass("scissor-box");
         UIElement scissorOffChild = new UIElement();
         scissorOffChild.addClass("scissor-child");
-        scissorOff.addChild(scissorOffChild);
-        scissorRow.addChild(scissorOff);
+        scissorOff.append(scissorOffChild);
+        scissorRow.append(scissorOff);
 
         UIElement maskOverrideRow = new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER));
         maskOverrideRow.addClass("row");
-        root.addChild(maskOverrideRow);
+        root.append(maskOverrideRow);
 
         // Left: explicit `mask:` override (a dim, mostly-transparent white) — should visibly darken/fade
         // everything inside, unlike the default (mask = background reused, fully opaque, no fade at all).
@@ -555,8 +568,8 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
         maskOverrideOn.addClass("mask-override-on");
         UIElement maskOverrideOnChild = new UIElement();
         maskOverrideOnChild.addClass("mask-child");
-        maskOverrideOn.addChild(maskOverrideOnChild);
-        maskOverrideRow.addChild(maskOverrideOn);
+        maskOverrideOn.append(maskOverrideOnChild);
+        maskOverrideRow.append(maskOverrideOn);
 
         // Right: no explicit `mask:` — default mask re-renders the background fill (Item 5), fully
         // opaque green, so nothing inside gets faded; only shape clipping applies.
@@ -564,16 +577,24 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
         maskOverrideOff.addClass("mask-override-box");
         UIElement maskOverrideOffChild = new UIElement();
         maskOverrideOffChild.addClass("mask-child");
-        maskOverrideOff.addChild(maskOverrideOffChild);
-        maskOverrideRow.addChild(maskOverrideOff);
+        maskOverrideOff.append(maskOverrideOffChild);
+        maskOverrideRow.append(maskOverrideOff);
 
         return root;
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
-        uiWindow.paintFrame();
+        int w = ctx.getScreenWidth();
+        int h = ctx.getScreenHeight();
+        // SURFACE pixels in, LOGICAL units to lay out in -- the scale lives on the box
+        // tree's root transform, so this is the only place the two spaces meet.
+        document.frame(frame.getDeltaTime(), w / SCALE, h / SCALE);
+
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(w, h);
+        document.paint(paintContext);
+        paintContext.endFrame();
         // TEMP diagnostic — capture the first several frames individually to inspect startup pop-in.
         if (frame.getFrameNumber() <= 10) {
             ctx.getArtifactService().requestCapture("startupframe" + frame.getFrameNumber());
@@ -588,7 +609,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
             cornerHitTestRan = true;
             for (int x = 0; x < ctx.getScreenWidth(); x += 10) {
                 for (int y = 0; y < ctx.getScreenHeight(); y += 10) {
-                    UIElement hovered = uiWindow.getHoveredElement(x, y);
+                    UIElement hovered = document.input().hoverTarget();
                     if (hovered == cornerTestMarker) {
                         System.out.println("TEMPDEBUG cornerHitTest MARKER at (" + x + "," + y + ")");
                     } else if (hovered == cornerTestBox) {
@@ -602,7 +623,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
         // Simulate a hover-in at frame 2 (triggers the `background` transition to the sprite), then
         // capture frames 3-40 (~600ms of a ~60fps run) to sample the mask mid-transition.
         if (crossfadeMaskBox != null && frame.getFrameNumber() == 2) {
-            uiWindow.getInputHandler().consumeMouseEvent(
+            document.input().consumeMouseEvent(
                     new CgSystemInput.Mouse.Event(400, 300, 0, 0, -1, false, 0f, System.currentTimeMillis()));
         }
         if (crossfadeMaskBox != null && frame.getFrameNumber() >= 3 && frame.getFrameNumber() <= 40) {
@@ -611,7 +632,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 
         // TEMP diagnostic (Round 4 padding-box hit-test gap) — sweep along the box's top edge (fixed
         // y, varying x) to find the exact x where hover switches from the box to the child. Root's
-        // auto-sized outer box is centered on screen via UIWindow's leftPos/topPos (confirmed live:
+        // auto-sized outer box is centered on screen via UIDocument's leftPos/topPos (confirmed live:
         // at 800x600/uiScale=4 the box's outer-left edge lands at physical x=320) — border 3px +
         // padding 4px means padding-box (this fix's boundary) starts at x=332, old content-box
         // (previous, too-tight boundary) started at x=348. Verified: x=336/344 (inside the [332,348)
@@ -621,7 +642,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
         if (paddingGapTestBox != null && !paddingGapSweepRan && frame.getFrameNumber() == 5) {
             paddingGapSweepRan = true;
             for (int x = 300; x <= 420; x += 4) {
-                UIElement hovered = uiWindow.getHoveredElement(x, 264);
+                UIElement hovered = document.input().hoverTarget();
                 String what = hovered == paddingGapTestChild ? "CHILD" : hovered == paddingGapTestBox ? "box" : "other";
                 System.out.println("TEMPDEBUG paddingGap (" + x + ",264) -> " + what);
             }
@@ -630,7 +651,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -650,11 +671,11 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

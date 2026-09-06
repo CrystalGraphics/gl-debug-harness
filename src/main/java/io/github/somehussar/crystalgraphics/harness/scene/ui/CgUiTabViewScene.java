@@ -1,18 +1,18 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.sheet.StyleSheet;
 import com.crystalgui.style.sheet.StyleSheetRegistry;
-import com.crystalgui.ui.UIElement;
-import com.crystalgui.ui.Ui;
-import com.crystalgui.ui.UIWindow;
-import com.crystalgui.ui.elements.Button;
-import com.crystalgui.ui.elements.Checkbox;
-import com.crystalgui.ui.elements.Slider;
-import com.crystalgui.ui.elements.Tab;
-import com.crystalgui.ui.elements.TabView;
-import com.crystalgui.ui.elements.UIText;
+import com.crystalgui.ui.dom.UIElement;
+import com.crystalgui.ui.dom.UIDocument;
+import com.crystalgui.widget.control.Button;
+import com.crystalgui.widget.control.Checkbox;
+import com.crystalgui.widget.control.Slider;
+import com.crystalgui.widget.layout.Tab;
+import com.crystalgui.widget.layout.TabView;
+import com.crystalgui.widget.text.UIText;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -40,7 +40,10 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  */
 public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    private UIWindow uiWindow;
+    /** Logical-to-surface scale, as the harness\'s other new-engine scenes use. */
+    private static final float SCALE = 2f;
+
+    private UIDocument document;
     private TabView tabs;
     private TabView crowded;
 
@@ -59,10 +62,19 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInpu
     @Override
     public void init(HarnessContext ctx) {
         org.lwjgl.input.Keyboard.enableRepeatEvents(true);
-        this.uiWindow = new UIWindow(Ui.of(createDemo()));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.DEFAULT);
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
-        this.uiWindow.getStyleEngine().addStylesheet(StyleSheet.parse(STYLES));
+        this.document = new UIDocument().markFrameThread();
+        this.document.boxes().setUiScale(SCALE);
+        UIElement sceneRoot = createDemo();
+        // THE ROOT FILLS THE DOCUMENT. On the old engine the scene's root WAS the window's
+        // root and took the window's size; here the DOCUMENT is the root and this is an
+        // ordinary child, which sizes to its content -- so without this the scene lays out
+        // at nothing and draws nothing. DEFAULT origin, so a scene sheet still wins.
+        StyleGroup.defaultPipeline(sceneRoot.getStyle().getLayoutGroup(),
+                l -> l.widthPercent(100f).heightPercent(100f));
+        this.document.append(sceneRoot);
+        this.document.styles().addStylesheet(StyleSheet.DEFAULT);
+        this.document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
+        this.document.styles().addStylesheet(StyleSheet.parse(STYLES));
     }
 
     private UIElement createDemo() {
@@ -72,27 +84,27 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInpu
                 .setFocusPolicy(FocusPolicy.NONE);
         root.addClass("demo-root");
 
-        root.addChild(sideSwitcher());
+        root.append(sideSwitcher());
 
         tabs = new TabView();
         tabs.addClass("main");
-        root.addChild(tabs);
+        root.append(tabs);
 
         // Focusable content in each pane: switching tabs must take the hidden pane's widgets out of
         // the tab order, not merely out of sight.
         Tab first = tabs.addTab("Widgets");
-        first.content().addChild(new Button("a button"));
-        first.content().addChild(new Checkbox("a checkbox"));
+        first.content().append(new Button("a button"));
+        first.content().append(new Checkbox("a checkbox"));
 
         Tab second = tabs.addTab("Slider");
-        second.content().addChild(new Slider());
+        second.content().append(new Slider());
 
         Tab third = tabs.addTab("Text");
-        third.content().addChild(new UIText("Just some text in the third pane."));
+        third.content().append(new UIText("Just some text in the third pane."));
 
         UIElement bottom = new UIElement();
         bottom.addClass("bottom");
-        root.addChild(bottom);
+        root.append(bottom);
 
         // More tabs than the strip can show, so the wheel has to pan it.
         crowded = new TabView();
@@ -100,9 +112,9 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInpu
         for (int i = 1; i <= 8; i++) {
             UIElement filler = new UIElement();
             filler.addClass("filler");
-            crowded.addTab("tab " + i).content().addChild(filler);
+            crowded.addTab("tab " + i).content().append(filler);
         }
-        bottom.addChild(crowded);
+        bottom.append(crowded);
 
         return root;
     }
@@ -114,15 +126,23 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInpu
             Button button = new Button(side.name().toLowerCase());
             button.addClass("side-btn");
             button.attachListener(() -> tabs.setTabSide(side));
-            row.addChild(button);
+            row.append(button);
         }
         return row;
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        uiWindow.init(ctx.getScreenWidth(), ctx.getScreenHeight());
-        uiWindow.paintFrame();
+        int w = ctx.getScreenWidth();
+        int h = ctx.getScreenHeight();
+        // SURFACE pixels in, LOGICAL units to lay out in -- the scale lives on the box
+        // tree's root transform, so this is the only place the two spaces meet.
+        document.frame(frame.getDeltaTime(), w / SCALE, h / SCALE);
+
+        CgUiPaintContext paintContext = CgUiPaintContext.getInstance();
+        paintContext.beginFrame(w, h);
+        document.paint(paintContext);
+        paintContext.endFrame();
 
         var context = CgUiPaintContext.getInstance();
         Tab selected = tabs.getSelectedTab();
@@ -140,7 +160,7 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     @Override
     public void dispose() {
-        uiWindow = null;
+        document = null;
     }
 
     @Override
@@ -160,11 +180,11 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return uiWindow.getInputHandler().consumeKeyboardEvent(event);
+        return document.input().consumeKeyboardEvent(event);
     }
 
     @Override
     public boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return uiWindow.getInputHandler().consumeMouseEvent(event);
+        return document.input().consumeMouseEvent(event);
     }
 }

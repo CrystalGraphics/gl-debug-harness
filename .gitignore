@@ -13,11 +13,5 @@
 /harness-output/
 /logs/
 
-# The cgui-workspace scene's scratch project. Real files the user edits; not build output,
-# which is why it is not under harness-output/ -- but not source either.
-#
-# ANCHORED. Unanchored, `workspace/` matches a directory of that name at ANY depth, so
-# src/main/resources/harness/workspace -- the seeds this scratch project is created FROM -- was
-# ignored along with it. A source file that git silently refuses to track is the worst half of that:
-# it works locally forever and is missing for everybody else.
-/workspace/
+# The local crystalgui root directory for workspaces and cache
+/crystalgui/
