@@ -937,6 +937,12 @@ public final class Lwjgl2GLBackend extends CgGLBackend {
         return GL11.glGetError();
     }
 
+    @Override
+    public void glReadPixels(int x, int y, int width, int height,
+                             int format, int type, java.nio.ByteBuffer pixels) {
+        GL11.glReadPixels(x, y, width, height, format, type, pixels);
+    }
+
     // -------------------------------------------------------------------------
     // Timer queries (GPU timing)
     //
