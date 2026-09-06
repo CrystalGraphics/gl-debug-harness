@@ -311,7 +311,7 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
                     attribute[0] + ": " + attribute[2]));
         }
         // Each axis's hue runs down its own spoke and blends across the wedge between it and the next.
-        radar.setAxisGradient(RadarChart.AxisGradient.BETWEEN_AXES);
+        radar.setAxisGradient(RadarChart.AxisGradient.BETWEEN_AXES_TOWARD_CENTRE);
         radar.setAxes(spokes);
         column.append(radar);
 
