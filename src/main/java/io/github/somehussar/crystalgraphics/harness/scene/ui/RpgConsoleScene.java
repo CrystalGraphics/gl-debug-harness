@@ -310,8 +310,8 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
                     (int) Long.parseLong(attribute[1], 16),
                     attribute[0] + ": " + attribute[2]));
         }
-        // The fill fades toward the centre, where all six wedges converge -- see setAxisGradients.
-        radar.setAxisGradients(true);
+        // Each axis's hue runs down its own spoke and blends across the wedge between it and the next.
+        radar.setAxisGradient(RadarChart.AxisGradient.BETWEEN_AXES);
         radar.setAxes(spokes);
         column.append(radar);
 
