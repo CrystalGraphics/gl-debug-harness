@@ -4,14 +4,12 @@ import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.CgPlatformService;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
-import com.crystalgraphics.platform.service.CgCursorService;
 import com.crystalgraphics.platform.service.CgInputService;
 import com.crystalgraphics.platform.service.CgLifecycleService;
 import com.crystalgraphics.platform.service.CgReloadService;
 import com.crystalgraphics.platform.service.CgRenderingService;
 import com.crystalgraphics.platform.service.CgResourceService;
 import com.crystalgraphics.platform.service.CgSoundService;
-import io.github.somehussar.crystalgraphics.harness.util.Lwjgl2CursorService;
 import io.github.somehussar.crystalgraphics.platform.gl.Lwjgl2GLBackend;
 import io.github.somehussar.crystalgraphics.platform.gl.Lwjgl2GLContext;
 import io.github.somehussar.crystalgraphics.platform.input.InputAdapter;
@@ -52,7 +50,6 @@ public final class PlatformServiceHarness implements CgPlatformService {
     public final Lwjgl2GLBackend glDispatchImpl = new Lwjgl2GLBackend();
     public final Lwjgl2GLContext glContextImpl = new Lwjgl2GLContext();
     public final InputAdapter inputImpl = new InputAdapter();
-    public final Lwjgl2CursorService cursorImpl = new Lwjgl2CursorService();
     /**
      * Swappable — see the class javadoc. Silent unless a scene installs a counter.
      *
@@ -70,7 +67,6 @@ public final class PlatformServiceHarness implements CgPlatformService {
     @Override public CgReloadService    reload()       { return reloadImpl; }
     @Override public CgInputService     input()        { return inputImpl; }
     @Override public CgSoundService     sound()        { return soundImpl; }
-    @Override public CgCursorService    cursor()       { return cursorImpl; }
     
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
