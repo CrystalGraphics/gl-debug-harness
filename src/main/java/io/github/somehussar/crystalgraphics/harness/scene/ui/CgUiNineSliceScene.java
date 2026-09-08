@@ -48,7 +48,7 @@ public class CgUiNineSliceScene implements InteractiveSceneLifecycle, CgSystemIn
             + "\"13 7 24 14\", \"4 4 4 4\"";
 
     private static final String STYLES = """
-            .row   { flex-direction: row; gap-all: 8px; align-items: center; }
+            .row   { flex-direction: row; gap: 8px; align-items: center; }
             .label { width: 58px; font-size: 10; color: #FFFFFF; }
             .cell  { width: 92px; height: 30px; }
             /* Same sprite and mode in both columns — the .rounded variant differs ONLY by having a

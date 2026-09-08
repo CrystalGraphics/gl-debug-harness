@@ -49,13 +49,13 @@ public class CgUiTabViewScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     private static final String STYLES = """
             /* Sized to fit 800x600 at the default uiScale of 2 — 380 logical is 760 physical. */
-            .demo-root  { width: 380px; height: 270px; flex-direction: column; gap-all: 6px;
-                          padding-all: 6px; background: #202020; }
-            .sides      { flex-direction: row; gap-all: 4px; }
+            .demo-root  { width: 380px; height: 270px; flex-direction: column; gap: 6px;
+                          padding: 6px; background: #202020; }
+            .sides      { flex-direction: row; gap: 4px; }
             .side-btn   { width: 44px; }
             .main       { width: 368px; height: 140px; }
             .crowded    { width: 180px; height: 64px; }
-            .bottom     { flex-direction: row; gap-all: 6px; }
+            .bottom     { flex-direction: row; gap: 6px; }
             .filler     { background: #4A5A6A; height: 34px; width: 100%; }
             """;
 

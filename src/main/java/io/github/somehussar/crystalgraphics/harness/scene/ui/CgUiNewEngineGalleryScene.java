@@ -168,12 +168,12 @@ public class CgUiNewEngineGalleryScene
                 width: 100%;
                 height: 100%;
                 background-color: #1E1E1E;
-                padding-all: 12;
+                padding: 12;
             }
             #column {
                 width: 100%;
                 flex-direction: column;
-                gap-all: 14;
+                gap: 14;
                 /* Room for the vertical bar, which is absolutely positioned and overlays the content. */
                 padding-right: 14;
             }
@@ -181,8 +181,8 @@ public class CgUiNewEngineGalleryScene
                 width: 100%;
                 flex-direction: column;
                 align-items: flex-start;
-                gap-all: 6;
-                padding-all: 10;
+                gap: 6;
+                padding: 10;
                 background-color: #252526;
                 border-radius: 4;
             }
@@ -195,7 +195,7 @@ public class CgUiNewEngineGalleryScene
                removed outright on a leaf. The rules are on the twisty's OWN box rather than on the
                row, because a row carries the depth indent as padding-left and a rule there would
                out-specify it and flatten the tree. */
-            .tv-row { flex-direction: row; align-items: center; gap-all: 4; height: 22; }
+            .tv-row { flex-direction: row; align-items: center; gap: 4; height: 22; }
             .tv-twisty {
                 width: 11px; height: 11px; flex-shrink: 0; padding-left: 3px;
                 color: #98C379; overlay: shape("chevron-right");
@@ -206,7 +206,7 @@ public class CgUiNewEngineGalleryScene
             .row {
                 width: 100%;
                 flex-direction: row;
-                gap-all: 10;
+                gap: 10;
                 align-items: center;
             }
             /* THE THREE THAT NEED A BOX TO LIVE IN. A SplitView divides what it is given and a TabView's
@@ -229,8 +229,8 @@ public class CgUiNewEngineGalleryScene
             .config-log {
                 width: 100%;
                 flex-direction: column;
-                gap-all: 2;
-                padding-all: 8;
+                gap: 2;
+                padding: 8;
                 background-color: #1B1B1B;
                 border-radius: 4;
             }
@@ -708,7 +708,7 @@ public class CgUiNewEngineGalleryScene
      */
     private UIElement tableView() {
         ObservableList<String> model = new ObservableList<>();
-        for (String name : new String[] {"gui_quad.shader", "gui_glass.shader", "gui_blur.shader",
+        for (String name : new String[] {"gui_quad.shader", "gui_backdrop_filter.shader", "gui_blur.shader",
                                          "gui_gradient.shader", "gui_curve.shader"}) {
             model.add(name);
         }
@@ -786,7 +786,7 @@ public class CgUiNewEngineGalleryScene
             pick.setSource(QuickPickSource.of(List.of(
                     QuickPickItem.of("quad", "gui_quad.shader")
                             .withDescription("the default material"),
-                    QuickPickItem.of("glass", "gui_glass.shader")
+                    QuickPickItem.of("glass", "gui_backdrop_filter.shader")
                             .withDescription("liquid glass"),
                     QuickPickItem.of("blur", "gui_blur.shader")
                             .withDescription("one axis of the Gaussian"),

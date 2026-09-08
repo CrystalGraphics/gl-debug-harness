@@ -40,10 +40,10 @@ public class CgUiSplitViewScene implements InteractiveSceneLifecycle, CgSystemIn
     private SplitView vertical;
 
     private static final String STYLES = """
-            .pane-a  { background-color: #3A4A6A; padding-all: 4px; }
-            .pane-b  { background-color: #4A3A5A; padding-all: 4px; }
-            .pane-c  { background-color: #3A5A4A; padding-all: 4px; }
-            .pane-d  { background-color: #5A4A3A; padding-all: 4px; }
+            .pane-a  { background-color: #3A4A6A; padding: 4px; }
+            .pane-b  { background-color: #4A3A5A; padding: 4px; }
+            .pane-c  { background-color: #3A5A4A; padding: 4px; }
+            .pane-d  { background-color: #5A4A3A; padding: 4px; }
             .huge    { background-color: #8A3A3A; width: 2000px; height: 20px; }
             /* No min-width/min-height needed here any more. `overflow: hidden` now feeds Taffy, so
              * the pane holding the 2000px child below contributes a zero automatic minimum size and

@@ -78,7 +78,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     /** No room reserved at the top any more: the status line is a real StatusBarView inside the
      * workbench now, so it is laid out rather than painted over everything. @see #init */
     private static final String STYLES = """
-            .demo-root { width: 100%; height: 100%; padding-all: 8px; }
+            .demo-root { width: 100%; height: 100%; padding: 8px; }
             """;
 
     /** Both halves of a real workspace, in this process — the one genuinely fake thing here. */

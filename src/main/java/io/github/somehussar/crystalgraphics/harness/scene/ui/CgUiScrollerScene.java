@@ -36,7 +36,7 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
     private ScrollerView withBars;
 
     private static final String STYLES = """
-            .demo-root { width: 340px; height: 220px; flex-direction: row; gap-all: 10px; }
+            .demo-root { width: 340px; height: 220px; flex-direction: row; gap: 10px; }
             .col       { width: 150px; height: 190px; flex-direction: column; }
             /* A bare element is PROGRAMMATIC-ONLY: scrollTop works, the wheel does nothing, whatever
              * the overflow. Wheel handling belongs to a widget that opts in (ScrollerView), so a
@@ -46,8 +46,8 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
             .barred    { background-color: #23232A; }
             /* Turning the step buttons on is pure CSS — they're wired but display:none by default. */
 //            .barred .__head__, .barred .__tail__ { display: flex; }
-            .row       { height: 26px; background-color: #3A4A6A; padding-all: 4px; }
-            .row-alt   { height: 26px; background-color: #4A3A5A; padding-all: 4px; width: 120%; }
+            .row       { height: 26px; background-color: #3A4A6A; padding: 4px; }
+            .row-alt   { height: 26px; background-color: #4A3A5A; padding: 4px; width: 120%; }
             """;
 
     @Override

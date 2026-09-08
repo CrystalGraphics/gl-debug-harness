@@ -112,7 +112,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
     }
 
     private static final String STYLE_SHEET = """
-            .stress-cell  { padding-all: 2px; }
+            .stress-cell  { padding: 2px; }
             .stress-label { color: #FFFFFF; font-size: 12; }
             """;
 

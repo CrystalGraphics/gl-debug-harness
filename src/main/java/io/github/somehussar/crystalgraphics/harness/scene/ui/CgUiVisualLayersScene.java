@@ -63,7 +63,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
 
     private static final String STYLE_SHEET = """
             .row {
-                gap-all: 40;
+                gap: 40;
                 margin-top: 10;
             }
 
@@ -77,7 +77,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
                 border-radius: 16px;
                 border-width: 3px;
                 border-color: #224488;
-                padding-all: 4;
+                padding: 4;
                 transition: all 300ms;
             }
             .mask-on {
@@ -135,7 +135,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
                 border-radius: 16px;
                 border-width: 3px;
                 border-color: #224488;
-                padding-all: 4;
+                padding: 4;
                 overflow: hidden;
             }
             .mask-override-on {
@@ -145,7 +145,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
             .corner-test-box {
                 background: #33AA66;
                 border-radius: 30px;
-                padding-all: 10;
+                padding: 10;
                 width: 80;
                 height: 80;
                 overflow: hidden;
@@ -243,7 +243,7 @@ public class CgUiVisualLayersScene implements InteractiveSceneLifecycle, CgSyste
                 background: #33AA66;
                 border-width: 3px;
                 border-color: #224488;
-                padding-all: 4;
+                padding: 4;
                 width: 40;
                 height: 40;
                 overflow: hidden;

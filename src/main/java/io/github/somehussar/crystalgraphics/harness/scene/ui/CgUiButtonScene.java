@@ -47,13 +47,13 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput
                 background-color: #FF2A2A3A;
                 border-width: 1px;
                 border-color: #555555;
-                padding-all: 8px;
+                padding: 8px;
             }
             button {
                 background-color: #FF3C3C50;
                 border-width: 1px;
                 border-color: #777777;
-                padding-all: 8px;
+                padding: 8px;
                 transition: all 250ms;
             }
             button:hover {
@@ -65,7 +65,7 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput
             button:focus {
                 border-color: #0000FF;
                 border-width: 1.5px;
-                padding-all: 7.5px;
+                padding: 7.5px;
             }
             .label {
                 color: #FFFFFF;

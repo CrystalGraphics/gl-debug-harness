@@ -50,8 +50,8 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, CgSystemIn
     private final Property<String> model = new Property<>("shared");
 
     private static final String STYLES = """
-            .demo-root { width: 320px; height: 230px; flex-direction: column; gap-all: 4px; }
-            .row       { flex-direction: row; align-items: center; gap-all: 6px; }
+            .demo-root { width: 320px; height: 230px; flex-direction: column; gap: 4px; }
+            .row       { flex-direction: row; align-items: center; gap: 6px; }
             .slot      { width: 96px; }
             .field     { width: 178px; }
             """;

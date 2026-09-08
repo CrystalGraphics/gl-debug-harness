@@ -188,7 +188,7 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
             .fx-readouts {
                 width: 100%;
                 flex-direction: column;
-                gap-all: 8px;
+                gap: 8px;
                 /* Clear of the scrollbar. The values are right-aligned, so without this the last
                    digit sits against the bar and reads as touching it. */
                 padding-right: 10px;
@@ -204,20 +204,20 @@ public class RpgConsoleScene implements InteractiveSceneLifecycle,
             .fx-column {
                 width: 100%;
                 flex-direction: column;
-                gap-all: 10px;
+                gap: 10px;
                 padding-right: 14px;
             }
             .fx-section {
                 width: 100%;
                 flex-direction: column;
                 align-items: flex-start;
-                gap-all: 6px;
-                padding-all: 10px;
+                gap: 6px;
+                padding: 10px;
             }
             .fx-row {
                 flex-direction: row;
                 align-items: center;
-                gap-all: 10px;
+                gap: 10px;
                 flex-wrap: wrap;
             }
             .fx-wide { width: 220px; }

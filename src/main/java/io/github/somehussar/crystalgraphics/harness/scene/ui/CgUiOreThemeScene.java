@@ -39,7 +39,7 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  *   <li>The {@code .panel} card renders with the Ore rounded-panel 9-slice background.</li>
  *   <li>Focused rows show a 1px white ring via the layout-free {@code outline} layer — on the
  *       button's whole box, and on the checkbox's 12x12 mark only (not the whole row).</li>
- *   <li>Third panel is the {@code overlay-fit} matrix: the same 10x10 check sprite in four
+ *   <li>Third panel is the {@code overlay-size} matrix: the same 10x10 check sprite in four
  *       oversized boxes — {@code fill} distorts, {@code none} stays 10x10, {@code contain} fits
  *       inside preserving aspect, {@code cover} overflows preserving aspect.</li>
  * </ul>
@@ -77,7 +77,7 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         this.document.append(sceneRoot);
         this.document.styles().addStylesheet(StyleSheet.DEFAULT);
         this.document.styles().addStylesheet(StyleSheetRegistry.of("crystalgui:ore"));
-        // Demo-only rules for the overlay-fit matrix — deliberately NOT in ore.css, which is the
+        // Demo-only rules for the overlay-size matrix — deliberately NOT in ore.css, which is the
         // shippable theme.
         this.document.styles().addStylesheet(StyleSheet.parse(FIT_DEMO_STYLES));
     }
@@ -87,10 +87,10 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
                 background: asset("crystalgui:ore", "checkbox-box-green");
                 overlay: asset("crystalgui:ore", "checkbox-check");
             }
-            .fit-fill    { overlay-fit: fill; }
-            .fit-none    { overlay-fit: none; }
-            .fit-contain { overlay-fit: contain; }
-            .fit-cover   { overlay-fit: cover; }
+            .fit-fill    { overlay-size: fill; }
+            .fit-none    { overlay-size: none; }
+            .fit-contain { overlay-size: contain; }
+            .fit-cover   { overlay-size: cover; }
 
             /* SDF stroke outlines — no texture involved. The ring is a CgUiRoundedRect with a
                transparent fill, so it follows border-radius for free. */
@@ -157,7 +157,7 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
         states.append(new Checkbox("default"), hoverBox, pressedBox, focusBox,
                 checkedBox, checkedHoverBox, disabledBox);
 
-        // ── overlay-fit matrix ──
+        // ── overlay-size matrix ──
         // The same 10x10 check sprite as an `overlay:` on four deliberately oversized, non-square
         // 40x24 boxes, one per fit mode. Proves the general feature rather than just the checkbox's
         // use of it: `fill` distorts to the box, `none` stays 10x10, `contain` fits inside keeping

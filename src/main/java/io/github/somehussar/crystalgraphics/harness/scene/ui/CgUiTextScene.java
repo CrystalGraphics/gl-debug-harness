@@ -70,7 +70,7 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 background-color: #FF00FFFF;
                 border-width: 1px;
                 border-color: #555555;
-                padding-all: 8px;
+                padding: 8px;
             }
             .label {
                 color: #FFFFFF;

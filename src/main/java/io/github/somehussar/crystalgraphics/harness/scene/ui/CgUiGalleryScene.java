@@ -10,7 +10,7 @@ import java.util.Locale;
 import java.util.List;
 import java.util.ArrayList;
 import com.crystalgui.style.property.visual.transform.Transform;
-import com.crystalgui.render.texture.CgUiGlass;
+import com.crystalgui.render.texture.CgUiBackdropFilter;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.input.keymap.KeyStroke;
@@ -230,7 +230,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     // ── glass page ──────────────────────────────────────────────────────────────
 
     /** Every specimen on the page, so one slider retunes all of them at once. */
-    private final List<CgUiGlass> glassSpecimens = new ArrayList<>();
+    private final List<CgUiBackdropFilter> glassSpecimens = new ArrayList<>();
 
     private float glassPhase;
 
@@ -308,12 +308,12 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         UIElement right = new UIElement();
         right.addClass("gl-col");
 
-        left.append(glassControl("blur", 0f, 30f, 12f, "%.0f", CgUiGlass::setBlurRadius));
-        left.append(glassControl("bezel", 0f, 30f, 10f, "%.0f", CgUiGlass::setBezel));
-        left.append(glassControl("ior", 1f, 2.5f, 1.5f, "%.2f", CgUiGlass::setIor));
-        right.append(glassControl("specular", 0f, 1.5f, 0.3f, "%.2f", CgUiGlass::setSpecular));
-        right.append(glassControl("noise", 0f, 0.25f, 0.035f, "%.3f", CgUiGlass::setNoise));
-        right.append(glassControl("saturation", 0f, 3f, 1.4f, "%.2f", CgUiGlass::setSaturation));
+        left.append(glassControl("blur", 0f, 30f, 12f, "%.0f", CgUiBackdropFilter::setBlurRadius));
+        left.append(glassControl("bezel", 0f, 30f, 10f, "%.0f", CgUiBackdropFilter::setBezel));
+        left.append(glassControl("ior", 1f, 2.5f, 1.5f, "%.2f", CgUiBackdropFilter::setIor));
+        right.append(glassControl("specular", 0f, 1.5f, 0.3f, "%.2f", CgUiBackdropFilter::setSpecular));
+        right.append(glassControl("noise", 0f, 0.25f, 0.035f, "%.3f", CgUiBackdropFilter::setNoise));
+        right.append(glassControl("saturation", 0f, 3f, 1.4f, "%.2f", CgUiBackdropFilter::setSaturation));
 
         controls.append(left);
         controls.append(right);
@@ -322,15 +322,15 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     /** A specimen: an element whose background IS a glass material, registered for the sliders. */
     private UIElement glassPanel(String styleClass) {
-        CgUiGlass glass = new CgUiGlass()
+        CgUiBackdropFilter glass = new CgUiBackdropFilter()
                 .setBlurRadius(12f).setBezel(10f).setIor(1.5f)
                 .setSpecular(0.3f).setNoise(0.035f).setSaturation(1.4f)
-                .setTint(0x40FFFFFF).setFallbackColor(0x66202430);
+                .setTintArgb(0x40FFFFFF).setFallbackColorArgb(0x66202430);
         glassSpecimens.add(glass);
 
         UIElement panel = new UIElement();
         panel.addClass(styleClass);
-        StyleGroup.inlinePipeline(panel.getStyle().getGeneralGroup(), g -> g.background(glass));
+        StyleGroup.inlinePipeline(panel.getStyle().getGeneralGroup(), g -> g.backdropFilter(glass));
         return panel;
     }
 
@@ -338,12 +338,12 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * One labelled slider that retunes every specimen live.
      *
      * <p>Mutating the drawable in place rather than rebuilding it is deliberate and is why this is
-     * immediate: the same {@link CgUiGlass} instance is what the cascade holds and what gets drawn each
+     * immediate: the same {@link CgUiBackdropFilter} instance is what the cascade holds and what gets drawn each
      * frame, so a setter IS the update. Re-parsing a {@code glass(...)} declaration per drag frame would
      * churn the cascade for a value the shader reads directly.</p>
      */
     private UIElement glassControl(String name, float min, float max, float initial,
-                                   String format, BiConsumer<CgUiGlass, Float> apply) {
+                                   String format, BiConsumer<CgUiBackdropFilter, Float> apply) {
         UIElement row = new UIElement();
         row.addClass("gl-ctl");
 
@@ -356,7 +356,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         slider.addClass("gl-slider");
         slider.setRange(min, max).setValue(initial);
         slider.onValueChanged.connect(v -> {
-            for (CgUiGlass glass : glassSpecimens) apply.accept(glass, v);
+            for (CgUiBackdropFilter glass : glassSpecimens) apply.accept(glass, v);
             valueLabel.setText(String.format(Locale.ROOT, format, v));
         });
 

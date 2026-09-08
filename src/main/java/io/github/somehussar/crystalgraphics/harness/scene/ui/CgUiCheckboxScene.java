@@ -46,16 +46,16 @@ public class CgUiCheckboxScene implements InteractiveSceneLifecycle, CgSystemInp
                 background-color: #FF2A2A3A;
                 border-width: 1px;
                 border-color: #555555;
-                padding-all: 8px;
+                padding: 8px;
                 flex-direction: column;
-                gap-all: 8px;
+                gap: 8px;
             }
             checkbox {
                 background-color: #FF3C3C50;
                 border-width: 1px;
                 border-color: #777777;
-                padding-all: 6px;
-                gap-all: 6px;
+                padding: 6px;
+                gap: 6px;
                 transition: border-color 250ms, border-width 250ms;
             }
             checkbox:hover {
