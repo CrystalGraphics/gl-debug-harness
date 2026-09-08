@@ -205,6 +205,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         tabViewPage(page("TabView", "A TabView inside a TabView pane."));
         elementPage(page("UIElement", "The styleable div everything else is built from."));
         transformPage(page("transform", "CSS transform + transform-origin. Layout never sees them; clicks follow."));
+        edgesPage(page("edges", "Rotated and skewed quads, as large as the page allows: their edges are antialiased analytically, no MSAA. A sprite's slices keep their seams hard and soften only the outline."));
         tooltipPage(page("Tooltip", "Top layer: hover a row INSIDE the scroller - the tooltip escapes the clip."));
         dragPage(page("Drag", "Drag a chip onto a bin. Ghost follows the cursor; Escape cancels."));
         resizePage(page("resize", "In-flow boxes get 3 handles, like CSS. The Dialog page has all 8."));
@@ -1531,6 +1532,36 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.append(row(slot("translate + scale"), transformDemo("tf-chain")));
         pane.append(row(slot("scale + translate"), transformDemo("tf-chain-rev")));
         pane.append(row(slot("on :hover"), transformDemo("tf-hover")));
+    }
+
+    /**
+     * The edge antialiasing {@code CG_QUAD_EDGE_*} gives a rotated quad, on every quad material at once:
+     * a nine-slice sprite button (the ore theme), a {@code linear-gradient} box and a flat box.
+     */
+    private void edgesPage(UIElement pane) {
+        pane.append(row(bigTransformDemo("tf-rotate", "rotate"), bigTransformDemo("tf-skew", "skew")));
+        UIElement gradient = new UIElement();
+        gradient.addClass("tf-big-gradient");
+        gradient.addClass("tf-rotate");
+        UIElement flat = new UIElement();
+        flat.addClass("tf-big-flat");
+        flat.addClass("tf-skew");
+        pane.append(row(gradient, flat));
+        // Rounded and bordered: the SDF material, whose ramp used to be cut off by its own quad.
+        UIElement rounded = new UIElement();
+        rounded.addClass("tf-big-rounded");
+        rounded.addClass("tf-rotate");
+        UIElement roundedSkew = new UIElement();
+        roundedSkew.addClass("tf-big-rounded");
+        roundedSkew.addClass("tf-skew");
+        pane.append(row(rounded, roundedSkew));
+    }
+
+    private UIElement bigTransformDemo(String cssClass, String label) {
+        Button button = new Button(label);
+        button.addClass(cssClass);
+        button.addClass("tf-big");
+        return button;
     }
 
     private UIElement transformDemo(String cssClass) {

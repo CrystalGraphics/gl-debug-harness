@@ -583,6 +583,15 @@
 
 .tf-chain-rev  { transform: scale(2) translate(12px); transform-origin: left center; }
 
+/* The edges page: the same transforms on things big enough to see an edge on. The gaps leave room for
+ * the skew's overhang and the rotation's corners. */
+.tf-big          { width: 340px; height: 130px; font-size: 40px; margin: 16px 48px 16px 24px; }
+.tf-big-gradient { width: 340px; height: 130px; margin: 16px 48px 16px 24px;
+                   background: linear-gradient(135deg, #4f83ff, #1f3a8a); }
+.tf-big-flat     { width: 340px; height: 130px; margin: 16px 48px 16px 24px; background-color: #d0d4dc; }
+.tf-big-rounded  { width: 340px; height: 90px; margin: 16px 48px 16px 24px; border-radius: 12px;
+                   border-width: 2px; border-color: #5b8dff; background-color: #2d4fa8; }
+
 
 /* Transitionable like any other interpolatable property, and this is the case CSS's
 
