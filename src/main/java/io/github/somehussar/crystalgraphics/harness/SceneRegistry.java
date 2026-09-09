@@ -18,6 +18,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiDesktopScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNewEngineGalleryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSpriteStressScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiScrollerScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSliderScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTabViewScene;
@@ -389,6 +390,20 @@ public final class SceneRegistry {
                 .clearColor(0.02f, 0.10f, 0.14f, 1.0f)
                 .build(),
             () -> new RpgConsoleScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-sprite-stress")
+                .description("CrystalGUI 9-slice sprite stress: N sprite-backed cells in a grid, for measuring what a sprite costs to draw. -Dcrystalgui.spritestress.count / .cell / .rotate")
+                .defaultWidth(1920)
+                .defaultHeight(1080)
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiSpriteStressScene()
         );
 
         reg.register(

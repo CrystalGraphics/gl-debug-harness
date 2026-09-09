@@ -3,7 +3,10 @@ package io.github.somehussar.crystalgraphics.harness;
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.util.profiling.CgProfiler;
+import com.crystalgraphics.util.profiling.CgProfilerDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
+import java.io.File;
+
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.camera.FloorRenderer;
 import io.github.somehussar.crystalgraphics.harness.camera.HUDRenderer;
@@ -84,6 +87,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private static final Logger LOGGER = Logger.getLogger(InteractiveSceneRunner.class.getName());
 
     private static final int TARGET_FPS = 120;
+
+    /** Frames discarded before {@code -Dcrystalgraphics.harness.profile} starts counting: the first
+     * few carry every lazy allocation and every shader variant's first compile, which is a scene's
+     * startup cost rather than its frame cost. */
+    private static final int PROFILE_WARMUP_FRAMES = 30;
     /**
      * How many nanoseconds are represented by a millisecond.
      */
@@ -195,7 +203,24 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // HarnessDeadline is tested alongside the scene's own exit conditions so a capped run shuts down
         // through the ordinary path, with GL teardown and any artifact writes intact. The watchdog inside
         // HarnessDeadline is the backstop for a scene that never gets back here at all.
+        // -Dcrystalgraphics.harness.profile=<frames>: profile ANY interactive scene over that many
+        // frames, dump, and stop -- the measurement a scene with its own profiling flag makes, without
+        // every scene having to grow one. Unattended, so two builds can be compared back to back, which
+        // is the only way these numbers mean anything: run to run on one machine they spread further
+        // than most differences worth finding.
+        int profileFrames = Integer.getInteger("crystalgraphics.harness.profile", 0);
+        if (profileFrames > 0) CgProfiler.setEnabled(true);
+
         while (!Display.isCloseRequested() && scene.isRunning() && !HarnessDeadline.expired()) {
+            if (profileFrames > 0) {
+                if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES) CgProfiler.reset();
+                if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES + profileFrames) {
+                    File dump = CgProfilerDump.dump(new File(ctx.getOutputDir()),
+                            "harness-" + profileFrames + "f");
+                    LOGGER.info("[InteractiveSceneRunner] profile dump=" + dump);
+                    break;
+                }
+            }
 
             // 1. Frame clock tick — compute delta, elapsed, frame number
             frameClock.tick();
