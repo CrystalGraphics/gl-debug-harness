@@ -4,7 +4,7 @@ import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.ui.dom.UIElement;
 import com.crystalgui.ui.dom.UIDocument;
-import com.crystalgui.render.texture.CgUiQuad;
+import com.crystalgui.render.texture.CgUiRect;
 import com.crystalgui.render.texture.CgUiSprite;
 import com.crystalgui.ui.input.FocusPolicy;
 import dev.vfyjxf.taffy.style.*;
@@ -19,7 +19,7 @@ import org.lwjgl.input.Keyboard;
  * using the immediate-mode {@link UIDocument} paint path.
  *
  * <p>This scene exercises the full CrystalGUI stack — Taffy layout, DOM tree
- * traversal, {@code CgUiQuad} solid fills, {@code CgUiSprite} atlas sprites,
+ * traversal, {@code CgUiRect} solid fills, {@code CgUiSprite} atlas sprites,
  * absolute positioning, and flex layout — in a standalone GL harness window
  * with no Minecraft dependency.</p>
  *
@@ -80,11 +80,11 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     private UIElement createUISimple() {
         UIElement root = new UIElement()
-                .generalStyle(s -> s.background(new CgUiQuad(0xFFFFFFFF)))
+                .generalStyle(s -> s.background(CgUiRect.ofColor(0xFFFFFFFF)))
                 .layout(l -> l.height(600).width(600).flexDirection(FlexDirection.COLUMN));
 
         root.append(
-                new UIElement().generalStyle(s -> s.background(new CgUiQuad(0xFFFF0000)))
+                new UIElement().generalStyle(s -> s.background(CgUiRect.ofColor(0xFFFF0000)))
                                .layout(l -> l.widthPercent(100).height(300))
         );
 
@@ -94,7 +94,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private UIElement createYogaExample() {
 
         UIElement root = new UIElement()
-                .generalStyle(s -> s.background(backgroundMain))
+                .generalStyle(s -> s.background(backgroundMain.toRect()))
                 .layout(l -> l
                         .width(250)
                         .height(475)
@@ -105,7 +105,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
                         true, false);
 
         UIElement container = new UIElement().setId("Container")
-                                             .generalStyle(s -> s.background(inset))
+                                             .generalStyle(s -> s.background(inset.toRect()))
                                              .layout(l -> l
                         .widthPercent(100).heightPercent(100)
                         .flex(1)
@@ -115,7 +115,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
         root.append(container);
 
         UIElement header = new UIElement().setId("Header")
-                                          .generalStyle(s -> s.background(inset))
+                                          .generalStyle(s -> s.background(inset.toRect()))
                                           .layout(l -> l.height(60));
         container.append(header);
 
@@ -131,7 +131,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
         container.append(mainWrapper); // still added before `content` — controls paint order, not flow anymore
 
         UIElement main = new UIElement().setId("main")
-                                        .generalStyle(s -> s.background(inset).color(0xFF00FF00))
+                                        .generalStyle(s -> s.background(inset.toRect()).color(0xFF00FF00))
                                         .layout(l -> l
                         .widthPercent(100)
                         .heightAuto()
@@ -146,18 +146,18 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
         for (int i = 0; i < 3; i++) {
             UIElement button = new UIElement().setId("buttonMain"+i)
-                                              .generalStyle(s -> s.background(buttonSprite))
+                                              .generalStyle(s -> s.background(buttonSprite.toRect()))
                                               .layout(l -> l.width(40).height(40));
             main.append(button);
         }
 
         UIElement content = new UIElement().setId("content")
-                                           .generalStyle(s -> s.background(inset).color(0xFFFF0000))
+                                           .generalStyle(s -> s.background(inset.toRect()).color(0xFFFF0000))
                                            .layout(l -> l.flex(2).marginBottom(72).marginLeft(10).marginRight(10));
         container.append(content);
 
         UIElement absolute = new UIElement().setId("absolute")
-                                            .generalStyle(s -> s.background(overlay))
+                                            .generalStyle(s -> s.background(overlay.toRect()))
                                             .layout(l -> l
                         .positionType(TaffyPosition.ABSOLUTE)
                         .widthPercent(100).height(64)
@@ -170,19 +170,19 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
         UIElement button1 = new UIElement().setId("button0")
                                            .generalStyle(s -> s
-                        .background(buttonSprite)
+                        .background(buttonSprite.toRect())
                         .overlay(new CgUiSprite()
                                 .setTexture("crystalgui:textures/gui/Spritesheet_UI_Flat.png")
                                 .setTextureSizeReference(736, 288)
                                 .setSprite(296, 233, 14, 14)
-                        )
+                                .toRect())
                 )
                                            .layout(l -> l.width(40).height(40));
         absolute.append(button1);
 
         for (int i = 0; i < 3; i++) {
             UIElement button = new UIElement().setId("Header"+(1+i))
-                                              .generalStyle(s -> s.background(buttonSprite))
+                                              .generalStyle(s -> s.background(buttonSprite.toRect()))
                                               .layout(l -> l.width(40).height(40));
             absolute.append(button);
         }
@@ -250,7 +250,7 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
 //            if(this.hoveredElement != null) {
 //                this.hoveredElement.append(new UIElement().setId("button0")
 //                        .generalStyle(s -> s
-//                                .background(buttonSprite)
+//                                .background(buttonSprite.toRect())
 //                                .overlay(new CgUiSprite()
 //                                        .setTexture("crystalgui:textures/gui/Spritesheet_UI_Flat.png")
 //                                        .setTextureSizeReference(736, 288)

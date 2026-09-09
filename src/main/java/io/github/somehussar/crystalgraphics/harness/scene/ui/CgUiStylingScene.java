@@ -208,7 +208,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     private UIElement createStylingDemo() {
         UIElement root = new UIElement()
-                .generalStyle(s -> s.background(panelSprite))
+                .generalStyle(s -> s.background(panelSprite.toRect()))
                 .layout(l -> l
                         .width(420)
                         .height(320)
@@ -241,7 +241,7 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
         // width, and the property would never appear to update or transition at all.
         for (int i = 0; i < 3; i++) {
             UIElement button = new UIElement()
-                    .generalStyle(s -> s.background(buttonSprite));
+                    .generalStyle(s -> s.background(buttonSprite.toRect()));
             button.addClass("button");
 
             if (i == 0) {
@@ -256,11 +256,11 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         // SDF rounded-rect smoke-test: border-radius/border-width/border-color as a universal
         // wrapping layer over a flat-color background, exercised at runtime so
-        // gui_rounded_rect.shader actually compiles under real GL, not just javac. border-width
+        // gui_rect.shader actually compiles under real GL, not just javac. border-width
         // (set via .borderAll below) now grows the layout box for real — it's the same
         // border-width-* longhand Taffy resolves, not a bespoke SDF-only number.
         UIElement roundedButton = new UIElement()
-                .generalStyle(s -> s.background(new com.crystalgui.render.texture.CgUiQuad(0xFFEE8822))
+                .generalStyle(s -> s.background(com.crystalgui.render.texture.CgUiRect.ofColor(0xFFEE8822))
                         .borderRadius(10f)
                         .borderColor(0xFF224488))
                 .layout(l -> l.width(48).height(48).borderAll(3));

@@ -2495,7 +2495,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         Runnable show = () -> {
             int argb = picker.getColor();
-            swatch.generalStyle(g -> g.background(new com.crystalgui.render.texture.CgUiQuad(argb)));
+            swatch.generalStyle(g -> g.background(com.crystalgui.render.texture.CgUiRect.ofColor(argb)));
             readout.setText(String.format("#%08X   alpha %d", argb, (argb >>> 24) & 0xFF));
         };
         picker.onColorChanged.connect(c -> show.run());

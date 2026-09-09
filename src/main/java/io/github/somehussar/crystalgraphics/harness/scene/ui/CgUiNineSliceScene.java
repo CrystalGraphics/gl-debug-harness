@@ -19,7 +19,7 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  *
  * <p><b>The load-bearing check is the side-by-side.</b> Each mode is rendered twice from the same
  * sprite: once plain (which takes {@code CgUiSprite}'s CPU 9-quad path) and once with a
- * {@code border-radius} (which reroutes to {@code gui_rounded_rect.shader}'s per-pixel
+ * {@code border-radius} (which reroutes to {@code gui_rect.shader}'s per-pixel
  * {@code WITH_9SLICE_FILL} branch). Those are two independent implementations of the same slicing,
  * and which one runs depends on an unrelated style property — so if they ever disagree, adding a
  * border-radius would silently change an element's tiling. The two columns must match.</p>

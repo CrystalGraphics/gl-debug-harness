@@ -92,7 +92,7 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
             .fit-contain { overlay-size: contain; }
             .fit-cover   { overlay-size: cover; }
 
-            /* SDF stroke outlines — no texture involved. The ring is a CgUiRoundedRect with a
+            /* SDF stroke outlines — no texture involved. The ring is a CgUiRect with a
                transparent fill, so it follows border-radius for free. */
             .ring-demo { background-color: #3C3C50; }
             .ring-square  { outline: 1px #4488FF; }
