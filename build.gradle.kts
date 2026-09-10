@@ -23,6 +23,8 @@ dependencies {
     implementation("com.crystalgraphics:platform:1.0.0")
     implementation("com.crystalgraphics:freetype-msdfgen-harfbuzz-bindings:1.0.0")
     implementation("com.crystalgraphics:core:1.0.0")
+    // Tier 1 for LWJGL2: the cursor adapter, which used to be a copy in harness/util.
+    implementation("com.crystalgraphics:mc-lwjgl2:1.0.0")
     implementation(project(":core")) // CrystalGUI:core, via composite build substitution
 
     // The real parsers. core/ ships word-list lexers so it can load with no natives at all, and they are
