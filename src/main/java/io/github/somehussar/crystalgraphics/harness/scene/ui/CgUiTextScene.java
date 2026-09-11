@@ -27,9 +27,9 @@ import org.lwjgl.input.Keyboard;
  *       {@code measureFunc()} → Taffy intrinsic sizing works with zero explicit width/height).</li>
  *   <li>Wrapped multi-line text in a fixed-width box (proves {@code maxWidth} correctly reaches
  *       {@code CgShapedParagraph.layout} through both the measure pass and the paint pass).</li>
- *   <li>A {@code font-family} fallback case — text mixing Latin and Japanese characters, styled
- *       with a fallback stack (IBMPlexSans primary, NotoSansJP fallback) so the fallback chain
- *       actually has to resolve glyphs IBMPlexSans doesn't cover.</li>
+ *   <li>A {@code font-family} fallback case — Latin, Japanese, Korean and Arabic under a stack of
+ *       IBMPlexSans and NotoSansJP: Japanese comes from the listed fallback, Korean and Arabic from
+ *       the installed fonts through {@code CgSystemFonts}.</li>
  *   <li>A live {@code bindTextTo} case — press SPACE to cycle the bound {@code Property<String>}
  *       through several strings of different lengths, visually confirming re-measure/re-wrap
  *       happens automatically on every bound change.</li>
@@ -80,7 +80,7 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
                 width: 140px;
             }
             .fallback-text {
-                font-family: "crystalgraphics:IBMPlexSans-Regular.ttf", "crystalgraphics:NotoSansJP-Regular.ttf";
+                font-family: "crystalgui:ui/fonts/IBMPlexSans-Regular.ttf", "harness:fonts/NotoSansJP-Regular.ttf";
                 font-size: 14;
             }
             """;
@@ -131,12 +131,12 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
         wrapCard.append(wrapText);
         root.append(wrapCard);
 
-        // Case 3: font-family fallback — mixes Latin (covered by IBMPlexSans, the primary) with
-        // Japanese (not covered by IBMPlexSans, forcing resolution through the NotoSansJP fallback).
+        // Case 3: font-family fallback — Latin from IBMPlexSans, Japanese from the listed NotoSansJP,
+        // and Korean and Arabic, which neither covers, from the installed fonts.
         UIElement fallbackCard = new UIElement();
         fallbackCard.addClass("card");
         fallbackCard.addClass("wrap-box");
-        UIText fallbackText = new UIText("Hello こんにちは fallback");
+        UIText fallbackText = new UIText("Hello こんにちは 안녕 مرحبا fallback");
         fallbackText.addClass("fallback-text");
         fallbackCard.append(fallbackText);
         root.append(fallbackCard);

@@ -7,10 +7,10 @@ import java.io.File;
  */
 public final class HarnessFontUtil {
 
-    public static final String ARABIC_FONT = resolveFontPath("../CrystalGraphics/core/src/main/resources/assets/crystalgraphics/IBMPlexSansArabic-Regular.ttf");
-    public static final String JAPANESE_FONT = resolveFontPath("../CrystalGraphics/core/src/main/resources/assets/crystalgraphics/MPLUS1p-Regular.ttf");
-    public static final String LATIN_FONT = resolveFontPath("../CrystalGraphics/core/src/main/resources/assets/crystalgraphics/IBMPlexSans-Regular.ttf");
-    public static final String MINECRAFT_FONT = resolveFontPath("../CrystalGraphics/core/src/main/resources/assets/crystalgraphics/Minecraft.otf");
+    public static final String ARABIC_FONT = resolveFontPath("../CrystalGraphics/core/src/test/resources/fonts/IBMPlexSansArabic-Regular.ttf");
+    public static final String JAPANESE_FONT = resolveFontPath("../CrystalGraphics/core/src/test/resources/fonts/MPLUS1p-Regular.ttf");
+    public static final String LATIN_FONT = resolveFontPath("../CrystalGraphics/core/src/test/resources/fonts/IBMPlexSans-Regular.ttf");
+    public static final String MINECRAFT_FONT = resolveFontPath("../core/src/main/resources/assets/crystalgui/ui/fonts/Minecraft.otf");
 
     /**
      * Resolves a font path from the given config, falling back to system font discovery.
@@ -31,10 +31,9 @@ public final class HarnessFontUtil {
             }
         }
 
-        // Prefer the same test font used by the Minecraft demo in the root project.
+        // CrystalGraphics' own test font, beside the harness in this checkout.
         String[] preferredProjectFonts = {
-            "src/main/resources/assets/crystalgraphics/test-font.ttf",
-            "../src/main/resources/assets/crystalgraphics/test-font.ttf"
+            "../CrystalGraphics/core/src/test/resources/fonts/test-font.ttf"
         };
         for (String testFont : preferredProjectFonts) {
             File tf = new File(testFont);
