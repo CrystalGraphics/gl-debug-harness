@@ -5,7 +5,7 @@ import io.github.somehussar.crystalgraphics.harness.config.*;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.service.CgCursorService;
-import com.crystalgraphics.mc.lwjgl2.Lwjgl2CursorService;
+import com.crystalgraphics.lwjgl2.Lwjgl2CursorService;
 import io.github.somehussar.crystalgraphics.platform.PlatformServiceHarness;
 
 import java.io.File;
