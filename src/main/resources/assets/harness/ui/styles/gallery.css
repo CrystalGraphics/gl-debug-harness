@@ -751,6 +751,89 @@
 
 .tx-shadow-row { text-shadow: true; background: #C9D2DD; color: #14181D; }
 
+/* ── text-stroke ──────────────────────────────────────────────────────────────────────────
+ * Large, because the field only describes 0.0375em and a 1px outline is a third of a pixel on a
+ * label. Every row below sits on one dark ground so a light stroke and a dark one are judged
+ * against the same thing. */
+.textcss-scroll { width: 100%; height: 0; flex-grow: 1; }
+
+/* FONT-SIZE GOES ON THE LABEL, not on the box. It is the one property here that does not
+ * effectively inherit -- the UA sheet opens with `* { font-size: 10 }`, which plants a candidate on
+ * every element including this label, so a size set on the wrapper loses to it. Everything else in
+ * these rules is genuinely inherited and is set on the box on purpose, which is what the
+ * `inherited` row demonstrates. Setting the size on the box is also how the first version of this
+ * page showed no strokes at all: every label stayed at 10px, rasterised to bitmap coverage, and
+ * bitmap has no distance field to threshold. */
+.tx-stroke, .tx-stroke-2, .tx-stroke-huge, .tx-stroke-inherit {
+    width: 460px;
+    color: #E8EDF2;
+    background: #171C22;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+/* 72, not something more modest, and the number is doing work. The field describes 0.0375em, so
+ * the widest stroke it can hold is about 0.0375 * fontSize minus half a pixel of antialiasing
+ * headroom -- roughly 1.2px at 44, and 2.2px at 72. The 2px row has to sit INSIDE that or it is
+ * demonstrating the clamp rather than the width. */
+.tx-stroke .label,
+.tx-stroke-2 .label,
+.tx-stroke-current .label,
+.tx-stroke-huge .label,
+.tx-stroke-inherit .label { font-size: 72; }
+
+/* `text-stroke` is the only spelling a sheet may write: text-stroke-width and -color still cascade,
+ * inherit and serialise, but DeclarationParser refuses them by name so there is one thing to learn.
+ * The two halves survive underneath so a partial override composes -- see .tx-align-inset, which
+ * restates only the width, and .tx-stroke-current, which states only a width and lets the colour fall
+ * back to `color`. */
+.tx-stroke   { text-stroke: 0px #0B5D8F; }
+.tx-stroke-2 { text-stroke: 2px #0B5D8F; }
+
+/* An INWARD stroke has to fit the letterform's thinnest part, which is its joints -- a shoulder
+ * springing or a bowl link is thinned by the type designer so the merge does not read as a blot.
+ * Measured on this face at font-size 72: stem 6.3px, joint about 4px across. `inset` spends the whole
+ * width inward, so it closes the joint at 2px and needs 1; `center` spends half, so 2px is its
+ * equivalent; `outset` never touches the letterform. Widen inset here and the g and h pinch shut. */
+.tx-align-outset { stroke-align: outset; }
+.tx-align-center { stroke-align: center; }
+.tx-align-inset  { stroke-align: inset; text-stroke: 1px; }
+
+/* Stroke under the fill. Only legible against `center`, where there is an inner half to hide. */
+.tx-paint-stroke { paint-order: stroke; }
+
+/* No stroke colour at all, so it falls back to `color`: this row must come out AMBER, outline and
+ * fill alike.
+ *
+ * THE COLOUR GOES ON THE LABEL, not the wrapper, and that is not a stylistic choice. The UA sheet
+ * owns `.label` (overlays.css: `color: var(--label-fg, #FFFFFF)`) and txBox puts that very class on
+ * its UIText -- so a direct rule beats inheritance, which only applies where nothing set a candidate,
+ * and the label came out white however amber its wrapper was. Three runs of this row proved nothing
+ * about the engine; it was losing to the user-agent sheet. */
+.tx-stroke-current .label { color: #E0A33C; }
+
+.tx-stroke-current {
+    width: 460px;
+    text-stroke: 2px;
+    color: #E0A33C;
+    background: #171C22;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+/* A fill of nothing, so only the outline is left. Note `color` is untouched and still inherits. */
+.tx-hollow { text-fill-color: #00000000; }
+
+/* Far past what the field can describe -- this renders the same as the 2px row, not thicker. */
+.tx-stroke-huge { text-stroke: 8px #B4541A; }
+
+/* Declared on the WRAPPER; the label inside inherits all of it. */
+.tx-stroke-inherit { text-stroke: 2px #2E7D4F; }
+
+/* Small enough to rasterise as bitmap coverage, which carries no distance to threshold. AFTER the
+ * label rules above: same specificity, so source order is what makes this one win. */
+.tx-small .label { font-size: 10; }
+
 
 .tx-shadow-row ::highlight(red)   { color: #CC0000; }
 
@@ -1152,6 +1235,41 @@
 
 
 .mn-canvas     { width: 300px; height: 56px; background: #31363F; padding: 6px; }
+
+
+/* ── text-lab page ──────────────────────────────────────────────────────────────────────────
+ * The same specimen on two grounds, because an outline cannot be judged on one: a dark stroke is a
+ * crisp edge on light and a halo on dark. Both take identical INLINE declarations from the controls,
+ * so any difference between the panels is the ground and not the style.
+ *
+ * NO `font-size` on `.tl-specimen`, deliberately -- the size slider writes it inline, and a rule here
+ * would not lose to that (inline beats stylesheet) but would decide the value before the first drag
+ * and disagree with the slider's own readout. The Java sets the initial size instead. */
+.tl-stage      { flex-direction: row; gap: 10px; width: 100%; }
+.tl-ground     { width: 0; flex-grow: 1; height: 210px; border-radius: 12px;
+                 overflow: hidden; padding: 12px; }
+.tl-dark       { background: #10141A; }
+.tl-light      { background: #E9EDF2; }
+/* NO width on the specimen: it is a canvas NODE, so it self-sizes on an unbounded plane and a long
+ * string runs off the side to be panned to, rather than wrapping under the controls. */
+/* A mid grey, because the same rule labels a near-black panel and a near-white one -- white at low
+ * alpha vanished on the light ground. */
+.tl-hint       { position: absolute; right: 8px; top: 6px; font-size: 9px; color: #8A93A0; }
+
+.tl-controls   { flex-direction: row; gap: 18px; }
+.tl-col        { gap: 4px; }
+.tl-ctl        { flex-direction: row; align-items: center; gap: 8px; }
+.tl-ctl-name   { width: 82px; font-size: 11px; color: #B9BCC4; }
+.tl-ctl-val    { width: 42px; font-size: 11px; color: #6E7681; }
+.tl-slider     { width: 120px; }
+.tl-drop       { width: 128px; height: 15px; font-size: 10px; }
+.tl-field      { width: 128px; }
+
+.tl-swatches   { flex-direction: row; gap: 3px; align-items: center; }
+.tl-chip       { width: 17px; height: 17px; border-radius: 4px;
+                 border-width: 1px; border-color: #00000055; cursor: pointer; }
+
+.tl-note       { width: 172px; font-size: 9px; color: #7E8691; }
 
 /* ── glass page ─────────────────────────────────────────────────────────────────────────────────
  * A backdrop worth refracting. Glass over a flat colour is a rectangle with a slightly different
