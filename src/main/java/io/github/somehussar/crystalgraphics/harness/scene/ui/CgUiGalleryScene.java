@@ -679,7 +679,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 : " px holds still as the size slider moves; a percentage would follow it.";
 
         textLabNote.setText(asked + capped + units
-                + " Below ~8px a glyph is a bitmap and takes no stroke at all.");
+                + " A stroke keeps its label on the distance-field tier down to 15px; below that"
+                + " the glyph is a bitmap and the outline is dropped.");
     }
 
     /** A row of clickable swatches — enough colours to judge an outline, without a whole picker. */
