@@ -56,6 +56,9 @@ import com.crystalgui.widget.control.TextField;
 import com.crystalgui.widget.overlay.Tooltip;
 import com.crystalgui.widget.text.UIText;
 import com.crystalgui.style.property.visual.border.LengthPercent;
+import com.crystalgui.style.property.StylePropertyRegistry;
+import com.crystalgui.style.property.visual.shadow.Shadow;
+import com.crystalgui.style.property.visual.shadow.ShadowList;
 import com.crystalgui.style.property.visual.text.FontStyle;
 import com.crystalgui.style.property.visual.text.FontWeight;
 import com.crystalgui.style.property.visual.text.PaintOrder;
@@ -232,7 +235,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         configuratorPage(page("configurator", "P6.1.8: the whole control kit on one rhythm. Compare against docs/research/unity-inspector/."));
         glassPage(page("glass", "Backdrop material: blur, refraction, specular, noise. Drag the sliders."));
         textLabPage(page("text-lab", "Every text property on live controls: type into it, change the font, "
-                + "drag the stroke. The same specimen is drawn on dark and on light."));
+                + "drag the stroke, cast a shadow. The same specimen is drawn on dark and on light."));
 
         return root;
     }
@@ -403,6 +406,21 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private StrokeAlign textLabAlign = StrokeAlign.OUTSET;
     private PaintOrder textLabPaintOrder = PaintOrder.NORMAL;
 
+    // ── text-shadow ──
+    /** 0 off, 1 one shadow, 2 the shadow plus a glow beneath it, 3 the shadow plus a sharp drop beneath it. */
+    private int textLabShadowLayers;
+    private float textLabShadowX = 3f;
+    private float textLabShadowY = 4f;
+    private float textLabShadowBlur = 8f;
+    private float textLabShadowSpread;
+    private float textLabShadowOpacity = 0.75f;
+    private boolean textLabShadowInset;
+    private int textLabShadowColor = 0xFF101418;
+    private Slider textLabShadowXSlider, textLabShadowYSlider, textLabShadowBlurSlider, textLabShadowSpreadSlider,
+            textLabShadowOpacitySlider;
+    private Dropdown textLabShadowLayerDrop, textLabShadowSideDrop;
+    private UIText textLabShadowCss;
+
     /**
      * Every text property on a control, against two grounds.
      *
@@ -556,6 +574,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         textLabNote.addClass("tl-note");
         colC.append(textLabNote);
 
+        // Under the face and stroke controls, which leave room: a fourth column wraps off the page.
+        textLabShadowControls(colA, colB);
+
         controls.append(colA);
         controls.append(colB);
         controls.append(colC);
@@ -580,7 +601,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         CanvasView view = new CanvasView();
         view.addClass("tl-ground");
         view.addClass(styleClass);
-        view.setZoomRange(0.25f, 24f);
+        view.setZoomRange(0.25f, 100f);
         view.addNode(specimen, 14f, 10f);
 
         UIText hint = new UIText("1.00x");
@@ -612,6 +633,9 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 ? LengthPercent.percent(textLabStrokeValue / 100f)
                 : LengthPercent.px(textLabStrokeValue);
         updateTextLabNote(width);
+        if (textLabShadowCss != null) {
+            textLabShadowCss.setText("text-shadow: " + StylePropertyRegistry.TEXT_SHADOW.write(textLabShadows()));
+        }
         for (UIText specimen : textLabSpecimens) {
             StyleGroup.inlinePipeline(specimen.getStyle().getGeneralGroup(), g -> {
                 g.fontFamily(List.of(textLabFamily));
@@ -623,6 +647,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 g.textStrokeColor(textLabStrokeColor);
                 g.strokeAlign(textLabAlign);
                 g.paintOrder(textLabPaintOrder);
+                g.textShadow(textLabShadows());
                 // Mode 0 follows the text colour, and writes NOTHING until some other mode has
                 // already pinned a candidate -- so the page opens on the real currentcolor fallback
                 // and still tracks the swatches once it cannot go back to unset.
@@ -636,6 +661,114 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 }
             });
         }
+    }
+
+    /**
+     * The shadow column: a preset to start from, the four lengths and {@code inset} CSS gives a shadow, its
+     * colour, and a second layer beneath it, so painter's order between a blurred and a sharp shadow can be
+     * seen. The CSS the controls produce is printed under them, and is exactly what the specimens get.
+     */
+    private void textLabShadowControls(UIElement col, UIElement lengths) {
+        Dropdown preset = new Dropdown();
+        preset.addClass("tl-drop");
+        preset.addOptions("presets...", "drop shadow", "soft shadow", "glow", "neon", "spread glow",
+                "long shadow", "inset", "engraved");
+        preset.onSelectionChanged.connect(this::applyTextLabShadowPreset);
+        col.append(textLabRow("shadow", preset));
+        // -Dcrystalgui.gallery.textLabShadow=N opens the lab on preset N, for an unattended capture of a look.
+        int openOn = Integer.getInteger("crystalgui.gallery.textLabShadow", 0);
+
+        Dropdown layers = new Dropdown();
+        layers.addClass("tl-drop");
+        layers.addOptions("off", "one", "+ glow beneath", "+ sharp drop beneath");
+        layers.onSelectionChanged.connect(i -> {
+            textLabShadowLayers = i;
+            applyTextLab();
+        });
+        layers.select(0);
+        textLabShadowLayerDrop = layers;
+        col.append(textLabRow("layers", layers));
+
+        lengths.append(textLabSlider("offset x", -24f, 24f, textLabShadowX, "%.1f",
+                v -> textLabShadowX = v, sl -> textLabShadowXSlider = sl));
+        lengths.append(textLabSlider("offset y", -24f, 24f, textLabShadowY, "%.1f",
+                v -> textLabShadowY = v, sl -> textLabShadowYSlider = sl));
+        lengths.append(textLabSlider("blur", 0f, 64f, textLabShadowBlur, "%.1f",
+                v -> textLabShadowBlur = v, sl -> textLabShadowBlurSlider = sl));
+        lengths.append(textLabSlider("spread", 0f, 12f, textLabShadowSpread, "%.1f",
+                v -> textLabShadowSpread = v, sl -> textLabShadowSpreadSlider = sl));
+        lengths.append(textLabSlider("opacity", 0f, 1f, textLabShadowOpacity, "%.2f",
+                v -> textLabShadowOpacity = v, sl -> textLabShadowOpacitySlider = sl));
+
+        Dropdown side = new Dropdown();
+        side.addClass("tl-drop");
+        side.addOptions("outer", "inset");
+        side.onSelectionChanged.connect(i -> {
+            textLabShadowInset = i == 1;
+            applyTextLab();
+        });
+        side.select(0);
+        textLabShadowSideDrop = side;
+        col.append(textLabRow("side", side));
+
+        col.append(textLabRow("shadow colour", textLabSwatches(argb -> textLabShadowColor = argb, 5)));
+
+        textLabShadowCss = new UIText("");
+        textLabShadowCss.addClass("tl-note");
+        lengths.append(textLabShadowCss);
+
+        if (openOn > 0) preset.select(openOn);
+    }
+
+    /** The list the controls describe, first shadow on top. */
+    private ShadowList textLabShadows() {
+        if (textLabShadowLayers == 0) return ShadowList.NONE;
+        int alpha = Math.round(Math.max(0f, Math.min(1f, textLabShadowOpacity)) * 255f);
+        int color = (alpha << 24) | (textLabShadowColor & 0x00FFFFFF);
+        Shadow main = Shadow.of(textLabShadowX, textLabShadowY, textLabShadowBlur, textLabShadowSpread, color,
+                textLabShadowInset);
+        return switch (textLabShadowLayers) {
+            case 2 -> ShadowList.of(main, Shadow.of(0f, 0f, 24f, 2f, 0xB04FC3F7, false));
+            case 3 -> ShadowList.of(main, Shadow.of(6f, 6f, 0f, 0f, 0xFF000000, false));
+            default -> ShadowList.of(main);
+        };
+    }
+
+    /** Sets the controls to a named look; every control stays live afterwards. */
+    private void applyTextLabShadowPreset(int preset) {
+        if (preset == 0) return;
+        float x = 3f, y = 4f, blur = 8f, spread = 0f, opacity = 0.75f;
+        int color = 0xFF101418, layers = 1;
+        boolean inset = false;
+        switch (preset) {
+            case 1 -> { x = 2f; y = 2f; blur = 0f; opacity = 1f; }
+            case 2 -> { x = 0f; y = 6f; blur = 16f; opacity = 0.6f; }
+            case 3 -> { x = 0f; y = 0f; blur = 12f; opacity = 1f; color = 0xFFE0A33C; }
+            case 4 -> { x = 0f; y = 0f; blur = 4f; opacity = 1f; color = 0xFF4FC3F7; layers = 2; }
+            case 5 -> { x = 0f; y = 0f; blur = 10f; spread = 3f; opacity = 0.9f; color = 0xFFD94F4F; }
+            case 6 -> { x = 8f; y = 8f; blur = 2f; opacity = 0.8f; layers = 3; }
+            case 7 -> { x = 2f; y = 3f; blur = 4f; opacity = 0.8f; inset = true; }
+            case 8 -> { x = 0f; y = 2f; blur = 1f; opacity = 1f; color = 0xFFF2F5F8; inset = true; }
+            default -> { }
+        }
+        textLabShadowLayers = layers;
+        textLabShadowInset = inset;
+        textLabShadowColor = color;
+        // Each setValue lands in its store through the slider's listener, and each re-applies; the last one
+        // applies the finished look.
+        if (textLabShadowLayerDrop != null) textLabShadowLayerDrop.select(layers);
+        if (textLabShadowSideDrop != null) textLabShadowSideDrop.select(inset ? 1 : 0);
+        if (textLabShadowXSlider != null) textLabShadowXSlider.setValue(x);
+        if (textLabShadowYSlider != null) textLabShadowYSlider.setValue(y);
+        if (textLabShadowSpreadSlider != null) textLabShadowSpreadSlider.setValue(spread);
+        if (textLabShadowOpacitySlider != null) textLabShadowOpacitySlider.setValue(opacity);
+        if (textLabShadowBlurSlider != null) textLabShadowBlurSlider.setValue(blur);
+        textLabShadowX = x;
+        textLabShadowY = y;
+        textLabShadowBlur = blur;
+        textLabShadowSpread = spread;
+        textLabShadowOpacity = opacity;
+        applyTextLab();
     }
 
     /**
@@ -1235,6 +1368,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.append(row(slot("nowrap"), txBox("one long line that will not wrap and so overflows", "tx-nowrap")));
         pane.append(row(slot("ellipsis"), txBox("one long line that gets cut short with an ellipsis", "tx-ellipsis")));
         pane.append(row(slot("shadow"), txBox("drop shadow behind me", "tx-shadow")));
+        shadowRows(pane);
         pane.append(row(slot("inherited"), txBox("set on the WRAPPER, not the text", "tx-inherit")));
 
         // ── 6.1.1: ::highlight() ──────────────────────────────────────────────
@@ -1280,6 +1414,26 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 hl -> hl.mark("search", "runs straight past where this line gets cut"))));
 
         strokeRows(pane);
+    }
+
+    /**
+     * {@code text-shadow} as CSS spells it: every kind of shadow on its own row, each one a class in
+     * {@code gallery.css} so the rule reads beside what it draws.
+     */
+    private void shadowRows(UIElement pane) {
+        pane.append(row(slot("hard drop"), txBox("Sharp offset", "tx-sh-hard")));
+        pane.append(row(slot("blurred"), txBox("Soft drop", "tx-sh-soft")));
+        pane.append(row(slot("glow"), txBox("Glowing", "tx-sh-glow")));
+        pane.append(row(slot("stacked"), txBox("Neon", "tx-sh-neon")));
+        // A blurred shadow listed FIRST paints over a sharp one listed second: the paint order spans atlases.
+        pane.append(row(slot("list order"), txBox("Blur over hard", "tx-sh-order")));
+        pane.append(row(slot("currentcolor"), txBox("Inherits colour", "tx-sh-current")));
+        pane.append(row(slot("spread (L4)"), txBox("Spread glow", "tx-sh-spread")));
+        pane.append(row(slot("inset (L4)"), txBox("Pressed in", "tx-sh-inset")));
+        pane.append(row(slot("stroked"), txBox("Outlined", "tx-sh-stroked")));
+        pane.append(row(slot("underlined"), txBox("Underline too", "tx-sh-underline")));
+        pane.append(row(slot("em lengths"), txBox("Scales with size", "tx-sh-em")));
+        pane.append(row(slot("rotated"), txBox("Transformed", "tx-sh-rotated")));
     }
 
     /**

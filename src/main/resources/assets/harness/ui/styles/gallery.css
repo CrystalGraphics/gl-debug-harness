@@ -725,31 +725,11 @@
 
 
 
-/* Light on purpose, and the only row here that is.
-
-
- *
-
-
- * A text shadow is a quarter-brightness copy offset by 1px. On this page's dark background
-
-
- * that is very nearly the background colour, so the row rendered identically whether the
-
-
- * shadow was right, wrong or absent — a demo that cannot fail is not a demo. Against a light
-
-
- * panel the bug this row guards against (a highlight colour painting its shadow at FULL
-
-
- * brightness, because a span colour beats the draw colour downstream) shows up unmistakably
-
-
- * as a bright halo. */
-
-
-.tx-shadow-row { text-shadow: true; background: #C9D2DD; color: #14181D; }
+/* Light on purpose, and the only row here that is. The shadow is what `text-shadow: true` used to
+ * draw -- 1px down and right, the text's colour at a quarter brightness -- written as real CSS, so the
+ * row still compares against how it looked. Every glyph's shadow is the SHADOW's colour now, whatever a
+ * highlight does to the glyph, and the green highlight adds a glow of its own beneath it. */
+.tx-shadow-row { text-shadow: 1px 1px #050607; background: #C9D2DD; color: #14181D; }
 
 /* ── text-stroke ──────────────────────────────────────────────────────────────────────────
  * Large, because the field only describes 0.0375em and a 1px outline is a third of a pixel on a
@@ -838,7 +818,7 @@
 .tx-shadow-row ::highlight(red)   { color: #CC0000; }
 
 
-.tx-shadow-row ::highlight(green) { color: #00892B; }
+.tx-shadow-row ::highlight(green) { color: #00892B; text-shadow: 0 0 5px #3DFF7A; }
 
 
 .tx-shadow-row ::highlight(blue)  { color: #1240D0; }
@@ -904,16 +884,39 @@
 .tx-ellipsis .label { text-overflow: ellipsis; }
 
 
-/* Registered long before anything drew it. Second pass at +1px in a quarter-brightness
+/* text-shadow inherits, so the wrapper's declaration reaches the label. This label's colour is
+ * inherited too, and a quarter of an inherited colour is not writable in CSS, so the row is the
+ * blurred specimen rather than the old 1px copy. */
+.tx-shadow     { text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.75); }
 
-
- * copy of the colour, alpha preserved — the MC convention. Inherits, so setting it on the
-
-
- * wrapper reaches the label. */
-
-
-.tx-shadow     { text-shadow: true; }
+/* ── text-shadow, one kind per row ─────────────────────────────────────────────────────────── */
+.tx-sh-hard      { text-shadow: 2px 2px #000000; }
+.tx-sh-soft      { text-shadow: 0 4px 8px rgba(0, 0, 0, 0.9); }
+.tx-sh-glow      { text-shadow: 0 0 10px #E0A33C; }
+.tx-sh-neon      { text-shadow: 0 0 2px #FFFFFF, 0 0 8px #4FC3F7, 0 0 20px #0B5D8F; }
+.tx-sh-order     { text-shadow: 0 0 12px #FF4F4F, 4px 4px #000000; }
+.tx-sh-current   { text-shadow: 0 0 9px; }
+.tx-sh-spread    { text-shadow: 0 0 6px 3px #D94F4F; }
+.tx-sh-inset     { text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.85) inset; }
+.tx-sh-stroked   { text-shadow: 3px 3px 4px #000000; text-stroke: 2px #0B5D8F; }
+/* Light, so the underline's own blurred shadow -- an analytic rect blur, not a glyph -- can be seen. */
+.tx-sh-underline { text-shadow: 0 3px 3px rgba(0, 0, 0, 0.8); text-decoration-line: underline; background: #C9D2DD; }
+/* The theme colours `.label` itself, so a colour on the box never reaches the glyphs: each goes on the label.
+ * The shadow stays on the box and inherits, and the currentcolor row glows in the LABEL's colour. */
+.tx-sh-underline .label { color: #14181D; }
+.tx-sh-glow .label      { color: #FFF4DC; }
+.tx-sh-neon .label      { color: #E6F7FF; }
+.tx-sh-current .label   { color: #7FD6FF; }
+.tx-sh-spread .label    { color: #FFFFFF; }
+.tx-sh-inset .label     { color: #C9D2DD; }
+.tx-sh-stroked .label   { color: #F2F5F8; }
+/* On the LABEL: an em resolves where it is declared, so on the box it would be tenths of a pixel. */
+.tx-sh-em .label { text-shadow: 0.08em 0.08em 0.2em #000000; }
+.tx-sh-rotated   { text-shadow: 3px 3px 3px #000000; transform: rotate(-8deg); }
+/* font-size does not inherit here (`* { font-size: 10 }`), so the size goes on the label. */
+.tx-sh-hard .label, .tx-sh-soft .label, .tx-sh-glow .label, .tx-sh-neon .label, .tx-sh-order .label, .tx-sh-current .label, .tx-sh-spread .label, .tx-sh-underline .label, .tx-sh-rotated .label { font-size: 18; }
+.tx-sh-inset .label, .tx-sh-stroked .label { font-size: 22; }
+.tx-sh-em .label { font-size: 26; }
 
 
 .tx-inherit    { white-space: nowrap; overflow: hidden; text-align: right; }
