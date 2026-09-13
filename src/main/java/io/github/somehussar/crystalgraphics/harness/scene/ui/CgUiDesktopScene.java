@@ -450,35 +450,45 @@ public class CgUiDesktopScene
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        if (event.pressed() && event.key() == CgKeyCodes.KEY_F2) {
-            spawnCascadedWindow();
-            return true;
-        }
-        if (event.pressed() && event.key() == CgKeyCodes.KEY_F3) {
-            toggleFloatingProjectPanel();
-            return true;
-        }
-        if (event.pressed() && event.key() == CgKeyCodes.KEY_F4) {
-            spawnBackgroundWindow();
-            return true;
-        }
         // THE MODE OWNS THE KEYBOARD except for its own way out. In game the keyboard is the game's;
         // here the scene has to stand in for that, and a mode nobody can leave is worse than no mode.
         if (event.pressed() && event.key() == CgKeyCodes.KEY_F6) {
             if (desktop.isHudMode()) desktop.exitHudMode(); else desktop.enterHudMode();
             return true;
         }
-        if (desktop.isHudMode()) return true;
+        if (desktop.isHudMode()) {
+            if (event.pressed()) windowKey(event.key());
+            return true;
+        }
+        // THE APPLICATION FIRST, and the scene's keys only on what it leaves -- as a real host acts only on
+        // an unconsumed key. Taken first, they were dead to every binding of their own in the application:
+        // the builder's and the explorer's F2 rename, the editor's F3 Find Next, the explorer's F5 refresh.
+        if (document.input().consumeKeyboardEvent(event)) return true;
+        if (!event.pressed()) return false;
+        if (windowKey(event.key())) return true;
         // F5 IS A CONVENIENCE, NOT THE AFFORDANCE. The designer is a registered command with its own
         // chord and a taskbar context-menu entry, so it is reachable identically here and in game --
         // this key exists only because a harness scene is where it gets opened forty times an hour.
-        if (event.pressed() && event.key() == CgKeyCodes.KEY_F5) {
+        if (event.key() == CgKeyCodes.KEY_F5) {
             WindowFrame existing = desktop.registry().byKey("taskbar-designer");
             if (existing != null) existing.requestClose();
             else TaskbarDesigner.open(document);
             return true;
         }
-        return document.input().consumeKeyboardEvent(event);
+        return false;
+    }
+
+    /** F2 opens a window, F3 floats the Project panel, F4 opens a window without taking focus. */
+    private boolean windowKey(int key) {
+        switch (key) {
+            case CgKeyCodes.KEY_F2 -> spawnCascadedWindow();
+            case CgKeyCodes.KEY_F3 -> toggleFloatingProjectPanel();
+            case CgKeyCodes.KEY_F4 -> spawnBackgroundWindow();
+            default -> {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
