@@ -645,32 +645,45 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * at every size; px is that fraction OF the size, so its ceiling moves with the text.</p>
      */
     private float strokeSliderMax() {
-        return textLabStrokeIsEm
-                ? CgTextStroke.MAX_FIELD_WIDTH_EM * 100f
-                : CgTextStroke.MAX_FIELD_WIDTH_EM * textLabSize;
+        float cap = textLabStrokeCapEm();
+        return textLabStrokeIsEm ? cap * 100f : cap * textLabSize;
+    }
+
+    /**
+     * The cap for the face the specimens are actually drawn in.
+     *
+     * <p>Not {@link CgTextStroke#MAX_FIELD_WIDTH_EM}: that is the narrow band every face can hold,
+     * and this lab's face is banded wider, so reading the constant would cap the slider at under half
+     * of what the field really carries.</p>
+     */
+    private float textLabStrokeCapEm() {
+        return textLabSpecimens.isEmpty()
+                ? CgTextStroke.MAX_FIELD_WIDTH_EM
+                : textLabSpecimens.get(0).maxStrokeWidthEm();
     }
 
     /**
      * Says what this width resolves to, in the three terms that decide what is drawn: pixels at the
      * current size, the em fraction the backend actually carries, and the cap.
      *
-     * <p>Reading the cap off {@link CgTextStroke#MAX_FIELD_WIDTH_EM} rather than repeating the number:
-     * the field's reach has moved twice, and a caption that has to be edited by hand is a caption that
-     * goes stale.</p>
+     * <p>Reading the cap off the specimen rather than repeating the number: the field's reach has
+     * moved three times and is now per FACE, and a caption edited by hand is a caption that goes
+     * stale.</p>
      */
     private void updateTextLabNote(LengthPercent width) {
         if (textLabNote == null) return;
         float px = width.resolve(textLabSize);
         float em = textLabSize <= 0f ? 0f : px / textLabSize;
-        float capPx = CgTextStroke.MAX_FIELD_WIDTH_EM * textLabSize;
-        boolean clamped = em > CgTextStroke.MAX_FIELD_WIDTH_EM;
+        float capEm = textLabStrokeCapEm();
+        float capPx = capEm * textLabSize;
+        boolean clamped = em > capEm;
 
         String asked = textLabStrokeIsEm
                 ? String.format("%.2f%% of %.0fpx = %.2fpx", textLabStrokeValue, textLabSize, px)
                 : String.format("%.2fpx at size %.0f = %.4fem", textLabStrokeValue, textLabSize, em);
         String capped = clamped
                 ? String.format(" — CLAMPED to %.2fpx, the widest this field carries.", capPx)
-                : String.format(". Cap here is %.2fpx (%.4fem).", capPx, CgTextStroke.MAX_FIELD_WIDTH_EM);
+                : String.format(". Cap here is %.2fpx (%.4fem).", capPx, capEm);
 
         // The point of the two units, which only the SIZE slider shows: drag it and px holds still
         // while a percentage grows with the text.
@@ -679,8 +692,10 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 : " px holds still as the size slider moves; a percentage would follow it.";
 
         textLabNote.setText(asked + capped + units
-                + " A stroke keeps its label on the distance-field tier down to 15px; below that"
-                + " the glyph is a bitmap and the outline is dropped.");
+                + " A stroke keeps its label on the distance-field tier down to the smallest size"
+                + " the field can still antialias -- which is lower for a face banded wide, the same"
+                + " banding this cap comes from; below that the glyph is a bitmap and the outline is"
+                + " dropped.");
     }
 
     /** A row of clickable swatches — enough colours to judge an outline, without a whole picker. */
