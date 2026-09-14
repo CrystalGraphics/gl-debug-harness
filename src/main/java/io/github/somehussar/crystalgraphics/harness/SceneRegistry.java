@@ -13,6 +13,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.CgQuadRendererTes
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCheckboxScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiLibraryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiGalleryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiDesktopScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNewEngineGalleryScene;
@@ -354,6 +355,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiCheckboxScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-library")
+                .description("UI builder Library: every placeable kind as a live card, every category open -- samples, glyph tiles, strips re-flowing on resize, search, rows mode, the detail strip")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiLibraryScene()
         );
 
         reg.register(
