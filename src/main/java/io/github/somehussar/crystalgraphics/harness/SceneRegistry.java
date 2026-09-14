@@ -13,6 +13,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.CgQuadRendererTes
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCheckboxScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiInsertMenuScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiLibraryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiGalleryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiDesktopScene;
@@ -367,6 +368,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiLibraryScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-insert-menu")
+                .description("UI builder Insert menu: opened under a selected row, searched, Tab-cycled -- the placement band, kind marks, footer, and the drop indicator on the page")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiInsertMenuScene()
         );
 
         reg.register(
