@@ -9,6 +9,7 @@ import org.lwjgl.input.Keyboard;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.app.uibuilder.library.LibraryCatalog;
 import com.crystalgui.app.uibuilder.library.LibraryPanel;
+import com.crystalgui.app.uibuilder.library.PreviewBuilds;
 import com.crystalgui.core.collection.tree.TreeRow;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleGroup;
@@ -30,12 +31,14 @@ import io.github.somehussar.crystalgraphics.harness.util.HarnessThemes;
  * compact rows, and the detail strip for a clicked card. Double-clicking asks to place, which does nothing here:
  * no builder is open.</p>
  *
- * <p>Writes {@code top} and {@code bottom} captures a few frames in, scrolled to each end.</p>
+ * <p>Writes {@code top} and {@code bottom} captures, scrolled to each end, once every card's sample is built.</p>
  *
  * <ul>
  *   <li>{@code -Dcrystalgui.harness.library.width=140} lays the panel out that many logical pixels wide, as a docked one is.</li>
- *   <li>{@code -Dcrystalgui.harness.library.scroll=true} then scrolls it end to end forever, logging frame-time percentiles
- *       every 240 frames — pair with {@code -Dcrystalgui.frameprofile=true} for where the time goes.</li>
+ *   <li>{@code -Dcrystalgui.harness.library.bench=scroll|resize|search} runs one workload forever — scrolling end to
+ *       end, alternating two widths that re-flow the strips, or typing and clearing queries — printing frame-time
+ *       percentiles every 240 frames, after the opening frames' worst. Pair with
+ *       {@code -Dcrystalgui.frameprofile=true} for where the time goes.</li>
  * </ul>
  */
 public class CgUiLibraryScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
@@ -43,7 +46,16 @@ public class CgUiLibraryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private static final float SCALE = 2f;
 
     private static final float WIDTH = Float.parseFloat(System.getProperty("crystalgui.harness.library.width", "0"));
-    private static final boolean SCROLL = Boolean.getBoolean("crystalgui.harness.library.scroll");
+    private static final String BENCH = System.getProperty("crystalgui.harness.library.bench", "");
+
+    /** Frames a capture waits after the samples are built: a new sample lays out, then fits. */
+    private static final int SETTLE = 6;
+
+    /** A re-flow's two widths, in logical pixels: four cards a strip and three. */
+    private static final float WIDE = 360f, NARROW = 270f;
+
+    /** What the search workload types, a keystroke every few frames; empty clears. */
+    private static final String[] QUERIES = {"b", "bu", "but", "", "s", "sl", "sli", "", "t", "ta", "tab", "", "f", "fi", ""};
 
     /** Logical pixels scrolled per frame, about a wheel notch's worth spread over a few frames. */
     private static final float SCROLL_STEP = 12f;
@@ -51,6 +63,11 @@ public class CgUiLibraryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private float scrollDirection = 1f;
     private final long[] frameNanos = new long[240];
     private int frameCount;
+    private long openingWorst;
+    private int queryEmits;
+
+    /** The frame each step happened on, or -1 before it has. */
+    private long builtAt = -1, bottomAt = -1;
 
     private UIDocument document;
     private LibraryPanel library;
@@ -68,6 +85,7 @@ public class CgUiLibraryScene implements InteractiveSceneLifecycle, CgSystemInpu
         StyleGroup.defaultPipeline(root.getStyle().getLayoutGroup(), l -> l.widthPercent(100f).heightPercent(100f));
         if (WIDTH > 0f) StyleGroup.inlinePipeline(library.getStyle().getLayoutGroup(), l -> l.width(WIDTH));
         root.append(library);
+        library.search().searchBox().onQueryChanged.connect(() -> queryEmits++);
         document.append(root);
     }
 
@@ -79,18 +97,56 @@ public class CgUiLibraryScene implements InteractiveSceneLifecycle, CgSystemInpu
         // EVERY CATEGORY OPEN once the panel has listed its roots, which it does when it first connects.
         if (n == 2) openEverything();
 
-        if (SCROLL && n > 30) scrollStep();
+        boolean benching = bottomAt >= 0 && n > bottomAt + SETTLE;
+        if (benching) workload(n);
         long started = System.nanoTime();
         document.frame(frame.getDeltaTime(), w / SCALE, h / SCALE);
         CgUiPaintContext paint = CgUiPaintContext.getInstance();
         paint.beginFrame(w, h);
         document.paint(paint);
         paint.endFrame();
-        if (SCROLL && n > 30) record(System.nanoTime() - started);
+        long spent = System.nanoTime() - started;
+        if (benching) {
+            if (!BENCH.isEmpty()) record(spent);
+        } else {
+            openingWorst = Math.max(openingWorst, spent);
+        }
 
-        if (n == 12) ctx.getArtifactService().requestCapture("top");
-        if (n == 14) scrollToEnd();
-        if (n == 24) ctx.getArtifactService().requestCapture("bottom");
+        if (builtAt < 0 && n > 2 && PreviewBuilds.of(document).isIdle()) {
+            builtAt = n;
+            if (!BENCH.isEmpty()) {
+                System.out.printf("[library-%s] samples built by frame %d, opening frames' worst %.2fms%n",
+                        BENCH, n, openingWorst / 1e6);
+            }
+        }
+        if (builtAt >= 0 && n == builtAt + SETTLE) ctx.getArtifactService().requestCapture("top");
+        // A FRAME LATER, so the capture is of the frame it was asked on.
+        if (builtAt >= 0 && n == builtAt + SETTLE + 2) scrollToEnd();
+        if (builtAt >= 0 && n == builtAt + SETTLE * 2) {
+            ctx.getArtifactService().requestCapture("bottom");
+            bottomAt = n;
+        }
+    }
+
+    private void workload(long n) {
+        switch (BENCH) {
+            case "scroll" -> scrollStep();
+            case "resize" -> {
+                if (n % 20 == 0) {
+                    float width = (n / 20) % 2 == 0 ? WIDE : NARROW;
+                    StyleGroup.inlinePipeline(library.getStyle().getLayoutGroup(), l -> l.width(width));
+                }
+            }
+            case "search" -> {
+                if (n % 6 != 0) return;
+                String query = QUERIES[(int) ((n / 6) % QUERIES.length)];
+                int before = queryEmits;
+                library.search().searchBox().setText(query);
+                // A programmatic set may not announce itself; typing always does, so list as typing would.
+                if (queryEmits == before) library.search().refresh();
+            }
+            default -> { }
+        }
     }
 
     private void openEverything() {
@@ -117,7 +173,7 @@ public class CgUiLibraryScene implements InteractiveSceneLifecycle, CgSystemInpu
         frameCount = 0;
         long[] sorted = frameNanos.clone();
         Arrays.sort(sorted);
-        System.out.printf("[library-scroll] p50 %.2fms  p90 %.2fms  p99 %.2fms  max %.2fms%n",
+        System.out.printf("[library-" + BENCH + "] p50 %.2fms  p90 %.2fms  p99 %.2fms  max %.2fms%n",
                 percentile(sorted, 0.50), percentile(sorted, 0.90), percentile(sorted, 0.99), percentile(sorted, 1.0));
     }
 
