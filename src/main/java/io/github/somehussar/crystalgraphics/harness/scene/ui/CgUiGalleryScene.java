@@ -651,14 +651,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 // Mode 0 follows the text colour, and writes NOTHING until some other mode has
                 // already pinned a candidate -- so the page opens on the real currentcolor fallback
                 // and still tracks the swatches once it cannot go back to unset.
-                switch (textLabFillMode) {
-                    case 1 -> g.textFillColor(0x00000000);
-                    case 2 -> g.textFillColor(0xFFFFFFFF);
-                    case 3 -> g.textFillColor(0xFF000000);
-                    default -> {
-                        if (textLabFillWritten) g.textFillColor(textLabColor);
-                    }
-                }
+
             });
         }
     }
