@@ -8,7 +8,7 @@ import dev.vfyjxf.taffy.style.FlexDirection;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.app.uibuilder.BuilderCommands;
-import com.crystalgui.app.uibuilder.canvas.BuilderEditor;
+import com.crystalgui.app.uibuilder.canvas.UIBuilderView;
 import com.crystalgui.app.uibuilder.document.UiBuilderDocument;
 import com.crystalgui.core.dispose.Disposable;
 import com.crystalgui.render.CgUiPaintContext;
@@ -37,7 +37,7 @@ public class CgUiInsertMenuScene implements InteractiveSceneLifecycle, CgSystemI
     private static final float SCALE = 2f;
 
     private UIDocument document;
-    private BuilderEditor editor;
+    private UIBuilderView editor;
     private UIElement row;
     private Disposable commands;
 
@@ -60,7 +60,7 @@ public class CgUiInsertMenuScene implements InteractiveSceneLifecycle, CgSystemI
         column.append(row);
         model.root().append(column);
 
-        editor = new BuilderEditor(model);
+        editor = new UIBuilderView(model);
         UIElement root = new UIElement();
         StyleGroup.defaultPipeline(root.getStyle().getLayoutGroup(), l -> l.widthPercent(100f).heightPercent(100f));
         root.append(editor.view());
