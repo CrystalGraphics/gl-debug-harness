@@ -165,10 +165,6 @@ public class CgUiDesktopScene
     /** The live geometry readout, refreshed per frame. */
     private UIText readout;
 
-    /** The frame-rate readout: F7 shows it, F8 expands its phases. Engine code, so what is measured
-     * here is what a game measures. */
-    private FrameStatsOverlay frameStats;
-
     /**
      * W12 is <em>seen</em> here rather than reasoned about — move the windows, close the harness, run it
      * again and they are where you left them. Its own id, so an M6 arrangement and the old scene's
@@ -210,7 +206,7 @@ public class CgUiDesktopScene
 
         // THE HUD IS THE ENGINE'S, not the harness's -- the same class a Minecraft host attaches, so a
         // number read here means what it means in game. Over everything, hit-tests nothing, F7 to hide.
-        frameStats = FrameStatsOverlay.attach(document);
+        FrameStatsOverlay.attach(document);
 
         WindowFrame welcome = desktop.addWindow(new WindowFrame("Welcome"));
         // HIDE_ON_CLOSE, so one window in the scene demonstrates the other half of the policy: its
@@ -478,16 +474,10 @@ public class CgUiDesktopScene
         // F5 IS A CONVENIENCE, NOT THE AFFORDANCE. The designer is a registered command with its own
         // chord and a taskbar context-menu entry, so it is reachable identically here and in game --
         // this key exists only because a harness scene is where it gets opened forty times an hour.
-        if (event.key() == CgKeyCodes.KEY_F7) {
-            frameStats.toggle();
-            return true;
-        }
-        // F8 EXPANDS IT: a row per phase with its share, which is the question after the summary has
-        // said there is one.
-        if (event.key() == CgKeyCodes.KEY_F8) {
-            frameStats.setShowing(true).toggleDetail();
-            return true;
-        }
+        // F7 AND F8 ARE NOT HANDLED HERE, and used to be. They are `desktop.frameStats` and
+        // `desktop.frameStatsDetail` now -- registered by DesktopCommands, so the editor and a Minecraft
+        // screen answer the same two keys. The document is offered every key above this line, so a
+        // handler for them here could never run; leaving one would read as the live path.
         if (event.key() == CgKeyCodes.KEY_F5) {
             WindowFrame existing = desktop.registry().byKey("taskbar-designer");
             if (existing != null) existing.requestClose();
