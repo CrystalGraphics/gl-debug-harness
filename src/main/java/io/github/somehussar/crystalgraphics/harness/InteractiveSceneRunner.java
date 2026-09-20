@@ -86,7 +86,16 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private static final Logger LOGGER = Logger.getLogger(InteractiveSceneRunner.class.getName());
 
-    private static final int TARGET_FPS = 120;
+    /**
+     * The frame limiter, and {@code -Dcrystalgraphics.harness.fps=0} takes it off.
+     *
+     * <p>{@link Display#sync} sleeps to hold a rate, and it holds it from BELOW — its sleep granularity
+     * means a 120 target settles at about 117, which reads as a ceiling the engine imposed. It is not:
+     * uncapped, a scene runs as fast as it can, which is what a headroom measurement wants. Capped is
+     * the right default for a human at the keyboard, since a UI scene otherwise spins a core to draw a
+     * picture nobody asked to be redrawn.</p>
+     */
+    private static final int TARGET_FPS = Integer.getInteger("crystalgraphics.harness.fps", 120);
 
     /** Frames discarded before {@code -Dcrystalgraphics.harness.profile} starts counting: the first
      * few carry every lazy allocation and every shader variant's first compile, which is a scene's
@@ -307,8 +316,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             try (CgProfiler.Scope ignored = CgProfiler.scope("frame.swap")) {
                 Display.update();
             }
-            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.sync")) {
-                Display.sync(TARGET_FPS);
+            if (TARGET_FPS > 0) {
+                try (CgProfiler.Scope ignored = CgProfiler.scope("frame.sync")) {
+                    Display.sync(TARGET_FPS);
+                }
             }
 
             // 15. Frame is genuinely over -- hand the scene its true wall duration. See

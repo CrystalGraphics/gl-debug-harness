@@ -549,6 +549,23 @@ reg.register(
 
 ## Console Arguments for Harness
 
+### Frame rate, and the ceiling that is not the engine's
+
+Every interactive scene runs behind `Display.sync(120)`, which sleeps to hold a rate and holds it from
+**below** — so a readout tops out around **117fps** and that number is the limiter's, not the engine's.
+
+```bash
+# Uncapped, for a headroom measurement: how fast CAN this scene run?
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop" -Dcrystalgraphics.harness.fps=0
+
+# Or pin it somewhere else
+-Dcrystalgraphics.harness.fps=240
+```
+
+Capped stays the default: a UI scene otherwise spins a core redrawing a picture nobody asked for. Pair
+an uncapped run with the frame readout (**F7** in `cgui-desktop`) and with
+`-Dcrystalgui.frameprofile=true` for the per-phase breakdown.
+
 ### Output Organization
 
 All scene outputs are organized into scene-specific subdirectories:
