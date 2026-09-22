@@ -18,6 +18,9 @@ import com.crystalgraphics.platform.input.CgMouseCodes;
 import com.crystalgui.app.frameprofiler.FrameProfiler;
 import com.crystalgui.app.frameprofiler.FrameProfilerPanel;
 import com.crystalgui.app.frameprofiler.ProfilerModel;
+import com.crystalgui.app.frameprofiler.ProfilerSettings;
+import com.crystalgui.core.settings.Setting;
+import com.crystalgui.core.settings.SettingsLayer;
 import com.crystalgui.desktop.taskbar.TaskbarDesigner;
 import com.crystalgui.desktop.window.WindowFrame;
 import com.crystalgraphics.api.render.CgRenderPipeline;
@@ -31,6 +34,7 @@ import com.crystalgui.ui.input.keymap.KeyChord;
 import com.crystalgui.ui.input.keymap.Keymap;
 import com.crystalgui.widget.control.Button;
 import com.crystalgui.widget.control.Checkbox;
+import com.crystalgui.widget.display.FrameStripTrack;
 import com.crystalgui.widget.collection.tree.TreeView;
 import com.crystalgui.core.collection.tree.TreeRow;
 import com.crystalgui.app.frameprofiler.CallTreeTab;
@@ -464,7 +468,13 @@ public class CgUiDesktopScene
             // photograph of the profiler would be a photograph of the readout's corner too.
             FrameStatsOverlay readout = FrameStatsOverlay.of(document);
             if (readout != null && readout.isShowing()) FrameStatsOverlay.toggleOn(document);
+            // RECORD FROM LAUNCH, checked before the window exists: what is already in the ring was
+            // recorded by the autostart alone.
+            log("before opening: recording " + CgTrace.isRecording() + ", frames already recorded "
+                    + CgTrace.frameCount() + ", keeps first " + CgTrace.firstFrames() + " + newest " + CgTrace.newestFrames()
+                    + ", record-at-launch " + ProfilerSettings.get(ProfilerSettings.RECORD_AT_LAUNCH));
             WindowFrame window = FrameProfiler.openOn(desktop);
+            profilerWindow = window;
             window.maximize();
             // THE COMPOSED TREE, not content(): the window hosts what it is given in a slot of its
             // own, so the panel is a descendant rather than the content element itself.
@@ -496,7 +506,13 @@ public class CgUiDesktopScene
                         + ", selected " + model.selectedIndex() + ", zones " + model.zonesOfSelection().size()
                         + ", tracks " + panel.chart().tracks().size() + ", counters " + model.counterSeries().size());
                 shot("01-live");
+                FrameStripTrack strip = panel.strip();
+                float[] thumb = panel.scrollbar().thumb();
+                log("opening view: " + (int) strip.visible() + " of " + strip.frames() + " frames across, from "
+                        + (int) strip.viewFrom() + ", thumb " + (int) thumb[1] + " of "
+                        + (int) panel.scrollbar().box().width() + " px");
             }
+
             // A CLICK ON THE STRIP, 70% along: it must select the frame under the pointer and pause.
             case 4 -> {
                 Box box = panel.strip().box();
@@ -509,7 +525,7 @@ public class CgUiDesktopScene
             case 6 -> press(panel.strip(), 0.70f, 0.6f, true);
             case 7 -> press(panel.strip(), 0.70f, 0.6f, false);
             case 10 -> {
-                int expected = (int) (0.70f * model.frameCount());
+                int expected = (int) (panel.strip().viewFrom() + 0.70f * panel.strip().visible());
                 log("strip click: selected " + model.selectedIndex() + " (pointer over ~" + expected
                         + "), following " + model.isFollowing());
                 shot("02-strip-click");
@@ -569,7 +585,7 @@ public class CgUiDesktopScene
             }
             case 65 -> {
                 log("counter click: selected " + model.selectedIndex() + " (pointer over ~"
-                        + (int) (0.5f * model.frameCount()) + "), range " + model.hasRange());
+                        + (int) (panel.strip().viewFrom() + 0.5f * panel.strip().visible()) + "), range " + model.hasRange());
                 shot("08-counter-click");
             }
             // A PRESS ON A COUNTER'S LABEL is not a pick: the selection must not move.
@@ -739,9 +755,30 @@ public class CgUiDesktopScene
                 logGc(model);
                 shot("19-gc-frame");
             }
-            case 172 -> profilerShotDone = true;
-            default -> {
+            // THE GEAR in the caption opens the settings page in place of the bands.
+            case 172 -> click(gear());
+            case 176 -> {
+                log("gear: settings open " + panel.isSettingsOpen() + ", gear lit "
+                        + (gear() != null && gear().hasClass(WindowFrame.ACTION_ON_CLASS))
+                        + ", summary: " + panel.settingsPage().summaryText());
+                shot("20-settings");
             }
+            // WHAT THE PAGE'S ROWS WRITE: the first 300 frames and no newest -- keep the start, then stop.
+            case 178 -> {
+                ProfilerSettings.set(ProfilerSettings.FIRST_FRAMES, 300);
+                ProfilerSettings.set(ProfilerSettings.FRAMES, 0);
+            }
+            case 181 -> {
+                log("settings changed: keeps first " + CgTrace.firstFrames() + " + newest " + CgTrace.newestFrames()
+                        + ", summary: " + panel.settingsPage().summaryText());
+                shot("21-settings-changed");
+            }
+            case 183 -> click(panel.settingsPage().doneButton());
+            case 186 -> {
+                log("done: settings open " + panel.isSettingsOpen() + ", capturing " + model.isCapturing());
+                keepFirstWaiting = true;
+            }
+            default -> driveAfterSettings(panel, model, step);
         }
     }
 
@@ -760,6 +797,202 @@ public class CgUiDesktopScene
     }
 
     private int firstWorst;
+    private WindowFrame profilerWindow;
+    private boolean keepFirstWaiting;
+    private long fullAt = -1L;
+    private double viewBefore;
+
+    private Button gear() {
+        if (profilerWindow == null) return null;
+        for (UIElement each : profilerWindow.composedSubtree()) {
+            if (each instanceof Button button && button.hasClass(WindowFrame.SETTINGS_ACTION_CLASS)) return button;
+        }
+        return null;
+    }
+
+    /** From the ring filling onwards: keep-first, the strip zoom, Home, and putting everything back. */
+    private void driveAfterSettings(FrameProfilerPanel panel, ProfilerModel model, long step) {
+        if (keepFirstWaiting) {
+            if (CgTrace.isFull()) {
+                keepFirstWaiting = false;
+                fullAt = step;
+            } else if (step > 186 + 900) {
+                log("keep-first: the ring never filled");
+                keepFirstWaiting = false;
+                fullAt = step;
+            }
+            return;
+        }
+        if (fullAt < 0L) return;
+        long at = step - fullAt;
+        FrameStripTrack strip = panel.strip();
+        if (at == 2) {
+            model.refresh();
+        } else if (at == 4) {
+            List<CgFrameRecord> frames = model.frames();
+            log("keep-first: full " + CgTrace.isFull() + ", recording " + CgTrace.isRecording()
+                    + ", frames " + frames.size() + " from #" + (frames.isEmpty() ? -1 : frames.get(0).index())
+                    + ", stop reason: " + model.stopReason() + ", record button '" + panel.recordButton().getText() + "'");
+            shot("22-kept-first");
+        } else if (at == 6) {
+            hover(strip, 0.1f, 0.5f);
+            viewBefore = strip.visible();
+        } else if (at >= 7 && at <= 12) {
+            wheel(strip, 0.1f, 0.5f, -1f);
+        } else if (at == 14) {
+            log("strip wheel up x6: " + viewBefore + " -> " + strip.visible() + " frames across, from "
+                    + strip.viewFrom() + ", zoomed " + strip.isZoomed() + ", counters follow "
+                    + (panel.counters().rows().isEmpty() ? "n/a" : panel.counters().rows().get(0).visible()));
+            shot("23-strip-zoomed");
+        } else if (at == 15) {
+            // SCRUB TO THE ORIGIN: select the last frame, then Home -- frame 0 must be selected AND in view.
+            model.selectFrame(model.frameCount() - 1);
+        } else if (at == 17) {
+            click(strip);
+        } else if (at == 19) {
+            model.selectFrame(model.frameCount() - 1);
+        } else if (at == 21) {
+            key(CgKeyCodes.KEY_HOME);
+        } else if (at == 24) {
+            CgFrameRecord first = model.selectedFrame();
+            log("home: selected " + model.selectedIndex() + " (#" + (first == null ? -1 : first.index())
+                    + "), strip view from " + strip.viewFrom() + " across " + strip.visible());
+            shot("24-origin");
+        } else if (at == 25) {
+            key(CgKeyCodes.KEY_A);
+        } else if (at == 27) {
+            log("A: zoomed " + strip.isZoomed());
+        // THE SCROLLBAR: the thumb's right end dragged to the middle zooms to half the ring.
+        } else if (at == 28) {
+            hover(panel.scrollbar(), 0.997f, 0.5f);
+        } else if (at == 29) {
+            press(panel.scrollbar(), 0.997f, 0.5f, true);
+        } else if (at == 30) {
+            hover(panel.scrollbar(), 0.5f, 0.5f);
+        } else if (at == 31) {
+            press(panel.scrollbar(), 0.5f, 0.5f, false);
+        } else if (at == 33) {
+            log("scrollbar end dragged to half: " + strip.visible() + " frames across of " + strip.frames()
+                    + ", from " + strip.viewFrom());
+            viewBefore = strip.viewFrom();
+        // ...and its body dragged 30% along scrubs by 30% of the ring.
+        } else if (at == 34) {
+            float[] thumb = panel.scrollbar().thumb();
+            float mid = (thumb[0] + thumb[1] * 0.5f) / panel.scrollbar().box().width();
+            barMid = mid;
+            hover(panel.scrollbar(), mid, 0.5f);
+            press(panel.scrollbar(), mid, 0.5f, true);
+        } else if (at == 35) {
+            hover(panel.scrollbar(), barMid + 0.3f, 0.5f);
+        } else if (at == 36) {
+            press(panel.scrollbar(), barMid + 0.3f, 0.5f, false);
+        } else if (at == 38) {
+            log("scrollbar body dragged 30%: from " + viewBefore + " -> " + strip.viewFrom()
+                    + " (must move ~" + (int) (0.3f * strip.frames()) + " frames)");
+            shot("25-scrollbar");
+            viewBefore = strip.viewFrom();
+        // A MIDDLE-BUTTON DRAG on the strip pans; it must not make a range.
+        } else if (at == 39) {
+            hover(strip, 0.6f, 0.5f);
+            middle(strip, 0.6f, 0.5f, true);
+        } else if (at == 40) {
+            hover(strip, 0.4f, 0.5f);
+        } else if (at == 41) {
+            middle(strip, 0.4f, 0.5f, false);
+        } else if (at == 43) {
+            log("middle drag: from " + viewBefore + " -> " + strip.viewFrom() + " (must be later), range "
+                    + model.hasRange());
+        } else if (at == 48) {
+            click(gear());
+        } else if (at == 51) {
+            for (UIElement each : panel.settingsPage().composedSubtree()) {
+                if (each instanceof Button button && "Restore defaults".equals(button.getText())) click(button);
+            }
+        } else if (at == 54) {
+            log("restore defaults: keeps first " + CgTrace.firstFrames() + " + newest " + CgTrace.newestFrames()
+                    + ", summary: " + panel.settingsPage().summaryText());
+            click(panel.settingsPage().doneButton());
+        } else if (at == 56) {
+            if ("arm-launch".equals(System.getProperty("crystalgui.harness.desktop.profiler.phase"))) {
+                ProfilerSettings.set(ProfilerSettings.RECORD_AT_LAUNCH, true);
+                log("armed record-at-launch for the next run");
+            } else if (ProfilerSettings.get(ProfilerSettings.RECORD_AT_LAUNCH)) {
+                ProfilerSettings.set(ProfilerSettings.RECORD_AT_LAUNCH, false);
+                log("record-at-launch switched back off");
+            }
+        // THE START AND THE NEWEST: 60 kept from the start, 120 newest, then run past both. Frame #0 must
+        // still be there, with a gap marked before the newest.
+        } else if (at == 58) {
+            ProfilerSettings.set(ProfilerSettings.FIRST_FRAMES, 40);
+            ProfilerSettings.set(ProfilerSettings.FRAMES, 150);
+            if (!model.isCapturing()) model.toggleRecording();
+            model.setFollowing(true);
+        } else if (at == 330) {
+            model.refresh();
+        } else if (at == 332) {
+            List<CgFrameRecord> frames = model.frames();
+            int gap = -1;
+            for (int i = 1; i < frames.size(); i++) {
+                if (frames.get(i).index() != frames.get(i - 1).index() + 1) {
+                    gap = i;
+                    break;
+                }
+            }
+            log("start and newest: recorded " + CgTrace.frameCount() + ", kept " + frames.size() + " from #"
+                    + frames.get(0).index() + ", gap at " + gap + (gap < 0 ? ""
+                    : " (#" + frames.get(gap - 1).index() + " then #" + frames.get(gap).index() + ")")
+                    + ", still recording " + model.isCapturing());
+            float[] thumb = panel.scrollbar().thumb();
+            log("opening view after the clear: " + (int) strip.visible() + " of " + strip.frames()
+                    + " across, from " + (int) strip.viewFrom() + ", thumb " + (int) thumb[1] + " of "
+                    + (int) panel.scrollbar().box().width() + " px");
+            shot("26-start-and-newest");
+        // THE THUMB, dragged hard left from the opening view: it must reach frame #0.
+        } else if (at == 333) {
+            float[] thumb = panel.scrollbar().thumb();
+            barMid = (thumb[0] + thumb[1] * 0.5f) / panel.scrollbar().box().width();
+            hover(panel.scrollbar(), barMid, 0.5f);
+            press(panel.scrollbar(), barMid, 0.5f, true);
+        } else if (at == 334) {
+            hover(panel.scrollbar(), 0f, 0.5f);
+        } else if (at == 335) {
+            press(panel.scrollbar(), 0f, 0.5f, false);
+        } else if (at == 336) {
+            log("thumb dragged hard left: strip from " + (int) strip.viewFrom() + " across "
+                    + (int) strip.visible() + ", first shown #" + model.frames().get((int) strip.viewFrom()).index()
+                    + ", following " + model.isFollowing());
+            shot("26b-thumb-left");
+            click(strip);
+        } else if (at == 337) {
+            key(CgKeyCodes.KEY_HOME);
+        } else if (at == 338) {
+            CgFrameRecord first = model.selectedFrame();
+            log("home after the ring rolled: #" + (first == null ? -1 : first.index()) + ", zones "
+                    + model.zonesOfSelection().size());
+            shot("27-first-frame");
+        // ZOOMED ACROSS THE GAP, on a fractional view, with a frame selected just after it: the marks must
+        // sit exactly on their bars, and the break must read.
+        } else if (at == 340) {
+            gapFraction = 40f / Math.max(1, model.frameCount());
+            hover(strip, gapFraction, 0.5f);
+        } else if (at >= 341 && at <= 346) {
+            wheel(strip, gapFraction, 0.5f, -1f);
+        } else if (at == 347) {
+            panel.strip().panBy(0.37d);
+            model.selectFrame(41);
+        } else if (at == 350) {
+            log("zoomed on the gap: from " + strip.viewFrom() + " across " + strip.visible());
+            shot("28-gap-zoomed");
+        } else if (at == 352) {
+            // BACK TO THE DEFAULTS, through the store: the page is closed, so its button cannot be pressed.
+            for (Setting<?> setting : ProfilerSettings.all()) {
+                ProfilerSettings.store().reset(SettingsLayer.USER, setting);
+            }
+        } else if (at == 354) {
+            log("defaults again: keeps first " + CgTrace.firstFrames() + " + newest " + CgTrace.newestFrames());
+            profilerShotDone = true;
+        }
+    }
     private int labelBefore;
     private boolean twistyWasOpen;
     private int twistyRows;
@@ -854,6 +1087,15 @@ public class CgUiDesktopScene
         float[] p = at(element, fx, fy);
         document.input().consumeMouseEvent(new CgSystemInput.Mouse.Event(
                 (int) p[0], (int) p[1], 0, 0, CgMouseCodes.NONE, false, 0f, -1L));
+    }
+
+    private float barMid;
+    private float gapFraction;
+
+    private void middle(UIElement element, float fx, float fy, boolean down) {
+        float[] p = at(element, fx, fy);
+        document.input().consumeMouseEvent(new CgSystemInput.Mouse.Event(
+                (int) p[0], (int) p[1], 0, 0, CgMouseCodes.MIDDLE_BUTTON, down, 0f, System.currentTimeMillis()));
     }
 
     private void press(UIElement element, float fx, float fy, boolean down) {
