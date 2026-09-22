@@ -29,6 +29,8 @@ import io.github.somehussar.crystalgraphics.harness.scheduler.TaskScheduler;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessProjectionUtil;
 import io.github.somehussar.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.mc.CgAssetReloader;
+import com.crystalgui.lifecycle.CgUiLifecycle;
+import com.crystalgui.style.theme.UiThemeManager;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
@@ -393,7 +395,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     }
 
     /**
-     * Re-reads {@code default.css} and every other loaded stylesheet, then restyles what is on screen.
+     * Re-reads the themes, then everything a resource reload re-reads -- stylesheets, sprites and icons --
+     * and restyles what is on screen.
      *
      * <p>Where the files are read FROM is {@code CgIO}'s business, and that is the part worth knowing:
      * without an override directory it resolves from the classpath, which for a Gradle run means
@@ -410,10 +413,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // -- the log says "re-read N stylesheets", and an edited token changes nothing. Reloading
             // the theme rebinds the table and restyles; the sheets then re-read their files against
             // the NEW table, which is why this order and not the other.
-            int themes = com.crystalgui.style.theme.UiThemeManager.getInstance().reloadFromDisk();
-            int reloaded = com.crystalgui.style.StyleEngine.reloadStylesheets();
-            LOGGER.info("[InteractiveSceneRunner] Ctrl+R: reloaded " + reloaded + " stylesheet(s) and "
-                    + themes + " theme file(s)");
+            int themes = UiThemeManager.getInstance().reloadFromDisk();
+            // WHAT A RESOURCE RELOAD DOES, not the stylesheets alone: icons, sprites and sheets all have
+            // caches, and this key re-reading only the sheets left every edited .svg on screen.
+            CgUiLifecycle.reload();
+            LOGGER.info("[InteractiveSceneRunner] Ctrl+R: reloaded " + themes + " theme file(s); "
+                    + "CrystalGUI's own reload logs the rest");
         } catch (Throwable t) {
             // Never let a bad stylesheet take the harness down -- a half-written file mid-save is the
             // normal case for this key, not an exceptional one.
