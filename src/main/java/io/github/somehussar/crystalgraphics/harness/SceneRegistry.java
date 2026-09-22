@@ -22,6 +22,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSpriteStressScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiScrollerScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTimelineScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSliderScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTabViewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiWorkspaceScene;
@@ -478,6 +479,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiSwitchScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-timeline")
+                .description("CrystalGUI timeline primitives: 10,000 spans and 600 frame bars — wheel zoom, drag pan, frame stepping, range selection")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.09f, 0.09f, 0.11f, 1.0f)
+                .build(),
+            () -> new CgUiTimelineScene()
         );
 
         reg.register(
