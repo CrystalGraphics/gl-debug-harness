@@ -8,15 +8,20 @@ import com.crystalgui.core.window.WindowPolicy;
 import com.crystalgui.core.window.WindowState;
 import com.crystalgui.desktop.Desktop;
 import com.crystalgui.desktop.DesktopCommands;
+import com.crystalgraphics.trace.CgFrameImages;
 import com.crystalgraphics.trace.CgFrameRecord;
 import com.crystalgraphics.trace.CgTrace;
+import com.crystalgraphics.trace.CgTraceSnapshot;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import com.crystalgui.widget.display.SpanTrack;
 import com.crystalgraphics.platform.input.CgMouseCodes;
 import com.crystalgui.app.frameprofiler.FrameProfiler;
 import com.crystalgui.app.frameprofiler.ChainsTab;
+import com.crystalgui.app.frameprofiler.FrameImageView;
 import com.crystalgui.app.frameprofiler.FrameProfilerPanel;
 import com.crystalgui.app.frameprofiler.HintsTab;
 import com.crystalgui.app.frameprofiler.ProfilerModel;
@@ -1099,10 +1104,80 @@ public class CgUiDesktopScene
             }
         } else if (at == 444) {
             log("defaults again: keeps first " + CgTrace.firstFrames() + " + newest " + CgTrace.newestFrames());
+        // FRAME IMAGES (T8): tick the channel, let it photograph, hover the strip, open the Screen tab --
+        // and the gate, read off the trace: what glend:image cost a frame, averaged.
+        } else if (at == 446) {
+            Set<String> channels = new HashSet<>(model.enabledChannels());
+            channels.add(CgFrameImages.IMAGES.name());
+            model.setEnabledChannels(channels);
+            model.setFollowing(true);
+            imagesFrom = CgTrace.currentFrameIndex();
+        } else if (at == 646) {
+            long frames = 0L;
+            long nanos = 0L;
+            long worst = 0L;
+            StringBuilder captures = new StringBuilder();
+            for (CgFrameRecord record : CgTrace.frames()) {
+                if (record.index() <= imagesFrom) continue;
+                frames++;
+                long spent = 0L;
+                for (CgTraceSnapshot.ZoneView zone : CgTrace.zonesIn(record)) {
+                    if (zone.name().startsWith("glend:image")) {
+                        spent += zone.durationNanos();
+                        captures.append(String.format(" %s=%.3f", zone.name().substring(12), zone.durationNanos() / 1e6));
+                    }
+                }
+                nanos += spent;
+                worst = Math.max(worst, spent);
+            }
+            log("images: each frame's glend:image, ms:" + captures);
+            log(String.format("images: %d held, %d frames since the channel went on; capture %.4f ms a frame "
+                            + "averaged (gate < 0.2), worst frame %.3f ms", CgFrameImages.count(), frames,
+                    frames == 0 ? 0d : nanos / 1e6 / frames, worst / 1e6));
+            hover(panel.strip(), 0.85f, 0.5f);
+        } else if (at == 650) {
+            log("preview: showing " + panel.preview().isDisplayed() + ", caption \"" + panel.previewCaptionText() + "\"");
+            shot("33-frame-preview");
+        } else if (at == 652) {
+            click(panel.screenTab());
+        } else if (at == 658) {
+            FrameImageView view = panel.screen().view();
+            log("screen: \"" + panel.screen().captionText() + "\", image "
+                    + (view.shown() == null ? "none" : view.shown().width() + "x" + view.shown().height()
+                    + " of #" + view.shown().frameIndex()));
+            shot("34-screen");
+        // PAUSED PAST THE RING: the store drops a picture once the live ring has rolled past its frame,
+        // and a paused window still shows that frame -- so its picture must come from the model.
+        } else if (at == 1210) {
+            model.setFollowing(false);
+            CgFrameRecord held = model.selectedFrame();
+            pausedOn = held == null ? -1L : held.index();
+            CgFrameImages.Image image = held == null ? null : model.imageAtOrBefore(held.index());
+            pausedImage = image == null ? -1L : image.frameIndex();
+            log("paused on #" + pausedOn + " showing image of #" + pausedImage);
+        } else if (at == 1400 || at == 1700) {
+            CgFrameRecord now = model.selectedFrame();
+            log("paused? following " + model.isFollowing() + ", selected #" + (now == null ? -1 : now.index())
+                    + ", snapshot #" + model.snapshot().frames().get(0).index() + "..#"
+                    + model.snapshot().frames().get(model.snapshot().frames().size() - 1).index());
+        } else if (at == 1950) {
+            CgFrameImages.Image store = CgFrameImages.atOrBefore(pausedOn);
+            CgFrameImages.Image held = model.imageAtOrBefore(pausedOn);
+            log("740 frames later: the store has #" + (store == null ? -1 : store.frameIndex())
+                    + " for it, the window #" + (held == null ? -1 : held.frameIndex())
+                    + " (must be #" + pausedImage + "), screen \"" + panel.screen().captionText() + "\"");
+            hover(panel.strip(), 0.5f, 0.5f);
+        } else if (at == 1954) {
+            log("paused preview: showing " + panel.preview().isDisplayed() + ", caption \""
+                    + panel.previewCaptionText() + "\"");
+            shot("35-paused-images");
             profilerShotDone = true;
         }
     }
     private int labelBefore;
+    private long imagesFrom;
+    private long pausedOn;
+    private long pausedImage;
     private double countersSpan;
     private boolean twistyWasOpen;
     private int twistyRows;
