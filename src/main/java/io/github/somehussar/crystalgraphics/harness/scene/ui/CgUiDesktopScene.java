@@ -16,7 +16,9 @@ import java.util.List;
 import com.crystalgui.widget.display.SpanTrack;
 import com.crystalgraphics.platform.input.CgMouseCodes;
 import com.crystalgui.app.frameprofiler.FrameProfiler;
+import com.crystalgui.app.frameprofiler.ChainsTab;
 import com.crystalgui.app.frameprofiler.FrameProfilerPanel;
+import com.crystalgui.app.frameprofiler.HintsTab;
 import com.crystalgui.app.frameprofiler.ProfilerModel;
 import com.crystalgui.app.frameprofiler.ProfilerSettings;
 import com.crystalgui.core.settings.Setting;
@@ -983,12 +985,106 @@ public class CgUiDesktopScene
         } else if (at == 350) {
             log("zoomed on the gap: from " + strip.viewFrom() + " across " + strip.visible());
             shot("28-gap-zoomed");
-        } else if (at == 352) {
+        // HINTS: the tab, its rows, and the first row's link followed.
+        } else if (at == 351) {
+            // THE WHOLE RING, so every rule has its chance; one frame may simply be innocent.
+            model.setFollowing(false);
+            model.selectRange(0, model.frameCount() - 1);
+        } else if (at == 353) {
+            click(panel.hintsTab());
+        } else if (at == 356) {
+            log("hints: tab '" + panel.hintsTab().getText() + "', " + panel.hints().rows().size() + " rows: "
+                    + model.hintsOfSelection().stream().map(row -> row.hint().code()).toList());
+            shot("29-hints");
+            hintLink = null;
+            for (UIElement row : panel.hints().rows()) {
+                for (UIElement each : row.composedSubtree()) {
+                    if (each instanceof Button button && button.hasClass(HintsTab.LINK_CLASS)) {
+                        hintLink = button;
+                        break;
+                    }
+                }
+                if (hintLink != null) break;
+            }
+            if (hintLink != null) click(hintLink);
+        } else if (at == 359) {
+            log("hint link '" + (hintLink == null ? "none" : hintLink.getText()) + "': zone " + model.selectedZone()
+                    + ", tab " + (panel.tabs().getSelectedTab() == null ? "?" : panel.tabs().getSelectedTab().getText()));
+        // COMPARE: the first twenty frames pinned as A, the last twenty as B, through the tab's buttons.
+        } else if (at == 360) {
+            click(panel.compareTab());
+            model.setFollowing(false);
+            model.selectRange(0, 19);
+        } else if (at == 362) {
+            click(panel.compare().pinAButton());
+            model.selectRange(model.frameCount() - 20, model.frameCount() - 1);
+        } else if (at == 364) {
+            click(panel.compare().pinBButton());
+        } else if (at == 367) {
+            log("compare: A " + model.sideA() + ", B " + model.sideB() + ", " + model.compare().size()
+                    + " zones; " + panel.compare().summaryText());
+            shot("30-compare");
+        // THE FOOTER, and the viewer's own work shown on request.
+        } else if (at == 370) {
+            log("footer: " + panel.footerText().getText());
+            click(panel.viewerToggle());
+        } else if (at == 373) {
+            boolean own = model.zonesOfSelection().stream()
+                    .anyMatch(zone -> ProfilerModel.VIEWER.name().equals(zone.channel()));
+            log("viewer shown: " + model.isShowingViewer() + ", its zones in the selection " + own
+                    + ", toggle now '" + panel.viewerToggle().getText() + "'");
+            click(panel.viewerToggle());
+        // CHAINS
+        } else if (at == 375) {
+            click(panel.chainsTab());
+        } else if (at == 378) {
+            List<ChainsTab.Step> chains = panel.chains().chains();
+            log("chains: " + chains.size() + (chains.isEmpty() ? "" : ", newest " + chains.get(0).name()
+                    + " " + chains.get(0).durationNanos() / 1000 + "us with " + chains.get(0).children().size()
+                    + " steps"));
+            shot("31-chains");
+        // THE READOUT'S SPARKLINE opens the frame under the press.
+        } else if (at == 380) {
+            FrameStatsOverlay.toggleOn(document);
+        } else if (at == 392) {
+            FrameStatsOverlay readout = FrameStatsOverlay.of(document);
+            sparkRow = null;
+            if (readout != null) {
+                for (UIText row : readout.rows()) {
+                    if (row.hasClass(FrameStatsOverlay.SPARK_CLASS)) sparkRow = row;
+                }
+            }
+            if (sparkRow != null) {
+                float[] p = at(sparkRow, 0.5f, 0.5f);
+                int columns = sparkRow.getText().length();
+                int column = Math.max(0, Math.min(columns - 1, sparkRow.offsetAtScreen(p[0], p[1])));
+                sparkExpected = readout.barFrame(column);
+                click(sparkRow);
+            }
+        } else if (at == 395) {
+            CgFrameRecord shown = model.selectedFrame();
+            log("readout sparkline click: selected #" + (shown == null ? -1 : shown.index()) + ", the bar was #"
+                    + sparkExpected + ", following " + model.isFollowing() + ", spark row " + (sparkRow != null));
+            shot("32-from-readout");
+            FrameStatsOverlay.toggleOn(document);
+        // F9 IS profiler.open: pressed with the profiler in front it closes it; again, it comes back.
+        } else if (at == 397) {
+            desktop.raise(profilerWindow);
+        } else if (at == 399) {
+            log("F9 with the profiler in front (active " + (desktop.activeWindow() == profilerWindow) + ")");
+            key(CgKeyCodes.KEY_F9);
+        } else if (at == 420) {
+            // A CLOSE ANIMATES before the window hides: read it well after the press.
+            log("F9: showing " + (profilerWindow.state() != WindowState.HIDDEN));
+            key(CgKeyCodes.KEY_F9);
+        } else if (at == 440) {
+            log("F9 again: showing " + (profilerWindow.state() != WindowState.HIDDEN));
+        } else if (at == 442) {
             // BACK TO THE DEFAULTS, through the store: the page is closed, so its button cannot be pressed.
             for (Setting<?> setting : ProfilerSettings.all()) {
                 ProfilerSettings.store().reset(SettingsLayer.USER, setting);
             }
-        } else if (at == 354) {
+        } else if (at == 444) {
             log("defaults again: keeps first " + CgTrace.firstFrames() + " + newest " + CgTrace.newestFrames());
             profilerShotDone = true;
         }
@@ -1090,6 +1186,9 @@ public class CgUiDesktopScene
     }
 
     private float barMid;
+    private Button hintLink;
+    private UIText sparkRow;
+    private long sparkExpected;
     private float gapFraction;
 
     private void middle(UIElement element, float fx, float fy, boolean down) {
@@ -1199,15 +1298,8 @@ public class CgUiDesktopScene
             else TaskbarDesigner.open(document);
             return true;
         }
-        // F9 OPENS THE FRAME PROFILER. A key here rather than a DesktopCommand because the profiler is
-        // in `app` and DesktopCommands is in `desktop`, which may not name it -- the launcher is the
-        // engine's own route to it, and this is the scene's shortcut to the same window.
-        if (event.key() == CgKeyCodes.KEY_F9) {
-            WindowFrame existing = desktop.registry().byKey(FrameProfiler.WINDOW_KEY);
-            if (existing != null) existing.requestClose();
-            else FrameProfiler.openOn(desktop);
-            return true;
-        }
+        // F9 IS NOT HANDLED HERE: it is `profiler.open`, the command every surface with a desktop has,
+        // so the scene's key and the game's are the same binding.
         return false;
     }
 
