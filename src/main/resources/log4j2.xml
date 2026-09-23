@@ -4,7 +4,7 @@
 
   Log4j2 with no configuration falls back to DefaultConfiguration, which is a console appender at
   ERROR. Everything CrystalGUI reports through CrystalGuiCore.LOGGER at info or warn was therefore
-  dropped on the floor for the whole life of this harness — FrameProfile's [step] lines, UiBudget's
+  dropped on the floor for the whole life of this harness — the slow-frame [frame] lines, UiBudget's
   always-on frame-budget reports, the language stack's "resolving against the live runtime" notice,
   every diagnostic written specifically to be read while something is running.
 

@@ -7,9 +7,10 @@ import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.render.context.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.richtext.CgMarkupParser;
-import com.crystalgraphics.util.profiling.CgProfiler;
-import com.crystalgraphics.util.profiling.CgProfilerDump;
-import com.crystalgraphics.util.profiling.CgProfilerReport;
+import com.crystalgraphics.trace.CgTrace;
+import com.crystalgraphics.util.trace.CgChannels;
+import io.github.somehussar.crystalgraphics.harness.trace.TraceDump;
+import io.github.somehussar.crystalgraphics.harness.trace.TraceReport;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -81,7 +82,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
     private CgTextLayout kanjiWorldLayout;
     private int kanjiFontSizePx;
 
-    // ── CgProfiler instrumentation for the kanji world-text draw call (see class javadoc's
+    // ── Trace instrumentation for the kanji world-text draw call (see class javadoc's
     // "Kanji warmup profiling" section) — scoped strictly to this one draw call and everything
     // it calls into; nothing else in this scene is instrumented. ──
     private static final double PROFILE_WINDOW_SECONDS = 10;
@@ -108,7 +109,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
      * carry a per-frame delta.
      *
      * <p>Exists to settle a hypothesis rather than to optimise anything: several warmup frames
-     * cost 20-30 ms with <em>every</em> {@code CgProfiler} scope reading ~0, which is the
+     * cost 20-30 ms with <em>every</em> trace zone reading ~0, which is the
      * signature of time being spent outside any instrumented code. A GC pause is the obvious
      * candidate, but "obvious candidate" is exactly what was wrong twice already this session
      * (the half-float and shader-compile hypotheses), so this measures it directly: if a slow
@@ -143,7 +144,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
         Camera3D camera = ctx.getCamera3D();
         camera.moveCamera(0, 0.1f, 0.75F);
 
-        CgProfiler.setEnabled(true);
+        CgTrace.enable("crystalgraphics");
 
         // Typed config is resolved before execution and available via context.
         // For interactive scenes, the config is set on ctx before init() is called.
@@ -292,7 +293,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
         modelView.translate(-textWorldWidth * 0.5f, 1.5f, -0.2f);
         modelView.scale(worldScale, -worldScale, worldScale);
 
-        try (CgProfiler.Scope ignored = CgProfiler.scope("kanjiWorldDraw")) {
+        try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "kanjiWorldDraw")) {
             perspectiveContext.projection(ctx.getProjection()).updateProjectedSize(modelView, ctx.getProjection(), kanjiFontSizePx);
             renderer.context(perspectiveContext);
 
@@ -301,7 +302,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
             withShadow(renderer.draw().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(minecraftFont).pose(poseStack), FONT_SIZE_PX).submit();
         }
 
-        if (CgProfiler.isEnabled()) {
+        if (CgTrace.isEnabled(CgChannels.MISC)) {
             // Dolly forward/back a little each frame so the projected-size hint (and hence
             // effectiveTargetPx) actually moves -- see PROFILE_AUTO_ORBIT's javadoc.
             if (PROFILE_AUTO_ORBIT) {
@@ -412,12 +413,12 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
      */
     @Override
     public void onFrameEnd(HarnessContext ctx, FrameInfo frame) {
-        if (!CgProfiler.isEnabled()) return;
+        if (!CgTrace.isEnabled(CgChannels.MISC)) return;
 
         sampleGc();
         int pendingAsync = CgFontRegistry.get().getPendingAsyncGlyphCount();
-        CgProfiler.sample("async.pendingGlyphs", pendingAsync);
-        recordProfileFrame(frame, CgProfiler.endFrame(), pendingAsync);
+        CgTrace.counter(CgChannels.ASYNC, "async.pendingGlyphs", pendingAsync);
+        recordProfileFrame(frame, TraceReport.lastFrame(), pendingAsync);
 
         if (frame.getElapsedTime() >= PROFILE_WINDOW_SECONDS) {
             dumpProfile(ctx);
@@ -426,7 +427,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
             // keybind pressed by hand at an arbitrary moment (which makes before/after
             // packing comparisons non-reproducible).
             // dumpAtlases();
-            CgProfiler.setEnabled(false); // fully zero-cost from here on -- see CgProfiler's javadoc
+            CgTrace.disable("crystalgraphics"); // one mask test per call site from here on
             running = false;
         }
     }
@@ -532,13 +533,13 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
      * generated, which is the number that matters: it sets how long the atlas takes to converge.
      */
     private void dumpMsdfGenerationProfile() {
-        java.util.Map<String, CgProfilerReport> all = CgProfiler.reportAllThreads();
+        java.util.Map<String, TraceReport> all = TraceReport.allThreadsSince(0L);
         double prepareTotal = 0;
         long prepareCalls = 0;
         java.util.Map<String, double[]> stages = new java.util.LinkedHashMap<>();
 
-        for (java.util.Map.Entry<String, CgProfilerReport> entry : all.entrySet()) {
-            for (CgProfilerReport.ScopeEntry scope : entry.getValue().scopes()) {
+        for (java.util.Map.Entry<String, TraceReport> entry : all.entrySet()) {
+            for (TraceReport.ScopeEntry scope : entry.getValue().scopes()) {
                 if (!scope.name().startsWith("msdfgen.")) continue;
                 double ms = scope.totalNanos() / 1_000_000.0;
                 double[] acc = stages.computeIfAbsent(scope.name(), k -> new double[2]);
@@ -668,7 +669,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
     }
 
     // ────────────────────────────────────────────────────────────────
-    //  Kanji warmup profiling (see the CgProfiler.scope("kanjiWorldDraw") call in render())
+    //  Kanji warmup profiling (see the CgTrace.zone(CgChannels.MISC, "kanjiWorldDraw") call in render())
     // ────────────────────────────────────────────────────────────────
 
     private static final String[] PROFILE_CSV_HEADER = {
@@ -723,12 +724,12 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
     };
 
     /** Appends one CSV row (and, for a couple of representative frames, a full indented
-     * {@link CgProfilerReport#format()} tree dump) summarizing this frame's
+     * {@link TraceReport#format()} tree dump) summarizing this frame's
      * {@code "kanjiWorldDraw"} scope tree/counters/samples — buffered in memory and flushed once
      * by {@link #dumpProfile} so the file I/O itself never pollutes the very timings being
      * measured. */
-    private void recordProfileFrame(FrameInfo frame, CgProfilerReport report, int pendingAsync) {
-        if (report == null) return; // CgProfiler.isEnabled() was already checked by the caller
+    private void recordProfileFrame(FrameInfo frame, TraceReport report, int pendingAsync) {
+        if (report == null) return; // CgTrace.isEnabled(CgChannels.MISC) was already checked by the caller
 
         if (profileCsvRows.isEmpty()) {
             profileCsvRows.add(String.join(",", PROFILE_CSV_HEADER));
@@ -895,9 +896,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
 
     /** Sums every scope whose path ends in {@code name}, wherever it nested this frame — for
      * scopes that can fire from more than one call path (see the growth diagnostics). */
-    private static double anyScopeTotalMillis(CgProfilerReport report, String name) {
+    private static double anyScopeTotalMillis(TraceReport report, String name) {
         double total = 0;
-        for (CgProfilerReport.ScopeEntry entry : report.scopes()) {
+        for (TraceReport.ScopeEntry entry : report.scopes()) {
             if (entry.name().equals(name)) total += entry.totalNanos() / 1_000_000.0;
         }
         return total;
@@ -912,7 +913,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
      * it, and any conclusion drawn from the other columns is unsupported until it is explained.
      * It should sit near zero; a few tenths of a ms is loop overhead and input polling.</p>
      */
-    private String formatFrameAccounting(CgProfilerReport report, FrameInfo frame) {
+    private String formatFrameAccounting(TraceReport report, FrameInfo frame) {
         double world = anyScopeTotalMillis(report, "frame.worldPass");
         double textCtx = anyScopeTotalMillis(report, "frame.textContext");
         double scene = anyScopeTotalMillis(report, "frame.scene");
@@ -927,28 +928,28 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
     }
 
     /** Call count for a scope, summed across every path it appears at. */
-    private static long anyScopeCalls(CgProfilerReport report, String name) {
+    private static long anyScopeCalls(TraceReport report, String name) {
         long total = 0;
-        for (CgProfilerReport.ScopeEntry entry : report.scopes()) {
+        for (TraceReport.ScopeEntry entry : report.scopes()) {
             if (entry.name().equals(name)) total += entry.callCount();
         }
         return total;
     }
 
-    private static double scopeTotalMillis(CgProfilerReport report, String path) {
-        for (CgProfilerReport.ScopeEntry entry : report.scopes()) {
+    private static double scopeTotalMillis(TraceReport report, String path) {
+        for (TraceReport.ScopeEntry entry : report.scopes()) {
             if (entry.path().equals(path)) return entry.totalNanos() / 1_000_000.0;
         }
         return 0.0;
     }
 
-    private static long counterValue(CgProfilerReport report, String name) {
+    private static long counterValue(TraceReport report, String name) {
         Long value = report.counters().get(name);
         return value != null ? value : 0L;
     }
 
-    private static double sampleValue(CgProfilerReport report, String name) {
-        CgProfilerReport.SampleSummary summary = report.samples().get(name);
+    private static double sampleValue(TraceReport report, String name) {
+        TraceReport.SampleSummary summary = report.samples().get(name);
         return summary != null ? summary.last() : Double.NaN;
     }
 
@@ -981,16 +982,15 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
         dumpMsdfGenerationProfile();
 
         // Every scope in the CSV and the tree dumps above is render-thread only, because both come
-        // from CgProfiler.endFrame()/report(), which are thread-local by construction. Work that
+        // from TraceReport.lastFrame()/report(), which are thread-local by construction. Work that
         // happens on the glyph-generation workers -- worker.rasterizeBitmap, msdfgen.prepareGlyph
         // and everything under them -- therefore appears NOWHERE in them, which reads as "the async
         // path isn't running" rather than "you are looking at the wrong thread". That misreading is
         // recorded in PERFORMANCE_TODO; this file is the fix for it.
         //
-        // Note the totals here are for the WHOLE RUN, not per frame: worker threads never call
-        // endFrame(), so their accumulators are never reset.
+        // Note the totals here are for the WHOLE RUN the ring still holds, not per frame.
         try {
-            File allThreads = CgProfilerDump.dumpAllThreads(dir, "text-3d-all-threads");
+            File allThreads = TraceDump.dumpAllThreads(dir, "text-3d-all-threads", 0L);
             if (allThreads != null) {
                 LOGGER.info("[Harness] Cross-thread profile written: " + allThreads.getAbsolutePath());
             }

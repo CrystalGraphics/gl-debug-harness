@@ -14,8 +14,8 @@ import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 
-import com.crystalgraphics.util.profiling.CgProfiler;
-import com.crystalgraphics.util.profiling.CgProfilerDump;
+import com.crystalgraphics.trace.CgTrace;
+import io.github.somehussar.crystalgraphics.harness.trace.TraceDump;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -144,7 +144,7 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
         // zoom across every threshold and the dump covers the WHOLE session. A fixed frame count cannot
         // capture that -- the interesting events are the ones a person triggers.
         profileInteractive = Boolean.getBoolean("crystalgui.svgicon.profileLive");
-        if (profileFrames > 0 || profileInteractive) CgProfiler.setEnabled(true);
+        if (profileFrames > 0 || profileInteractive) CgTrace.enable("crystalgraphics");
         for (String name : FILETYPES) load("filetypes/" + name, name);
         for (String name : CHROME) load(name, name + " (feather)");
         profileCtx = ctx;
@@ -163,7 +163,7 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
         // zoom across every threshold and the dump covers the WHOLE session. A fixed frame count cannot
         // capture that -- the interesting events are the ones a person triggers.
         profileInteractive = Boolean.getBoolean("crystalgui.svgicon.profileLive");
-        if (profileFrames > 0 || profileInteractive) CgProfiler.setEnabled(true);
+        if (profileFrames > 0 || profileInteractive) CgTrace.enable("crystalgraphics");
     }
 
     /**
@@ -291,20 +291,23 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
         // compilation and buffer allocation that never happen again.
         if (profileFrames > 0) {
             if (frame.getFrameNumber() == WARMUP_FRAMES) {
-                // Dumped BEFORE the reset: this window holds the one-off costs -- parsing every icon and
+                // Dumped from the START: this window holds the one-off costs -- parsing every icon and
                 // building whatever LOD meshes the first frames asked for -- which the steady-state
                 // average is designed to exclude and which are exactly what a cold start pays.
-                CgProfilerDump.dump(new java.io.File(ctx.getOutputDir()), "svg-startup");
-                CgProfiler.reset();
+                TraceDump.dump(new java.io.File(ctx.getOutputDir()), "svg-startup", 0L);
+                profileFrom = CgTrace.currentFrameIndex() + 1;
             }
             if (frame.getFrameNumber() == WARMUP_FRAMES + profileFrames) {
-                java.io.File out = CgProfilerDump.dump(
-                        new java.io.File(ctx.getOutputDir()), "svg-icons-" + profileFrames + "f");
+                java.io.File out = TraceDump.dump(
+                        new java.io.File(ctx.getOutputDir()), "svg-icons-" + profileFrames + "f", profileFrom);
                 System.out.println("[profile] frames=" + profileFrames + " dump=" + out);
                 running = false;
             }
         }
     }
+
+    /** The first steady-state frame: after warm-up, whose costs the startup dump holds. */
+    private long profileFrom;
 
     /** Device height of the study strip, which the grid starts below. */
     private float stripHeight() {
@@ -403,8 +406,8 @@ public class CgUiSvgIconScene implements InteractiveSceneLifecycle, CgSystemInpu
     @Override
     public void dispose() {
         if (profileInteractive && profileCtx != null) {
-            java.io.File out = CgProfilerDump.dump(
-                    new java.io.File(profileCtx.getOutputDir()), "svg-lod-live");
+            java.io.File out = TraceDump.dump(
+                    new java.io.File(profileCtx.getOutputDir()), "svg-lod-live", 0L);
             System.out.println("[profile] live dump=" + out);
         }
     }

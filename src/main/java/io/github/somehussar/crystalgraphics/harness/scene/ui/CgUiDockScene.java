@@ -1,12 +1,13 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgraphics.util.trace.CgChannels;
 import com.crystalgraphics.api.font.CgFontFamily;
 import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.platform.CgPlatform;
-import com.crystalgraphics.util.profiling.CgProfiler;
-import com.crystalgraphics.util.profiling.CgProfilerDump;
+import com.crystalgraphics.trace.CgTrace;
+import io.github.somehussar.crystalgraphics.harness.trace.TraceDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgui.core.trace.FrameProfile;
+import com.crystalgui.core.trace.UiTrace;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.render.text.FontFamilyCache;
 import com.crystalgui.workbench.chrome.palette.QuickPick;
@@ -190,7 +191,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // already scoped -- placementCache.lookup/hit/miss, flatten, resolvePlacements -- so the question
         // "why does submitting 1,303 characters cost 12ms" is one CrystalGraphics can answer in its own
         // terms. TextScene3D is the reference for this pairing. Dumped at the end of a scripted run.
-        if (flowEnabled) CgProfiler.setEnabled(true);
+        if (flowEnabled) CgTrace.enable("crystalgraphics");
     }
 
     @Override
@@ -401,9 +402,9 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             return;
         }
         if (stage == Stage.STARTUP && elapsed >= OPEN_PICKER_AT) {
-            long timed = FrameProfile.enter("FLOW open Go to File");
+            long timed = CgTrace.spanBegin(UiTrace.FLOW, "FLOW open Go to File");
             picker = GoToFile.open(document, editor.workbench());
-            FrameProfile.leave(timed, "FLOW open Go to File");
+            CgTrace.spanEnd(timed);
             enterStage(Stage.TYPING, "Go to File opened");
             return;
         }
@@ -415,21 +416,21 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             // one that pays for the classpath scan.
             char next = QUERY.charAt(typed++);
             String label = "FLOW keystroke '" + next + "' (" + typed + "/" + QUERY.length() + ")";
-            long timed = FrameProfile.enter(label);
+            long timed = CgTrace.spanBegin(UiTrace.FLOW, label);
             press(next, keyFor(next));
-            FrameProfile.leave(timed, label);
+            CgTrace.spanEnd(timed);
             if (typed >= QUERY.length()) enterStage(Stage.SEARCHED, "typed \"" + QUERY + "\"");
             return;
         }
 
         if (stage == Stage.SEARCHED && elapsed >= ACCEPT_AT) {
-            long timed = FrameProfile.enter("FLOW Enter -- open the selected result");
-            // RESET THE BACKEND PROFILE HERE, so its counters describe the OPEN and not the whole run.
+            long timed = CgTrace.spanBegin(UiTrace.FLOW, "FLOW Enter -- open the selected result");
+            // THE BACKEND PROFILE STARTS HERE, so its counters describe the OPEN and not the whole run.
             // A cumulative dump cannot answer "how many glyphs were rasterised synchronously on the
             // frames that stalled" -- steady state dwarfs it. @see #dumpBackendProfile
-            if (CgProfiler.isEnabled()) CgProfiler.reset();
+            backendFrom = CgTrace.currentFrameIndex() + 1;
             press('\n', CgKeyCodes.KEY_RETURN);
-            FrameProfile.leave(timed, "FLOW Enter -- open the selected result");
+            CgTrace.spanEnd(timed);
             enterStage(Stage.OPENED, "accepted");
             return;
         }
@@ -451,9 +452,9 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         }
 
         if (stage == Stage.HOVERING && elapsed >= OPEN_PROJECT_AT) {
-            long timed = FrameProfile.enter("FLOW open " + CLOSE_SUBJECT);
+            long timed = CgTrace.spanBegin(UiTrace.FLOW, "FLOW open " + CLOSE_SUBJECT);
             editor.workbench().openFile(CgPath.of(HarnessWorkspace.PROJECT_ID, CLOSE_SUBJECT));
-            FrameProfile.leave(timed, "FLOW open a project file");
+            CgTrace.spanEnd(timed);
             enterStage(Stage.PROJECT_OPEN, "opened " + CLOSE_SUBJECT);
             return;
         }
@@ -462,9 +463,9 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
             // THROUGH THE DOCK, the way the tab's own close button does -- `DockArea.closePanel`, which
             // is what `Tab.onCloseRequested` is wired to. Reaching past it to the workbench would measure
             // a path a user cannot take and would skip the layout collapse and the rebuild.
-            long timed = FrameProfile.enter("FLOW close the open tab");
+            long timed = CgTrace.spanBegin(UiTrace.FLOW, "FLOW close the open tab");
             closeOpenTab();
-            FrameProfile.leave(timed, "FLOW close the open tab");
+            CgTrace.spanEnd(timed);
             enterStage(Stage.CLOSED, "closed the tab");
             return;
         }
@@ -497,9 +498,9 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private void advanceHoverFlow() {
         if (!hoverSubjectOpened && workspace.isConnected()) {
             hoverSubjectOpened = true;
-            long timed = FrameProfile.enter("FLOW open " + HOVER_SUBJECT);
+            long timed = CgTrace.spanBegin(UiTrace.FLOW, "FLOW open " + HOVER_SUBJECT);
             editor.workbench().openResource(Resource.parse(HOVER_SUBJECT), null);
-            FrameProfile.leave(timed, "FLOW open the hover subject");
+            CgTrace.spanEnd(timed);
         }
         double due = fastHovered == 0 ? FIRST_HOVER_AT : SECOND_HOVER_AT;
         if (fastHovered < FAST_HOVER_TARGETS.size() && elapsed >= due) {
@@ -522,7 +523,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // The class is what a viewer and a file editor share.
         UIElement found = document.querySelector("texteditor.__file-editor__");
         if (!(found instanceof TextEditor open)) {
-            FrameProfile.note("FLOW no file editor on screen to hover in");
+            CgTrace.marker(UiTrace.FLOW, "FLOW no file editor on screen to hover in");
             hoveredSoFar = HOVER_TARGETS.size();
             return;
         }
@@ -533,17 +534,17 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
     private void hoverSymbol(String name) {
         UIElement found = document.querySelector("texteditor.__file-editor__");
         if (!(found instanceof TextEditor open)) {
-            FrameProfile.note("FLOW no file editor on screen to hover in");
+            CgTrace.marker(UiTrace.FLOW, "FLOW no file editor on screen to hover in");
             return;
         }
         String text = open.getText();
         int at = text.indexOf(name);
         if (at < 0) {
-            FrameProfile.note("FLOW '" + name + "' is not in this document");
+            CgTrace.marker(UiTrace.FLOW, "FLOW '" + name + "' is not in this document");
             return;
         }
         // ONE PAST THE START, so the word lookup lands inside the identifier rather than on its boundary.
-        FrameProfile.note("FLOW resting on '" + name + "' at " + at);
+        CgTrace.marker(UiTrace.FLOW, "FLOW resting on '" + name + "' at " + at);
         open.hoverPointerForTest(at + 1);
     }
 
@@ -552,7 +553,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         DockArea dock = editor.workbench().dock();
         DockPanelRef panel = dock.activePanel();
         if (panel == null) {
-            FrameProfile.note("FLOW nothing to close -- no active panel");
+            CgTrace.marker(UiTrace.FLOW, "FLOW nothing to close -- no active panel");
             return;
         }
         dock.closePanel(panel);
@@ -626,7 +627,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         stageWorstOverlayMs = 0f;
         stageFrames = 0;
         System.out.println(String.format("[flow] t=%.2fs  %s", elapsed, what));
-        FrameProfile.note("FLOW " + what);
+        CgTrace.marker(UiTrace.FLOW, "FLOW " + what);
     }
 
     private final Map<Stage, Worst> worstPerStage = new EnumMap<>(Stage.class);
@@ -680,10 +681,13 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
      * and a report that excluded them would answer "the renderer did nothing" for exactly the case
      * where the renderer is waiting on them.</p>
      */
+    /** The first frame {@link #dumpBackendProfile} covers: the accept, not the run. */
+    private long backendFrom;
+
     private void dumpBackendProfile(String label) {
-        if (!flowEnabled || !CgProfiler.isEnabled()) return;
-        java.io.File out = CgProfilerDump.dumpAllThreads(
-                new java.io.File("harness-output/cgui-dock"), label);
+        if (!flowEnabled || !CgTrace.isEnabled(CgChannels.MISC)) return;
+        java.io.File out = TraceDump.dumpAllThreads(
+                new java.io.File("harness-output/cgui-dock"), label, backendFrom);
         System.out.println("[flow]   backend profile (" + label + "): " + (out == null ? "not written" : out));
     }
 
@@ -749,7 +753,7 @@ public class CgUiDockScene implements InteractiveSceneLifecycle, CgSystemInput.K
         // THE SAME FRAME, MEASURED THREE WAYS, because the three cover different spans and a round of
         // this is otherwise spent explaining why they disagree.
         //
-        // FrameProfile's [frame] line covers advanceFrame plus the tree's paint: CPU on the frame thread.
+        // The slow-frame [frame] line covers advanceFrame plus the tree's paint: CPU on the frame thread.
         // The delta the harness reports covers everything else as well -- this overlay, and the buffer
         // swap, where a GPU still working through the previous frame's draws finally blocks.
         //
