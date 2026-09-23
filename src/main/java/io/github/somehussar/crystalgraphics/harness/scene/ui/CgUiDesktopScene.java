@@ -575,7 +575,20 @@ public class CgUiDesktopScene
                 shot("06-range");
             }
             case 54 -> click(panel.countersTab());
-            case 58 -> shot("07-counters");
+            // A WHEEL OVER A COUNTER ROW scrolls the tab and leaves the frame axis alone: the rows fill
+            // the tab, so a row that zoomed on the wheel left nothing to scroll with.
+            case 56 -> {
+                countersSpan = panel.strip().visible();
+                if (!panel.counters().rows().isEmpty()) wheel(panel.counters().rows().get(0), 0.5f, 0.6f, 3f);
+            }
+            case 58 -> {
+                Box tabBox = panel.counters().scroller().box();
+                log("counters wheel: scrollTop " + panel.counters().scroller().scrollTop() + " (must be > 0), strip span "
+                        + (int) countersSpan + " -> " + (int) panel.strip().visible() + " (must not move); tab "
+                        + (tabBox == null ? "no box" : "h " + tabBox.height() + " client " + tabBox.clientHeight()
+                        + " content " + tabBox.contentHeight()) + ", rows " + panel.counters().rows().size());
+                shot("07-counters");
+            }
             case 60 -> {
                 if (!panel.counters().rows().isEmpty()) hover(panel.counters().rows().get(1), 0.5f, 0.5f);
             }
@@ -1090,6 +1103,7 @@ public class CgUiDesktopScene
         }
     }
     private int labelBefore;
+    private double countersSpan;
     private boolean twistyWasOpen;
     private int twistyRows;
 
