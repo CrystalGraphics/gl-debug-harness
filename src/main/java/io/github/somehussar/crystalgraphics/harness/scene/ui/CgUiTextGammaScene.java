@@ -3,6 +3,7 @@ package io.github.somehussar.crystalgraphics.harness.scene.ui;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.text.render.CgTextGamma;
+import com.crystalgraphics.text.render.CgTextGamma.Level;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.style.sheet.StyleSheet;
@@ -47,9 +48,10 @@ public class CgUiTextGammaScene implements InteractiveSceneLifecycle, CgSystemIn
             .pixel { font-family: "crystalgui:ui/fonts/MinecraftRegular.otf"; }
             """;
 
-    private static final String[] PRESET_NAMES = {"off", "chromium", "strong", "heavy"};
+    private static final String[] PRESET_NAMES = {"off", "chromium", "strong", "heavy", "default"};
     private static final CgTextGamma[] PRESETS = {
-            CgTextGamma.NONE, new CgTextGamma(1.2f, 0.2f), CgTextGamma.DEFAULT, new CgTextGamma(2.2f, 1f)};
+            CgTextGamma.NONE, CgTextGamma.of(new Level(1.2f, 0.2f)), CgTextGamma.of(Level.STRONG),
+            CgTextGamma.of(Level.HEAVY), CgTextGamma.DEFAULT};
 
     /** Frames each preset is held before its capture; a scale change waits longer, for the glyph workers. */
     private static final int HOLD = 6, SETTLE = 40;

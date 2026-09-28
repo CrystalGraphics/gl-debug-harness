@@ -387,7 +387,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("cgui-text-gamma")
-                .description("Text gamma and contrast at four strengths (off, Chromium, strong, heavy) on the UI faces, dark and light panels, UI scale 1 and 2 (G cycles, S toggles scale)")
+                .description("Text gamma and contrast: off, Chromium, strong, heavy, and the default fading strong into heavy by size, on the UI faces, dark and light panels, UI scale 1 and 2 (G cycles, S toggles scale)")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
