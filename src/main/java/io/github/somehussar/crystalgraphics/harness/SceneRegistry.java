@@ -15,6 +15,7 @@ import io.github.somehussar.crystalgraphics.harness.scene.ui.CgGpuTraceProbeScen
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCheckboxScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiInsertMenuScene;
+import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextGammaScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiLibraryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiGalleryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiDesktopScene;
@@ -382,6 +383,18 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiInsertMenuScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-text-gamma")
+                .description("Text gamma and contrast at four strengths (off, Chromium, strong, heavy) on the UI faces, dark and light panels, UI scale 1 and 2 (G cycles, S toggles scale)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiTextGammaScene()
         );
 
         reg.register(
