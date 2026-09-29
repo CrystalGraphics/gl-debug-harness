@@ -82,7 +82,7 @@ public final class ScreenshotUtil {
      * reads any other FBO-attached color target. Needed since the glyph atlas
      * migrated from one independent {@code GL_TEXTURE_2D} per page to one shared
      * array texture with pages as layers — see
-     * {@code CrystalGraphics/docs_research/CGTEXTRENDERER_INSTANCING_FOUNDATIONS.md}.</p>
+     * {@code plan/text-instancing.md}.</p>
      *
      * @param arrayTextureId the {@code GL_TEXTURE_2D_ARRAY} texture object
      * @param layer          layer index to capture
