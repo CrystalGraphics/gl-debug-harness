@@ -1,32 +1,32 @@
 package com.crystalgraphics.platform;
 
+import com.crystalgraphics.harness.runtime.HarnessWindow;
+import com.crystalgraphics.lwjgl3.GlfwInputService;
+import com.crystalgraphics.lwjgl3.Lwjgl3GLBackend;
+import com.crystalgraphics.lwjgl3.Lwjgl3GLContext;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.CgPlatformService;
 import com.crystalgraphics.platform.device.CgDevice;
-import com.crystalgraphics.platform.device.CgRecordingDevice;
+import com.crystalgraphics.platform.device.recording.CgRecordingDevice;
+import com.crystalgraphics.platform.gl.CgGLBackend;
+import com.crystalgraphics.platform.gl.CgGLContext;
 import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLContext;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedStateProvider;
-import com.crystalgraphics.platform.gl.CgGLBackend;
-import com.crystalgraphics.platform.gl.CgGLContext;
 import com.crystalgraphics.platform.service.CgInputService;
 import com.crystalgraphics.platform.service.CgLifecycleService;
 import com.crystalgraphics.platform.service.CgReloadService;
 import com.crystalgraphics.platform.service.CgRenderingService;
 import com.crystalgraphics.platform.service.CgResourceService;
 import com.crystalgraphics.platform.service.CgSoundService;
-import com.crystalgraphics.lwjgl3.GlfwInputService;
-import com.crystalgraphics.lwjgl3.Lwjgl3GLBackend;
-import com.crystalgraphics.lwjgl3.Lwjgl3GLContext;
-import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.platform.service.LifecycleServiceHarness;
 import com.crystalgraphics.platform.service.ReloadServiceHarness;
 import com.crystalgraphics.platform.service.RenderingServiceHarness;
 import com.crystalgraphics.platform.service.ResourceServiceHarness;
 import com.crystalgraphics.vulkan.CgVulkanDevice;
-import com.crystalgraphics.vulkan.OwnedVulkanHost;
-import com.crystalgraphics.vulkan.ShadercGlslCompiler;
+import com.crystalgraphics.vulkan.host.OwnedVulkanHost;
+import com.crystalgraphics.vulkan.shader.ShadercGlslCompiler;
 
 /**
  * Complete MC 1.7.10 platform bundle. Implements {@link CgPlatformService} by composing
