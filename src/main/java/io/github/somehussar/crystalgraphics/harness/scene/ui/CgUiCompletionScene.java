@@ -83,7 +83,6 @@ public class CgUiCompletionScene implements InteractiveSceneLifecycle, CgSystemI
 
     @Override
     public void init(HarnessContext ctx) {
-        org.lwjgl.input.Keyboard.enableRepeatEvents(true);
 
         editor = new TextEditor(SOURCE);
         editor.setLanguage(Language.JAVA);

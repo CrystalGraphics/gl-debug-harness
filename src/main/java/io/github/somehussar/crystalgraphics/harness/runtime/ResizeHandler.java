@@ -2,15 +2,14 @@ package io.github.somehussar.crystalgraphics.harness.runtime;
 
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 
-import org.lwjgl.opengl.Display;
-import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL11C;
 
 import java.util.logging.Logger;
 
 /**
  * Resize propagation service for the interactive render loop.
  *
- * <p>Detects LWJGL Display resize events and propagates the new dimensions
+ * <p>Detects harness window resize events and propagates the new dimensions
  * to the context viewport, GL viewport, and the dedicated world/overlay
  * coordinators that own resize-aware render contributors.</p>
  *
@@ -22,14 +21,14 @@ import java.util.logging.Logger;
  *
  * <p><b>Resize propagation order</b>:</p>
  * <ol>
- *   <li>Read new dimensions from {@code Display.getWidth()/getHeight()}</li>
+ *   <li>Read new dimensions from {@code HarnessWindow.width()/height()}</li>
  *   <li>Update {@code HarnessContext} viewport state</li>
  *   <li>Update GL viewport via {@code glViewport}</li>
  *   <li>Notify the overlay pipeline (HUD + pause ownership)</li>
  *   <li>Notify the world-pass coordinator (floor/world-base ownership)</li>
  * </ol>
  *
- * <p><b>Thread safety</b>: Only used on the LWJGL render thread.</p>
+ * <p><b>Thread safety</b>: Only used on the render thread.</p>
  *
  * <p><b>Frame ordering contract</b>: {@link #checkAndPropagate()} must be
  * called once per frame at the start of the frame loop, after timing but
@@ -59,7 +58,7 @@ public final class ResizeHandler {
     }
 
     /**
-     * Checks if the LWJGL Display was resized since the last frame and,
+     * Checks if the harness window was resized since the last frame and,
      * if so, propagates the new dimensions to all resize-aware consumers.
      *
      * <p>This method is idempotent within a frame: if the display was not
@@ -68,23 +67,23 @@ public final class ResizeHandler {
      * @return true if a resize was detected and propagated, false otherwise
      */
     public boolean checkAndPropagate() {
-        if (!Display.wasResized()) {
+        if (!HarnessWindow.takeResized()) {
             return false;
         }
 
-        int newWidth = Display.getWidth();
-        int newHeight = Display.getHeight();
+        int newWidth = HarnessWindow.width();
+        int newHeight = HarnessWindow.height();
 
         // Update context viewport state — single source of truth for dimensions
         ctx.setScreenDimensions(newWidth, newHeight);
 
         // Update GL viewport to match new window size
-        GL11.glViewport(0, 0, newWidth, newHeight);
+        GL11C.glViewport(0, 0, newWidth, newHeight);
 
         overlayPipeline.onResize(newWidth, newHeight);
         worldPassCoordinator.onResize(newWidth, newHeight);
 
-        LOGGER.fine("[ResizeHandler] Display resized to " + newWidth + "x" + newHeight);
+        LOGGER.fine("[ResizeHandler] Window resized to " + newWidth + "x" + newHeight);
         return true;
     }
 

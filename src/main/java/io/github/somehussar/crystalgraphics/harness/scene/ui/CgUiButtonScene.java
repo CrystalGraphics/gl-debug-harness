@@ -75,7 +75,6 @@ public class CgUiButtonScene implements InteractiveSceneLifecycle, CgSystemInput
 
     @Override
     public void init(HarnessContext ctx) {
-        org.lwjgl.input.Keyboard.enableRepeatEvents(false);
         PlatformServiceHarness.getInstance().soundImpl = soundId -> soundPlayCount++;
 
         UIElement root = createButtonDemo();

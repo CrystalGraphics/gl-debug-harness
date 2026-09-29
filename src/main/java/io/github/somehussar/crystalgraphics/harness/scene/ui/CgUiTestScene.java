@@ -12,7 +12,6 @@ import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
-import org.lwjgl.input.Keyboard;
 
 /**
  * Interactive harness scene that builds and renders a CrystalGUI DOM tree
@@ -65,7 +64,6 @@ public class CgUiTestScene implements InteractiveSceneLifecycle, CgSystemInput.K
         UIElement root =
 //                createUISimple();
                 createYogaExample();
-        Keyboard.enableRepeatEvents(true);
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
         UIElement sceneRoot = root;

@@ -1,8 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.runtime;
 
 import com.crystalgraphics.platform.input.CgSystemInput;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
+import com.crystalgraphics.platform.input.CgKeyCodes;
 
 import java.util.logging.Logger;
 
@@ -72,12 +71,10 @@ public final class InputPauseHandler implements CgSystemInput.Keyboard, CgSystem
         }
         this.paused = paused;
         if (paused) {
-            Mouse.setGrabbed(false);
+            HarnessWindow.setGrabbed(false);
             LOGGER.info("[InputPauseHandler] PAUSED \u2014 cursor released");
         } else {
-            Mouse.setGrabbed(grabCursorOnUnpause);
-            Mouse.getDX();
-            Mouse.getDY();
+            HarnessWindow.setGrabbed(grabCursorOnUnpause);
             LOGGER.info("[InputPauseHandler] RESUMED \u2014 cursor locked");
         }
     }
@@ -87,7 +84,7 @@ public final class InputPauseHandler implements CgSystemInput.Keyboard, CgSystem
      * to ensure the cursor is not trapped after the window closes.
      */
     public void releaseCursor() {
-        Mouse.setGrabbed(false);
+        HarnessWindow.setGrabbed(false);
     }
 
     @Override
@@ -103,7 +100,7 @@ public final class InputPauseHandler implements CgSystemInput.Keyboard, CgSystem
         int key = event.key();
         boolean pressed = event.pressed();
 
-        if (pressed && (key == Keyboard.KEY_ESCAPE || key == Keyboard.KEY_T)) {
+        if (pressed && (key == CgKeyCodes.KEY_ESCAPE || key == CgKeyCodes.KEY_T)) {
           //  setPaused(!isPaused());
             return false;
         }

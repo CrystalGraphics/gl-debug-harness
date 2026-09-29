@@ -5,7 +5,7 @@ package io.github.somehussar.crystalgraphics.harness.config;
  *
  * <p>This object is mutable because the LWJGL Display can be resized at runtime.
  * The {@link io.github.somehussar.crystalgraphics.harness.InteractiveSceneRunner}
- * updates these values when {@code Display.wasResized()} is detected.
+ * updates these values when the window's framebuffer is resized.
  * All consumers (scenes, overlays, renderers) read viewport dimensions
  * through this single object rather than duplicating mutable ints.</p>
  *

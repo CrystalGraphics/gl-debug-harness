@@ -29,10 +29,9 @@ import io.github.somehussar.crystalgraphics.harness.scheduler.TaskScheduler;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessProjectionUtil;
 import io.github.somehussar.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.mc.CgAssetReloader;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
-import org.lwjgl.opengl.Display;
-import org.lwjgl.opengl.GL11;
+import com.crystalgraphics.platform.input.CgKeyCodes;
+import io.github.somehussar.crystalgraphics.harness.runtime.HarnessWindow;
+import org.lwjgl.opengl.GL11C;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -93,13 +92,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * startup cost rather than its frame cost. */
     private static final int PROFILE_WARMUP_FRAMES = 30;
     /**
-     * How many nanoseconds are represented by a millisecond.
-     */
-    private static final long NANOS_IN_MILLIS = 1_000_000L ;
-    private static final int NORMALIZE_TOP_LEFT_ORIGIN = -1;
-    private static final float MOUSE_SCROLL_NORMALIZE = 1/120f * NORMALIZE_TOP_LEFT_ORIGIN;
-
-    /**
      * The scene driven by this runner, accessed through the unified lifecycle contract.
      */
     private final InteractiveSceneLifecycle scene;
@@ -140,7 +132,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * <p>Creates all runtime service collaborators, populates the context
      * with references, then enters the render loop. The loop runs until the
      * scene signals completion via {@link InteractiveSceneLifecycle#isRunning()}
-     * returning false, or the Display close is requested.</p>
+     * returning false, or the window is closed.</p>
      */
     public void run() {
         int currentWidth = ctx.getScreenWidth();
@@ -188,9 +180,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
         debugTools = new HarnessDebugTools(camera, artifactService);
 
-        GL11.glViewport(0, 0, currentWidth, currentHeight);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthFunc(GL11.GL_LEQUAL);
+        GL11C.glViewport(0, 0, currentWidth, currentHeight);
+        GL11C.glEnable(GL11C.GL_DEPTH_TEST);
+        GL11C.glDepthFunc(GL11C.GL_LEQUAL);
 
         init();
 
@@ -211,7 +203,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         int profileFrames = Integer.getInteger("crystalgraphics.harness.profile", 0);
         if (profileFrames > 0) CgProfiler.setEnabled(true);
 
-        while (!Display.isCloseRequested() && scene.isRunning() && !HarnessDeadline.expired()) {
+        while (!HarnessWindow.shouldClose() && scene.isRunning() && !HarnessDeadline.expired()) {
             if (profileFrames > 0) {
                 if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES) CgProfiler.reset();
                 if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES + profileFrames) {
@@ -234,13 +226,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 ctx.setProjection(HarnessProjectionUtil.perspective(vp.getWidth(), vp.getHeight()));
             }
 
-//            if (Keyboard.isKeyDown(Keyboard.KEY_R)) CgPlatform.reload().onReload();
-//            if (Keyboard.isKeyDown(Keyboard.KEY_I)) init();
-//
-            // 3. Check for pause toggle BEFORE camera input processing.
-            //    Uses Keyboard event queue to detect key-down events (not held state),
-            //    preventing rapid toggling from a single key press.
-//            inputPauseHandler.pollPauseToggle();
+            // 3. Input, before the camera reads it.
             pollInput();
 
             // 4. Camera update (skipped when paused)
@@ -300,15 +286,15 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
             // 14. Buffer swap + frame sync.
             //
-            // Separately scoped, and the distinction matters: Display.update() is the swap, where
-            // a GPU that has fallen behind the CPU shows up as a block; Display.sync() is a
-            // deliberate sleep to hold TARGET_FPS and being large there means the frame finished
-            // EARLY. Lumping them together would make an idle frame look like a stalled one.
+            // Separately scoped, and the distinction matters: the swap is where a GPU that has fallen
+            // behind the CPU shows up as a block; sync() is a deliberate sleep to hold TARGET_FPS, and
+            // being large there means the frame finished EARLY. Lumping them together would make an
+            // idle frame look like a stalled one.
             try (CgProfiler.Scope ignored = CgProfiler.scope("frame.swap")) {
-                Display.update();
+                HarnessWindow.swapBuffers();
             }
             try (CgProfiler.Scope ignored = CgProfiler.scope("frame.sync")) {
-                Display.sync(TARGET_FPS);
+                HarnessWindow.sync(TARGET_FPS);
             }
 
             // 15. Frame is genuinely over -- hand the scene its true wall duration. See
@@ -335,32 +321,16 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     }
 
     private void pollInput() {
-        if (!mouseListeners.isEmpty()) {
-            while (Mouse.next()) {
-                int buttonId = Mouse.getEventButton();
-                long millisTimestamp = buttonId == -1 ? -1 : Mouse.getEventNanoseconds() / NANOS_IN_MILLIS;
-                CgSystemInput.Mouse.Event event = new CgSystemInput.Mouse.Event(
-                        Mouse.getEventX(), ctx.getScreenHeight()-Mouse.getEventY(),
-                        Mouse.getEventDX(), Mouse.getEventDY() * NORMALIZE_TOP_LEFT_ORIGIN,
-                        buttonId, Mouse.getEventButtonState(),
-                        Mouse.getEventDWheel() * MOUSE_SCROLL_NORMALIZE, millisTimestamp
-                );
-                for (CgSystemInput.Mouse listener : mouseListeners) {
-                    if (!listener.consumeMouseEvent(event)) break;
-                }
+        HarnessWindow.pollEvents();
+        for (CgSystemInput.Mouse.Event event : HarnessWindow.drainMouse()) {
+            for (CgSystemInput.Mouse listener : mouseListeners) {
+                if (!listener.consumeMouseEvent(event)) break;
             }
         }
 
-        // DRAINED UNCONDITIONALLY, not only when a scene is listening. The queue used to be polled only
-        // if keyboardListeners was non-empty, so in a scene with no keyboard handler nothing was ever
-        // read -- which would make the global binding below work in some scenes and not others, for a
-        // reason nothing on screen explains.
-        while (Keyboard.next()) {
-            CgSystemInput.Keyboard.Event event = new CgSystemInput.Keyboard.Event(
-                    Keyboard.getEventCharacter(), Keyboard.getEventKey(),
-                    Keyboard.getEventKeyState(), Keyboard.isRepeatEvent(),
-                    Keyboard.getEventNanoseconds() / NANOS_IN_MILLIS
-            );
+        // Every scene's keyboard events pass the global binding below, whether or not the scene listens:
+        // it has to work in every scene or it is a binding nobody can rely on.
+        for (CgSystemInput.Keyboard.Event event : HarnessWindow.drainKeyboard()) {
             // Ctrl+R: re-read every stylesheet from disk and restyle every live window.
             //
             // Handled HERE rather than in a scene, and consumed, for two reasons. It works in every
@@ -368,7 +338,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // character that a focused TextEditor would otherwise type into the document.
             //
             // Ignores auto-repeat, or holding the key re-reads the files once a frame.
-            if (event.pressed() && !event.repeat() && event.key() == Keyboard.KEY_R && isCtrlDown()) {
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_R && isCtrlDown()) {
                 reloadStyleSheets();
             }
             for (CgSystemInput.Keyboard listener : keyboardListeners) {
@@ -378,7 +348,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     }
 
     private static boolean isCtrlDown() {
-        return Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL);
+        return CgPlatform.input().isKeyDown(CgKeyCodes.KEY_LCONTROL)
+                || CgPlatform.input().isKeyDown(CgKeyCodes.KEY_RCONTROL);
     }
 
     /**

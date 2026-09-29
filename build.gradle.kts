@@ -19,12 +19,24 @@ repositories {
     mavenCentral()
 }
 
+val lwjglVersion = "3.4.1"
+val lwjglModules = listOf("lwjgl", "lwjgl-glfw", "lwjgl-opengl", "lwjgl-vulkan", "lwjgl-shaderc", "lwjgl-vma")
+val lwjglNatives: String = run {
+    val os = System.getProperty("os.name").lowercase()
+    val arm = System.getProperty("os.arch").let { it == "aarch64" || it.startsWith("arm") }
+    when {
+        os.contains("win") -> if (arm) "natives-windows-arm64" else "natives-windows"
+        os.contains("mac") || os.contains("darwin") -> if (arm) "natives-macos-arm64" else "natives-macos"
+        else -> if (arm) "natives-linux-arm64" else "natives-linux"
+    }
+}
+
 dependencies {
     implementation("com.crystalgraphics:platform:1.0.0")
     implementation("com.crystalgraphics:freetype-msdfgen-harfbuzz-bindings:1.0.0")
     implementation("com.crystalgraphics:core:1.0.0")
-    // Tier 1 for LWJGL2: the cursor adapter, which used to be a copy in harness/util.
-    implementation("com.crystalgraphics:lwjgl2:1.0.0")
+    // Tier 1 for LWJGL 3: the GL backend, context, input and cursor, shared with every modern host.
+    implementation("com.crystalgraphics:lwjgl3:1.0.0")
     implementation(project(":core")) // CrystalGUI:core, via composite build substitution
 
     // The real parsers. core/ ships word-list lexers so it can load with no natives at all, and they are
@@ -38,11 +50,16 @@ dependencies {
     implementation("org.joml:joml:${rootProject.properties["jomlVersion"]}")
     implementation("com.google.code.findbugs:jsr305:3.0.2")
 
-    implementation("org.lwjgl.lwjgl:lwjgl:2.9.4-nightly-20150209")
-    implementation("org.lwjgl.lwjgl:lwjgl_util:2.9.4-nightly-20150209")
-    runtimeOnly("org.lwjgl.lwjgl:lwjgl-platform:2.9.4-nightly-20150209:natives-windows")
-    runtimeOnly("org.lwjgl.lwjgl:lwjgl-platform:2.9.4-nightly-20150209:natives-linux")
-    runtimeOnly("org.lwjgl.lwjgl:lwjgl-platform:2.9.4-nightly-20150209:natives-osx")
+    // LWJGL 3, with the Vulkan, shaderc and VMA bindings the device seam needs. Natives for the OS this
+    // runs on; LWJGL extracts them itself. lwjgl-vulkan has natives only on macOS (MoltenVK) -- elsewhere
+    // the loader is the system's.
+    implementation(platform("org.lwjgl:lwjgl-bom:$lwjglVersion"))
+    for (module in lwjglModules) {
+        implementation("org.lwjgl:$module")
+        if (module != "lwjgl-vulkan" || lwjglNatives.startsWith("natives-macos")) {
+            runtimeOnly("org.lwjgl:$module::$lwjglNatives")
+        }
+    }
 
     compileOnly("org.projectlombok:lombok:1.18.44")
     annotationProcessor("org.projectlombok:lombok:1.18.44")
@@ -66,19 +83,10 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
 }
 
-val extractLwjglNatives by tasks.registering(Copy::class) {
-    group = "harness"
-    from(configurations.runtimeClasspath.get().incoming.files.elements.map { elements ->
-        elements.filter { it.asFile.name.startsWith("lwjgl-platform-") }
-            .map { zipTree(it) }
-    })
-    into(file("build/lwjgl-natives"))
-    include("*.dll", "*.so", "*.dylib", "*.jnilib")
-}
-
 tasks.register<JavaExec>("runHarness") {
     group = "harness"
-    dependsOn(extractLwjglNatives)
+    // GLFW must own the first thread on macOS.
+    if (lwjglNatives.startsWith("natives-macos")) jvmArgs("-XstartOnFirstThread")
 
     // A CONSUMER'S OWN CLASSES, so a scene can build that project's real screens instead of a copy:
     //
@@ -102,8 +110,6 @@ tasks.register<JavaExec>("runHarness") {
     classpath = sourceSets.main.get().runtimeClasspath + files(extraClasspath)
     mainClass.set("io.github.somehussar.crystalgraphics.harness.FontDebugHarnessMain")
 
-    val lwjglNativesDir = file("build/lwjgl-natives").absolutePath
-    systemProperty("org.lwjgl.librarypath", lwjglNativesDir)
     systemProperty("harness.output.dir", file("harness-output").absolutePath)
 
     // THE ENGINE BANDS, staged one directory per band. Without this the harness opens no engine and the

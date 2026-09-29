@@ -15,7 +15,6 @@ import dev.vfyjxf.taffy.style.FlexWrap;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
-import org.lwjgl.input.Keyboard;
 
 /**
  * Interactive harness scene exercising {@code UIText} — CrystalGUI's first concrete widget —
@@ -87,7 +86,6 @@ public class CgUiTextScene implements InteractiveSceneLifecycle, CgSystemInput.K
 
     @Override
     public void init(HarnessContext ctx) {
-        Keyboard.enableRepeatEvents(false);
         UIElement root = createTextDemo();
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);

@@ -29,7 +29,7 @@ public class FloorRenderer {
 
     // Shader sources for floor rendering with uniform MVP matrix and per-vertex color
     private static final String FLOOR_VERT =
-            "#version 130\n" +
+            "#version 330 core\n" +
             "uniform mat4 u_mvp;\n" +
             "in vec3 a_pos;\n" +
             "in vec3 a_color;\n" +
@@ -40,7 +40,7 @@ public class FloorRenderer {
             "}\n";
 
     private static final String FLOOR_FRAG =
-            "#version 130\n" +
+            "#version 330 core\n" +
             "in vec3 v_color;\n" +
             "out vec4 fragColor;\n" +
             "void main() {\n" +
@@ -164,7 +164,7 @@ public class FloorRenderer {
         // mvpBuf.flip();
 
         GL20.glUseProgram(program);
-        GL20.glUniformMatrix4(mvpLocation, false, mvpBuf);
+        GL20.glUniformMatrix4fv(mvpLocation, false, mvpBuf);
 
         GL30.glBindVertexArray(vao);
         GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 6);

@@ -114,7 +114,6 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     @Override
     public void init(HarnessContext ctx) {
         // Held keys matter on the Slider, TextField and Scroller pages.
-        org.lwjgl.input.Keyboard.enableRepeatEvents(true);
 
         this.oreSheet = StyleSheetRegistry.of("crystalgui:ore");
         this.sceneSheet = StyleSheetRegistry.of("harness:gallery");

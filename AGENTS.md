@@ -1,7 +1,7 @@
 # GL Debug Harness — Agent Knowledge Base
 
 **Module**: `gl-debug-harness/`  
-**Purpose**: Standalone LWJGL 2 / OpenGL 3.0 debug harness for CrystalGraphics, running outside Minecraft to test font rendering, FBO pipelines, atlas generation, and shader behavior in isolation.
+**Purpose**: Standalone LWJGL 3 (GLFW, OpenGL 3.3 core) debug harness for CrystalGraphics, running outside Minecraft to test font rendering, FBO pipelines, atlas generation, and shader behavior in isolation.
 
 ---
 
@@ -273,9 +273,10 @@ The interactive runtime decomposes into focused services instead of one monolith
 | Component | Location | Purpose |
 |---|---|---|
 | `InteractiveSceneRunner` | `InteractiveSceneRunner.java` | Slim loop coordinator: sequences services, drives render loop |
+| `HarnessWindow` | `runtime/HarnessWindow.java` | The GLFW window and its 3.3 core context: swap, poll, pacing, resize, cursor grab, and the key/char/pointer events the runner hands to scenes. Key STATE is `CgPlatform.input()`'s, not this class's |
 | `FrameClock` | `runtime/FrameClock.java` | High-resolution frame timing (delta, elapsed, frame number) |
 | `InputPauseHandler` | `runtime/InputPauseHandler.java` | Keyboard pause toggle (ESC/T) + mouse grab management |
-| `ResizeHandler` | `runtime/ResizeHandler.java` | Display resize detection + propagation to viewport, GL, and renderers |
+| `ResizeHandler` | `runtime/ResizeHandler.java` | Framebuffer resize detection (`HarnessWindow.takeResized`) + propagation to viewport, GL, and renderers |
 | `OverlayPipeline` | `runtime/OverlayPipeline.java` | Coordinates HUD and pause overlays with resize awareness |
 | `WorldPassCoordinator` | `runtime/WorldPassCoordinator.java` | Coordinates world-base contributors like `FloorRenderer` |
 | `OverlayCaptureOrchestrator` | `runtime/OverlayCaptureOrchestrator.java` | Post-scene overlay rendering order + post-render capture callback |
@@ -303,7 +304,7 @@ The interactive runner sequences these steps every frame:
    - GL state reset via `GlStateResetHelper.resetAfterScene()`
    - Overlay pass (handled by `OverlayPipeline`: pause overlay if paused, HUD if 3D camera active)
    - Post-render capture callback (one-shot, after all overlays, before swap)
-9. **Swap buffers**: `Display.update()` + `Display.sync(60)`
+9. **Swap buffers**: `HarnessWindow.swapBuffers()` + `HarnessWindow.sync(fps)`
 
 ### Camera Controls
 
@@ -648,13 +649,12 @@ Use `--output-name=PREFIX` to customize output filenames:
 
 ## Build Configuration
 
-The harness is a standalone Gradle subproject (`gl-debug-harness/build.gradle.kts`) that depends on the root project for CgCapabilities, CgGlyphAtlasPage, and font APIs. It bundles LWJGL 2 natives and JNI bindings for freetype-harfbuzz and msdfgen.
+The harness is a standalone Gradle subproject (`gl-debug-harness/build.gradle.kts`) that depends on the root project for CgCapabilities, CgGlyphAtlasPage, and font APIs. It resolves LWJGL 3 through its BOM, with the natives for the running OS and architecture chosen at configuration time (no extraction step), plus the JNI bindings for freetype-harfbuzz and msdfgen.
 
 Key tasks:
 - `compileJava` — Compile all harness code
 - `test` — Run JUnit 4 tests (non-GL)
 - `runHarness` — Launch the standalone harness
-- `extractLwjglNatives` — Extract LWJGL DLLs (auto-dependency of runHarness)
 
 ---
 
@@ -691,9 +691,10 @@ io.github.somehussar.crystalgraphics.harness/
 ├── debug/
 │   └── HarnessDebugTools.java       # Programmatic camera + capture via ArtifactService
 ├── runtime/
+│   ├── HarnessWindow.java           # GLFW window, context, input queues, pacing
 │   ├── FrameClock.java              # Frame timing service
 │   ├── InputPauseHandler.java       # Pause toggle + mouse grab management
-│   ├── ResizeHandler.java           # Display resize detection + propagation
+│   ├── ResizeHandler.java           # Framebuffer resize detection + propagation
 │   ├── OverlayPipeline.java         # Coordinates HUD and pause overlays
 │   ├── WorldPassCoordinator.java    # Coordinates world contributors (floor, etc.)
 │   └── OverlayCaptureOrchestrator.java  # Post-scene overlay order + capture callback

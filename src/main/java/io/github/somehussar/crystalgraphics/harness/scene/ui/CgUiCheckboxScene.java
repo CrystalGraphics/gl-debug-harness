@@ -86,7 +86,6 @@ public class CgUiCheckboxScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public void init(HarnessContext ctx) {
-        org.lwjgl.input.Keyboard.enableRepeatEvents(false);
 
         UIElement root = createCheckboxDemo();
         this.document = new UIDocument().markFrameThread();

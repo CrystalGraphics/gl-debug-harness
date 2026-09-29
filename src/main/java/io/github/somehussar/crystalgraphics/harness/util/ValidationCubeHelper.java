@@ -36,7 +36,7 @@ public final class ValidationCubeHelper {
     // ── Shader source for 3D colored geometry with MVP uniform ──
 
     private static final String CUBE_VERT =
-            "#version 130\n" +
+            "#version 330 core\n" +
             "uniform mat4 u_mvp;\n" +
             "in vec3 a_pos;\n" +
             "in vec3 a_color;\n" +
@@ -47,7 +47,7 @@ public final class ValidationCubeHelper {
             "}\n";
 
     private static final String CUBE_FRAG =
-            "#version 130\n" +
+            "#version 330 core\n" +
             "in vec3 v_color;\n" +
             "out vec4 fragColor;\n" +
             "void main() {\n" +
@@ -120,7 +120,7 @@ public final class ValidationCubeHelper {
      */
     public void render(FloatBuffer mvpBuf) {
         GL20.glUseProgram(program);
-        GL20.glUniformMatrix4(mvpLocation, false, mvpBuf);
+        GL20.glUniformMatrix4fv(mvpLocation, false, mvpBuf);
 
         GL30.glBindVertexArray(vao);
         GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, CUBE_VERTEX_COUNT);

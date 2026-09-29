@@ -16,7 +16,6 @@ import dev.vfyjxf.taffy.style.FlexWrap;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
-import org.lwjgl.input.Keyboard;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -144,7 +143,6 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
     @Override
     public void init(HarnessContext ctx) {
         this.ctx = ctx;
-        Keyboard.enableRepeatEvents(false);
         CgProfiler.setEnabled(true);
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);

@@ -3,8 +3,9 @@ package io.github.somehussar.crystalgraphics.harness.camera;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
+import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.platform.input.CgKeyCodes;
+import io.github.somehussar.crystalgraphics.harness.runtime.HarnessWindow;
 
 import java.util.logging.Logger;
 
@@ -114,23 +115,22 @@ public class Camera3D {
         // Grab mouse on first frame for free-look mode
         if (!mouseGrabbed) {
             mouseGrabbed = true;
-            Mouse.setGrabbed(true);
-            // Drain any accumulated mouse delta from before grab
-            Mouse.getDX();
-            Mouse.getDY();
+            // Grabbing drains the travel from before it, so the jump to the grab point is not a turn.
+            HarnessWindow.setGrabbed(true);
             return;
         }
 
         // When mouse is not grabbed (paused state), skip rotation
-        if (!Mouse.isGrabbed()) {
+        if (!HarnessWindow.isGrabbed()) {
             return;
         }
 
-        int dx = Mouse.getDX();
-        int dy = Mouse.getDY();
+        int[] travel = HarnessWindow.takeMouseDelta();
+        int dx = travel[0];
+        int dy = -travel[1];   // y down on screen; positive dy looks up
         if (dx != 0 || dy != 0) {
             // Negate dx so moving mouse RIGHT rotates camera RIGHT (positive yaw).
-            // LWJGL2 getDX() returns positive for rightward mouse movement, but
+            // dx is positive for rightward mouse movement, but
             // the look direction uses -sin(yaw), so yaw must decrease for a
             // rightward camera turn.
             yaw -= dx * sensitivity;
@@ -155,6 +155,10 @@ public class Camera3D {
         }
     }
 
+    private static boolean key(int cgKey) {
+        return CgPlatform.input().isKeyDown(cgKey);
+    }
+
     /**
      * Handles WASD + SPACE + SHIFT keyboard-driven movement.
      *
@@ -175,37 +179,37 @@ public class Camera3D {
         float dz = 0.0f;
 
         // CTRL: Movement speed
-        if (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)) {
+        if (key(CgKeyCodes.KEY_LCONTROL) || key(CgKeyCodes.KEY_RCONTROL)) {
             speed *= 5;
         }
         
           // SPACE: move up
-        if (Keyboard.isKeyDown(Keyboard.KEY_SPACE)) {
+        if (key(CgKeyCodes.KEY_SPACE)) {
             dy += speed;
         }
         
         // SHIFT: move down, clamped to floor level
-        if (Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT)) {
+        if (key(CgKeyCodes.KEY_LSHIFT) || key(CgKeyCodes.KEY_RSHIFT)) {
             dy -= speed;
             speed *= 0.1f;
         }
         
         // W/S: forward/backward along look direction (XZ plane only)
-        if (Keyboard.isKeyDown(Keyboard.KEY_W)) {
+        if (key(CgKeyCodes.KEY_W)) {
             dx += forwardX * speed;
             dz += forwardZ * speed;
         }
-        if (Keyboard.isKeyDown(Keyboard.KEY_S)) {
+        if (key(CgKeyCodes.KEY_S)) {
             dx -= forwardX * speed;
             dz -= forwardZ * speed;
         }
 
         // A/D: strafe left/right
-        if (Keyboard.isKeyDown(Keyboard.KEY_A)) {
+        if (key(CgKeyCodes.KEY_A)) {
             dx -= rightX * speed;
             dz -= rightZ * speed;
         }
-        if (Keyboard.isKeyDown(Keyboard.KEY_D)) {
+        if (key(CgKeyCodes.KEY_D)) {
             dx += rightX * speed;
             dz += rightZ * speed;
         }
@@ -224,7 +228,7 @@ public class Camera3D {
         }
 
         // O: Go to origin
-        if (Keyboard.isKeyDown(Keyboard.KEY_O)) {
+        if (key(CgKeyCodes.KEY_O)) {
             posX = posZ = yaw = pitch = 0;
             posY = MIN_CAMERA_Y;
 
@@ -322,8 +326,7 @@ public class Camera3D {
         viewDirty = true;
         // Drain accumulated mouse delta to prevent the next update() from
         // overwriting this programmatic position with stale mouse movement.
-        Mouse.getDX();
-        Mouse.getDY();
+        HarnessWindow.takeMouseDelta();
         LOGGER.fine("[Camera3D] moveCamera: (" + posX + ", " + posY + ", " + posZ + ")");
     }
 
@@ -381,8 +384,7 @@ public class Camera3D {
             this.yaw += 360.0f;
         }
         viewDirty = true;
-        Mouse.getDX();
-        Mouse.getDY();
+        HarnessWindow.takeMouseDelta();
     }
 
     /**
@@ -398,8 +400,7 @@ public class Camera3D {
             this.pitch = MIN_PITCH;
         }
         viewDirty = true;
-        Mouse.getDX();
-        Mouse.getDY();
+        HarnessWindow.takeMouseDelta();
     }
 
     @Override

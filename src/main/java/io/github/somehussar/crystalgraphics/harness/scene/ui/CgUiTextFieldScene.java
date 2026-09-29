@@ -58,7 +58,6 @@ public class CgUiTextFieldScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public void init(HarnessContext ctx) {
-        org.lwjgl.input.Keyboard.enableRepeatEvents(true);
 
         // The real system clipboard comes from the harness's InputAdapter (AWT-backed), so Ctrl+X/C/V
         // in this scene exercise the same path a loader would provide.

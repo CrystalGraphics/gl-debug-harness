@@ -58,7 +58,7 @@ public class GlStateDumper implements HarnessSceneLifecycle {
 
                 pw.println("-- Viewport --");
                 IntBuffer viewport = BufferUtils.createIntBuffer(16);
-                GL11.glGetInteger(GL11.GL_VIEWPORT, viewport);
+                GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
                 pw.println("GL_VIEWPORT: [" + viewport.get(0) + ", " + viewport.get(1)
                         + ", " + viewport.get(2) + ", " + viewport.get(3) + "]");
                 pw.println();

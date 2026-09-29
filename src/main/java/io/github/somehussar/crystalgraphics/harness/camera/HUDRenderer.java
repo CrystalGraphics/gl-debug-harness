@@ -9,7 +9,7 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.api.text.CgTextLayout;
 
-import org.lwjgl.input.Mouse;
+import io.github.somehussar.crystalgraphics.harness.runtime.HarnessWindow;
 
 import java.util.logging.Logger;
 
@@ -240,7 +240,7 @@ public final class HUDRenderer {
         renderer.beginBatch();
         renderer.draw().layout(layout).font(font).at(4, 4).color(TEXT_COLOR).submit();
 
-        int wheel = Mouse.getDWheel();
+        double wheel = HarnessWindow.takeWheel();
         if (wheel > 0) {
             poseScale = Math.min(4.0f, poseScale + 0.1f);
         } else if (wheel < 0) {

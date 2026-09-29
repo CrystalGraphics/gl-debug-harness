@@ -6,13 +6,10 @@ import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.capture.ArtifactService;
 import io.github.somehussar.crystalgraphics.harness.scheduler.TaskScheduler;
 
+import io.github.somehussar.crystalgraphics.harness.runtime.HarnessWindow;
+
 import org.joml.Matrix4f;
-import org.lwjgl.LWJGLException;
-import org.lwjgl.opengl.ContextAttribs;
-import org.lwjgl.opengl.Display;
-import org.lwjgl.opengl.DisplayMode;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.PixelFormat;
+import org.lwjgl.opengl.GL11C;
 
 import java.util.logging.Logger;
 
@@ -108,8 +105,8 @@ public final class HarnessContext {
     }
 
     /**
-     * Creates a new HarnessContext by initializing the LWJGL Display and
-     * OpenGL 3.0 context with the default dimensions (800×600).
+     * Creates a new HarnessContext by opening the harness window and its
+     * OpenGL 3.3 core context with the default dimensions (800×600).
      *
      * @return a fully initialized context with GL info populated
      * @throws RuntimeException if the GL context cannot be created
@@ -123,8 +120,8 @@ public final class HarnessContext {
     }
 
     /**
-     * Creates a new HarnessContext by initializing the LWJGL Display and
-     * OpenGL 3.0 context with the specified dimensions.
+     * Creates a new HarnessContext by opening the harness window and its
+     * OpenGL 3.3 core context with the specified dimensions.
      *
      * @param width  initial window width in pixels
      * @param height initial window height in pixels
@@ -132,40 +129,28 @@ public final class HarnessContext {
      * @throws RuntimeException if the GL context cannot be created
      */
     public static HarnessContext create(int width, int height) {
-        try {
-            Display.setDisplayMode(new DisplayMode(width, height));
-            Display.setTitle("CrystalGraphics Debug Harness");
+        HarnessWindow.create(width, height, "CrystalGraphics Debug Harness");
 
-            // Enable window resizing and maximize button
-            Display.setResizable(true);
-
-            // Request OpenGL 3.0 forward-compatible context
-            ContextAttribs attribs = new ContextAttribs(3, 0)
-                    .withForwardCompatible(false);
-
-            Display.create(new PixelFormat(), attribs);
-        } catch (LWJGLException e) {
-            throw new RuntimeException("Failed to create OpenGL 3.0 context: " + e.getMessage(), e);
-        }
-
-        String glVersion = GL11.glGetString(GL11.GL_VERSION);
-        String glVendor = GL11.glGetString(GL11.GL_VENDOR);
-        String glRenderer = GL11.glGetString(GL11.GL_RENDERER);
+        String glVersion = GL11C.glGetString(GL11C.GL_VERSION);
+        String glVendor = GL11C.glGetString(GL11C.GL_VENDOR);
+        String glRenderer = GL11C.glGetString(GL11C.GL_RENDERER);
 
         LOGGER.info("[Harness] GL Version:  " + glVersion);
         LOGGER.info("[Harness] GL Vendor:   " + glVendor);
         LOGGER.info("[Harness] GL Renderer: " + glRenderer);
 
-        INSTANCE = new HarnessContext(glVersion, glVendor, glRenderer, width, height);
+        // The FRAMEBUFFER's size, which is the window's on a display with no scaling.
+        INSTANCE = new HarnessContext(glVersion, glVendor, glRenderer,
+                HarnessWindow.width(), HarnessWindow.height());
         return INSTANCE;
     }
 
     /**
-     * Destroys the LWJGL Display and releases all GL resources.
+     * Closes the harness window, releasing its GL context.
      */
     public void destroy() {
-        Display.destroy();
-        LOGGER.info("[Harness] Display destroyed.");
+        HarnessWindow.destroy();
+        LOGGER.info("[Harness] Window destroyed.");
     }
 
     // ── GL context info (immutable) ──
@@ -252,7 +237,7 @@ public final class HarnessContext {
 
     /**
      * Returns the current screen/viewport width in pixels.
-     * Updated automatically when {@code Display.wasResized()} is detected.
+     * Updated automatically when the window's framebuffer is resized.
      *
      * <p><b>Prefer</b> {@code getViewport().getWidth()} for new code.</p>
      */
@@ -260,7 +245,7 @@ public final class HarnessContext {
 
     /**
      * Returns the current screen/viewport height in pixels.
-     * Updated automatically when {@code Display.wasResized()} is detected.
+     * Updated automatically when the window's framebuffer is resized.
      *
      * <p><b>Prefer</b> {@code getViewport().getHeight()} for new code.</p>
      */

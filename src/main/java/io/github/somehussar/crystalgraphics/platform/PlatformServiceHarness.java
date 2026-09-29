@@ -10,9 +10,10 @@ import com.crystalgraphics.platform.service.CgReloadService;
 import com.crystalgraphics.platform.service.CgRenderingService;
 import com.crystalgraphics.platform.service.CgResourceService;
 import com.crystalgraphics.platform.service.CgSoundService;
-import com.crystalgraphics.lwjgl2.Lwjgl2GLBackend;
-import com.crystalgraphics.lwjgl2.Lwjgl2GLContext;
-import io.github.somehussar.crystalgraphics.platform.input.InputAdapter;
+import com.crystalgraphics.lwjgl3.GlfwInputService;
+import com.crystalgraphics.lwjgl3.Lwjgl3GLBackend;
+import com.crystalgraphics.lwjgl3.Lwjgl3GLContext;
+import io.github.somehussar.crystalgraphics.harness.runtime.HarnessWindow;
 import io.github.somehussar.crystalgraphics.platform.service.LifecycleServiceHarness;
 import io.github.somehussar.crystalgraphics.platform.service.ReloadServiceHarness;
 import io.github.somehussar.crystalgraphics.platform.service.RenderingServiceHarness;
@@ -47,9 +48,9 @@ public final class PlatformServiceHarness implements CgPlatformService {
     public final LifecycleServiceHarness lifecycleImpl = new LifecycleServiceHarness();
     public final ResourceServiceHarness resourceImpl = new ResourceServiceHarness();
     public final ReloadServiceHarness reloadImpl = new ReloadServiceHarness();
-    public final Lwjgl2GLBackend glDispatchImpl = new Lwjgl2GLBackend();
-    public final Lwjgl2GLContext glContextImpl = new Lwjgl2GLContext();
-    public final InputAdapter inputImpl = new InputAdapter();
+    public final Lwjgl3GLBackend glDispatchImpl = new Lwjgl3GLBackend();
+    public final Lwjgl3GLContext glContextImpl = new Lwjgl3GLContext();
+    public final GlfwInputService inputImpl = new GlfwInputService(HarnessWindow::handle);
     /**
      * Swappable — see the class javadoc. Silent unless a scene installs a counter.
      *

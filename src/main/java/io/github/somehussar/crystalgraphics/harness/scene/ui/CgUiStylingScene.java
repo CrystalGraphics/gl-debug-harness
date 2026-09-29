@@ -15,7 +15,6 @@ import dev.vfyjxf.taffy.style.FlexWrap;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
-import org.lwjgl.input.Keyboard;
 
 /**
  * Interactive harness scene that exercises CrystalGUI's stylesheet + transition system:
@@ -191,7 +190,6 @@ public class CgUiStylingScene implements InteractiveSceneLifecycle, CgSystemInpu
 
     @Override
     public void init(HarnessContext ctx) {
-        Keyboard.enableRepeatEvents(true);
         UIElement root = createStylingDemo();
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);

@@ -19,7 +19,7 @@ public class TriangleScene2D implements HarnessSceneLifecycle {
     private static final Logger LOGGER = Logger.getLogger(TriangleScene2D.class.getName());
 
     static final String VERT_SOURCE =
-            "#version 130\n" +
+            "#version 330 core\n" +
             "in vec2 a_pos;\n" +
             "in vec3 a_color;\n" +
             "out vec3 v_color;\n" +
@@ -29,7 +29,7 @@ public class TriangleScene2D implements HarnessSceneLifecycle {
             "}\n";
 
     static final String FRAG_SOURCE =
-            "#version 130\n" +
+            "#version 330 core\n" +
             "in vec3 v_color;\n" +
             "out vec4 fragColor;\n" +
             "void main() {\n" +

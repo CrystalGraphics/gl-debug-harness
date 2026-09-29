@@ -62,7 +62,6 @@ public class CgUiOreThemeScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public void init(HarnessContext ctx) {
-        org.lwjgl.input.Keyboard.enableRepeatEvents(false);
 
         UIElement root = createDemo();
         this.document = new UIDocument().markFrameThread();

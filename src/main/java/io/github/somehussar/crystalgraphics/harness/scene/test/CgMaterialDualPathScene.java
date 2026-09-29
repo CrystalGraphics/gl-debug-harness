@@ -242,7 +242,7 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
         // ── MRT section ───────────────────────────────────────────────────────
         if (mrtFbo != null && mrtMaterial != null && mrtMesh != null) {
             IntBuffer savedViewport = BufferUtils.createIntBuffer(16);
-            GL11.glGetInteger(GL11.GL_VIEWPORT, savedViewport);
+            GL11.glGetIntegerv(GL11.GL_VIEWPORT, savedViewport);
 
             mrtFbo.bind();
             mrtFbo.drawBuffers(0, 1, 2);

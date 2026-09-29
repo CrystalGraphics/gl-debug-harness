@@ -36,7 +36,7 @@ public final class PauseScreenRenderer {
 
     // Shader for colored quad with alpha — uses pixel-to-NDC conversion
     private static final String PAUSE_VERT =
-            "#version 130\n" +
+            "#version 330 core\n" +
             "in vec2 a_pos;\n" +
             "uniform vec2 u_screenSize;\n" +
             "void main() {\n" +
@@ -46,7 +46,7 @@ public final class PauseScreenRenderer {
             "}\n";
 
     private static final String PAUSE_FRAG =
-            "#version 130\n" +
+            "#version 330 core\n" +
             "uniform vec4 u_color;\n" +
             "out vec4 fragColor;\n" +
             "void main() {\n" +

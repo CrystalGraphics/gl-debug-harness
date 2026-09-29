@@ -1,5 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.ui;
 
+import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.core.storage.StorageLayout;
 import com.crystalgui.style.StyleGroup;
@@ -118,7 +120,6 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
 
     @Override
     public void init(HarnessContext ctx) {
-        org.lwjgl.input.Keyboard.enableRepeatEvents(true);
 
         Path root = seedScratchProject(ctx);
         ProjectRegistry registry = new ProjectRegistry().register(() -> List.of(
@@ -554,9 +555,9 @@ public class CgUiWorkspaceScene implements InteractiveSceneLifecycle,
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         // Ctrl+S before the editor sees it, or 's' is typed into the document.
-        if (event.pressed() && !event.repeat() && event.key() == org.lwjgl.input.Keyboard.KEY_S
-                && (org.lwjgl.input.Keyboard.isKeyDown(org.lwjgl.input.Keyboard.KEY_LCONTROL)
-                 || org.lwjgl.input.Keyboard.isKeyDown(org.lwjgl.input.Keyboard.KEY_RCONTROL))) {
+        if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_S
+                && (CgPlatform.input().isKeyDown(CgKeyCodes.KEY_LCONTROL)
+                 || CgPlatform.input().isKeyDown(CgKeyCodes.KEY_RCONTROL))) {
             saveActive();
             return false;
         }

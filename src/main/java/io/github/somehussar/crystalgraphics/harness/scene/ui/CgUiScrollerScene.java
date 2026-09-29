@@ -52,7 +52,6 @@ public class CgUiScrollerScene implements InteractiveSceneLifecycle, CgSystemInp
 
     @Override
     public void init(HarnessContext ctx) {
-        org.lwjgl.input.Keyboard.enableRepeatEvents(true);
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
         UIElement sceneRoot = createDemo();
