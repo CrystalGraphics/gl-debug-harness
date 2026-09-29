@@ -7,6 +7,7 @@ import com.crystalgraphics.lwjgl3.Lwjgl3GLContext;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.CgPlatformService;
 import com.crystalgraphics.platform.device.CgDevice;
+import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.platform.device.recording.CgRecordingDevice;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
@@ -117,6 +118,16 @@ public final class PlatformServiceHarness implements CgPlatformService {
     /** The tracked backend under {@code --device=tracked}, else null. */
     public static CgTrackedGLBackend tracked() {
         return INSTANCE == null ? null : INSTANCE.tracked;
+    }
+
+    /** The device under {@code --device=tracked|vulkan}: its name, vendor and driver. Null on GL. */
+    public static CgDeviceInfo deviceInfo() {
+        return tracked() == null ? null : INSTANCE.device.info();
+    }
+
+    /** Validation errors the Vulkan device has seen so far; 0 on any other device. */
+    public static int validationErrors() {
+        return INSTANCE == null || INSTANCE.vulkanDevice == null ? 0 : INSTANCE.vulkanDevice.validationErrors();
     }
 
     /** The device's surface follows the window's framebuffer. Nothing on GL. */

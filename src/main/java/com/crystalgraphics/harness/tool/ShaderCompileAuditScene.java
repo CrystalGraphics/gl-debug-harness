@@ -7,7 +7,13 @@ import com.crystalgraphics.gl.material.parse.CgMaterialShaderCompiler;
 import com.crystalgraphics.gl.material.parse.CgParsedPass;
 import com.crystalgraphics.gl.material.parse.CgParsedShader;
 import com.crystalgraphics.gl.material.parse.CgShaderParser;
+import com.crystalgraphics.api.shader.CgShader;
+import com.crystalgraphics.platform.PlatformServiceHarness;
+import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.platform.gl.CgCapabilities;
+import com.crystalgraphics.platform.gl.CgGL;
+import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
+import com.crystalgraphics.platform.gl.tracked.tracker.CgTracker;
 import com.crystalgraphics.util.io.CgIO;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessExtension;
@@ -52,9 +58,13 @@ import java.util.logging.Logger;
  * <h3>Deliberate design choices</h3>
  * <ul>
  *   <li><b>Collects failures, never throws.</b> One report beats one crash.</li>
- *   <li><b>Compiles keyword variants individually and all-on.</b> Each keyword combination is a
- *       separately compiled program, so a variant can fail while the base succeeds — which is
- *       exactly the case that hid behind the original crash.</li>
+ *   <li><b>Compiles every keyword combination.</b> Each is a separately compiled program, so a
+ *       variant can fail while the base succeeds — which is exactly the case that hid behind the
+ *       original crash.</li>
+ *   <li><b>On a device ({@code --device=tracked|vulkan}), builds every variant's pipeline</b> in both
+ *       clip conventions. Linking there stops at SPIR-V; a Vulkan driver compiles when a pipeline is
+ *       built, so without this its compiler would see nothing. Validation errors are counted per
+ *       variant.</li>
  *   <li><b>Uses the engine's own compile path</b> ({@link CgMaterialShader}), not a reimplementation
  *       of it, so a green report means the engine works and not merely that the harness does.</li>
  *   <li><b>No system properties, no flags.</b> One copy-pasteable command; making a volunteer tester
@@ -97,6 +107,7 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
     private int failures;
     private int warnings;
     private int checks;
+    private int pipelines;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -108,6 +119,10 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
         List<String> body = new ArrayList<>();
 
         LogCapture capture = LogCapture.install();
+        // Empty, so every input a pipeline is built for reads (0, 0, 0, 1) and none needs a buffer.
+        int vao = PlatformServiceHarness.tracked() == null ? 0 : CgGL.glGenVertexArrays();
+        int previousVao = CgGL.glGetInteger(CgGL.GL_VERTEX_ARRAY_BINDING);
+        if (vao != 0) CgGL.glBindVertexArray(vao);
         try {
             for (String namespace : namespaces()) {
                 for (String path : shippedShaderPaths(namespace)) {
@@ -123,6 +138,10 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
             for (StackTraceElement e : t.getStackTrace()) body.add("      at " + e);
         } finally {
             capture.remove();
+            if (vao != 0) {
+                CgGL.glBindVertexArray(previousVao);
+                CgGL.glDeleteVertexArrays(vao);
+            }
         }
 
         try (PrintWriter pw = new PrintWriter(new FileWriter(outFile))) {
@@ -132,8 +151,8 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
             for (String line : body) pw.println(line);
             pw.println();
             pw.println("=== Summary ===");
-            pw.println(checks + " compile checks, " + failures + " failure(s), "
-                    + warnings + " non-fatal warning(s)");
+            pw.println(checks + " compile checks, " + pipelines + " pipelines built, " + failures
+                    + " failure(s), " + warnings + " non-fatal warning(s)");
             pw.println(failures == 0
                     ? "All shipped shaders and keyword variants compiled on this driver."
                     : "SEND THIS FILE BACK — the failures above are what we cannot reproduce here.");
@@ -177,15 +196,14 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
 
         staticChecks(path, parsed, body);
 
-        // Driver compile: base variant, then each keyword alone, then all keywords together.
-        // Each set is a separately compiled program, so they are separate checks.
+        // Driver compile: every keyword combination, the empty one being the base variant.
+        // Each is a separately compiled program, so they are separate checks.
+        List<String> features = parsed.featureNames();
         List<Set<String>> keywordSets = new ArrayList<>();
-        keywordSets.add(Collections.<String>emptySet());
-        for (String feature : parsed.featureNames()) {
-            keywordSets.add(Collections.singleton(feature));
-        }
-        if (parsed.featureNames().size() > 1) {
-            keywordSets.add(new LinkedHashSet<>(parsed.featureNames()));
+        for (int mask = 0; mask < 1 << features.size(); mask++) {
+            Set<String> set = new LinkedHashSet<>();
+            for (int i = 0; i < features.size(); i++) if ((mask & 1 << i) != 0) set.add(features.get(i));
+            keywordSets.add(set);
         }
 
         CgMaterialShader asset;
@@ -206,6 +224,10 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
             return;                       // variants cannot compile if the base did not
         }
         body.add("  COMPILE ok   base variant");
+        for (CgParsedPass pass : parsed.passes()) {
+            buildPipelines(asset.getOrCompile(pass.name(), Collections.emptySet()),
+                    "pass '" + pass.name() + "' base variant", body);
+        }
         // Auto-generated ShadowCaster/Depth passes fail non-fatally: the engine logs and carries on.
         // Report them anyway — a run that printed a GLSL error to the console while the report said
         // "0 failures" is exactly the kind of thing that gets a real problem dismissed.
@@ -229,6 +251,8 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
                         appendCaptured(capture, body);
                     } else {
                         body.add(String.format(label, "ok  "));
+                        buildPipelines(asset.getOrCompile(pass.name(), keywords),
+                                "pass '" + pass.name() + "' keywords=" + keywords, body);
                     }
                 } catch (Throwable t) {
                     failures++;
@@ -236,6 +260,39 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
                     appendCaptured(capture, body);
                 }
             }
+        }
+    }
+
+    /**
+     * On a device, the pipeline a triangle draw would bind with this program, in GL's clip convention and in
+     * zero-to-one: the Vulkan driver's own compile. A validation error raised meanwhile fails the variant; its
+     * text is in the console, as {@code [vulkan] ERROR}. Nothing on GL, where the link was the driver's compile.
+     */
+    private void buildPipelines(CgShader shader, String what, List<String> body) {
+        CgTrackedGLBackend tracked = PlatformServiceHarness.tracked();
+        if (tracked == null || shader == null) return;
+        CgTracker tracker = tracked.tracker();
+        boolean clip = tracker.zeroToOneClip();
+        int validationBefore = PlatformServiceHarness.validationErrors();
+        try {
+            shader.bind();
+            for (boolean zeroToOne : new boolean[] {false, true}) {
+                tracker.setZeroToOneClip(zeroToOne);
+                tracked.buildPipeline(CgGL.GL_TRIANGLES);
+                pipelines++;
+            }
+        } catch (Throwable t) {
+            failures++;
+            body.add("  PIPELINE FAIL " + what + " — threw: " + t);
+            return;
+        } finally {
+            tracker.setZeroToOneClip(clip);
+            shader.unbind();
+        }
+        int raised = PlatformServiceHarness.validationErrors() - validationBefore;
+        if (raised > 0) {
+            failures++;
+            body.add("  PIPELINE FAIL " + what + " — " + raised + " validation error(s), in the console as [vulkan] ERROR");
         }
     }
 
@@ -389,10 +446,18 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
         pw.println("=== CrystalGraphics Shader Compile Audit ===");
         pw.println("Every shipped .shader and keyword variant, compiled on this machine's driver.");
         pw.println();
-        pw.println("-- GL Context --");
-        pw.println("GL_VERSION:  " + ctx.getGlVersion());
-        pw.println("GL_VENDOR:   " + ctx.getGlVendor());
-        pw.println("GL_RENDERER: " + ctx.getGlRenderer());
+        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        if (device != null) {
+            pw.println("-- Device --");
+            pw.println("Name:   " + device.name());
+            pw.println("Vendor: " + device.vendor());
+            pw.println("Driver: " + device.driver());
+        } else {
+            pw.println("-- GL Context --");
+            pw.println("GL_VERSION:  " + ctx.getGlVersion());
+            pw.println("GL_VENDOR:   " + ctx.getGlVendor());
+            pw.println("GL_RENDERER: " + ctx.getGlRenderer());
+        }
         pw.println();
         pw.println("-- CgCapabilities --");
         try {
