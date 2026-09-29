@@ -77,6 +77,19 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
 }
 
+// -Pharness.bytecode=8: run against the engine modules' Java 8 copies -- the bytecode the shipped jars
+// carry -- instead of their Java 25 originals, on the same JVM. What FrameBench compares.
+(findProperty("harness.bytecode") as String?)?.toInt()?.let { level ->
+    configurations.named("runtimeClasspath") {
+        attributes { attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, level) }
+    }
+    // A host module asking the same of ITS classpath reaches this project too, which is Java 25 only.
+    // Advertised as `level` so it still resolves: it runs on the same Java 25 JVM either way.
+    listOf("apiElements", "runtimeElements").forEach { name ->
+        configurations.named(name) { attributes { attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, level) } }
+    }
+}
+
 /**
  * Source resource roots a host build adds, so an edit to its assets is what Ctrl+R reads. Read after the
  * harness's own and before CrystalGraphics'.

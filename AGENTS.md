@@ -593,6 +593,28 @@ Capped stays the default: a UI scene otherwise spins a core redrawing a picture 
 an uncapped run with a frame readout — from CrystalGUI, **F7** in its `cgui-desktop` and
 `-Dcrystalgui.frameprofile=true` for the per-phase breakdown.
 
+### Timing a scene — `FrameBench`
+
+`-Dcrystalgraphics.harness.bench=<frames>` times that many frames of any interactive scene, after
+`bench.warmup` (default 300) discarded ones, then prints wall-time percentiles, allocation per frame and
+mean CPU time, and stops. It also prints the class-file version the engine was loaded from.
+
+```bash
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop" \
+    -Dcrystalgraphics.harness.bench=1500 -Dcrystalgraphics.harness.fps=0 -Dcrystalgraphics.harness.fixedDelta=0.0166667
+
+# the same, against the Java 8 bytecode the shipped jars carry
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop" -Pharness.bytecode=8 \
+    -Dcrystalgraphics.harness.bench=1500 -Dcrystalgraphics.harness.fps=0 -Dcrystalgraphics.harness.fixedDelta=0.0166667
+```
+
+- Run uncapped (`fps=0`), or the cap's sleep is what gets measured.
+- CPU time is a mean only: a thread's CPU clock ticks in 15.6 ms steps on Windows.
+- One run is one sample. Alternate the builds being compared, several times each: run to run on one
+  machine, wall time spreads by more than most differences worth finding.
+- A scene that ends itself (`text-stress`, `cgui-text-stress` stop at 543 frames) needs a warm-up and
+  window that fit, or it prints nothing.
+
 ### Output Organization
 
 All scene outputs are organized into scene-specific subdirectories:

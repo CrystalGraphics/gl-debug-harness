@@ -33,6 +33,7 @@ import com.crystalgraphics.harness.util.HarnessProjectionUtil;
 import com.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.input.CgKeyCodes;
+import com.crystalgraphics.harness.runtime.FrameBench;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 
 import com.sun.management.ThreadMXBean;
@@ -256,8 +257,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // THE HARNESS IS THE HOST, so it brackets each loop as a trace frame -- unless the scene frames
         // itself (a UIDocument does), which it notices the first time the index moves under a render.
         boolean sceneFrames = false;
+        FrameBench bench = FrameBench.fromProperty();
 
         while (!HarnessWindow.shouldClose() && scene.isRunning() && !HarnessDeadline.expired()) {
+            if (bench != null) bench.begin();
             if (profileFrames > 0) {
                 if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES) profileFrom = CgTrace.currentFrameIndex() + 1;
                 if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES + profileFrames) {
@@ -368,6 +371,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     (float) ((System.nanoTime() - frameStartNanos) / 1_000_000_000.0),
                     frameClock.getElapsedTime(), frameClock.getFrameNumber()));
             if (CAPTURE_AT > 0 && frameClock.getFrameNumber() >= CAPTURE_AT) break;
+            if (bench != null && bench.end()) {
+                bench.report(scene.getClass().getSimpleName());
+                break;
+            }
         }
 
         LOGGER.info("[InteractiveSceneRunner] Render loop exited after "
