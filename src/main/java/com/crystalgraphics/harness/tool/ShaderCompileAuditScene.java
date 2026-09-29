@@ -10,6 +10,8 @@ import com.crystalgraphics.gl.material.parse.CgShaderParser;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.util.io.CgIO;
 import com.crystalgraphics.harness.FrameInfo;
+import com.crystalgraphics.harness.HarnessExtension;
+import com.crystalgraphics.harness.HarnessExtensions;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import org.apache.logging.log4j.Level;
@@ -66,8 +68,14 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
 
     private static final Logger LOGGER = Logger.getLogger(ShaderCompileAuditScene.class.getName());
 
-    /** Namespaces whose {@code assets/<ns>/shaders/*.shader} get audited. */
-    private static final String[] NAMESPACES = {"crystalgui", "crystalgraphics"};
+    /** Namespaces whose {@code assets/<ns>/shaders/*.shader} get audited: ours, then each extension's. */
+    private static List<String> namespaces() {
+        List<String> out = new ArrayList<>(List.of("crystalgraphics"));
+        for (HarnessExtension extension : HarnessExtensions.all()) {
+            out.addAll(extension.shaderNamespaces());
+        }
+        return out;
+    }
 
     /**
      * Documentation, not shaders — annotated reference files with commented-out {@code Pass} blocks
@@ -101,7 +109,7 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
 
         LogCapture capture = LogCapture.install();
         try {
-            for (String namespace : NAMESPACES) {
+            for (String namespace : namespaces()) {
                 for (String path : shippedShaderPaths(namespace)) {
                     if (DOCUMENTATION_ONLY.contains(path)) {
                         body.add("SKIP  " + path + "  (documentation, not a compilable shader)");

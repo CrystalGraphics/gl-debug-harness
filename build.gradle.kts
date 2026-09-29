@@ -6,10 +6,10 @@ group = "com.crystalgraphics"
 version = "1.0.0-SNAPSHOT"
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
 
@@ -31,23 +31,17 @@ val lwjglNatives: String = run {
     }
 }
 
+// CrystalGraphics only. A project on top of it -- CrystalGUI -- adds its scenes as a HarnessExtension from
+// its own module, which puts itself on runHarness' classpath (see hostAssetRoots below).
 dependencies {
-    implementation("com.crystalgraphics:platform:1.0.0")
-    implementation("com.crystalgraphics:freetype-msdfgen-harfbuzz-bindings:1.0.0")
-    implementation("com.crystalgraphics:core:1.0.0")
+    // `api`: a scene an extension writes is handed CrystalGraphics and JOML types by HarnessContext.
+    api("com.crystalgraphics:platform:1.0.0")
+    api("com.crystalgraphics:freetype-msdfgen-harfbuzz-bindings:1.0.0")
+    api("com.crystalgraphics:core:1.0.0")
     // Tier 1 for LWJGL 3: the GL backend, context, input and cursor, shared with every modern host.
     implementation("com.crystalgraphics:lwjgl3:1.0.0")
-    implementation(project(":core")) // CrystalGUI:core, via composite build substitution
 
-    // The real parsers. core/ ships word-list lexers so it can load with no natives at all, and they are
-    // genuinely fine for keywords, strings and comments -- but a lexer calls any identifier before a "("
-    // a function, so a constructor, an enum constant, a declaration and a call are one colour and no
-    // scheme can separate them. Without this the editor looks plausible and cannot match any reference
-    // palette, which is exactly how it went unnoticed through a round of scheme tuning.
-    implementation(project(":language"))
-    implementation(project(":taffy"))
-
-    implementation("org.joml:joml:${rootProject.properties["jomlVersion"]}")
+    api("org.joml:joml:${rootProject.findProperty("jomlVersion") ?: "1.10.8"}")
     implementation("com.google.code.findbugs:jsr305:3.0.2")
 
     // LWJGL 3, with the Vulkan, shaderc and VMA bindings the device seam needs. Natives for the OS this
@@ -83,6 +77,21 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
 }
 
+/**
+ * Source resource roots a host build adds, so an edit to its assets is what Ctrl+R reads. Read after the
+ * harness's own and before CrystalGraphics'.
+ *
+ *   (project(":gl-debug-harness").extra["hostAssetRoots"] as ConfigurableFileCollection)
+ *       .from(file("src/main/resources"))
+ */
+val hostAssetRoots: ConfigurableFileCollection = files()
+extra["hostAssetRoots"] = hostAssetRoots
+
+// CrystalGraphics' checkout: the included build of that name, or a sibling directory for a host that has
+// it as a plain folder.
+val crystalGraphicsDir: File = gradle.includedBuilds.firstOrNull { it.name == "CrystalGraphics" }?.projectDir
+    ?: rootProject.file("CrystalGraphics")
+
 tasks.register<JavaExec>("runHarness") {
     group = "harness"
     // GLFW must own the first thread on macOS.
@@ -95,7 +104,7 @@ tasks.register<JavaExec>("runHarness") {
     // A copy is what the alternative always becomes -- the harness cannot depend on a project that
     // depends on it, so without this every mod screen worth previewing gets re-implemented here and
     // drifts from the one that ships. Reflection at the scene's end keeps the compile dependency at
-    // zero in both directions; see RpgConsoleScene.
+    // zero in both directions; see CrystalGUI's RpgConsoleScene.
     val extraClasspath = (project.findProperty("harness.extraClasspath") as String?)
         ?.split(File.pathSeparator)
         .orEmpty()
@@ -112,18 +121,6 @@ tasks.register<JavaExec>("runHarness") {
 
     systemProperty("harness.output.dir", file("harness-output").absolutePath)
 
-    // THE ENGINE BANDS, staged one directory per band. Without this the harness opens no engine and the
-    // whole semantic layer is silently absent: no diagnostics, no semantic colouring, no Run command --
-    // because `EngineSource.NONE` is a legitimate deployment and nothing anywhere treats it as an error.
-    //
-    // A DIRECTORY rather than the jars on the harness's own classpath, and that is the point: the
-    // engines must load in EngineClassLoader's isolation, not beside the application. Putting ECJ on
-    // this classpath would work in the harness and be exactly the arrangement that cannot occur in
-    // production, so the dev run would be exercising a path that does not ship.
-    dependsOn(":language:stageEngines")
-    systemProperty("crystalgui.engines.dir",
-        project(":language").layout.buildDirectory.dir("engines").get().asFile.absolutePath)
-
     // Forward every -Dcrystalgraphics.* from the Gradle invocation into the forked JVM.
     //
     // Without this they set properties on the Gradle daemon and never reach the harness, so every
@@ -132,11 +129,9 @@ tasks.register<JavaExec>("runHarness") {
     //   ./gradlew :gl-debug-harness:runHarness -Dcrystalgraphics.shader.devmode=true
     // Failing silently is the worst version of this, because the run looks like evidence the flag
     // had no effect rather than evidence it was never applied.
-    // crystalgui.* as well as crystalgraphics.*: CrystalGUI has its own debug flags now
-    // (crystalgui.keymap.trace), and a filter naming only one project fails them in exactly the silent
-    // way described above -- the flag is accepted on the command line and reaches nothing.
+    // A host forwards its own prefix the same way, from its own build.
     System.getProperties().stringPropertyNames()
-        .filter { it.startsWith("crystalgraphics.") || it.startsWith("crystalgui.") }
+        .filter { it.startsWith("crystalgraphics.") }
         .forEach { systemProperty(it, System.getProperty(it)) }
 
     // Read assets from the SOURCE trees, so an edit-and-save is visible to the running harness with no
@@ -147,10 +142,10 @@ tasks.register<JavaExec>("runHarness") {
     // nothing the running harness can see, and a reload would faithfully re-read the stale copy and look
     // broken.
     //
-    // ALL THREE ROOTS, because each project keeps its own resources and CgIO tries them in order:
-    // assets/harness/** here, assets/crystalgui/** in core, assets/crystalgraphics/** in the composite
-    // build. One root can only ever serve one of them; the others would silently fall back to their
-    // build-time copies, which is the version of this that looks like it works.
+    // EVERY PROJECT'S ROOT, because each keeps its own resources and CgIO tries them in order: the
+    // harness's, each host's (hostAssetRoots), then CrystalGraphics'. One root can only ever serve one
+    // project; the others would silently fall back to their build-time copies, which is the version of
+    // this that looks like it works.
     //
     // Only set when the caller has not chosen their own, so an explicit
     // -Dcrystalgraphics.resourceOverrideDirs=... (or the older singular spelling) still wins outright.
@@ -162,7 +157,7 @@ tasks.register<JavaExec>("runHarness") {
     //
     //   -Pharness.assetRoots=X:/projects/RPG-Core-NeoForge/src/main/resources
     //
-    // APPENDED to the three below, never replacing them: those are what makes Ctrl+R reach default.css.
+    // APPENDED to the roots below, never replacing them: those are what makes Ctrl+R reach the engines'.
     // Appended LAST because CgIO takes the first root that answers, so a consumer cannot shadow an
     // engine asset by accident.
     val extraRoots = (project.findProperty("harness.assetRoots") as String?)
@@ -183,20 +178,17 @@ tasks.register<JavaExec>("runHarness") {
     }
 
     if (!alreadyChosen) {
-        val roots = (listOf(
-            file("src/main/resources"),                                   // the harness's own
-            project(":core").file("src/main/resources"),                  // CrystalGUI
-            rootProject.file("CrystalGraphics/core/src/main/resources")   // CrystalGraphics (composite)
-        ) + extraRoots).filter { it.isDirectory }
-        systemProperty("crystalgraphics.resourceOverrideDirs",
-            roots.joinToString(File.pathSeparator) { it.absolutePath })
-        // Also under the ORIGINAL name, with the single most useful root. A CgIO built before multi-root
-        // support ignores the plural property entirely and would then have no override at all -- i.e. hot
-        // reload would silently stop working, with nothing on screen to say why. The old name takes one
-        // path, so it gets CrystalGUI's: the stylesheets are what this is for.
-        project(":core").file("src/main/resources").takeIf { it.isDirectory }?.let {
-            systemProperty("crystalgraphics.shader.resourceOverrideDir", it.absolutePath)
-        }
+        // At EXECUTION time: a host adds its roots after this script has run.
+        jvmArgumentProviders.add(CommandLineArgumentProvider {
+            val roots = (listOf(file("src/main/resources")) + hostAssetRoots.files
+                + crystalGraphicsDir.resolve("core/src/main/resources") + extraRoots).filter { it.isDirectory }
+            // Also under the ORIGINAL name, with the first root after the harness's own. A CgIO built before
+            // multi-root support ignores the plural property entirely and would then have no override at all
+            // -- hot reload silently stopping, with nothing on screen to say why.
+            listOfNotNull(
+                "-Dcrystalgraphics.resourceOverrideDirs=" + roots.joinToString(File.pathSeparator) { it.absolutePath },
+                roots.drop(1).firstOrNull()?.let { "-Dcrystalgraphics.shader.resourceOverrideDir=" + it.absolutePath })
+        })
     }
 
     // The scene, for a caller that cannot pass `--args` -- a task in another build can only

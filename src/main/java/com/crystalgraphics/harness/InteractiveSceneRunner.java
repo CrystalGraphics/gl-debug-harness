@@ -34,8 +34,6 @@ import com.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
-import com.crystalgui.lifecycle.CgUiLifecycle;
-import com.crystalgui.style.theme.UiThemeManager;
 
 import com.sun.management.ThreadMXBean;
 import java.lang.management.ManagementFactory;
@@ -403,7 +401,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // Every scene's keyboard events pass the global binding below, whether or not the scene listens:
         // it has to work in every scene or it is a binding nobody can rely on.
         for (CgSystemInput.Keyboard.Event event : HarnessWindow.drainKeyboard()) {
-            // Ctrl+R: re-read every stylesheet from disk and restyle every live window.
+            // Ctrl+R: re-read every asset from disk -- textures, shaders, materials, and whatever the
+            // extensions and reload listeners keep.
             //
             // Handled HERE rather than in a scene, and consumed, for two reasons. It works in every
             // scene rather than only the ones that remembered to implement it; and `r` is an ordinary
@@ -411,7 +410,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             //
             // Ignores auto-repeat, or holding the key re-reads the files once a frame.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_R && isCtrlDown()) {
-                reloadStyleSheets();
+                reloadAssets();
             }
             for (CgSystemInput.Keyboard listener : keyboardListeners) {
                 if (!listener.consumeKeyboardEvent(event)) break;
@@ -425,39 +424,30 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     }
 
     /**
-     * Re-reads the themes, then everything a resource reload re-reads -- stylesheets, sprites and icons --
-     * and restyles what is on screen.
+     * What F3+T does in a game: each extension's {@link HarnessExtension#beforeReload} step, then
+     * CrystalGraphics' asset reload, which re-reads textures, shaders and materials and then calls every
+     * {@code CgReloadListener} -- CrystalGUI's stylesheets, icons and sprites among them.
      *
-     * <p>Where the files are read FROM is {@code CgIO}'s business, and that is the part worth knowing:
-     * without an override directory it resolves from the classpath, which for a Gradle run means
-     * {@code core/build/resources/main} — a <em>copy</em> made by {@code processResources}, so editing
-     * {@code core/src/main/resources/...} changes nothing this can see. {@code runHarness} therefore
-     * defaults {@code crystalgraphics.shader.resourceOverrideDir} to CrystalGUI's source resources, which
-     * puts the file you are editing first in {@code CgIO}'s waterfall.</p>
+     * <p>Where the files are read FROM is {@code CgIO}'s business: {@code runHarness} points
+     * {@code crystalgraphics.resourceOverrideDirs} at the source trees, so an edited file is what the reload
+     * sees rather than the copy {@code processResources} made at build time.</p>
      */
-    private void reloadStyleSheets() {
+    private void reloadAssets() {
         try {
-            // THEMES FIRST, AND BOTH CALLS ARE NEEDED. A theme is not in the stylesheet cache: it
-            // captures its source and its token table at registration, so reloading the sheets alone
-            // re-substitutes every one of them against the table the theme had when it was registered
-            // -- the log says "re-read N stylesheets", and an edited token changes nothing. Reloading
-            // the theme rebinds the table and restyles; the sheets then re-read their files against
-            // the NEW table, which is why this order and not the other.
-            int themes = UiThemeManager.getInstance().reloadFromDisk();
-            // WHAT A RESOURCE RELOAD DOES, not the stylesheets alone: icons, sprites and sheets all have
-            // caches, and this key re-reading only the sheets left every edited .svg on screen.
-            CgUiLifecycle.reload();
-            LOGGER.info("[InteractiveSceneRunner] Ctrl+R: reloaded " + themes + " theme file(s); "
-                    + "CrystalGUI's own reload logs the rest");
+            for (HarnessExtension extension : HarnessExtensions.all()) {
+                extension.beforeReload();
+            }
+            CgAssetReloader.reload();
+            LOGGER.info("[InteractiveSceneRunner] Ctrl+R: assets reloaded");
         } catch (Throwable t) {
-            // Never let a bad stylesheet take the harness down -- a half-written file mid-save is the
-            // normal case for this key, not an exceptional one.
-            LOGGER.log(java.util.logging.Level.SEVERE,
-                    "[InteractiveSceneRunner] Ctrl+R: stylesheet reload failed", t);
+            // Never let a bad file take the harness down -- a half-written file mid-save is the normal
+            // case for this key, not an exceptional one.
+            LOGGER.log(java.util.logging.Level.SEVERE, "[InteractiveSceneRunner] Ctrl+R: reload failed", t);
         }
     }
 
-    private void registerInputHandler(Object objectToProcess) {
+    private void registerInputHandler
+(Object objectToProcess) {
         if (objectToProcess instanceof CgSystemInput.Mouse mouseHandler)
             this.mouseListeners.add(mouseHandler);
 

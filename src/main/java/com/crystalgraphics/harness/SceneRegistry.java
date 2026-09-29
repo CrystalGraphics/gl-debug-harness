@@ -12,19 +12,6 @@ import com.crystalgraphics.harness.scene.test.CgAttachedBufferStressScene;
 import com.crystalgraphics.harness.scene.test.CgVectorRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgForwardRendererScene;
-import com.crystalgraphics.harness.scene.ui.CgGpuTraceProbeScene;
-import com.crystalgraphics.harness.scene.ui.CgUiTextGammaScene;
-import com.crystalgraphics.harness.scene.ui.CgUiTimelineScene;
-import com.crystalgraphics.harness.scene.ui.CgUiGalleryScene;
-import com.crystalgraphics.harness.scene.ui.CgUiDesktopScene;
-import com.crystalgraphics.harness.scene.ui.CgUiNewEngineGalleryScene;
-import com.crystalgraphics.harness.scene.ui.CgUiSpriteStressScene;
-import com.crystalgraphics.harness.scene.ui.CgUiStylingScene;
-import com.crystalgraphics.harness.scene.ui.CgUiSvgIconScene;
-import com.crystalgraphics.harness.scene.ui.CgUiTextScene;
-import com.crystalgraphics.harness.scene.ui.CgUiTextStressScene;
-import com.crystalgraphics.harness.scene.ui.CgUiVisualLayersScene;
-import com.crystalgraphics.harness.scene.ui.RpgConsoleScene;
 import com.crystalgraphics.harness.tool.CapabilityReport;
 import com.crystalgraphics.harness.tool.GlStateDumper;
 import com.crystalgraphics.harness.tool.ShaderCompileAuditScene;
@@ -38,8 +25,8 @@ import java.util.Map;
 /**
  * Explicit, registration-order-preserving registry of harness scenes and diagnostic modes.
  *
- * <p>No reflection, no annotation scanning. All entries are registered explicitly
- * in {@link #createDefault()}.</p>
+ * <p>No reflection, no annotation scanning. The harness's own entries are registered explicitly
+ * in {@link #createDefault()}; a {@link HarnessExtension} adds its own after them.</p>
  */
 public final class SceneRegistry {
 
@@ -250,54 +237,6 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("cgui-styling")
-                .description("CrystalGUI stylesheet test: selectors, combinators, pseudo-classes, transitions")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiStylingScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-visual-layers")
-                .description("CrystalGUI Visual Layers: opacity isolation + overflow:hidden mask/scissor, minimal side-by-side on/off comparisons")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiVisualLayersScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-text")
-                .description("CrystalGUI UIText: auto-sizing, wrapping, font-family fallback, live bindTextTo (SPACE to cycle)")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiTextScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-text-stress")
-                .description("CrystalGUI UIText load benchmark: 100 labels, three update patterns (static / same-length / varying-length), prints a summary table")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiTextStressScene()
-        );
-
-        reg.register(
             SceneDescriptor.builder("text-stress")
                 .description("CrystalGraphics text engine benchmark: 1000 shaped labels, no CrystalGUI — pure CgTextRenderer + FreeType/HarfBuzz")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
@@ -319,119 +258,6 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgTextFeatureStressScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-text-gamma")
-                .description("Text gamma and contrast: off, Chromium, strong, heavy, and the default fading strong into heavy by size, on the UI faces, dark and light panels, UI scale 1 and 2 (G cycles, S toggles scale)")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiTextGammaScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-new-gallery")
-                .description("M6 NEW ENGINE: every ported widget in one scrolling column, over UIDocument + the box tree -- the counterpart to cgui-gallery, and the only thing that can see whether a ported widget actually DRAWS")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiNewEngineGalleryScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-desktop")
-                .description("M6 NEW ENGINE: CrystalOS -- stacking windows, drag, resize, cascade, the taskbar, per-window modality, maximise, and CrystalEditor running as a window. The counterpart to cgui-new-gallery: that one answers whether a ported WIDGET draws, this one whether a ported WINDOW behaves")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.06f, 0.06f, 0.08f, 1.0f)
-                .build(),
-            () -> new CgUiDesktopScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("rpg-console")
-                .description("RPG-Core's Status screen as a STYLESHEET FIXTURE: authors rpgcore:console and rpgcore:menu with no Minecraft client. Needs -Pharness.assetRoots pointing at the mod's src/main/resources; Ctrl+R re-reads the theme AND the sheets")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.02f, 0.10f, 0.14f, 1.0f)
-                .build(),
-            () -> new RpgConsoleScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-sprite-stress")
-                .description("CrystalGUI 9-slice sprite stress: N sprite-backed cells in a grid, for measuring what a sprite costs to draw. -Dcrystalgui.spritestress.count / .cell / .rotate")
-                .defaultWidth(1920)
-                .defaultHeight(1080)
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiSpriteStressScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-svg-icon")
-                .description("Every shipped icon in a labelled grid -- red = failed to load, amber = drew nothing. Scroll to scale.")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiSvgIconScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("gpu-trace-probe")
-                .description("DIAGNOSTIC, exits on its own: GPU timer queries land in their frame within 3 frames and match a fence-waited control within 5%")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.09f, 0.09f, 0.11f, 1.0f)
-                .build(),
-            () -> new CgGpuTraceProbeScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-timeline")
-                .description("CrystalGUI timeline primitives: 10,000 spans and 600 frame bars — wheel zoom, drag pan, frame stepping, range selection")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.09f, 0.09f, 0.11f, 1.0f)
-                .build(),
-            () -> new CgUiTimelineScene()
-        );
-
-        // The front door: every widget, one page each, with a live Ore <-> default theme toggle.
-        // Deliberately no defaultWidth/defaultHeight — nothing reads SceneDescriptor's, and the
-        // gallery's root is `width: 100%`, so `--width=1000 --height=700` gives it more room.
-        reg.register(
-            SceneDescriptor.builder("cgui-gallery")
-                .description("CrystalGUI gallery: every widget, one page each, with a live theme toggle")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiGalleryScene()
         );
 
         // ── Diagnostic modes ──
@@ -500,6 +326,10 @@ public final class SceneRegistry {
                 .build(),
                 () -> new CapabilityReport()
         );
+
+        for (HarnessExtension extension : HarnessExtensions.all()) {
+            extension.registerScenes(reg);
+        }
 
         return reg;
     }

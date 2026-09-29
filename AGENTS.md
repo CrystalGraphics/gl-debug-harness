@@ -107,11 +107,32 @@ Scenes should implement `HarnessSceneLifecycle` (managed) or `InteractiveSceneLi
 
 ### Scene Registry
 
-All scenes and diagnostic tools are registered explicitly in `SceneRegistry.createDefault()`. No reflection or annotation scanning.
+The harness's own scenes and diagnostic tools are registered explicitly in `SceneRegistry.createDefault()`.
+No reflection or annotation scanning.
 
 Each entry has:
 - **SceneDescriptor**: mode id, description, lifecycle mode, FBO/depth requirements, default dimensions, clear color
 - **HarnessSceneFactory**: deferred scene instantiation
+
+### Scenes from another project — `HarnessExtension`
+
+**The harness is CrystalGraphics-only and names no project built on it.** A project's scenes come in as a
+`HarnessExtension`, found through `ServiceLoader`: CrystalGUI's live in its own `harness-scenes` module
+(`com.crystalgui.harness.CrystalGuiHarness`). One interface, three hooks — `registerScenes`, `beforeReload`
+(Ctrl+R, ahead of CrystalGraphics' `CgAssetReloader.reload()`), and `shaderNamespaces` (what
+`shader-compile-audit` checks). Its javadoc has the example.
+
+The harness cannot depend on the module holding them, so that module wires itself into the run:
+
+```kotlin
+evaluationDependsOn(":gl-debug-harness")
+val harness = project(":gl-debug-harness")
+(harness.extra["hostAssetRoots"] as ConfigurableFileCollection).from(file("src/main/resources"))
+harness.tasks.named<JavaExec>("runHarness") { classpath += sourceSets.main.get().runtimeClasspath }
+```
+
+`hostAssetRoots` is what makes Ctrl+R see an edit to that module's assets. List the extension in
+`META-INF/services/com.crystalgraphics.harness.HarnessExtension`; a scene id already taken throws at startup.
 
 Lifecycle modes:
 - `MANAGED`: Standard scenes that use shared helpers (FBO, projection, etc.)
@@ -255,7 +276,7 @@ Pipeline order:
 |------------------------|----------------------------------------------------------------------------------|---|---|
 | `triangle-2d`          | `triangle-2d/triangle.png`                                                       | MANAGED | Basic colored triangle on backbuffer |
 | `text-2d`              | `text-2d/text-scene.png` + `atlas/atlas-dump-<size>px.png`                       | MANAGED | Full text rendered via CgTextRenderer + FBO |
-| `text-3d`              | `text-3d/{name}-normal.png`, `{name}-paused.png`, `{name}-topdown.png`           | INTERACTIVE | Interactive 3D world-space text with camera controls. When paused (Escape), renders a real CrystalGUI `UIContainer` via the V3.1 draw-list pipeline. Implemented by `TextScene3D`. |
+| `text-3d`              | `text-3d/{name}-normal.png`, `{name}-paused.png`, `{name}-topdown.png`           | INTERACTIVE | Interactive 3D world-space text with camera controls. Implemented by `TextScene3D`. |
 | `camera-3d` | `camera-3d/{name}-front-view.png`, etc. (4 angles)                     | INTERACTIVE | 3D camera validation with cube + floor |
 | `atlas-dump`           | `atlas-dump/atlas/atlas-dump-24px.png` + `atlas/atlas-dump-32px.png`             | MANAGED | Glyph atlas dump via CgTextRenderer production pipeline |
 
@@ -691,6 +712,8 @@ com.crystalgraphics.harness/
 ├── InteractiveSceneRunner.java      # Slim loop coordinator for interactive scenes
 ├── FrameInfo.java                   # Immutable per-frame timing snapshot
 ├── SceneRegistry.java               # Explicit scene/mode registration
+├── HarnessExtension.java            # What another project adds: scenes, a reload step, shader namespaces
+├── HarnessExtensions.java           # The extensions on the classpath (ServiceLoader, loaded once)
 ├── camera/
 │   ├── Camera3D.java                # First-person 3D camera
 │   ├── FloorRenderer.java          # Ground plane at Y=0

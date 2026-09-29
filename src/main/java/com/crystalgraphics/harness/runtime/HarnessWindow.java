@@ -2,8 +2,8 @@ package com.crystalgraphics.harness.runtime;
 
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.input.CgKeyCodes;
+import com.crystalgraphics.platform.input.CgMouseCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgui.ui.input.HostPointer;
 
 import org.lwjgl.glfw.Callbacks;
 import org.lwjgl.glfw.GLFW;
@@ -138,17 +138,17 @@ public final class HarnessWindow {
             int dy = (int) Math.round(fy - cursorY);
             cursorX = fx;
             cursorY = fy;
-            mouse.add(HostPointer.of((int) fx, (int) fy, dx, dy, HostPointer.NO_BUTTON, false, 0f,
-                    HostPointer.NO_CLICK_TIME));
+            mouse.add(new CgSystemInput.Mouse.Event((int) fx, (int) fy, dx, dy, CgMouseCodes.NONE, false, 0f, -1L));
         });
         GLFW.glfwSetMouseButtonCallback(window, (win, button, action, mods) ->
-                mouse.add(HostPointer.of((int) cursorX, (int) cursorY, 0, 0,
+                mouse.add(new CgSystemInput.Mouse.Event((int) cursorX, (int) cursorY, 0, 0,
                         CgPlatform.input().translateMouseCodes(button), action == GLFW.GLFW_PRESS, 0f,
                         System.currentTimeMillis())));
         GLFW.glfwSetScrollCallback(window, (win, dx, dy) -> {
             wheel += dy;
-            mouse.add(HostPointer.of((int) cursorX, (int) cursorY, 0, 0, HostPointer.NO_BUTTON, false,
-                    HostPointer.scroll(dy), HostPointer.NO_CLICK_TIME));
+            // GLFW reports a roll away from the user as positive; the event's convention is the reverse.
+            mouse.add(new CgSystemInput.Mouse.Event((int) cursorX, (int) cursorY, 0, 0, CgMouseCodes.NONE, false,
+                    (float) -dy, -1L));
         });
 
         GLFW.glfwShowWindow(window);
