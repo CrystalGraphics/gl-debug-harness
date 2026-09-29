@@ -9,6 +9,7 @@
 // the per-instance world position reconstructed from origin + a_pos.x*right + a_pos.y*up.
 
 #type pos2_uv2_col4ub
+#pragma cg_use quad
 
 Tags { "RenderType" = "Transparent" }
 Queue = "Overlay"

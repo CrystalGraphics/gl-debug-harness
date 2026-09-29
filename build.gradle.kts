@@ -45,6 +45,9 @@ dependencies {
 
     api("org.joml:joml:${rootProject.findProperty("jomlVersion") ?: "1.10.8"}")
     implementation("com.google.code.findbugs:jsr305:3.0.2")
+    // Core compiles against its mesh loaders and ships neither: CgObjLoader and CgGltfLoader, for mesh-test.
+    runtimeOnly("de.javagl:obj:0.4.0")
+    runtimeOnly("de.javagl:jgltf-model:2.0.4")
 
     // LWJGL 3, with the Vulkan, shaderc and VMA bindings the device seam needs. Natives for the OS this
     // runs on; LWJGL extracts them itself. lwjgl-vulkan has natives only on macOS (MoltenVK) -- elsewhere
