@@ -557,8 +557,8 @@ reg.register(
 
 ### Frame rate, and the ceiling that is not the engine's
 
-Every interactive scene runs behind `Display.sync(120)`, which sleeps to hold a rate and holds it from
-**below** — so a readout tops out around **117fps** and that number is the limiter's, not the engine's.
+Every interactive scene runs behind `HarnessWindow.sync(120)`, which sleeps to hold the rate — so a readout
+tops out at the cap, and that number is the limiter's, not the engine's.
 
 ```bash
 # Uncapped, for a headroom measurement: how fast CAN this scene run?
