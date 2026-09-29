@@ -1,9 +1,11 @@
 package com.crystalgraphics.harness.scene.ui;
 
 import com.crystalgraphics.api.render.CgRenderPipeline;
+import com.crystalgraphics.api.text.CgTextStroke;
 import com.crystalgraphics.gl.render.CgVectorRenderer;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgMouseCodes;
+import com.crystalgui.widget.canvas.CanvasView;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import java.util.function.BiConsumer;
 import java.util.Locale;
@@ -53,6 +55,14 @@ import com.crystalgui.widget.layout.TabView;
 import com.crystalgui.widget.control.TextField;
 import com.crystalgui.widget.overlay.Tooltip;
 import com.crystalgui.widget.text.UIText;
+import com.crystalgui.style.property.visual.border.LengthPercent;
+import com.crystalgui.style.property.StylePropertyRegistry;
+import com.crystalgui.style.property.visual.shadow.Shadow;
+import com.crystalgui.style.property.visual.shadow.ShadowList;
+import com.crystalgui.style.property.visual.text.FontStyle;
+import com.crystalgui.style.property.visual.text.FontWeight;
+import com.crystalgui.style.property.visual.text.PaintOrder;
+import com.crystalgui.style.property.visual.text.StrokeAlign;
 import com.crystalgui.widget.config.ConfiguratorGroup;
 import com.crystalgui.widget.config.ConfiguratorPanel;
 import com.crystalgui.widget.texteditor.TextEditor;
@@ -209,7 +219,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         dragPage(page("Drag", "Drag a chip onto a bin. Ghost follows the cursor; Escape cancels."));
         resizePage(page("resize", "In-flow boxes get 3 handles, like CSS. The Dialog page has all 8."));
         dialogPage(page("Dialog", "Drag to move, click to raise, X closes. New windows cascade."));
-        textCssPage(page("text-css", "CSS text properties, plus ::highlight() ranges styled from CSS."));
+        textCssPage(page("text-css", "CSS text properties, ::highlight() ranges, and text-stroke - scroll for the stroke rows."));
         focusPage(page("focus", "Tab enters the tablist ONCE. Arrows move inside it."));
         modalPage(page("modal", "showModal(): backdrop, focus trap, Escape. Everything else inert."));
         menuPage(page("menus", "Dropdown, context menu, submenu. Click outside or Escape to dismiss."));
@@ -223,6 +233,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         colorSelectorPage(page("colorselector", "The general colour picker: hue ring, SV square, live channel tracks."));
         configuratorPage(page("configurator", "P6.1.8: the whole control kit on one rhythm. Compare against docs/research/unity-inspector/."));
         glassPage(page("glass", "Backdrop material: blur, refraction, specular, noise. Drag the sliders."));
+        textLabPage(page("text-lab", "Every text property on live controls: type into it, change the font, "
+                + "drag the stroke, cast a shadow. The same specimen is drawn on dark and on light."));
 
         return root;
     }
@@ -363,6 +375,523 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         row.append(nameLabel);
         row.append(slider);
         row.append(valueLabel);
+        return row;
+    }
+
+    // ── text lab page ───────────────────────────────────────────────────────────
+
+    /** The two specimens, styled identically so an outline can be judged on both grounds. */
+    private final List<UIText> textLabSpecimens = new ArrayList<>();
+
+    private String textLabFamily = "crystalgui:ui/fonts/IBMPlexSans-Regular.ttf";
+    /** -Dcrystalgui.gallery.textLabSize=N opens the lab at that size, for an unattended capture. */
+    private float textLabSize = Float.parseFloat(System.getProperty("crystalgui.gallery.textLabSize", "64"));
+    private FontWeight textLabWeight = FontWeight.NORMAL;
+    private FontStyle textLabFontStyle = FontStyle.NORMAL;
+    private float textLabStrokeValue = 2f;
+    private Slider textLabStrokeSlider;
+    private boolean textLabApplying;
+    private UIText textLabNote;
+    private boolean textLabStrokeIsEm;
+    private int textLabStrokeColor = 0xFF0B5D8F;
+    private int textLabColor = 0xFFF2F5F8;
+    /** 0 follows {@code color}, 1 transparent, 2 white, 3 black. A MODE and not a resolved colour:
+     *  resolving it once at selection pinned the fill to whatever the text colour was then, and every
+     *  later text-colour change landed on {@code color} while the glyph kept being drawn from the
+     *  pinned fill. */
+    private int textLabFillMode;
+    /** Once a fill has been written, the unset state is unreachable — so mode 0 must then write one. */
+    private boolean textLabFillWritten;
+    private StrokeAlign textLabAlign = StrokeAlign.OUTSET;
+    private PaintOrder textLabPaintOrder = PaintOrder.NORMAL;
+
+    // ── text-shadow ──
+    /** 0 off, 1 one shadow, 2 the shadow plus a glow beneath it, 3 the shadow plus a sharp drop beneath it. */
+    private int textLabShadowLayers;
+    private float textLabShadowX = 3f;
+    private float textLabShadowY = 4f;
+    private float textLabShadowBlur = 8f;
+    private float textLabShadowSpread;
+    private float textLabShadowOpacity = 0.75f;
+    private boolean textLabShadowInset;
+    private int textLabShadowColor = 0xFF101418;
+    private Slider textLabShadowXSlider, textLabShadowYSlider, textLabShadowBlurSlider, textLabShadowSpreadSlider,
+            textLabShadowOpacitySlider;
+    private Dropdown textLabShadowLayerDrop, textLabShadowSideDrop;
+    private UIText textLabShadowCss;
+
+    /**
+     * Every text property on a control, against two grounds.
+     *
+     * <p>Two specimens rather than one, because an outline cannot be judged on a single background:
+     * a dark stroke reads as a crisp edge on light and as a halo on dark, and only the pair shows
+     * which one the author is getting. They take the SAME inline declarations, so any difference is
+     * the ground and not the style.</p>
+     *
+     * <p>Writes are {@code INLINE} origin, which beats the sheet — a playground that lost to
+     * {@code gallery.css} would look broken. And unlike the glass page, whose sliders mutate a
+     * drawable the shader reads directly, these are real cascade writes: there is no other way in,
+     * since a stroke is resolved from {@code ComputedStyle} per frame.</p>
+     *
+     * <p>What it cannot show is the {@code text-fill-color} UNSET state once anything has set it —
+     * an inline candidate cannot be withdrawn here. The page opens with it unwritten so the
+     * currentcolor fallback is what you see first; {@code text-css} keeps the dedicated rows.</p>
+     */
+    private void textLabPage(UIElement pane) {
+        textLabSpecimens.clear();
+
+        UIElement stage = new UIElement();
+        stage.addClass("tl-stage");
+
+        UIText onDark = new UIText("Handgloves");
+        onDark.addClass("tl-specimen");
+        UIText onLight = new UIText("Handgloves");
+        onLight.addClass("tl-specimen");
+
+        textLabSpecimens.add(onDark);
+        textLabSpecimens.add(onLight);
+        stage.append(textLabGround("tl-dark", onDark));
+        stage.append(textLabGround("tl-light", onLight));
+        pane.append(stage);
+
+        UIElement controls = new UIElement();
+        controls.addClass("tl-controls");
+        UIElement colA = new UIElement();
+        colA.addClass("tl-col");
+        UIElement colB = new UIElement();
+        colB.addClass("tl-col");
+        UIElement colC = new UIElement();
+        colC.addClass("tl-col");
+
+        // ── content and face ──
+        TextField content = new TextField();
+        content.setText("Handgloves");
+        content.addClass("tl-field");
+        content.value.changed.connect((was, now) -> {
+            for (UIText specimen : textLabSpecimens) specimen.setText(now);
+        });
+        colA.append(textLabRow("text", content));
+
+        Dropdown family = new Dropdown();
+        family.addClass("tl-drop");
+        family.addOptions("IBM Plex Sans", "JetBrains Mono", "Minecraft", "monospace", "system-ui");
+        family.onSelectionChanged.connect(i -> {
+            textLabFamily = switch (i) {
+                case 1 -> "crystalgui:ui/fonts/JetBrainsMono-Regular.ttf";
+                case 2 -> "crystalgui:ui/fonts/Minecraft.otf";
+                case 3 -> "monospace";
+                case 4 -> "system-ui";
+                default -> "crystalgui:ui/fonts/IBMPlexSans-Regular.ttf";
+            };
+            applyTextLab();
+        });
+        family.select(0);
+        colA.append(textLabRow("font", family));
+
+        colA.append(textLabSlider("size", 8f, 120f, textLabSize, "%.0f", v -> textLabSize = v));
+
+        Dropdown weight = new Dropdown();
+        weight.addClass("tl-drop");
+        weight.addOptions("normal", "bold");
+        weight.onSelectionChanged.connect(i -> {
+            textLabWeight = i == 1 ? FontWeight.BOLD : FontWeight.NORMAL;
+            applyTextLab();
+        });
+        weight.select(0);
+        colA.append(textLabRow("weight", weight));
+
+        Dropdown slant = new Dropdown();
+        slant.addClass("tl-drop");
+        slant.addOptions("normal", "italic", "oblique");
+        slant.onSelectionChanged.connect(i -> {
+            textLabFontStyle = i == 1 ? FontStyle.ITALIC : i == 2 ? FontStyle.OBLIQUE : FontStyle.NORMAL;
+            applyTextLab();
+        });
+        slant.select(0);
+        colA.append(textLabRow("style", slant));
+
+        // ── the stroke ──
+        // The stroke slider's range is the CAP, not a round number: at size 12 only the first 0.67px
+        // of an 8px travel could ever be drawn, and a control that offers what cannot happen is how
+        // this looked like a rendering bug rather than a bounded field. Re-ranged on every change, in
+        // applyTextLab, since the cap moves with the font size.
+        colB.append(textLabSlider("stroke", 0f, strokeSliderMax(), textLabStrokeValue, "%.2f",
+                v -> textLabStrokeValue = v, sl -> textLabStrokeSlider = sl));
+
+        Dropdown unit = new Dropdown();
+        unit.addClass("tl-drop");
+        // The two are genuinely different kinds: px is absolute, a percentage is of the font size.
+        // Same slider number either way, so switching between them shows exactly what that costs.
+        unit.addOptions("px", "% of font-size");
+        unit.onSelectionChanged.connect(i -> {
+            textLabStrokeIsEm = i == 1;
+            applyTextLab();
+        });
+        unit.select(0);
+        colB.append(textLabRow("unit", unit));
+
+        Dropdown align = new Dropdown();
+        align.addClass("tl-drop");
+        align.addOptions("outset", "center", "inset");
+        align.onSelectionChanged.connect(i -> {
+            textLabAlign = i == 1 ? StrokeAlign.CENTER : i == 2 ? StrokeAlign.INSET : StrokeAlign.OUTSET;
+            applyTextLab();
+        });
+        align.select(0);
+        colB.append(textLabRow("align", align));
+
+        Dropdown order = new Dropdown();
+        order.addClass("tl-drop");
+        order.addOptions("normal (stroke over)", "stroke under fill");
+        order.onSelectionChanged.connect(i -> {
+            textLabPaintOrder = i == 1 ? PaintOrder.STROKE : PaintOrder.NORMAL;
+            applyTextLab();
+        });
+        order.select(0);
+        colB.append(textLabRow("paint-order", order));
+
+        // ── colours ──
+        colC.append(textLabRow("text colour", textLabSwatches(argb -> textLabColor = argb, 0)));
+        colC.append(textLabRow("stroke colour", textLabSwatches(argb -> textLabStrokeColor = argb, 4)));
+
+        Dropdown fill = new Dropdown();
+        fill.addClass("tl-drop");
+        fill.addOptions("from color (unset)", "transparent (hollow)", "white", "black");
+        fill.onSelectionChanged.connect(i -> {
+            textLabFillMode = i;
+            if (i != 0) textLabFillWritten = true;
+            applyTextLab();
+        });
+        fill.select(0);
+        colC.append(textLabRow("fill", fill));
+
+        // WHAT THE NUMBER ON THE SLIDER ACTUALLY BECOMES. Without this the two units look identical:
+        // at one font size each is just some number of pixels, and above the field's cap they are the
+        // SAME number of pixels. What separates them is the size slider -- px holds still, a percentage
+        // follows -- which nothing on the page showed.
+        textLabNote = new UIText("");
+        textLabNote.addClass("tl-note");
+        colC.append(textLabNote);
+
+        // Under the face and stroke controls, which leave room: a fourth column wraps off the page.
+        textLabShadowControls(colA, colB);
+
+        controls.append(colA);
+        controls.append(colB);
+        controls.append(colC);
+        pane.append(controls);
+
+        applyTextLab();
+    }
+
+    /**
+     * One ground: a {@link CanvasView} with the specimen on its plane, so the glyph edges can be
+     * inspected at the magnification this page exists for.
+     *
+     * <p>Zoom reaches 24x deliberately — a distance-field edge resolves over about one pixel, and
+     * judging that means seeing the pixels. The specimen is a canvas NODE rather than a child of a
+     * panel, which also stops it wrapping: a node is positioned on an unbounded plane, so a long
+     * string runs off the side and is panned to instead of reflowing under the controls.</p>
+     *
+     * <p>Right-click resets. It is on {@code onMouseDown} at the BUBBLE phase, so the canvas's own
+     * pan gesture — which claims the left button during capture — is untouched.</p>
+     */
+    private CanvasView textLabGround(String styleClass, UIText specimen) {
+        CanvasView view = new CanvasView();
+        view.addClass("tl-ground");
+        view.addClass(styleClass);
+        view.setZoomRange(0.25f, 100f);
+        view.addNode(specimen, 14f, 10f);
+
+        UIText hint = new UIText("1.00x");
+        hint.addClass("tl-hint");
+        view.addOverlay(hint);
+        view.onViewChanged.connect(() ->
+                hint.setText(String.format(Locale.ROOT, "%.2fx", view.getZoom())));
+
+        view.onMouseDown.attachListener((el, event) -> {
+            if (event.getButtonId() == CgMouseCodes.RIGHT_BUTTON) {
+                view.setZoom(1f).setPan(0f, 0f);
+                event.preventDefault();
+            }
+        }, false, true);
+        return view;
+    }
+
+    /** Writes the whole state to both specimens. One place, so no control can half-update. */
+    private void applyTextLab() {
+        if (textLabApplying) return;   // setRange below re-enters through the slider's own listener
+        textLabApplying = true;
+        try {
+            if (textLabStrokeSlider != null) textLabStrokeSlider.setRange(0f, strokeSliderMax());
+        } finally {
+            textLabApplying = false;
+        }
+
+        LengthPercent width = textLabStrokeIsEm
+                ? LengthPercent.percent(textLabStrokeValue / 100f)
+                : LengthPercent.px(textLabStrokeValue);
+        updateTextLabNote(width);
+        if (textLabShadowCss != null) {
+            textLabShadowCss.setText("text-shadow: " + StylePropertyRegistry.TEXT_SHADOW.write(textLabShadows()));
+        }
+        for (UIText specimen : textLabSpecimens) {
+            StyleGroup.inlinePipeline(specimen.getStyle().getGeneralGroup(), g -> {
+                g.fontFamily(List.of(textLabFamily));
+                g.fontSize(textLabSize);
+                g.fontWeight(textLabWeight);
+                g.fontStyle(textLabFontStyle);
+                g.color(textLabColor);
+                g.textStrokeWidth(width);
+                g.textStrokeColor(textLabStrokeColor);
+                g.strokeAlign(textLabAlign);
+                g.paintOrder(textLabPaintOrder);
+                g.textShadow(textLabShadows());
+                // Mode 0 follows the text colour, and writes NOTHING until some other mode has
+                // already pinned a candidate -- so the page opens on the real currentcolor fallback
+                // and still tracks the swatches once it cannot go back to unset.
+
+            });
+        }
+    }
+
+    /**
+     * The shadow column: a preset to start from, the four lengths and {@code inset} CSS gives a shadow, its
+     * colour, and a second layer beneath it, so painter's order between a blurred and a sharp shadow can be
+     * seen. The CSS the controls produce is printed under them, and is exactly what the specimens get.
+     */
+    private void textLabShadowControls(UIElement col, UIElement lengths) {
+        Dropdown preset = new Dropdown();
+        preset.addClass("tl-drop");
+        preset.addOptions("presets...", "drop shadow", "soft shadow", "glow", "neon", "spread glow",
+                "long shadow", "inset", "engraved");
+        preset.onSelectionChanged.connect(this::applyTextLabShadowPreset);
+        col.append(textLabRow("shadow", preset));
+        // -Dcrystalgui.gallery.textLabShadow=N opens the lab on preset N, for an unattended capture of a look.
+        int openOn = Integer.getInteger("crystalgui.gallery.textLabShadow", 0);
+
+        Dropdown layers = new Dropdown();
+        layers.addClass("tl-drop");
+        layers.addOptions("off", "one", "+ glow beneath", "+ sharp drop beneath");
+        layers.onSelectionChanged.connect(i -> {
+            textLabShadowLayers = i;
+            applyTextLab();
+        });
+        layers.select(0);
+        textLabShadowLayerDrop = layers;
+        col.append(textLabRow("layers", layers));
+
+        lengths.append(textLabSlider("offset x", -24f, 24f, textLabShadowX, "%.1f",
+                v -> textLabShadowX = v, sl -> textLabShadowXSlider = sl));
+        lengths.append(textLabSlider("offset y", -24f, 24f, textLabShadowY, "%.1f",
+                v -> textLabShadowY = v, sl -> textLabShadowYSlider = sl));
+        lengths.append(textLabSlider("blur", 0f, 64f, textLabShadowBlur, "%.1f",
+                v -> textLabShadowBlur = v, sl -> textLabShadowBlurSlider = sl));
+        lengths.append(textLabSlider("spread", 0f, 12f, textLabShadowSpread, "%.1f",
+                v -> textLabShadowSpread = v, sl -> textLabShadowSpreadSlider = sl));
+        lengths.append(textLabSlider("opacity", 0f, 1f, textLabShadowOpacity, "%.2f",
+                v -> textLabShadowOpacity = v, sl -> textLabShadowOpacitySlider = sl));
+
+        Dropdown side = new Dropdown();
+        side.addClass("tl-drop");
+        side.addOptions("outer", "inset");
+        side.onSelectionChanged.connect(i -> {
+            textLabShadowInset = i == 1;
+            applyTextLab();
+        });
+        side.select(0);
+        textLabShadowSideDrop = side;
+        col.append(textLabRow("side", side));
+
+        col.append(textLabRow("shadow colour", textLabSwatches(argb -> textLabShadowColor = argb, 5)));
+
+        textLabShadowCss = new UIText("");
+        textLabShadowCss.addClass("tl-note");
+        lengths.append(textLabShadowCss);
+
+        if (openOn > 0) preset.select(openOn);
+    }
+
+    /** The list the controls describe, first shadow on top. */
+    private ShadowList textLabShadows() {
+        if (textLabShadowLayers == 0) return ShadowList.NONE;
+        int alpha = Math.round(Math.max(0f, Math.min(1f, textLabShadowOpacity)) * 255f);
+        int color = (alpha << 24) | (textLabShadowColor & 0x00FFFFFF);
+        Shadow main = Shadow.of(textLabShadowX, textLabShadowY, textLabShadowBlur, textLabShadowSpread, color,
+                textLabShadowInset);
+        return switch (textLabShadowLayers) {
+            case 2 -> ShadowList.of(main, Shadow.of(0f, 0f, 24f, 2f, 0xB04FC3F7, false));
+            case 3 -> ShadowList.of(main, Shadow.of(6f, 6f, 0f, 0f, 0xFF000000, false));
+            default -> ShadowList.of(main);
+        };
+    }
+
+    /** Sets the controls to a named look; every control stays live afterwards. */
+    private void applyTextLabShadowPreset(int preset) {
+        if (preset == 0) return;
+        float x = 3f, y = 4f, blur = 8f, spread = 0f, opacity = 0.75f;
+        int color = 0xFF101418, layers = 1;
+        boolean inset = false;
+        switch (preset) {
+            case 1 -> { x = 2f; y = 2f; blur = 0f; opacity = 1f; }
+            case 2 -> { x = 0f; y = 6f; blur = 16f; opacity = 0.6f; }
+            case 3 -> { x = 0f; y = 0f; blur = 12f; opacity = 1f; color = 0xFFE0A33C; }
+            case 4 -> { x = 0f; y = 0f; blur = 4f; opacity = 1f; color = 0xFF4FC3F7; layers = 2; }
+            case 5 -> { x = 0f; y = 0f; blur = 10f; spread = 3f; opacity = 0.9f; color = 0xFFD94F4F; }
+            case 6 -> { x = 8f; y = 8f; blur = 2f; opacity = 0.8f; layers = 3; }
+            case 7 -> { x = 2f; y = 3f; blur = 4f; opacity = 0.8f; inset = true; }
+            case 8 -> { x = 0f; y = 2f; blur = 1f; opacity = 1f; color = 0xFFF2F5F8; inset = true; }
+            default -> { }
+        }
+        textLabShadowLayers = layers;
+        textLabShadowInset = inset;
+        textLabShadowColor = color;
+        // Each setValue lands in its store through the slider's listener, and each re-applies; the last one
+        // applies the finished look.
+        if (textLabShadowLayerDrop != null) textLabShadowLayerDrop.select(layers);
+        if (textLabShadowSideDrop != null) textLabShadowSideDrop.select(inset ? 1 : 0);
+        if (textLabShadowXSlider != null) textLabShadowXSlider.setValue(x);
+        if (textLabShadowYSlider != null) textLabShadowYSlider.setValue(y);
+        if (textLabShadowSpreadSlider != null) textLabShadowSpreadSlider.setValue(spread);
+        if (textLabShadowOpacitySlider != null) textLabShadowOpacitySlider.setValue(opacity);
+        if (textLabShadowBlurSlider != null) textLabShadowBlurSlider.setValue(blur);
+        textLabShadowX = x;
+        textLabShadowY = y;
+        textLabShadowBlur = blur;
+        textLabShadowSpread = spread;
+        textLabShadowOpacity = opacity;
+        applyTextLab();
+    }
+
+    /**
+     * The widest stroke this size can actually draw, in whatever unit the slider is currently in.
+     *
+     * <p>{@code % of font-size} is the em fraction times a hundred, so its ceiling is the same number
+     * at every size; px is that fraction OF the size, so its ceiling moves with the text.</p>
+     */
+    private float strokeSliderMax() {
+        float cap = textLabStrokeCapEm();
+        return textLabStrokeIsEm ? cap * 100f : cap * textLabSize;
+    }
+
+    /**
+     * The cap for the face the specimens are actually drawn in.
+     *
+     * <p>Not {@link CgTextStroke#MAX_FIELD_WIDTH_EM}: that is the narrow band every face can hold,
+     * and this lab's face is banded wider, so reading the constant would cap the slider at under half
+     * of what the field really carries.</p>
+     */
+    private float textLabStrokeCapEm() {
+        return textLabSpecimens.isEmpty()
+                ? CgTextStroke.MAX_FIELD_WIDTH_EM
+                : textLabSpecimens.get(0).maxStrokeWidthEm();
+    }
+
+    /**
+     * Says what this width resolves to, in the three terms that decide what is drawn: pixels at the
+     * current size, the em fraction the backend actually carries, and the cap.
+     *
+     * <p>Reading the cap off the specimen rather than repeating the number: the field's reach has
+     * moved three times and is now per FACE, and a caption edited by hand is a caption that goes
+     * stale.</p>
+     */
+    private void updateTextLabNote(LengthPercent width) {
+        if (textLabNote == null) return;
+        float px = width.resolve(textLabSize);
+        float em = textLabSize <= 0f ? 0f : px / textLabSize;
+        float capEm = textLabStrokeCapEm();
+        float capPx = capEm * textLabSize;
+        boolean clamped = em > capEm;
+
+        String asked = textLabStrokeIsEm
+                ? String.format("%.2f%% of %.0fpx = %.2fpx", textLabStrokeValue, textLabSize, px)
+                : String.format("%.2fpx at size %.0f = %.4fem", textLabStrokeValue, textLabSize, em);
+        String capped = clamped
+                ? String.format(" — CLAMPED to %.2fpx, the widest this field carries.", capPx)
+                : String.format(". Cap here is %.2fpx (%.4fem).", capPx, capEm);
+
+        // The point of the two units, which only the SIZE slider shows: drag it and px holds still
+        // while a percentage grows with the text.
+        String units = textLabStrokeIsEm
+                ? " A percentage follows the size slider; px would hold still."
+                : " px holds still as the size slider moves; a percentage would follow it.";
+
+        textLabNote.setText(asked + capped + units
+                + " A stroke keeps its label on the distance-field tier down to the smallest size"
+                + " the field can still antialias -- which is lower for a face banded wide, the same"
+                + " banding this cap comes from; below that the glyph is a bitmap and the outline is"
+                + " dropped.");
+    }
+
+    /** A row of clickable swatches — enough colours to judge an outline, without a whole picker. */
+    private UIElement textLabSwatches(java.util.function.IntConsumer pick, int initial) {
+        int[] colors = {0xFFF2F5F8, 0xFFE0A33C, 0xFFD94F4F, 0xFF4FA86B, 0xFF0B5D8F, 0xFF101418};
+        UIElement row = new UIElement();
+        row.addClass("tl-swatches");
+        for (int i = 0; i < colors.length; i++) {
+            int argb = colors[i];
+            UIElement chip = new UIElement();
+            chip.addClass("tl-chip");
+            StyleGroup.inlinePipeline(chip.getStyle().getGeneralGroup(),
+                    g -> g.background(com.crystalgui.render.texture.CgUiRect.ofColor(argb)));
+            chip.onMouseDown.attachListener((el, event) -> {
+                pick.accept(argb);
+                applyTextLab();
+            }, false, true);
+            row.append(chip);
+        }
+        pick.accept(colors[initial]);
+        return row;
+    }
+
+    /** A labelled row, matching the glass page's rhythm. */
+    private UIElement textLabRow(String name, UIElement control) {
+        UIElement row = new UIElement();
+        row.addClass("tl-ctl");
+        UIText label = new UIText(name);
+        label.addClass("tl-ctl-name");
+        row.append(label);
+        row.append(control);
+        return row;
+    }
+
+    /** A labelled slider that restyles both specimens on every drag frame. */
+    private UIElement textLabSlider(String name, float min, float max, float initial,
+                                    String format, java.util.function.Consumer<Float> store) {
+        return textLabSlider(name, min, max, initial, format, store, null);
+    }
+
+    /** @param built receives the slider itself, for a caller that has to re-range it later. */
+    private UIElement textLabSlider(String name, float min, float max, float initial,
+                                    String format, java.util.function.Consumer<Float> store,
+                                    java.util.function.Consumer<Slider> built) {
+        UIElement row = new UIElement();
+        row.addClass("tl-ctl");
+        UIText label = new UIText(name);
+        label.addClass("tl-ctl-name");
+        // THE VALUE THE CONTROL WILL ACTUALLY HOLD, which is not always the one asked for: the stroke
+        // slider's range is a cap that moves with the font size, and a Slider clamps into its range.
+        // Clamping here rather than letting setValue do it silently keeps the number, the label and the
+        // caller's field the same value -- the slider used to sit at its maximum reading 2.00.
+        float start = Math.max(min, Math.min(max, initial));
+        store.accept(start);
+
+        UIText value = new UIText(String.format(Locale.ROOT, format, start));
+        value.addClass("tl-ctl-val");
+
+        Slider slider = new Slider();
+        slider.addClass("tl-slider");
+        slider.setRange(min, max).setValue(start);
+        slider.onValueChanged.connect(v -> {
+            store.accept(v);
+            value.setText(String.format(Locale.ROOT, format, v));
+            applyTextLab();
+        });
+        if (built != null) built.accept(slider);
+
+        row.append(label);
+        row.append(slider);
+        row.append(value);
         return row;
     }
 
@@ -816,7 +1345,14 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
      * must show a dark offset copy one pixel down-right. The last row sets {@code white-space} and
      * {@code text-align} on the <em>wrapper</em>, so it also proves both inherit.</p>
      */
-    private void textCssPage(UIElement pane) {
+    private void textCssPage(UIElement outer) {
+        // SCROLLED, because the stroke rows below need a big font to be worth looking at -- the field
+        // only describes 3.75% of the em, so a 1px outline is invisible at label sizes and obvious at
+        // display sizes. Same arrangement the curve page uses, and for the same reason.
+        ScrollerView pane = new ScrollerView();
+        pane.addClass("textcss-scroll");
+        outer.append(pane);
+
         pane.append(row(slot("wrapping"), txBox("this label wraps because its box is narrower than the text", null)));
         pane.append(row(slot("align left"), txBox("aligned left", "tx-left")));
         pane.append(row(slot("align center"), txBox("aligned center", "tx-center")));
@@ -824,6 +1360,7 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.append(row(slot("nowrap"), txBox("one long line that will not wrap and so overflows", "tx-nowrap")));
         pane.append(row(slot("ellipsis"), txBox("one long line that gets cut short with an ellipsis", "tx-ellipsis")));
         pane.append(row(slot("shadow"), txBox("drop shadow behind me", "tx-shadow")));
+        shadowRows(pane);
         pane.append(row(slot("inherited"), txBox("set on the WRAPPER, not the text", "tx-inherit")));
 
         // ── 6.1.1: ::highlight() ──────────────────────────────────────────────
@@ -867,6 +1404,80 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
         pane.append(row(slot("+ellipsis"), highlightBox(
                 "a highlighted range that runs straight past where this line gets cut", "tx-ellipsis",
                 hl -> hl.mark("search", "runs straight past where this line gets cut"))));
+
+        strokeRows(pane);
+    }
+
+    /**
+     * {@code text-shadow} as CSS spells it: every kind of shadow on its own row, each one a class in
+     * {@code gallery.css} so the rule reads beside what it draws.
+     */
+    private void shadowRows(UIElement pane) {
+        pane.append(row(slot("hard drop"), txBox("Sharp offset", "tx-sh-hard")));
+        pane.append(row(slot("blurred"), txBox("Soft drop", "tx-sh-soft")));
+        pane.append(row(slot("glow"), txBox("Glowing", "tx-sh-glow")));
+        pane.append(row(slot("stacked"), txBox("Neon", "tx-sh-neon")));
+        // A blurred shadow listed FIRST paints over a sharp one listed second: the paint order spans atlases.
+        pane.append(row(slot("list order"), txBox("Blur over hard", "tx-sh-order")));
+        pane.append(row(slot("currentcolor"), txBox("Inherits colour", "tx-sh-current")));
+        pane.append(row(slot("spread (L4)"), txBox("Spread glow", "tx-sh-spread")));
+        pane.append(row(slot("inset (L4)"), txBox("Pressed in", "tx-sh-inset")));
+        pane.append(row(slot("stroked"), txBox("Outlined", "tx-sh-stroked")));
+        pane.append(row(slot("underlined"), txBox("Underline too", "tx-sh-underline")));
+        pane.append(row(slot("em lengths"), txBox("Scales with size", "tx-sh-em")));
+        pane.append(row(slot("rotated"), txBox("Transformed", "tx-sh-rotated")));
+    }
+
+    /**
+     * {@code text-stroke} and everything that steers it.
+     *
+     * <p>Every row is large on purpose. The outline is read out of the glyph's distance field, which
+     * carries real distance for {@code pxRange / 2} atlas texels either side of the outline — 0.0375
+     * em at the shipping pairing. So a 1px stroke is a third of a pixel on a 10px label and nearly two
+     * pixels on a 48px heading, and only the second is a thing anyone can judge.</p>
+     *
+     * <p>The last two rows are the ones to read carefully: they are the failures, shown deliberately
+     * rather than avoided, so that hitting either on a real screen is recognisable instead of
+     * mysterious.</p>
+     */
+    private void strokeRows(UIElement pane) {
+        pane.append(row(slot("stroke 1px"), txBox("Crystal", "tx-stroke")));
+        pane.append(row(slot("stroke 2px"), txBox("Crystal", "tx-stroke-2")));
+
+        // The three alignments at ONE width, which is the only way the difference reads: outset keeps
+        // the letterform's weight, centre eats half the width out of it, inset spends all of it inside
+        // and closes the counters first.
+        pane.append(row(slot("align outset"), txBox("Weight", "tx-stroke-2 tx-align-outset")));
+        pane.append(row(slot("align center"), txBox("Weight", "tx-stroke-2 tx-align-center")));
+        pane.append(row(slot("align inset"), txBox("Weight", "tx-stroke-2 tx-align-inset")));
+
+        // paint-order only has anything to say when the stroke overlaps the fill, so both of these are
+        // centred. With outset there is nothing underneath to hide and the two look identical.
+        pane.append(row(slot("paint fill"), txBox("Order", "tx-stroke-2 tx-align-center")));
+        pane.append(row(slot("paint stroke"), txBox("Order", "tx-stroke-2 tx-align-center tx-paint-stroke")));
+
+        // A width with no colour: the stroke takes `color`, which is what the property's zero initial
+        // stands for. This row must not be black.
+        pane.append(row(slot("currentcolor"), txBox("Inherits", "tx-stroke-current")));
+
+        // text-fill-color alone -- `color` still drives everything else, which is why the two are
+        // separate properties.
+        pane.append(row(slot("hollow"), txBox("Outline", "tx-stroke-2 tx-hollow")));
+
+        // Set on the WRAPPER. All five properties inherit, so the label inside takes them without the
+        // sheet ever naming it.
+        pane.append(row(slot("inherited"), txBox("From the parent", "tx-stroke-inherit")));
+
+        // THE CEILING, shown rather than avoided. 8px at this font size is far past the 0.0375em the
+        // field can describe, so the outline stops growing instead of growing wrong -- it will look
+        // identical to the 2px row, not thicker. That is the symptom to recognise when somebody asks
+        // why a stroke "stopped responding".
+        pane.append(row(slot("past the field"), txBox("Clamped", "tx-stroke-huge")));
+
+        // THE TIER GAP. Small text rasterises to bitmap coverage, which has no distance to threshold,
+        // so this row draws NO outline at all -- deliberately, rather than promoting the glyph to MSDF
+        // behind the caller's back, which would cost more legibility at this size than the outline buys.
+        pane.append(row(slot("bitmap (none)"), txBox("no outline at this size", "tx-stroke-2 tx-small")));
     }
 
     /**
@@ -899,7 +1510,15 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
     private UIElement txBox(String text, String extraClass) {
         UIElement box = new UIElement();
         box.addClass("tx-box");
-        if (extraClass != null) box.addClass(extraClass);
+        // SPLIT, because addClass takes ONE name. A space-separated string went in as a single class
+        // literally containing a space, which matches no selector and fails silently -- five rows of
+        // the stroke section below rendered unstyled before this, which reads as the feature being
+        // broken rather than as the demo being wrong.
+        if (extraClass != null) {
+            for (String name : extraClass.trim().split("\\s+")) {
+                if (!name.isEmpty()) box.addClass(name);
+            }
+        }
         UIText label = new UIText(text);
         label.addClass("label");
         box.append(label);
@@ -2321,7 +2940,17 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
                 }
             }
         }
-        if (frame.getFrameNumber() == (wanted == null ? 5 : 90)) {
+        // 90 suits a page that is animating. A page whose GLYPHS stream in needs longer -- a fresh
+        // font family at a new size queues its whole ASCII warm ahead of the specimen, drained at a
+        // bounded rate, so a capture at 90 catches the word half-generated and reads as missing
+        // letters. -Dcrystalgui.gallery.captureFrame=N waits.
+        //
+        // -Dcrystalgui.gallery.textLabSize=N opens the text lab at a font size, which is the only way
+        // to photograph a size-dependent answer -- the stroke cap is a fraction of the em -- without a
+        // hand on the slider.
+        int captureFrame = wanted == null ? 5
+                : Integer.getInteger("crystalgui.gallery.captureFrame", 90);
+        if (frame.getFrameNumber() == captureFrame) {
             ctx.getArtifactService().requestCapture(wanted == null ? "startup" : wanted);
         }
 

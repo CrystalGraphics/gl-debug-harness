@@ -14,7 +14,7 @@ import java.util.logging.Logger;
  * rendering, timing, and overlay concerns.</p>
  *
  * <p><b>Pause toggle semantics</b>: Uses the LWJGL keyboard event queue
- * (not {@code Keyboard.isKeyDown()}) to detect key-down events, ensuring
+ * (not {@code CgPlatform.input().isKeyDown()}) to detect key-down events, ensuring
  * a single press produces exactly one toggle regardless of how many frames
  * the key is held.</p>
  *

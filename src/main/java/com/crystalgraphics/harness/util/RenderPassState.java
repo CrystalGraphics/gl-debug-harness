@@ -149,7 +149,7 @@ public final class RenderPassState {
      *
      * <p>The capture point is where post-render callbacks fire to take screenshots.
      * It occurs after all render passes (world, scene, overlays) are complete but
-     * BEFORE the buffer swap ({@code Display.update()}). No special GL state setup
+     * BEFORE the buffer swap ({@code HarnessWindow.swapBuffers()}). No special GL state setup
      * is needed — the backbuffer contains the fully composited frame.</p>
      *
      * <p>This method is intentionally a no-op. Its purpose is to make the pipeline

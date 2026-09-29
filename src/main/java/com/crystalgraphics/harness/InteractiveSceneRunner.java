@@ -33,6 +33,8 @@ import com.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
+import com.crystalgui.lifecycle.CgUiLifecycle;
+import com.crystalgui.style.theme.UiThemeManager;
 
 import com.sun.management.ThreadMXBean;
 import java.lang.management.ManagementFactory;
@@ -88,7 +90,16 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private static final Logger LOGGER = Logger.getLogger(InteractiveSceneRunner.class.getName());
 
-    private static final int TARGET_FPS = 120;
+    /**
+     * The frame limiter, and {@code -Dcrystalgraphics.harness.fps=0} takes it off.
+     *
+     * <p>{@link Display#sync} sleeps to hold a rate, and it holds it from BELOW — its sleep granularity
+     * means a 120 target settles at about 117, which reads as a ceiling the engine imposed. It is not:
+     * uncapped, a scene runs as fast as it can, which is what a headroom measurement wants. Capped is
+     * the right default for a human at the keyboard, since a UI scene otherwise spins a core to draw a
+     * picture nobody asked to be redrawn.</p>
+     */
+    private static final int TARGET_FPS = Integer.getInteger("crystalgraphics.harness.fps", 120);
 
     /** Frames discarded before {@code -Dcrystalgraphics.harness.profile} starts counting: the first
      * few carry every lazy allocation and every shader variant's first compile, which is a scene's
@@ -336,8 +347,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             try (CgProfiler.Scope ignored = CgProfiler.scope("frame.swap")) {
                 HarnessWindow.swapBuffers();
             }
-            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.sync")) {
-                HarnessWindow.sync(TARGET_FPS);
+            if (TARGET_FPS > 0) {
+                try (CgProfiler.Scope ignored = CgProfiler.scope("frame.sync")) {
+                    HarnessWindow.sync(TARGET_FPS);
+                }
             }
 
             // 15. Frame is genuinely over -- hand the scene its true wall duration. See
@@ -402,7 +415,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     }
 
     /**
-     * Re-reads {@code default.css} and every other loaded stylesheet, then restyles what is on screen.
+     * Re-reads the themes, then everything a resource reload re-reads -- stylesheets, sprites and icons --
+     * and restyles what is on screen.
      *
      * <p>Where the files are read FROM is {@code CgIO}'s business, and that is the part worth knowing:
      * without an override directory it resolves from the classpath, which for a Gradle run means
@@ -419,10 +433,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // -- the log says "re-read N stylesheets", and an edited token changes nothing. Reloading
             // the theme rebinds the table and restyles; the sheets then re-read their files against
             // the NEW table, which is why this order and not the other.
-            int themes = com.crystalgui.style.theme.UiThemeManager.getInstance().reloadFromDisk();
-            int reloaded = com.crystalgui.style.StyleEngine.reloadStylesheets();
-            LOGGER.info("[InteractiveSceneRunner] Ctrl+R: reloaded " + reloaded + " stylesheet(s) and "
-                    + themes + " theme file(s)");
+            int themes = UiThemeManager.getInstance().reloadFromDisk();
+            // WHAT A RESOURCE RELOAD DOES, not the stylesheets alone: icons, sprites and sheets all have
+            // caches, and this key re-reading only the sheets left every edited .svg on screen.
+            CgUiLifecycle.reload();
+            LOGGER.info("[InteractiveSceneRunner] Ctrl+R: reloaded " + themes + " theme file(s); "
+                    + "CrystalGUI's own reload logs the rest");
         } catch (Throwable t) {
             // Never let a bad stylesheet take the harness down -- a half-written file mid-save is the
             // normal case for this key, not an exceptional one.

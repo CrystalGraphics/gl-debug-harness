@@ -8,6 +8,26 @@ import com.crystalgui.core.window.WindowPolicy;
 import com.crystalgui.core.window.WindowState;
 import com.crystalgui.desktop.Desktop;
 import com.crystalgui.desktop.DesktopCommands;
+import com.crystalgraphics.trace.CgFrameImages;
+import com.crystalgraphics.trace.CgFrameRecord;
+import com.crystalgraphics.trace.CgTrace;
+import com.crystalgraphics.trace.CgTraceSnapshot;
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import com.crystalgui.widget.display.SpanTrack;
+import com.crystalgraphics.platform.input.CgMouseCodes;
+import com.crystalgui.app.frameprofiler.FrameProfiler;
+import com.crystalgui.app.frameprofiler.ChainsTab;
+import com.crystalgui.app.frameprofiler.FrameImageView;
+import com.crystalgui.app.frameprofiler.FrameProfilerPanel;
+import com.crystalgui.app.frameprofiler.HintsTab;
+import com.crystalgui.app.frameprofiler.ProfilerModel;
+import com.crystalgui.app.frameprofiler.ProfilerSettings;
+import com.crystalgui.core.settings.Setting;
+import com.crystalgui.core.settings.SettingsLayer;
 import com.crystalgui.desktop.taskbar.TaskbarDesigner;
 import com.crystalgui.desktop.window.WindowFrame;
 import com.crystalgraphics.api.render.CgRenderPipeline;
@@ -20,6 +40,14 @@ import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.ui.input.keymap.KeyChord;
 import com.crystalgui.ui.input.keymap.Keymap;
 import com.crystalgui.widget.control.Button;
+import com.crystalgui.widget.control.Checkbox;
+import com.crystalgui.widget.display.FrameStripTrack;
+import com.crystalgui.widget.collection.tree.TreeView;
+import com.crystalgui.core.collection.tree.TreeRow;
+import com.crystalgui.app.frameprofiler.CallTreeTab;
+import com.crystalgui.widget.layout.SplitView;
+import com.crystalgui.widget.config.control.MaskControl;
+import com.crystalgui.widget.display.FrameStatsOverlay;
 import com.crystalgui.widget.overlay.Dialog;
 import com.crystalgui.widget.text.UIText;
 import com.crystalgui.workbench.Workbench;
@@ -30,7 +58,9 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 
+import com.crystalgui.core.data.Transform2D;
 import org.joml.Matrix4f;
+import org.joml.Vector2f;
 
 
 /**
@@ -202,6 +232,10 @@ public class CgUiDesktopScene
         root.addClass("demo-root");
         document.append(root);
         desktop = Desktop.of(document);
+
+        // THE HUD IS THE ENGINE'S, not the harness's -- the same class a Minecraft host attaches, so a
+        // number read here means what it means in game. Over everything, hit-tests nothing, F7 to hide.
+        FrameStatsOverlay.attach(document);
 
         WindowFrame welcome = desktop.addWindow(new WindowFrame("Welcome"));
         // HIDE_ON_CLOSE, so one window in the scene demonstrates the other half of the policy: its
@@ -411,6 +445,880 @@ public class CgUiDesktopScene
         // deferred rebuilds have all settled -- a capture at frame 5 photographs a desktop that is
         // still assembling itself and every diff against it is noise.
         if (frame.getFrameNumber() == 40) ctx.getArtifactService().requestCapture("startup");
+        if (PROFILER_SHOT) driveProfilerShot(ctx, frame.getFrameNumber());
+    }
+
+    // ── -Dcrystalgui.harness.desktop.profiler=true: open the profiler, drive it, photograph it ──
+
+    /**
+     * A scripted run for iterating on the Frame Profiler without a hand on the mouse.
+     *
+     * <p>Opens it maximised, presses Record, lets the ring fill, then drives every gesture the window
+     * has through the REAL input path -- a click on the strip, on a zone, a wheel zoom, a pan, a range
+     * drag, the tabs, a counter row, Live -- photographing after each and printing what the model says
+     * happened. The printout is half the point: a photograph of a highlighted bar cannot say whether the
+     * click selected the frame under it or one twice as far along.</p>
+     */
+    private static final boolean PROFILER_SHOT = Boolean.getBoolean("crystalgui.harness.desktop.profiler");
+
+    /** When the script starts driving -- enough frames for the 4Hz refresh to have run several times. */
+    private static final int PROFILER_SHOT_AT = Integer.getInteger("crystalgui.harness.desktop.profiler.at", 180);
+
+    private FrameProfilerPanel profilerPanel;
+    private boolean profilerShotDone;
+    private HarnessContext shotContext;
+
+    private void driveProfilerShot(HarnessContext ctx, long frameNumber) {
+        shotContext = ctx;
+        if (frameNumber == 50) {
+            // THE SCENE'S OWN READOUT OFF: it sits over the window's caption buttons, and every
+            // photograph of the profiler would be a photograph of the readout's corner too.
+            FrameStatsOverlay readout = FrameStatsOverlay.of(document);
+            if (readout != null && readout.isShowing()) FrameStatsOverlay.toggleOn(document);
+            // RECORD FROM LAUNCH, checked before the window exists: what is already in the ring was
+            // recorded by the autostart alone.
+            log("before opening: recording " + CgTrace.isRecording() + ", frames already recorded "
+                    + CgTrace.frameCount() + ", keeps first " + CgTrace.firstFrames() + " + newest " + CgTrace.newestFrames()
+                    + ", record-at-launch " + ProfilerSettings.get(ProfilerSettings.RECORD_AT_LAUNCH));
+            WindowFrame window = FrameProfiler.openOn(desktop);
+            profilerWindow = window;
+            window.maximize();
+            // THE COMPOSED TREE, not content(): the window hosts what it is given in a slot of its
+            // own, so the panel is a descendant rather than the content element itself.
+            for (UIElement each : window.composedSubtree()) {
+                if (each instanceof FrameProfilerPanel panel) {
+                    profilerPanel = panel;
+                    break;
+                }
+            }
+            if (profilerPanel != null && !profilerPanel.model().isCapturing()) {
+                profilerPanel.model().toggleRecording();
+            }
+            log("opened; panel found: " + (profilerPanel != null) + "; enabled: " + CgTrace.enabledNames());
+            return;
+        }
+        if (profilerPanel == null) {
+            if (frameNumber > 60) profilerShotDone = true;
+            return;
+        }
+        FrameProfilerPanel panel = profilerPanel;
+        ProfilerModel model = panel.model();
+        long step = frameNumber - PROFILER_SHOT_AT;
+        if (step < 0) return;
+
+        switch ((int) step) {
+            case 0 -> {
+                logGc(model);
+                log("live: frames " + model.frameCount() + ", following " + model.isFollowing()
+                        + ", selected " + model.selectedIndex() + ", zones " + model.zonesOfSelection().size()
+                        + ", tracks " + panel.chart().tracks().size() + ", counters " + model.counterSeries().size());
+                shot("01-live");
+                FrameStripTrack strip = panel.strip();
+                float[] thumb = panel.scrollbar().thumb();
+                log("opening view: " + (int) strip.visible() + " of " + strip.frames() + " frames across, from "
+                        + (int) strip.viewFrom() + ", thumb " + (int) thumb[1] + " of "
+                        + (int) panel.scrollbar().box().width() + " px");
+            }
+
+            // A CLICK ON THE STRIP, 70% along: it must select the frame under the pointer and pause.
+            case 4 -> {
+                Box box = panel.strip().box();
+                float[] p = at(panel.strip(), 0.70f, 0.6f);
+                log("strip box: worldX " + box.worldX() + " worldY " + box.worldY() + " w " + box.width()
+                        + " h " + box.height() + " uiScale " + document.boxes().uiScale()
+                        + " -> sent (" + p[0] + ", " + p[1] + ") -> toLocal " + panel.strip().toLocal(p[0], p[1]));
+                hover(panel.strip(), 0.70f, 0.6f);
+            }
+            case 6 -> press(panel.strip(), 0.70f, 0.6f, true);
+            case 7 -> press(panel.strip(), 0.70f, 0.6f, false);
+            case 10 -> {
+                int expected = (int) (panel.strip().viewFrom() + 0.70f * panel.strip().visible());
+                log("strip click: selected " + model.selectedIndex() + " (pointer over ~" + expected
+                        + "), following " + model.isFollowing());
+                shot("02-strip-click");
+            }
+            // A CLICK ON A ZONE in the frame thread's top row.
+            case 14 -> hover(firstTrack(panel), 0.30f, 9f / trackHeight(panel));
+            case 16 -> press(firstTrack(panel), 0.30f, 9f / trackHeight(panel), true);
+            case 17 -> press(firstTrack(panel), 0.30f, 9f / trackHeight(panel), false);
+            case 20 -> {
+                log("zone click: selected zone " + model.selectedZone() + ", following " + model.isFollowing());
+                shot("03-zone-click");
+            }
+            // A WHEEL ZOOM, three notches UP about the middle -- a NEGATIVE scroll (HostPointer.scroll),
+            // which must zoom IN: the span must shrink.
+            case 24 -> {
+                hover(firstTrack(panel), 0.5f, 0.3f);
+                spanBefore = panel.chart().axis().spanNanos();
+            }
+            case 25, 26, 27 -> wheel(firstTrack(panel), 0.5f, 0.3f, -1f);
+            case 30 -> {
+                log("wheel up: span " + spanBefore / 1000 + "us -> " + panel.chart().axis().spanNanos() / 1000
+                        + "us (must shrink)");
+                log("zoom: axis span " + panel.chart().axis().spanNanos() / 1000 + "us of "
+                        + (panel.chart().axis().extentTo() - panel.chart().axis().extentFrom()) / 1000 + "us");
+                shot("04-zoom");
+            }
+            // A PAN, dragged right-to-left and released over a zone: must pan, and must NOT select.
+            case 34 -> press(firstTrack(panel), 0.60f, 0.3f, true);
+            case 35 -> hover(firstTrack(panel), 0.50f, 0.3f);
+            case 36 -> hover(firstTrack(panel), 0.40f, 2.5f);
+            case 37 -> press(firstTrack(panel), 0.40f, 2.5f, false);
+            case 40 -> {
+                log("pan: axis from +" + (panel.chart().axis().from() - panel.chart().axis().extentFrom()) / 1000
+                        + "us, selected zone still " + model.selectedZone());
+                shot("05-pan");
+            }
+            // A RANGE DRAG across the strip, released below it: capture must carry the release home.
+            case 44 -> press(panel.strip(), 0.20f, 0.5f, true);
+            case 45 -> hover(panel.strip(), 0.26f, 0.5f);
+            case 46 -> hover(panel.strip(), 0.32f, 1.8f);
+            case 47 -> press(panel.strip(), 0.32f, 1.8f, false);
+            case 50 -> {
+                log("range: " + model.hasRange() + " " + model.rangeFrom() + ".." + model.rangeTo()
+                        + ", zones " + model.zonesOfSelection().size());
+                shot("06-range");
+            }
+            case 54 -> click(panel.countersTab());
+            // A WHEEL OVER A COUNTER ROW scrolls the tab and leaves the frame axis alone: the rows fill
+            // the tab, so a row that zoomed on the wheel left nothing to scroll with.
+            case 56 -> {
+                countersSpan = panel.strip().visible();
+                if (!panel.counters().rows().isEmpty()) wheel(panel.counters().rows().get(0), 0.5f, 0.6f, 3f);
+            }
+            case 58 -> {
+                Box tabBox = panel.counters().scroller().box();
+                log("counters wheel: scrollTop " + panel.counters().scroller().scrollTop() + " (must be > 0), strip span "
+                        + (int) countersSpan + " -> " + (int) panel.strip().visible() + " (must not move); tab "
+                        + (tabBox == null ? "no box" : "h " + tabBox.height() + " client " + tabBox.clientHeight()
+                        + " content " + tabBox.contentHeight()) + ", rows " + panel.counters().rows().size());
+                shot("07-counters");
+            }
+            case 60 -> {
+                if (!panel.counters().rows().isEmpty()) hover(panel.counters().rows().get(1), 0.5f, 0.5f);
+            }
+            case 61 -> {
+                if (!panel.counters().rows().isEmpty()) press(panel.counters().rows().get(1), 0.5f, 0.5f, true);
+            }
+            case 62 -> {
+                if (!panel.counters().rows().isEmpty()) press(panel.counters().rows().get(1), 0.5f, 0.5f, false);
+            }
+            case 65 -> {
+                log("counter click: selected " + model.selectedIndex() + " (pointer over ~"
+                        + (int) (panel.strip().viewFrom() + 0.5f * panel.strip().visible()) + "), range " + model.hasRange());
+                shot("08-counter-click");
+            }
+            // A PRESS ON A COUNTER'S LABEL is not a pick: the selection must not move.
+            case 66 -> {
+                labelBefore = model.selectedIndex();
+                if (!panel.counters().rows().isEmpty()) press(panel.counters().rows().get(1), 0.2f, 0.15f, true);
+            }
+            case 67 -> {
+                if (!panel.counters().rows().isEmpty()) press(panel.counters().rows().get(1), 0.2f, 0.15f, false);
+            }
+            case 68 -> {
+                log("counter label press: selected " + labelBefore + " -> " + model.selectedIndex() + " (must not move)");
+                click(panel.callTreeTab());
+            }
+            case 71 -> {
+                TreeView<CallTreeTab.CallNode> tree = panel.callTree().calleeTree();
+                log("call tree: " + tree.visibleRows().size() + " rows, open " + tree.expandedItems());
+                shot("09-calltree");
+            }
+            // A CLICK ON A CALLEE ROW selects that zone everywhere, and the callers side answers for it.
+            case 72 -> click(calleeRow(panel, 1));
+            case 74 -> {
+                TreeView<CallTreeTab.CallNode> tree = panel.callTree().calleeTree();
+                TreeRow<CallTreeTab.CallNode> row = tree.rowAt(1);
+                TreeView<CallTreeTab.CallNode> up = panel.callTree().callerTree();
+                log("callee click: row 1 is " + (row == null ? null : row.item().name()) + ", selected zone "
+                        + model.selectedZone() + ", callers rows " + up.visibleRows().size()
+                        + (up.visibleRows().isEmpty() ? "" : " rooted at " + up.visibleRows().get(0).item().name()));
+                shot("09b-callee-selected");
+            }
+            // THE TWISTY of the first row folds it, and only it: the selection must not move.
+            case 75 -> {
+                UIElement row = calleeRow(panel, 0);
+                twistyWasOpen = panel.callTree().calleeTree().rowAt(0).expanded();
+                twistyRows = panel.callTree().calleeTree().visibleRows().size();
+                if (row != null) click(row.children().get(0));
+            }
+            case 77 -> {
+                TreeView<CallTreeTab.CallNode> tree = panel.callTree().calleeTree();
+                log("twisty: row 0 open " + twistyWasOpen + " -> " + tree.rowAt(0).expanded() + ", rows "
+                        + twistyRows + " -> " + tree.visibleRows().size() + ", selected zone still "
+                        + model.selectedZone());
+            }
+            case 78 -> click(panel.zonesTab());
+            case 79 -> shot("10-zones");
+            case 80 -> click(panel.liveButton());
+            case 88 -> {
+                log("live button: following " + model.isFollowing() + ", selected " + model.selectedIndex()
+                        + " of " + model.frameCount());
+                shot("11-live-again");
+            }
+            // A RANGE DRAGGED WHILE LIVE: the press must pause the window before the refresh can move
+            // the frames under the pointer.
+            case 92 -> press(panel.strip(), 0.55f, 0.5f, true);
+            case 93 -> hover(panel.strip(), 0.62f, 0.5f);
+            case 94 -> hover(panel.strip(), 0.70f, 1.6f);
+            case 95 -> press(panel.strip(), 0.70f, 1.6f, false);
+            case 98 -> {
+                int n = model.frameCount();
+                log("live range: " + model.hasRange() + " " + model.rangeFrom() + ".." + model.rangeTo()
+                        + " (pointer over ~" + (int) (0.55f * n) + ".." + (int) (0.70f * n) + "), following "
+                        + model.isFollowing());
+                shot("12-live-range");
+            }
+            case 99 -> click(panel.callTreeTab());
+            case 101 -> shot("12b-range-calltree");
+            // KEYBOARD: a click on the strip, then three Right arrows -- one frame per press.
+            case 102 -> click(panel.strip());
+            case 105 -> {
+                keyStart = model.selectedIndex();
+                key(CgKeyCodes.KEY_RIGHT);
+            }
+            case 106 -> key(CgKeyCodes.KEY_RIGHT);
+            case 107 -> key(CgKeyCodes.KEY_RIGHT);
+            case 110 -> {
+                log("keyboard: " + keyStart + " -> " + model.selectedIndex() + " after 3 x Right (focus on "
+                        + (document.focus().focused() == null ? "nothing" : document.focus().focused().name()) + ")");
+                shot("13-keyboard");
+            }
+            case 112 -> click(worstButton(panel));
+            case 115 -> {
+                long worst = 0L;
+                int worstAt = -1;
+                for (int i = 0; i < model.frameCount(); i++) {
+                    long wall = model.frames().get(i).wallNanos();
+                    if (wall > worst) {
+                        worst = wall;
+                        worstAt = i;
+                    }
+                }
+                firstWorst = model.selectedIndex();
+                log("worst frame: selected " + model.selectedIndex() + " at "
+                        + model.frames().get(model.selectedIndex()).wallNanos() / 1_000_000 + " ms (slowest overall is "
+                        + worstAt + ", " + worst / 1_000_000 + " ms)");
+                shot("14-worst");
+            }
+            case 116 -> click(worstButton(panel));
+            case 117 -> {
+                int second = model.selectedIndex();
+                log("worst again: " + firstWorst + " -> " + second + " at "
+                        + model.frames().get(second).wallNanos() / 1_000_000 + " ms (must be a different, "
+                        + "no-slower frame)");
+            }
+            case 118 -> click(panel.recordButton());
+            case 121 -> {
+                log("record off: capturing " + model.isCapturing() + ", frozen " + model.isFrozen()
+                        + ", enabled " + CgTrace.enabledNames());
+                shot("15-record-off");
+            }
+            case 123 -> click(panel.recordButton());
+            case 126 -> log("record on: capturing " + model.isCapturing() + ", enabled " + CgTrace.enabledNames());
+            case 128 -> click(channelsToggle(panel));
+            // PAST THE FADE: a popover opens over 120 ms, and a photograph inside that reads as a
+            // translucent menu.
+            case 140 -> shot("16-channels-open");
+            case 142 -> click(channelBox(panel, "crystalgui.blame"));
+            case 150 -> {
+                log("tick blame: enabled " + CgTrace.enabledNames() + ", menu still open "
+                        + channelsOpen(panel));
+                shot("17-channels-ticked");
+            }
+            case 152 -> click(channelBox(panel, "crystalgui.blame"));
+            case 156 -> log("untick blame: enabled " + CgTrace.enabledNames());
+            // THE DIVIDER, dragged down 60 px: the split must follow the pointer.
+            case 162 -> {
+                UIElement divider = splitDivider(panel);
+                splitBefore = splitOf(panel);
+                if (divider != null) press(divider, 0.5f, 0.5f, true);
+            }
+            case 163 -> {
+                UIElement divider = splitDivider(panel);
+                if (divider != null) {
+                    float[] p = at(divider, 0.5f, 0.5f);
+                    document.input().consumeMouseEvent(new CgSystemInput.Mouse.Event(
+                            (int) p[0], (int) p[1] + 60, 0, 60, CgMouseCodes.NONE, false, 0f, -1L));
+                }
+            }
+            case 164 -> {
+                UIElement divider = splitDivider(panel);
+                if (divider != null) {
+                    float[] p = at(divider, 0.5f, 0.5f);
+                    document.input().consumeMouseEvent(new CgSystemInput.Mouse.Event(
+                            (int) p[0], (int) p[1], 0, 0, CgMouseCodes.LEFT_BUTTON, false, 0f, System.currentTimeMillis()));
+                }
+            }
+            case 167 -> {
+                log("divider drag: split " + splitBefore + "% -> " + splitOf(panel) + "%");
+                shot("18-split-dragged");
+            }
+            case 168 -> {
+                int at = -1;
+                for (int i = model.frameCount() - 1; i >= 0; i--) {
+                    if (model.frames().get(i).hadGc()) {
+                        at = i;
+                        break;
+                    }
+                }
+                if (at >= 0) {
+                    model.setFollowing(false);
+                    model.selectFrame(at);
+                }
+                CgFrameRecord frame = model.selectedFrame();
+                log("gc frame: " + at + (frame == null ? "" : " -> " + frame.gcSummary() + " of "
+                        + frame.wallNanos() / 1_000_000 + " ms"));
+            }
+            case 169 -> {
+                logGc(model);
+                shot("19-gc-frame");
+            }
+            // THE GEAR in the caption opens the settings page in place of the bands.
+            case 172 -> click(gear());
+            case 176 -> {
+                log("gear: settings open " + panel.isSettingsOpen() + ", gear lit "
+                        + (gear() != null && gear().hasClass(WindowFrame.ACTION_ON_CLASS))
+                        + ", summary: " + panel.settingsPage().summaryText());
+                shot("20-settings");
+            }
+            // WHAT THE PAGE'S ROWS WRITE: the first 300 frames and no newest -- keep the start, then stop.
+            case 178 -> {
+                ProfilerSettings.set(ProfilerSettings.FIRST_FRAMES, 300);
+                ProfilerSettings.set(ProfilerSettings.FRAMES, 0);
+            }
+            case 181 -> {
+                log("settings changed: keeps first " + CgTrace.firstFrames() + " + newest " + CgTrace.newestFrames()
+                        + ", summary: " + panel.settingsPage().summaryText());
+                shot("21-settings-changed");
+            }
+            case 183 -> click(panel.settingsPage().doneButton());
+            case 186 -> {
+                log("done: settings open " + panel.isSettingsOpen() + ", capturing " + model.isCapturing());
+                keepFirstWaiting = true;
+            }
+            default -> driveAfterSettings(panel, model, step);
+        }
+    }
+
+    private static Button worstButton(FrameProfilerPanel panel) {
+        for (UIElement each : panel.composedSubtree()) {
+            if (each instanceof Button button && "Worst frame".equals(button.getText())) return button;
+        }
+        return null;
+    }
+
+    private static UIElement channelsToggle(FrameProfilerPanel panel) {
+        for (UIElement each : panel.composedSubtree()) {
+            if (each instanceof MaskControl mask) return mask.toggle();
+        }
+        return null;
+    }
+
+    private int firstWorst;
+    private WindowFrame profilerWindow;
+    private boolean keepFirstWaiting;
+    private long fullAt = -1L;
+    private double viewBefore;
+
+    private Button gear() {
+        if (profilerWindow == null) return null;
+        for (UIElement each : profilerWindow.composedSubtree()) {
+            if (each instanceof Button button && button.hasClass(WindowFrame.SETTINGS_ACTION_CLASS)) return button;
+        }
+        return null;
+    }
+
+    /** From the ring filling onwards: keep-first, the strip zoom, Home, and putting everything back. */
+    private void driveAfterSettings(FrameProfilerPanel panel, ProfilerModel model, long step) {
+        if (keepFirstWaiting) {
+            if (CgTrace.isFull()) {
+                keepFirstWaiting = false;
+                fullAt = step;
+            } else if (step > 186 + 900) {
+                log("keep-first: the ring never filled");
+                keepFirstWaiting = false;
+                fullAt = step;
+            }
+            return;
+        }
+        if (fullAt < 0L) return;
+        long at = step - fullAt;
+        FrameStripTrack strip = panel.strip();
+        if (at == 2) {
+            model.refresh();
+        } else if (at == 4) {
+            List<CgFrameRecord> frames = model.frames();
+            log("keep-first: full " + CgTrace.isFull() + ", recording " + CgTrace.isRecording()
+                    + ", frames " + frames.size() + " from #" + (frames.isEmpty() ? -1 : frames.get(0).index())
+                    + ", stop reason: " + model.stopReason() + ", record button '" + panel.recordButton().getText() + "'");
+            shot("22-kept-first");
+        } else if (at == 6) {
+            hover(strip, 0.1f, 0.5f);
+            viewBefore = strip.visible();
+        } else if (at >= 7 && at <= 12) {
+            wheel(strip, 0.1f, 0.5f, -1f);
+        } else if (at == 14) {
+            log("strip wheel up x6: " + viewBefore + " -> " + strip.visible() + " frames across, from "
+                    + strip.viewFrom() + ", zoomed " + strip.isZoomed() + ", counters follow "
+                    + (panel.counters().rows().isEmpty() ? "n/a" : panel.counters().rows().get(0).visible()));
+            shot("23-strip-zoomed");
+        } else if (at == 15) {
+            // SCRUB TO THE ORIGIN: select the last frame, then Home -- frame 0 must be selected AND in view.
+            model.selectFrame(model.frameCount() - 1);
+        } else if (at == 17) {
+            click(strip);
+        } else if (at == 19) {
+            model.selectFrame(model.frameCount() - 1);
+        } else if (at == 21) {
+            key(CgKeyCodes.KEY_HOME);
+        } else if (at == 24) {
+            CgFrameRecord first = model.selectedFrame();
+            log("home: selected " + model.selectedIndex() + " (#" + (first == null ? -1 : first.index())
+                    + "), strip view from " + strip.viewFrom() + " across " + strip.visible());
+            shot("24-origin");
+        } else if (at == 25) {
+            key(CgKeyCodes.KEY_A);
+        } else if (at == 27) {
+            log("A: zoomed " + strip.isZoomed());
+        // THE SCROLLBAR: the thumb's right end dragged to the middle zooms to half the ring.
+        } else if (at == 28) {
+            hover(panel.scrollbar(), 0.997f, 0.5f);
+        } else if (at == 29) {
+            press(panel.scrollbar(), 0.997f, 0.5f, true);
+        } else if (at == 30) {
+            hover(panel.scrollbar(), 0.5f, 0.5f);
+        } else if (at == 31) {
+            press(panel.scrollbar(), 0.5f, 0.5f, false);
+        } else if (at == 33) {
+            log("scrollbar end dragged to half: " + strip.visible() + " frames across of " + strip.frames()
+                    + ", from " + strip.viewFrom());
+            viewBefore = strip.viewFrom();
+        // ...and its body dragged 30% along scrubs by 30% of the ring.
+        } else if (at == 34) {
+            float[] thumb = panel.scrollbar().thumb();
+            float mid = (thumb[0] + thumb[1] * 0.5f) / panel.scrollbar().box().width();
+            barMid = mid;
+            hover(panel.scrollbar(), mid, 0.5f);
+            press(panel.scrollbar(), mid, 0.5f, true);
+        } else if (at == 35) {
+            hover(panel.scrollbar(), barMid + 0.3f, 0.5f);
+        } else if (at == 36) {
+            press(panel.scrollbar(), barMid + 0.3f, 0.5f, false);
+        } else if (at == 38) {
+            log("scrollbar body dragged 30%: from " + viewBefore + " -> " + strip.viewFrom()
+                    + " (must move ~" + (int) (0.3f * strip.frames()) + " frames)");
+            shot("25-scrollbar");
+            viewBefore = strip.viewFrom();
+        // A MIDDLE-BUTTON DRAG on the strip pans; it must not make a range.
+        } else if (at == 39) {
+            hover(strip, 0.6f, 0.5f);
+            middle(strip, 0.6f, 0.5f, true);
+        } else if (at == 40) {
+            hover(strip, 0.4f, 0.5f);
+        } else if (at == 41) {
+            middle(strip, 0.4f, 0.5f, false);
+        } else if (at == 43) {
+            log("middle drag: from " + viewBefore + " -> " + strip.viewFrom() + " (must be later), range "
+                    + model.hasRange());
+        } else if (at == 48) {
+            click(gear());
+        } else if (at == 51) {
+            for (UIElement each : panel.settingsPage().composedSubtree()) {
+                if (each instanceof Button button && "Restore defaults".equals(button.getText())) click(button);
+            }
+        } else if (at == 54) {
+            log("restore defaults: keeps first " + CgTrace.firstFrames() + " + newest " + CgTrace.newestFrames()
+                    + ", summary: " + panel.settingsPage().summaryText());
+            click(panel.settingsPage().doneButton());
+        } else if (at == 56) {
+            if ("arm-launch".equals(System.getProperty("crystalgui.harness.desktop.profiler.phase"))) {
+                ProfilerSettings.set(ProfilerSettings.RECORD_AT_LAUNCH, true);
+                log("armed record-at-launch for the next run");
+            } else if (ProfilerSettings.get(ProfilerSettings.RECORD_AT_LAUNCH)) {
+                ProfilerSettings.set(ProfilerSettings.RECORD_AT_LAUNCH, false);
+                log("record-at-launch switched back off");
+            }
+        // THE START AND THE NEWEST: 60 kept from the start, 120 newest, then run past both. Frame #0 must
+        // still be there, with a gap marked before the newest.
+        } else if (at == 58) {
+            ProfilerSettings.set(ProfilerSettings.FIRST_FRAMES, 40);
+            ProfilerSettings.set(ProfilerSettings.FRAMES, 150);
+            if (!model.isCapturing()) model.toggleRecording();
+            model.setFollowing(true);
+        } else if (at == 330) {
+            model.refresh();
+        } else if (at == 332) {
+            List<CgFrameRecord> frames = model.frames();
+            int gap = -1;
+            for (int i = 1; i < frames.size(); i++) {
+                if (frames.get(i).index() != frames.get(i - 1).index() + 1) {
+                    gap = i;
+                    break;
+                }
+            }
+            log("start and newest: recorded " + CgTrace.frameCount() + ", kept " + frames.size() + " from #"
+                    + frames.get(0).index() + ", gap at " + gap + (gap < 0 ? ""
+                    : " (#" + frames.get(gap - 1).index() + " then #" + frames.get(gap).index() + ")")
+                    + ", still recording " + model.isCapturing());
+            float[] thumb = panel.scrollbar().thumb();
+            log("opening view after the clear: " + (int) strip.visible() + " of " + strip.frames()
+                    + " across, from " + (int) strip.viewFrom() + ", thumb " + (int) thumb[1] + " of "
+                    + (int) panel.scrollbar().box().width() + " px");
+            shot("26-start-and-newest");
+        // THE THUMB, dragged hard left from the opening view: it must reach frame #0.
+        } else if (at == 333) {
+            float[] thumb = panel.scrollbar().thumb();
+            barMid = (thumb[0] + thumb[1] * 0.5f) / panel.scrollbar().box().width();
+            hover(panel.scrollbar(), barMid, 0.5f);
+            press(panel.scrollbar(), barMid, 0.5f, true);
+        } else if (at == 334) {
+            hover(panel.scrollbar(), 0f, 0.5f);
+        } else if (at == 335) {
+            press(panel.scrollbar(), 0f, 0.5f, false);
+        } else if (at == 336) {
+            log("thumb dragged hard left: strip from " + (int) strip.viewFrom() + " across "
+                    + (int) strip.visible() + ", first shown #" + model.frames().get((int) strip.viewFrom()).index()
+                    + ", following " + model.isFollowing());
+            shot("26b-thumb-left");
+            click(strip);
+        } else if (at == 337) {
+            key(CgKeyCodes.KEY_HOME);
+        } else if (at == 338) {
+            CgFrameRecord first = model.selectedFrame();
+            log("home after the ring rolled: #" + (first == null ? -1 : first.index()) + ", zones "
+                    + model.zonesOfSelection().size());
+            shot("27-first-frame");
+        // ZOOMED ACROSS THE GAP, on a fractional view, with a frame selected just after it: the marks must
+        // sit exactly on their bars, and the break must read.
+        } else if (at == 340) {
+            gapFraction = 40f / Math.max(1, model.frameCount());
+            hover(strip, gapFraction, 0.5f);
+        } else if (at >= 341 && at <= 346) {
+            wheel(strip, gapFraction, 0.5f, -1f);
+        } else if (at == 347) {
+            panel.strip().panBy(0.37d);
+            model.selectFrame(41);
+        } else if (at == 350) {
+            log("zoomed on the gap: from " + strip.viewFrom() + " across " + strip.visible());
+            shot("28-gap-zoomed");
+        // HINTS: the tab, its rows, and the first row's link followed.
+        } else if (at == 351) {
+            // THE WHOLE RING, so every rule has its chance; one frame may simply be innocent.
+            model.setFollowing(false);
+            model.selectRange(0, model.frameCount() - 1);
+        } else if (at == 353) {
+            click(panel.hintsTab());
+        } else if (at == 356) {
+            log("hints: tab '" + panel.hintsTab().getText() + "', " + panel.hints().rows().size() + " rows: "
+                    + model.hintsOfSelection().stream().map(row -> row.hint().code()).toList());
+            shot("29-hints");
+            hintLink = null;
+            for (UIElement row : panel.hints().rows()) {
+                for (UIElement each : row.composedSubtree()) {
+                    if (each instanceof Button button && button.hasClass(HintsTab.LINK_CLASS)) {
+                        hintLink = button;
+                        break;
+                    }
+                }
+                if (hintLink != null) break;
+            }
+            if (hintLink != null) click(hintLink);
+        } else if (at == 359) {
+            log("hint link '" + (hintLink == null ? "none" : hintLink.getText()) + "': zone " + model.selectedZone()
+                    + ", tab " + (panel.tabs().getSelectedTab() == null ? "?" : panel.tabs().getSelectedTab().getText()));
+        // COMPARE: the first twenty frames pinned as A, the last twenty as B, through the tab's buttons.
+        } else if (at == 360) {
+            click(panel.compareTab());
+            model.setFollowing(false);
+            model.selectRange(0, 19);
+        } else if (at == 362) {
+            click(panel.compare().pinAButton());
+            model.selectRange(model.frameCount() - 20, model.frameCount() - 1);
+        } else if (at == 364) {
+            click(panel.compare().pinBButton());
+        } else if (at == 367) {
+            log("compare: A " + model.sideA() + ", B " + model.sideB() + ", " + model.compare().size()
+                    + " zones; " + panel.compare().summaryText());
+            shot("30-compare");
+        // THE FOOTER, and the viewer's own work shown on request.
+        } else if (at == 370) {
+            log("footer: " + panel.footerText().getText());
+            click(panel.viewerToggle());
+        } else if (at == 373) {
+            boolean own = model.zonesOfSelection().stream()
+                    .anyMatch(zone -> ProfilerModel.VIEWER.name().equals(zone.channel()));
+            log("viewer shown: " + model.isShowingViewer() + ", its zones in the selection " + own
+                    + ", toggle now '" + panel.viewerToggle().getText() + "'");
+            click(panel.viewerToggle());
+        // CHAINS
+        } else if (at == 375) {
+            click(panel.chainsTab());
+        } else if (at == 378) {
+            List<ChainsTab.Step> chains = panel.chains().chains();
+            log("chains: " + chains.size() + (chains.isEmpty() ? "" : ", newest " + chains.get(0).name()
+                    + " " + chains.get(0).durationNanos() / 1000 + "us with " + chains.get(0).children().size()
+                    + " steps"));
+            shot("31-chains");
+        // THE READOUT'S SPARKLINE opens the frame under the press.
+        } else if (at == 380) {
+            FrameStatsOverlay.toggleOn(document);
+        } else if (at == 392) {
+            FrameStatsOverlay readout = FrameStatsOverlay.of(document);
+            sparkRow = null;
+            if (readout != null) {
+                for (UIText row : readout.rows()) {
+                    if (row.hasClass(FrameStatsOverlay.SPARK_CLASS)) sparkRow = row;
+                }
+            }
+            if (sparkRow != null) {
+                float[] p = at(sparkRow, 0.5f, 0.5f);
+                int columns = sparkRow.getText().length();
+                int column = Math.max(0, Math.min(columns - 1, sparkRow.offsetAtScreen(p[0], p[1])));
+                sparkExpected = readout.barFrame(column);
+                click(sparkRow);
+            }
+        } else if (at == 395) {
+            CgFrameRecord shown = model.selectedFrame();
+            log("readout sparkline click: selected #" + (shown == null ? -1 : shown.index()) + ", the bar was #"
+                    + sparkExpected + ", following " + model.isFollowing() + ", spark row " + (sparkRow != null));
+            shot("32-from-readout");
+            FrameStatsOverlay.toggleOn(document);
+        // F9 IS profiler.open: pressed with the profiler in front it closes it; again, it comes back.
+        } else if (at == 397) {
+            desktop.raise(profilerWindow);
+        } else if (at == 399) {
+            log("F9 with the profiler in front (active " + (desktop.activeWindow() == profilerWindow) + ")");
+            key(CgKeyCodes.KEY_F9);
+        } else if (at == 420) {
+            // A CLOSE ANIMATES before the window hides: read it well after the press.
+            log("F9: showing " + (profilerWindow.state() != WindowState.HIDDEN));
+            key(CgKeyCodes.KEY_F9);
+        } else if (at == 440) {
+            log("F9 again: showing " + (profilerWindow.state() != WindowState.HIDDEN));
+        } else if (at == 442) {
+            // BACK TO THE DEFAULTS, through the store: the page is closed, so its button cannot be pressed.
+            for (Setting<?> setting : ProfilerSettings.all()) {
+                ProfilerSettings.store().reset(SettingsLayer.USER, setting);
+            }
+        } else if (at == 444) {
+            log("defaults again: keeps first " + CgTrace.firstFrames() + " + newest " + CgTrace.newestFrames());
+        // FRAME IMAGES (T8): tick the channel, let it photograph, hover the strip, open the Screen tab --
+        // and the gate, read off the trace: what glend:image cost a frame, averaged.
+        } else if (at == 446) {
+            Set<String> channels = new HashSet<>(model.enabledChannels());
+            channels.add(CgFrameImages.IMAGES.name());
+            model.setEnabledChannels(channels);
+            model.setFollowing(true);
+            imagesFrom = CgTrace.currentFrameIndex();
+        } else if (at == 646) {
+            long frames = 0L;
+            long nanos = 0L;
+            long worst = 0L;
+            StringBuilder captures = new StringBuilder();
+            for (CgFrameRecord record : CgTrace.frames()) {
+                if (record.index() <= imagesFrom) continue;
+                frames++;
+                long spent = 0L;
+                for (CgTraceSnapshot.ZoneView zone : CgTrace.zonesIn(record)) {
+                    if (zone.name().startsWith("glend:image")) {
+                        spent += zone.durationNanos();
+                        captures.append(String.format(" %s=%.3f", zone.name().substring(12), zone.durationNanos() / 1e6));
+                    }
+                }
+                nanos += spent;
+                worst = Math.max(worst, spent);
+            }
+            log("images: each frame's glend:image, ms:" + captures);
+            log(String.format("images: %d held, %d frames since the channel went on; capture %.4f ms a frame "
+                            + "averaged (gate < 0.2), worst frame %.3f ms", CgFrameImages.count(), frames,
+                    frames == 0 ? 0d : nanos / 1e6 / frames, worst / 1e6));
+            hover(panel.strip(), 0.85f, 0.5f);
+        } else if (at == 650) {
+            log("preview: showing " + panel.preview().isDisplayed() + ", caption \"" + panel.previewCaptionText() + "\"");
+            shot("33-frame-preview");
+        } else if (at == 652) {
+            click(panel.screenTab());
+        } else if (at == 658) {
+            FrameImageView view = panel.screen().view();
+            log("screen: \"" + panel.screen().captionText() + "\", image "
+                    + (view.shown() == null ? "none" : view.shown().width() + "x" + view.shown().height()
+                    + " of #" + view.shown().frameIndex()));
+            shot("34-screen");
+        // PAUSED PAST THE RING: the store drops a picture once the live ring has rolled past its frame,
+        // and a paused window still shows that frame -- so its picture must come from the model.
+        } else if (at == 1210) {
+            model.setFollowing(false);
+            CgFrameRecord held = model.selectedFrame();
+            pausedOn = held == null ? -1L : held.index();
+            CgFrameImages.Image image = held == null ? null : model.imageAtOrBefore(held.index());
+            pausedImage = image == null ? -1L : image.frameIndex();
+            log("paused on #" + pausedOn + " showing image of #" + pausedImage);
+        } else if (at == 1400 || at == 1700) {
+            CgFrameRecord now = model.selectedFrame();
+            log("paused? following " + model.isFollowing() + ", selected #" + (now == null ? -1 : now.index())
+                    + ", snapshot #" + model.snapshot().frames().get(0).index() + "..#"
+                    + model.snapshot().frames().get(model.snapshot().frames().size() - 1).index());
+        } else if (at == 1950) {
+            CgFrameImages.Image store = CgFrameImages.atOrBefore(pausedOn);
+            CgFrameImages.Image held = model.imageAtOrBefore(pausedOn);
+            log("740 frames later: the store has #" + (store == null ? -1 : store.frameIndex())
+                    + " for it, the window #" + (held == null ? -1 : held.frameIndex())
+                    + " (must be #" + pausedImage + "), screen \"" + panel.screen().captionText() + "\"");
+            hover(panel.strip(), 0.5f, 0.5f);
+        } else if (at == 1954) {
+            log("paused preview: showing " + panel.preview().isDisplayed() + ", caption \""
+                    + panel.previewCaptionText() + "\"");
+            shot("35-paused-images");
+            profilerShotDone = true;
+        }
+    }
+    private int labelBefore;
+    private long imagesFrom;
+    private long pausedOn;
+    private long pausedImage;
+    private double countersSpan;
+    private boolean twistyWasOpen;
+    private int twistyRows;
+
+    private static UIElement calleeRow(FrameProfilerPanel panel, int index) {
+        return panel.callTree().calleeTree().realisedRows().get(index);
+    }
+    private long spanBefore;
+
+    private static void logGc(ProfilerModel model) {
+        StringBuilder line = new StringBuilder("gc: ");
+        for (GarbageCollectorMXBean collector : ManagementFactory.getGarbageCollectorMXBeans()) {
+            line.append(collector.getName()).append(" x").append(collector.getCollectionCount())
+                    .append(' ').append(collector.getCollectionTime()).append("ms; ");
+        }
+        int frames = 0;
+        long total = 0L;
+        for (CgFrameRecord frame : model.frames()) {
+            if (frame.gcMillis() > 0L) frames++;
+            total += frame.gcMillis();
+        }
+        log(line + "ring: " + frames + " of " + model.frameCount() + " frames carry GC, " + total + "ms");
+    }
+    private float splitBefore;
+
+    private static SplitView splitOf0(FrameProfilerPanel panel) {
+        for (UIElement each : panel.composedSubtree()) {
+            if (each instanceof SplitView split) return split;
+        }
+        return null;
+    }
+
+    private static float splitOf(FrameProfilerPanel panel) {
+        SplitView split = splitOf0(panel);
+        return split == null ? -1f : split.getPercentage();
+    }
+
+    private static UIElement splitDivider(FrameProfilerPanel panel) {
+        SplitView split = splitOf0(panel);
+        if (split == null) return null;
+        for (UIElement each : split.composedChildren()) {
+            if (each.hasClass("__divider__")) return each;
+        }
+        return null;
+    }
+
+    private static boolean channelsOpen(FrameProfilerPanel panel) {
+        for (UIElement each : panel.composedSubtree()) {
+            if (each instanceof MaskControl mask) return mask.panel().isOpen();
+        }
+        return false;
+    }
+
+    /** The checkbox for {@code channel} in the channel menu's popover, which lives in the top layer. */
+    private UIElement channelBox(FrameProfilerPanel panel, String channel) {
+        for (UIElement each : panel.composedSubtree()) {
+            if (each instanceof MaskControl mask) {
+                for (UIElement row : mask.panel().composedSubtree()) {
+                    if (row instanceof Checkbox box && channel.equals(box.getLabel())) return box;
+                }
+            }
+        }
+        log("no checkbox for " + channel);
+        return null;
+    }
+
+    private SpanTrack firstTrack(FrameProfilerPanel panel) {
+        List<SpanTrack> tracks = panel.chart().tracks();
+        return tracks.isEmpty() ? null : tracks.get(0);
+    }
+
+    private float trackHeight(FrameProfilerPanel panel) {
+        SpanTrack track = firstTrack(panel);
+        return track == null || track.box() == null ? 18f : Math.max(1f, track.box().height());
+    }
+
+    /**
+     * A point on {@code element} as a fraction of its box, in SURFACE pixels -- what Input receives.
+     *
+     * <p>Through the box's own {@code localToWorld}, NOT {@code uiScale()}: this scene scales through
+     * the root transform, so {@code uiScale()} answers 1 while every matrix carries 2. Multiplying by
+     * the former sent every scripted click to half the distance it was aimed at.</p>
+     */
+    private float[] at(UIElement element, float fx, float fy) {
+        Box box = element == null ? null : element.box();
+        if (box == null) return new float[]{-1f, -1f};
+        Vector2f surface = Transform2D.apply(box.localToWorld(), fx * box.width(), fy * box.height());
+        return new float[]{surface.x, surface.y};
+    }
+
+    private void hover(UIElement element, float fx, float fy) {
+        float[] p = at(element, fx, fy);
+        document.input().consumeMouseEvent(new CgSystemInput.Mouse.Event(
+                (int) p[0], (int) p[1], 0, 0, CgMouseCodes.NONE, false, 0f, -1L));
+    }
+
+    private float barMid;
+    private Button hintLink;
+    private UIText sparkRow;
+    private long sparkExpected;
+    private float gapFraction;
+
+    private void middle(UIElement element, float fx, float fy, boolean down) {
+        float[] p = at(element, fx, fy);
+        document.input().consumeMouseEvent(new CgSystemInput.Mouse.Event(
+                (int) p[0], (int) p[1], 0, 0, CgMouseCodes.MIDDLE_BUTTON, down, 0f, System.currentTimeMillis()));
+    }
+
+    private void press(UIElement element, float fx, float fy, boolean down) {
+        float[] p = at(element, fx, fy);
+        document.input().consumeMouseEvent(new CgSystemInput.Mouse.Event(
+                (int) p[0], (int) p[1], 0, 0, CgMouseCodes.LEFT_BUTTON, down, 0f, System.currentTimeMillis()));
+    }
+
+    private void wheel(UIElement element, float fx, float fy, float notches) {
+        float[] p = at(element, fx, fy);
+        document.input().consumeMouseEvent(new CgSystemInput.Mouse.Event(
+                (int) p[0], (int) p[1], 0, 0, CgMouseCodes.NONE, false, notches, -1L));
+    }
+
+    /** Hover, press and release in one call -- for buttons and tabs, where a same-frame click is fine. */
+    private void click(UIElement element) {
+        hover(element, 0.5f, 0.5f);
+        press(element, 0.5f, 0.5f, true);
+        press(element, 0.5f, 0.5f, false);
+    }
+
+    private int keyStart;
+
+    /** One key down and up, through the real keyboard path. */
+    private void key(int code) {
+        document.input().consumeKeyboardEvent(new CgSystemInput.Keyboard.Event((char) 0, code, true, false, System.currentTimeMillis()));
+        document.input().consumeKeyboardEvent(new CgSystemInput.Keyboard.Event((char) 0, code, false, false, System.currentTimeMillis()));
+    }
+
+    private void shot(String name) {
+        shotContext.getArtifactService().requestCapture("profiler-" + name);
+    }
+
+    private static void log(String line) {
+        System.out.println("[profiler-shot] " + line);
     }
 
     /**
@@ -450,35 +1358,51 @@ public class CgUiDesktopScene
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        if (event.pressed() && event.key() == CgKeyCodes.KEY_F2) {
-            spawnCascadedWindow();
-            return true;
-        }
-        if (event.pressed() && event.key() == CgKeyCodes.KEY_F3) {
-            toggleFloatingProjectPanel();
-            return true;
-        }
-        if (event.pressed() && event.key() == CgKeyCodes.KEY_F4) {
-            spawnBackgroundWindow();
-            return true;
-        }
         // THE MODE OWNS THE KEYBOARD except for its own way out. In game the keyboard is the game's;
         // here the scene has to stand in for that, and a mode nobody can leave is worse than no mode.
         if (event.pressed() && event.key() == CgKeyCodes.KEY_F6) {
             if (desktop.isHudMode()) desktop.exitHudMode(); else desktop.enterHudMode();
             return true;
         }
-        if (desktop.isHudMode()) return true;
+        if (desktop.isHudMode()) {
+            if (event.pressed()) windowKey(event.key());
+            return true;
+        }
+        // THE APPLICATION FIRST, and the scene's keys only on what it leaves -- as a real host acts only on
+        // an unconsumed key. Taken first, they were dead to every binding of their own in the application:
+        // the builder's and the explorer's F2 rename, the editor's F3 Find Next, the explorer's F5 refresh.
+        if (document.input().consumeKeyboardEvent(event)) return true;
+        if (!event.pressed()) return false;
+        if (windowKey(event.key())) return true;
         // F5 IS A CONVENIENCE, NOT THE AFFORDANCE. The designer is a registered command with its own
         // chord and a taskbar context-menu entry, so it is reachable identically here and in game --
         // this key exists only because a harness scene is where it gets opened forty times an hour.
-        if (event.pressed() && event.key() == CgKeyCodes.KEY_F5) {
+        // F7 AND F8 ARE NOT HANDLED HERE, and used to be. They are `desktop.frameStats` and
+        // `desktop.frameStatsDetail` now -- registered by DesktopCommands, so the editor and a Minecraft
+        // screen answer the same two keys. The document is offered every key above this line, so a
+        // handler for them here could never run; leaving one would read as the live path.
+        if (event.key() == CgKeyCodes.KEY_F5) {
             WindowFrame existing = desktop.registry().byKey("taskbar-designer");
             if (existing != null) existing.requestClose();
             else TaskbarDesigner.open(document);
             return true;
         }
-        return document.input().consumeKeyboardEvent(event);
+        // F9 IS NOT HANDLED HERE: it is `profiler.open`, the command every surface with a desktop has,
+        // so the scene's key and the game's are the same binding.
+        return false;
+    }
+
+    /** F2 opens a window, F3 floats the Project panel, F4 opens a window without taking focus. */
+    private boolean windowKey(int key) {
+        switch (key) {
+            case CgKeyCodes.KEY_F2 -> spawnCascadedWindow();
+            case CgKeyCodes.KEY_F3 -> toggleFloatingProjectPanel();
+            case CgKeyCodes.KEY_F4 -> spawnBackgroundWindow();
+            default -> {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -589,7 +1513,7 @@ public class CgUiDesktopScene
 
     @Override
     public boolean isRunning() {
-        return true;
+        return !profilerShotDone;
     }
 
     @Override
@@ -599,6 +1523,6 @@ public class CgUiDesktopScene
 
     @Override
     public boolean shouldShutdownOnComplete() {
-        return false;
+        return PROFILER_SHOT;
     }
 }

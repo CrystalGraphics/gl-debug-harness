@@ -13,7 +13,7 @@ import com.crystalgraphics.platform.CgPlatform;
  * <h3>Lifecycle for interactive scenes</h3>
  * <pre>
  *   init(ctx)
- *   while (isRunning() &amp;&amp; !Display.isCloseRequested()) {
+ *   while (isRunning() &amp;&amp; !HarnessWindow.shouldClose()) {
  *       // runtime: input → camera → scheduler → clear → floor
  *       render(ctx, frameInfo)
  *       // runtime: state reset → pause → HUD → capture → swap

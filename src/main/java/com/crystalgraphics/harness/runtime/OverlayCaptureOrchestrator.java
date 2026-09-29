@@ -26,7 +26,7 @@ import java.util.logging.Logger;
  *
  * <p><b>Capture callback semantics</b>: The callback is a one-shot Runnable
  * that fires after the full frame is rendered (scene + floor + HUD + pause)
- * but BEFORE {@code Display.update()}. This is the correct capture point
+ * but BEFORE {@code HarnessWindow.swapBuffers()}. This is the correct capture point
  * for screenshot timing. The callback is cleared after firing.</p>
  *
  * <p><b>Thread safety</b>: Only used on the LWJGL render thread.</p>
@@ -40,7 +40,7 @@ public final class OverlayCaptureOrchestrator {
 
     /**
      * Post-render callback that fires after each frame is fully rendered
-     * (including floor, HUD, pause overlay) but BEFORE Display.update().
+     * (including floor, HUD, pause overlay) but BEFORE HarnessWindow.swapBuffers().
      * Used by test scenes that need to capture screenshots of the current
      * frame's rendered content rather than the previous frame.
      */

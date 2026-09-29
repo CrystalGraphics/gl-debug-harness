@@ -2,7 +2,6 @@ package com.crystalgraphics.harness;
 
 import com.crystalgraphics.harness.config.SceneDescriptor;
 import com.crystalgraphics.harness.scene.*;
-import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.ImageScene;
 import com.crystalgraphics.harness.scene.test.CgHostSectionScene;
 import com.crystalgraphics.harness.scene.test.InstancingTestScene;
@@ -13,6 +12,9 @@ import com.crystalgraphics.harness.scene.test.CgAttachedBufferStressScene;
 import com.crystalgraphics.harness.scene.test.CgVectorRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgForwardRendererScene;
+import com.crystalgraphics.harness.scene.ui.CgGpuTraceProbeScene;
+import com.crystalgraphics.harness.scene.ui.CgUiTextGammaScene;
+import com.crystalgraphics.harness.scene.ui.CgUiTimelineScene;
 import com.crystalgraphics.harness.scene.ui.CgUiGalleryScene;
 import com.crystalgraphics.harness.scene.ui.CgUiDesktopScene;
 import com.crystalgraphics.harness.scene.ui.CgUiNewEngineGalleryScene;
@@ -320,6 +322,18 @@ public final class SceneRegistry {
         );
 
         reg.register(
+            SceneDescriptor.builder("cgui-text-gamma")
+                .description("Text gamma and contrast: off, Chromium, strong, heavy, and the default fading strong into heavy by size, on the UI faces, dark and light panels, UI scale 1 and 2 (G cycles, S toggles scale)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUiTextGammaScene()
+        );
+
+        reg.register(
             SceneDescriptor.builder("cgui-new-gallery")
                 .description("M6 NEW ENGINE: every ported widget in one scrolling column, over UIDocument + the box tree -- the counterpart to cgui-gallery, and the only thing that can see whether a ported widget actually DRAWS")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
@@ -379,6 +393,30 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiSvgIconScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("gpu-trace-probe")
+                .description("DIAGNOSTIC, exits on its own: GPU timer queries land in their frame within 3 frames and match a fence-waited control within 5%")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.09f, 0.09f, 0.11f, 1.0f)
+                .build(),
+            () -> new CgGpuTraceProbeScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("cgui-timeline")
+                .description("CrystalGUI timeline primitives: 10,000 spans and 600 frame bars — wheel zoom, drag pan, frame stepping, range selection")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.09f, 0.09f, 0.11f, 1.0f)
+                .build(),
+            () -> new CgUiTimelineScene()
         );
 
         // The front door: every widget, one page each, with a live Ore <-> default theme toggle.

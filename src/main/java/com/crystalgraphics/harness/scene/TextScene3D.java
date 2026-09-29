@@ -296,9 +296,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
             perspectiveContext.projection(ctx.getProjection()).updateProjectedSize(modelView, ctx.getProjection(), kanjiFontSizePx);
             renderer.context(perspectiveContext);
 
-            renderer.draw().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack).submit();
-            renderer.draw().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(labelFont).pose(poseStack).submit();
-            renderer.draw().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(minecraftFont).pose(poseStack).submit();
+            withShadow(renderer.draw().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack), kanjiFontSizePx).submit();
+            withShadow(renderer.draw().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(labelFont).pose(poseStack), LABEL_FONT_SIZE_PX).submit();
+            withShadow(renderer.draw().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(minecraftFont).pose(poseStack), FONT_SIZE_PX).submit();
         }
 
         if (CgProfiler.isEnabled()) {
@@ -480,8 +480,33 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
         return false;
     }
 
+    // ── text-shadow on world text: G cycles the look, to see whether a shadow survives perspective ──
+
+    private static final String[] SHADOW_MODES = {"off", "glow", "stroked glow", "drop shadow", "inset"};
+    private int shadowMode = 1;
+
+    /** This draw with the current shadow mode, its lengths a fraction of the font size so every draw matches. */
+    private CgTextRenderer.Draw withShadow(CgTextRenderer.Draw draw, int fontPx) {
+        float em = fontPx;
+        switch (shadowMode) {
+            case 1 -> draw.shadowCount(1).shadow(0, 0f, 0f, 0.12f * em, 0f, 0xFF4FC3F7, false);
+            case 2 -> draw.stroke(0.04f, 0xFF0B5D8F)
+                    .shadowCount(2)
+                    .shadow(0, 0f, 0f, 0.05f * em, 0f, 0xFFFFFFFF, false)
+                    .shadow(1, 0f, 0f, 0.2f * em, 0.03f * em, 0xFF4FC3F7, false);
+            case 3 -> draw.shadowCount(1).shadow(0, 0.06f * em, 0.06f * em, 0.04f * em, 0f, 0xCC000000, false);
+            case 4 -> draw.shadowCount(1).shadow(0, 0.05f * em, 0.05f * em, 0.03f * em, 0f, 0xD9000000, true);
+            default -> { }
+        }
+        return draw;
+    }
+
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
+        if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_G) {
+            shadowMode = (shadowMode + 1) % SHADOW_MODES.length;
+            LOGGER.info("[Harness] world text shadow: " + SHADOW_MODES[shadowMode]);
+        }
         // Braced deliberately: without them only dumpAtlases() was guarded, and
         // dumpMsdfGenerationProfile() ran on *every* keyboard event including key-up and repeats.
         if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_LBRACKET) {
