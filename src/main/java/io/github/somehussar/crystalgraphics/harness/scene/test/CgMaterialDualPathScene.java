@@ -12,6 +12,10 @@ import com.crystalgraphics.gl.buffer.staging.CgBufferWriter;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.gl.mesh.CgMesh;
 import com.crystalgraphics.gl.mesh.CgMeshBuilder;
+import com.crystalgraphics.platform.gl.CgGL;
+import com.crystalgraphics.platform.gl.state.CgGlScope;
+import com.crystalgraphics.platform.gl.state.CgGlSlot;
+import com.crystalgraphics.platform.gl.state.CgGlState;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -20,11 +24,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL30;
 
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 
 /**
  * CrystalShader MVP demo scene exercising the full Wave-1 material system:
@@ -241,55 +242,52 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
 
         // ── MRT section ───────────────────────────────────────────────────────
         if (mrtFbo != null && mrtMaterial != null && mrtMesh != null) {
-            IntBuffer savedViewport = BufferUtils.createIntBuffer(16);
-            GL11.glGetIntegerv(GL11.GL_VIEWPORT, savedViewport);
+            try (CgGlScope ignored = CgGlState.save(CgGlSlot.VIEWPORT)) {
+                mrtFbo.bind();
+                mrtFbo.drawBuffers(0, 1, 2);
+                GlErrorChecker.assertNoGlError("CgMrtSection.drawBuffers");
 
-            mrtFbo.bind();
-            mrtFbo.drawBuffers(0, 1, 2);
-            GlErrorChecker.assertNoGlError("CgMrtSection.drawBuffers");
+                CgGL.glViewport(0, 0, 256, 256);
+                CgGL.glClearColor(0f, 0f, 0f, 1f);
+                CgGL.glClear(CgGL.GL_COLOR_BUFFER_BIT | CgGL.GL_DEPTH_BUFFER_BIT);
 
-            GL11.glViewport(0, 0, 256, 256);
-            GL11.glClearColor(0f, 0f, 0f, 1f);
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+                CgShaderBuffer mrtBuf = pipeline.objectBuffer();
+                CgBufferWriter mw = mrtBuf.beginWrite(1);
+                mw.beginRecord()
+                  .mat4("modelMatrix", SCRATCH_4.identity())
+                  .mat4("normalMatrix", SCRATCH_4.identity());
+                mrtBuf.endRecord();
+                mrtBuf.endWrite();
 
-            CgShaderBuffer mrtBuf = pipeline.objectBuffer();
-            CgBufferWriter mw = mrtBuf.beginWrite(1);
-            mw.beginRecord()
-              .mat4("modelMatrix", SCRATCH_4.identity())
-              .mat4("normalMatrix", SCRATCH_4.identity());
-            mrtBuf.endRecord();
-            mrtBuf.endWrite();
+                mrtMaterial.bind();
+                mrtMesh.drawDirect();
+                mrtMaterial.unbind();
+                GlErrorChecker.assertNoGlError("CgMrtSection.draw");
 
-            mrtMaterial.bind();
-            mrtMesh.drawDirect();
-            mrtMaterial.unbind();
-            GlErrorChecker.assertNoGlError("CgMrtSection.draw");
+                if (!mrtReadbackDone) {
+                    mrtReadbackDone = true;
+                    ByteBuffer pixel = BufferUtils.createByteBuffer(4);
 
-            if (!mrtReadbackDone) {
-                mrtReadbackDone = true;
-                ByteBuffer pixel = BufferUtils.createByteBuffer(4);
+                    CgGL.glReadBuffer(CgGL.GL_COLOR_ATTACHMENT0);
+                    CgGL.glReadPixels(128, 128, 1, 1, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, pixel);
+                    float r0 = (pixel.get(0) & 0xFF) / 255.0f;
+                    LOGGER.info("[CgMrtSection] RT0 {} (r={})", r0 > 0.9f ? "PASS" : "FAIL", r0);
+                    pixel.clear();
 
-                GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
-                GL11.glReadPixels(128, 128, 1, 1, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixel);
-                float r0 = (pixel.get(0) & 0xFF) / 255.0f;
-                LOGGER.info("[CgMrtSection] RT0 {} (r={})", r0 > 0.9f ? "PASS" : "FAIL", r0);
-                pixel.clear();
+                    CgGL.glReadBuffer(CgGL.GL_COLOR_ATTACHMENT1);
+                    CgGL.glReadPixels(128, 128, 1, 1, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, pixel);
+                    float g1 = (pixel.get(1) & 0xFF) / 255.0f;
+                    LOGGER.info("[CgMrtSection] RT1 {} (g={})", g1 > 0.9f ? "PASS" : "FAIL", g1);
+                    pixel.clear();
 
-                GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT1);
-                GL11.glReadPixels(128, 128, 1, 1, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixel);
-                float g1 = (pixel.get(1) & 0xFF) / 255.0f;
-                LOGGER.info("[CgMrtSection] RT1 {} (g={})", g1 > 0.9f ? "PASS" : "FAIL", g1);
-                pixel.clear();
+                    CgGL.glReadBuffer(CgGL.GL_COLOR_ATTACHMENT2);
+                    CgGL.glReadPixels(128, 128, 1, 1, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, pixel);
+                    float b2 = (pixel.get(2) & 0xFF) / 255.0f;
+                    LOGGER.info("[CgMrtSection] RT2 {} (b={})", b2 > 0.9f ? "PASS" : "FAIL", b2);
+                }
 
-                GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT2);
-                GL11.glReadPixels(128, 128, 1, 1, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixel);
-                float b2 = (pixel.get(2) & 0xFF) / 255.0f;
-                LOGGER.info("[CgMrtSection] RT2 {} (b={})", b2 > 0.9f ? "PASS" : "FAIL", b2);
+                mrtFbo.unbind();
             }
-
-            mrtFbo.unbind();
-            GL11.glViewport(savedViewport.get(0), savedViewport.get(1),
-                    savedViewport.get(2), savedViewport.get(3));
         }
 
         // ── Keyword variant demo ───────────────────────────────────────────────

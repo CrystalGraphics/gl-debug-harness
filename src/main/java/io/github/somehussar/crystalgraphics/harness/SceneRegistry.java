@@ -3,6 +3,7 @@ package io.github.somehussar.crystalgraphics.harness;
 import io.github.somehussar.crystalgraphics.harness.config.SceneDescriptor;
 import io.github.somehussar.crystalgraphics.harness.scene.*;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ImageScene;
+import io.github.somehussar.crystalgraphics.harness.scene.test.CgHostSectionScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.InstancingTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ReviewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.ShaderLibTestScene;
@@ -167,6 +168,18 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
                 .build(),
             () -> new InstancingTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("host-section")
+                .description("A fake host drawing raw GL inside hostForeign between engine draws, one target, painter's order")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
+                .build(),
+            () -> new CgHostSectionScene()
         );
 
         reg.register(

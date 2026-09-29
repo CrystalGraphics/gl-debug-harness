@@ -54,15 +54,11 @@ public final class CapabilityReport implements HarnessSceneLifecycle {
                 pw.println("-- CgCapabilities --");
                 try {
                     CgCapabilities caps = CgCapabilities.detectUncached();
-                    pw.println("Core FBO:          " + caps.isCoreFbo());
-                    pw.println("ARB FBO:           " + caps.isArbFbo());
-                    pw.println("EXT FBO:           " + caps.isExtFbo());
-                    pw.println("Core Shaders:      " + caps.isCoreShaders());
-                    pw.println("VAO:               " + caps.isVaoSupported());
-                    pw.println("MapBufferRange:    " + caps.isMapBufferRangeSupported());
+                    pw.println("Shader buffers:    " + caps.shaderBufferPath());
+                    pw.println("Stream tier:       " + caps.vertexStreamTier());
+                    pw.println("Copy image:        " + caps.isCopyImageSubDataSupported());
                     pw.println("Max Texture Size:  " + caps.getMaxTextureSize());
                     pw.println("Max Draw Buffers:  " + caps.getMaxDrawBuffers());
-                    pw.println("Preferred FBO:     " + caps.preferredFboBackend());
                 } catch (Exception e) {
                     pw.println("ERROR: " + e.getMessage());
                 }

@@ -4,6 +4,7 @@ import com.crystalgraphics.api.shader.CgActiveUniform;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.api.shader.CgShaderPreprocessor;
 import com.crystalgraphics.gl.shader.CgShaderFactory;
+import com.crystalgraphics.platform.gl.CgGL;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -69,9 +70,9 @@ public class ShaderLibTestScene implements InteractiveSceneLifecycle {
         elapsedTime += (float) frame.getDeltaTime();
         int mode = (int) (elapsedTime / MODE_DURATION) % 4;
 
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        CgGL.glDisable(CgGL.GL_DEPTH_TEST);
+        CgGL.glEnable(CgGL.GL_BLEND);
+        CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
 
         final float time = elapsedTime;
         final int   m    = mode;
@@ -80,8 +81,8 @@ public class ShaderLibTestScene implements InteractiveSceneLifecycle {
             b.set1i("u_mode", m);
         }).bind();
 
-        GL30.glBindVertexArray(quad.vaoId);
-        GL11.glDrawElements(GL11.GL_TRIANGLES, quad.indexCount, GL11.GL_UNSIGNED_INT, 0);
+        CgGL.glBindVertexArray(quad.vaoId);
+        CgGL.glDrawElements(CgGL.GL_TRIANGLES, quad.indexCount, CgGL.GL_UNSIGNED_INT, 0L);
     }
 
     @Override

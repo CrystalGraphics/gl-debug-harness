@@ -1,7 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.render.pipeline.CgForwardRenderer;
-import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgRenderQueue;
@@ -262,9 +261,6 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
         // ── 6. First-frame diagnostics ────────────────────────────────────────
         if (!loggedFirstFrame) {
             loggedFirstFrame = true;
-            CgCapabilities caps = CgCapabilities.detect();
-            LOG.info("[ForwardRendererScene] GL caps: drawInstanced={} vertexAttribDivisor={}",
-                    caps.isDrawInstancedSupported(), caps.isVertexAttribDivisorSupported());
             LOG.info("[ForwardRendererScene] GROUP A: submitted {} commands with solidMaterial " +
                     "— expect CgForwardRenderer to emit drawInstanced(50)", GROUP_A_COUNT);
             LOG.info("[ForwardRendererScene] GROUP B: submitted {} interleaved A/B commands " +

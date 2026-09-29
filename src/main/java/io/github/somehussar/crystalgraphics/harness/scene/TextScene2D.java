@@ -74,11 +74,6 @@ public class TextScene2D implements HarnessSceneLifecycle {
                 + ", logicalWidth=" + logicalWidth + ", output=" + outputFilename);
 
         CgCapabilities caps = CgCapabilities.detect();
-        if (!caps.isCoreFbo() || !caps.isCoreShaders()
-                || !caps.isVaoSupported() || !caps.isMapBufferRangeSupported()) {
-            throw new IllegalStateException(
-                    "Text scene requires modern GL: core FBO, core shaders, VAO, glMapBufferRange");
-        }
 
         CgFont font = CgFont.load(fontPath, CgFontStyle.REGULAR, fontSizePx);
         LOGGER.info("[Harness] Font loaded: " + font.getKey());

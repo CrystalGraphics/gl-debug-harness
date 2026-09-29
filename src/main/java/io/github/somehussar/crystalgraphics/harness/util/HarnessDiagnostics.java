@@ -17,15 +17,10 @@ public  class HarnessDiagnostics {
 
         try {
             CgCapabilities caps = CgCapabilities.detectUncached();
-            LOGGER.info("[Harness] Core FBO:    " + caps.isCoreFbo());
-            LOGGER.info("[Harness] ARB FBO:     " + caps.isArbFbo());
-            LOGGER.info("[Harness] EXT FBO:     " + caps.isExtFbo());
-            LOGGER.info("[Harness] Core Shaders:" + caps.isCoreShaders());
-            LOGGER.info("[Harness] VAO:         " + caps.isVaoSupported());
-            LOGGER.info("[Harness] MapBufRange: " + caps.isMapBufferRangeSupported());
+            LOGGER.info("[Harness] ShaderBufs:  " + caps.shaderBufferPath());
+            LOGGER.info("[Harness] StreamBufferTier:  " + caps.vertexStreamTier());
             LOGGER.info("[Harness] MaxTexSize:  " + caps.getMaxTextureSize());
             LOGGER.info("[Harness] MaxDrawBuf:  " + caps.getMaxDrawBuffers());
-            LOGGER.info("[Harness] Preferred FBO backend: " + caps.preferredFboBackend());
         } catch (Exception e) {
             LOGGER.warning("[Harness] Could not detect CgCapabilities: " + e.getMessage());
         }

@@ -93,16 +93,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         HarnessOutputDir.ensureExists(atlasDir);
 
         CgCapabilities caps = CgCapabilities.detect();
-        LOGGER.info("[Harness] Capabilities: coreFbo=" + caps.isCoreFbo()
-                + ", coreShaders=" + caps.isCoreShaders()
-                + ", vao=" + caps.isVaoSupported()
-                + ", mapBufferRange=" + caps.isMapBufferRangeSupported());
 
-        if (!caps.isCoreFbo() || !caps.isCoreShaders()
-                || !caps.isVaoSupported() || !caps.isMapBufferRangeSupported()) {
-            throw new IllegalStateException(
-                    "Atlas dump scene requires modern GL: core FBO, core shaders, VAO, glMapBufferRange");
-        }
 
         // Resolve effective atlas size: CLI override takes precedence, then parity estimator,
         // then legacy auto-compute for non-parity smoke runs.

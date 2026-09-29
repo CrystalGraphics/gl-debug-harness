@@ -2,6 +2,7 @@ package io.github.somehussar.crystalgraphics.harness;
 
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.platform.gl.CgGlRecording;
 import com.crystalgraphics.util.profiling.CgProfiler;
 import com.crystalgraphics.util.profiling.CgProfilerDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
@@ -33,6 +34,8 @@ import com.crystalgraphics.platform.input.CgKeyCodes;
 import io.github.somehussar.crystalgraphics.harness.runtime.HarnessWindow;
 import org.lwjgl.opengl.GL11C;
 
+import com.sun.management.ThreadMXBean;
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -91,6 +94,16 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * few carry every lazy allocation and every shader variant's first compile, which is a scene's
      * startup cost rather than its frame cost. */
     private static final int PROFILE_WARMUP_FRAMES = 30;
+    /** {@code -Dcrystalgraphics.harness.captureAt=<frame>}: photograph that frame and stop -- an unattended
+     * picture of any interactive scene. Pair with {@code fixedDelta} for one that repeats run to run. */
+    private static final int CAPTURE_AT = Integer.getInteger("crystalgraphics.harness.captureAt", 0);
+    /** {@code -Dcrystalgraphics.harness.record=<frame>}: from that frame on, the scene pass is recorded and replayed
+     * instead of drawn, so a capture shows the replay. Logs what a recorded frame allocates beside a direct one. */
+    private static final int RECORD_FROM = Integer.getInteger("crystalgraphics.harness.record", 0);
+    private static final int ALLOCATION_SAMPLE = 30;
+    private final CgGlRecording recording = new CgGlRecording();
+    private long directAllocated, recordedAllocated;
+    private int directFrames, recordedFrames;
     /**
      * The scene driven by this runner, accessed through the unified lifecycle contract.
      */
@@ -134,6 +147,33 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * scene signals completion via {@link InteractiveSceneLifecycle#isRunning()}
      * returning false, or the window is closed.</p>
      */
+    private void renderScene(HarnessContext ctx, FrameInfo info) {
+        long frame = info.getFrameNumber();
+        boolean sample = RECORD_FROM > 0 && frame >= RECORD_FROM - ALLOCATION_SAMPLE;
+        long before = sample ? allocatedBytes() : 0;
+        if (RECORD_FROM <= 0 || frame < RECORD_FROM) {
+            scene.render(ctx, info);
+            if (sample) { directAllocated += allocatedBytes() - before; directFrames++; }
+            return;
+        }
+        recording.begin();
+        try {
+            scene.render(ctx, info);
+        } finally {
+            recording.end();
+        }
+        // The first recorded frame builds the recording's tape and scratch; a frame after it is what recording costs.
+        if (frame > RECORD_FROM) {
+            recordedAllocated += allocatedBytes() - before;
+            recordedFrames++;
+        }
+        recording.replay();
+    }
+
+    private static long allocatedBytes() {
+        return ((ThreadMXBean) ManagementFactory.getThreadMXBean()).getCurrentThreadAllocatedBytes();
+    }
+
     public void run() {
         int currentWidth = ctx.getScreenWidth();
         int currentHeight = ctx.getScreenHeight();
@@ -265,8 +305,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // 9. Scene pass: set baseline state, then let the scene render freely
             RenderPassState.beginScenePass();
             try (CgProfiler.Scope ignored = CgProfiler.scope("frame.scene")) {
-                scene.render(ctx, new FrameInfo(frameClock.getDeltaTime(),
+                renderScene(ctx, new FrameInfo(frameClock.getDeltaTime(),
                         frameClock.getElapsedTime(), frameClock.getFrameNumber()));
+            }
+            if (CAPTURE_AT > 0 && frameClock.getFrameNumber() == CAPTURE_AT) {
+                artifactService.requestCapture("frame" + CAPTURE_AT);
             }
 
             // 10-13. Post-scene sequence: GL reset → pause overlay → HUD → capture callback
@@ -303,10 +346,16 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             scene.onFrameEnd(ctx, new FrameInfo(
                     (float) ((System.nanoTime() - frameStartNanos) / 1_000_000_000.0),
                     frameClock.getElapsedTime(), frameClock.getFrameNumber()));
+            if (CAPTURE_AT > 0 && frameClock.getFrameNumber() >= CAPTURE_AT) break;
         }
 
         LOGGER.info("[InteractiveSceneRunner] Render loop exited after "
                 + frameClock.getFrameNumber() + " frames");
+        if (RECORD_FROM > 0 && recordedFrames > 0) {
+            LOGGER.info("[InteractiveSceneRunner] record: " + recording.size() + " bytes a frame; allocated "
+                    + (directFrames == 0 ? "?" : String.valueOf(directAllocated / directFrames)) + " bytes a direct frame, "
+                    + (recordedAllocated / recordedFrames) + " a recorded one (" + directFrames + " and " + recordedFrames + " frames)");
+        }
 
         // Ensure cursor is released on exit
         inputPauseHandler.releaseCursor();
