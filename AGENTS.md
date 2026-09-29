@@ -22,6 +22,23 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
 | Exit code | **0**. Reaching the cap is the requested outcome, not a failure — a non-zero code would make every timed run a red build |
 | Default | absent = run until closed, which is the right default for a human at the keyboard |
 
+## `--device=gl|tracked` — what `CgGL` runs on
+
+`gl` (the default) is the driver. `tracked` is CrystalGraphics' tracked backend over a **recording device**:
+every command a Vulkan device would be sent, validated, and **nothing presented** — the window stays black.
+It proves a scene's GL stream survives the device seam (`plan/device-seam.md` §5); the tracker's counts
+print at the end.
+
+```bash
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=tracked --seconds=10"
+# INFO: [Harness] tracked: frames=314 deviceDraws=88495 ... passes=4778 breaks=709 ... misses=17
+```
+
+A scene fails on it by throwing: a call the device cannot express, or a draw it would refuse (a binding
+with no buffer, a draw with no program) -- a non-zero exit, with the `tracked:` line missing.
+Captures and readbacks come back black. `gpu-trace-probe` does not apply: a recording device has no GPU
+clock.
+
 
 ---
 

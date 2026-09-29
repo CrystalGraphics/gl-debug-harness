@@ -20,7 +20,7 @@ repositories {
 }
 
 val lwjglVersion = "3.4.1"
-val lwjglModules = listOf("lwjgl", "lwjgl-glfw", "lwjgl-opengl", "lwjgl-vulkan", "lwjgl-shaderc", "lwjgl-vma")
+val lwjglModules = listOf("lwjgl", "lwjgl-glfw", "lwjgl-opengl", "lwjgl-vulkan", "lwjgl-shaderc", "lwjgl-spvc", "lwjgl-vma")
 val lwjglNatives: String = run {
     val os = System.getProperty("os.name").lowercase()
     val arm = System.getProperty("os.arch").let { it == "aarch64" || it.startsWith("arm") }
@@ -40,6 +40,8 @@ dependencies {
     api("com.crystalgraphics:core:1.0.0")
     // Tier 1 for LWJGL 3: the GL backend, context, input and cursor, shared with every modern host.
     implementation("com.crystalgraphics:lwjgl3:1.0.0")
+    // Tier 1 for Vulkan: the tracked backend's GLSL compiler, for --device=tracked.
+    implementation("com.crystalgraphics:vulkan:1.0.0")
 
     api("org.joml:joml:${rootProject.findProperty("jomlVersion") ?: "1.10.8"}")
     implementation("com.google.code.findbugs:jsr305:3.0.2")

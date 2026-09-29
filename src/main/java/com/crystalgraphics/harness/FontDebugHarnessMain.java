@@ -92,12 +92,13 @@ public final class FontDebugHarnessMain {
         try {
             // Registers input and sound along with the GL services -- one bundle, so the UI cannot
             // come up with a working backend and no keyboard.
-            PlatformServiceHarness.onPreInit();
+            PlatformServiceHarness.onPreInit(config.getDevice(), config.getWidth(), config.getHeight());
             // The cursor adapter is a TOOLKIT service, so it comes from CrystalGraphics' LWJGL 3 tier
             // rather than from a copy of our own. CrystalGUI's CursorService turns its keywords into
             // pictures and finds this through the slot; nothing here names either side of that.
             CgPlatform.provide(CgCursorService.SERVICE, new GlfwCursorService(HarnessWindow::handle));
             ctx = HarnessContext.create(config.getWidth(), config.getHeight());
+            PlatformServiceHarness.resizeSurface(ctx.getScreenWidth(), ctx.getScreenHeight());
             CgGraphicsLifecycle.initContext(ctx.getScreenWidth(), ctx.getScreenHeight());
             //HarnessDiagnostics.logStartup(ctx);
 
@@ -133,10 +134,13 @@ public final class FontDebugHarnessMain {
                 scene.init(ctx);
                 try {
                     scene.render(ctx, FrameInfo.SINGLE_FRAME);
+                    PlatformServiceHarness.endTrackedFrame();
                 } finally {
                     scene.dispose();
                 }
             }
+            String tracked = PlatformServiceHarness.trackedReport();
+            if (tracked != null) LOGGER.info("[Harness] tracked: " + tracked);
             CgGraphicsLifecycle.destroyContext();
 
             LOGGER.info("[Harness] Mode '" + mode + "' completed successfully.");
@@ -195,6 +199,8 @@ public final class FontDebugHarnessMain {
         System.out.println("  --font-path=<path>     Font file path (default: system font)");
         System.out.println("  --width=<n>            Width in pixels (default: 800)");
         System.out.println("  --height=<n>           Height in pixels (default: 600)");
+        System.out.println("  --device=gl|tracked    What CgGL runs on (default: gl). tracked: the tracked backend over");
+        System.out.println("                         a recording device -- every command validated, nothing presented");
         System.out.println("  --seconds=<n>          Stop the scene after n seconds (default: run until closed).");
         System.out.println("                         Honoured by EVERY scene. Use it for any unattended run --");
         System.out.println("                         an interactive scene otherwise never returns. Fractional");

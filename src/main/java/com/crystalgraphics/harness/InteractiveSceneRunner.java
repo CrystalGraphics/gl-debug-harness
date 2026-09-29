@@ -3,6 +3,7 @@ package com.crystalgraphics.harness;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.gl.CgGlRecording;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.util.trace.CgChannels;
@@ -276,6 +277,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             //    Also notifies the scene via the unified lifecycle onResize hook.
             if (resizeHandler.checkAndPropagate()) {
                 ViewportState vp = ctx.getViewport();
+                PlatformServiceHarness.resizeSurface(vp.getWidth(), vp.getHeight());
                 CgGraphicsLifecycle.onResize(vp.getWidth(), vp.getHeight());
                 scene.onResize(vp.getWidth(), vp.getHeight());
                 ctx.setProjection(HarnessProjectionUtil.perspective(vp.getWidth(), vp.getHeight()));

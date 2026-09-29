@@ -2,6 +2,11 @@ package com.crystalgraphics.platform;
 
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.CgPlatformService;
+import com.crystalgraphics.platform.device.CgRecordingDevice;
+import com.crystalgraphics.platform.gl.state.CgGlState;
+import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
+import com.crystalgraphics.platform.gl.tracked.CgTrackedGLContext;
+import com.crystalgraphics.platform.gl.tracked.CgTrackedStateProvider;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
 import com.crystalgraphics.platform.service.CgInputService;
@@ -18,6 +23,7 @@ import com.crystalgraphics.platform.service.LifecycleServiceHarness;
 import com.crystalgraphics.platform.service.ReloadServiceHarness;
 import com.crystalgraphics.platform.service.RenderingServiceHarness;
 import com.crystalgraphics.platform.service.ResourceServiceHarness;
+import com.crystalgraphics.vulkan.ShadercGlslCompiler;
 
 /**
  * Complete MC 1.7.10 platform bundle. Implements {@link CgPlatformService} by composing
@@ -49,8 +55,12 @@ public final class PlatformServiceHarness implements CgPlatformService {
      */
     public final CgSoundService soundImpl = soundId -> {};
 
-    @Override public CgGLBackend       gl()           { return glDispatchImpl; }
-    @Override public CgGLContext         capabilities() { return glContextImpl; }
+    // ── --device=tracked ─────────────────────────────────────────────────────
+    private CgRecordingDevice recordingDevice;
+    private CgTrackedGLBackend tracked;
+
+    @Override public CgGLBackend       gl()           { return tracked != null ? tracked : glDispatchImpl; }
+    @Override public CgGLContext         capabilities() { return tracked != null ? new CgTrackedGLContext() : glContextImpl; }
     @Override public CgResourceService  resources()    { return resourceImpl; }
     @Override public CgRenderingService rendering()    { return renderingImpl; }
     @Override public CgLifecycleService lifecycle()    { return lifecycleImpl; }
@@ -65,7 +75,21 @@ public final class PlatformServiceHarness implements CgPlatformService {
      * Safe to call before any GL context exists.
      */
     public static void onPreInit() {
-        CgPlatform.register(PlatformServiceHarness.getInstance());
+        onPreInit("gl", 0, 0);
+    }
+
+    /**
+     * @param device {@code gl}, or {@code tracked}: {@code CgGL} on the tracked backend over a recording device the
+     *               size of the window, which validates every command and presents nothing
+     */
+    public static void onPreInit(String device, int width, int height) {
+        PlatformServiceHarness p = getInstance();
+        if (device.equals("tracked")) {
+            p.recordingDevice = new CgRecordingDevice(width, height).withoutLog();
+            p.tracked = new CgTrackedGLBackend(p.recordingDevice, new ShadercGlslCompiler(), true);
+        }
+        CgPlatform.register(p);
+        if (p.tracked != null) CgGlState.setProvider(new CgTrackedStateProvider(p.tracked));
         // NATIVE CONTENT IS NOT DECLARED HERE, and it used to be.
         //
         // `com.crystalgui.ui.elements.slot` lives only on core's `native-content-slots` branch, which
@@ -76,4 +100,25 @@ public final class PlatformServiceHarness implements CgPlatformService {
         // saying so out loud is what separates it from a loader that forgot.
     }
 
+    /** The tracked backend under {@code --device=tracked}, else null. */
+    public static CgTrackedGLBackend tracked() {
+        return INSTANCE == null ? null : INSTANCE.tracked;
+    }
+
+    /** The recording device's surface follows the window's framebuffer. Nothing on GL. */
+    public static void resizeSurface(int width, int height) {
+        if (tracked() != null) INSTANCE.recordingDevice.resize(width, height);
+    }
+
+    /** Ends the tracked backend's frame; once a frame, after everything drawn in it. Nothing on GL. */
+    public static void endTrackedFrame() {
+        if (tracked() != null) INSTANCE.tracked.endFrame();
+    }
+
+    /** What the tracked backend did over the run, for the log; null on GL. */
+    public static String trackedReport() {
+        if (tracked() == null) return null;
+        return "frames=" + INSTANCE.recordingDevice.frameIndex() + " deviceDraws=" + INSTANCE.recordingDevice.draws()
+                + " liveObjects=" + INSTANCE.recordingDevice.liveObjects() + " " + INSTANCE.tracked.stats();
+    }
 }
