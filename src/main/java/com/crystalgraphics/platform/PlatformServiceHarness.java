@@ -26,8 +26,15 @@ import com.crystalgraphics.platform.service.ReloadServiceHarness;
 import com.crystalgraphics.platform.service.RenderingServiceHarness;
 import com.crystalgraphics.platform.service.ResourceServiceHarness;
 import com.crystalgraphics.vulkan.CgVulkanDevice;
+import com.crystalgraphics.vulkan.CgVulkanHost;
+import com.crystalgraphics.vulkan.CgVulkanImage;
 import com.crystalgraphics.vulkan.host.OwnedVulkanHost;
 import com.crystalgraphics.vulkan.shader.ShadercGlslCompiler;
+import org.lwjgl.vulkan.VkCommandBuffer;
+import org.lwjgl.vulkan.VkDevice;
+import org.lwjgl.vulkan.VkInstance;
+import org.lwjgl.vulkan.VkPhysicalDevice;
+import org.lwjgl.vulkan.VkQueue;
 
 /**
  * Complete MC 1.7.10 platform bundle. Implements {@link CgPlatformService} by composing
@@ -99,7 +106,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
             // -Dcrystalgraphics.harness.vulkanValidation=false for a timing run: the layer checks every command.
             boolean validate = !"false".equals(System.getProperty("crystalgraphics.harness.vulkanValidation"));
             p.vulkanHost = new OwnedVulkanHost(HarnessWindow.handle(), validate);
-            p.vulkanDevice = new CgVulkanDevice(p.vulkanHost, width, height);
+            p.vulkanDevice = new CgVulkanDevice(new PresentTimed(p.vulkanHost), width, height);
             p.device = p.vulkanDevice;
         }
         if (p.device != null) p.tracked = new CgTrackedGLBackend(p.device, new ShadercGlslCompiler(), true);
@@ -123,6 +130,46 @@ public final class PlatformServiceHarness implements CgPlatformService {
     /** The device under {@code --device=tracked|vulkan}: its name, vendor and driver. Null on GL. */
     public static CgDeviceInfo deviceInfo() {
         return tracked() == null ? null : INSTANCE.device.info();
+    }
+
+    private static long presentNanos;
+
+    /**
+     * Time spent presenting since the last call, and reset: the owned host's {@code endFrame} — acquire, the copy
+     * onto the swapchain image, submit, present and the frame fence. 0 on any other device.
+     */
+    public static long takePresentNanos() {
+        long n = presentNanos;
+        presentNanos = 0;
+        return n;
+    }
+
+    /** The owned host, its {@code endFrame} timed: presentation, which a host inside Minecraft does not do. */
+    private record PresentTimed(CgVulkanHost host) implements CgVulkanHost {
+        @Override public VkInstance instance() { return host.instance(); }
+        @Override public VkPhysicalDevice physicalDevice() { return host.physicalDevice(); }
+        @Override public VkDevice device() { return host.device(); }
+        @Override public VkQueue queue() { return host.queue(); }
+        @Override public int queueFamily() { return host.queueFamily(); }
+        @Override public int apiVersion() { return host.apiVersion(); }
+        @Override public int framesInFlight() { return host.framesInFlight(); }
+        @Override public VkCommandBuffer commandBuffer() { return host.commandBuffer(); }
+        @Override public VkCommandBuffer setupCommandBuffer() { return host.setupCommandBuffer(); }
+        @Override public long frameIndex() { return host.frameIndex(); }
+        @Override public long retiredFrame() { return host.retiredFrame(); }
+        @Override public void whenFrameRetired(long frame, Runnable action) { host.whenFrameRetired(frame, action); }
+        @Override public boolean ownsSubmission() { return host.ownsSubmission(); }
+        @Override public void submitAndWait() { host.submitAndWait(); }
+        @Override public void waitRetired(long frame) { host.waitRetired(frame); }
+        @Override public int validationErrors() { return host.validationErrors(); }
+        @Override public boolean bresenhamLines() { return host.bresenhamLines(); }
+
+        @Override
+        public void endFrame(CgVulkanImage output) {
+            long t0 = System.nanoTime();
+            host.endFrame(output);
+            presentNanos += System.nanoTime() - t0;
+        }
     }
 
     /** Validation errors the Vulkan device has seen so far; 0 on any other device. */

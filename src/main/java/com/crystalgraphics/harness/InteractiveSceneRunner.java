@@ -383,9 +383,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // behind the CPU shows up as a block; sync() is a deliberate sleep to hold TARGET_FPS, and
             // being large there means the frame finished EARLY. Lumping them together would make an
             // idle frame look like a stalled one.
+            long swapStart = System.nanoTime();
             try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.swap")) {
                 HarnessWindow.swapBuffers();
             }
+            swapNanos += System.nanoTime() - swapStart;
             if (TARGET_FPS > 0) {
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.sync")) {
                     HarnessWindow.sync(TARGET_FPS);
@@ -468,27 +470,41 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * {@code crystalgraphics.resourceOverrideDirs} at the source trees, so an edited file is what the reload
      * sees rather than the copy {@code processResources} made at build time.</p>
      */
-    private long[] frameNanos;
-    private long lastFrameStart;
+    private long[] frameNanos, workNanos;
+    private long lastFrameStart, swapNanos;
 
-    /** One frame-to-frame interval into {@link #FRAME_TIMES}' sample; true once it is full and reported. */
+    /**
+     * One frame-to-frame interval into {@link #FRAME_TIMES}' sample, and the same without presentation — GL's swap,
+     * the Vulkan host's submit and present — which is what a host that presents for us would pay. True once full.
+     */
     private boolean timeFrame(long frame) {
         long now = System.nanoTime();
+        long present = swapNanos + PlatformServiceHarness.takePresentNanos();
+        swapNanos = 0;
         if (frame > FRAME_TIME_WARMUP) {
-            if (frameNanos == null) frameNanos = new long[FRAME_TIMES];
+            if (frameNanos == null) {
+                frameNanos = new long[FRAME_TIMES];
+                workNanos = new long[FRAME_TIMES];
+            }
             int i = (int) (frame - FRAME_TIME_WARMUP - 1);
             frameNanos[i] = now - lastFrameStart;
+            workNanos[i] = frameNanos[i] - present;
             if (i == FRAME_TIMES - 1) {
-                long[] sorted = frameNanos.clone();
-                Arrays.sort(sorted);
-                double mean = Arrays.stream(sorted).average().orElse(0);
-                LOGGER.info(String.format("[frame-times] %d frames: median %.3f ms, mean %.3f ms, p95 %.3f ms",
-                        FRAME_TIMES, sorted[FRAME_TIMES / 2] / 1e6, mean / 1e6, sorted[FRAME_TIMES * 95 / 100] / 1e6));
+                LOGGER.info("[frame-times] " + FRAME_TIMES + " frames: " + summary(frameNanos)
+                        + "; without presentation: " + summary(workNanos));
                 return true;
             }
         }
         lastFrameStart = now;
         return false;
+    }
+
+    private static String summary(long[] nanos) {
+        long[] sorted = nanos.clone();
+        Arrays.sort(sorted);
+        double mean = Arrays.stream(sorted).average().orElse(0);
+        return String.format("median %.3f ms, mean %.3f ms, p95 %.3f ms",
+                sorted[sorted.length / 2] / 1e6, mean / 1e6, sorted[sorted.length * 95 / 100] / 1e6);
     }
 
     /** {@link #RELOAD_AT}'s staged edit: every file under {@code .reloadStage} over the first override root. */
