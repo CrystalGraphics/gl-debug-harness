@@ -57,6 +57,7 @@ import com.crystalgui.workbench.toolwindow.ToolWindowType;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
+import io.github.somehussar.crystalgraphics.harness.trace.TraceCostProbe;
 
 import com.crystalgui.core.data.Transform2D;
 import org.joml.Matrix4f;
@@ -412,6 +413,7 @@ public class CgUiDesktopScene
         // THE CLOCK EVERY NODE PREVIEW READS -- the shader graph's thumbnails animate off whatever clock
         // the application drives, and without this CG_TIME is permanently zero.
         CgRenderPipeline.getInstance().getFrameData().timeSecs = (float) frame.getElapsedTime();
+        long workStart = System.nanoTime();
 
         // ONE NETWORK TICK, before anything reads the workspace.
         workspace.pump(frame.getDeltaTime());
@@ -440,6 +442,7 @@ public class CgUiDesktopScene
         // types in `core.window` both engines name -- and on this engine nothing reads it yet.
         document.paint(context);
         context.endFrame();
+        if (traceCost != null && traceCost.frame(System.nanoTime() - workStart)) traceCostDone = true;
 
         // Late enough that the first window's placement, the entry animations and the editor's own
         // deferred rebuilds have all settled -- a capture at frame 5 photographs a desktop that is
@@ -447,6 +450,15 @@ public class CgUiDesktopScene
         if (frame.getFrameNumber() == 40) ctx.getArtifactService().requestCapture("startup");
         if (PROFILER_SHOT) driveProfilerShot(ctx, frame.getFrameNumber());
     }
+
+    /**
+     * -Dcrystalgui.harness.desktop.traceCost=true: what the trace engine costs a frame with every channel
+     * off, measured against every channel on. Prints {@code [trace-cost]} lines and exits. @see TraceCostProbe
+     */
+    private static final boolean TRACE_COST = Boolean.getBoolean("crystalgui.harness.desktop.traceCost");
+
+    private final TraceCostProbe traceCost = TRACE_COST ? new TraceCostProbe(240) : null;
+    private boolean traceCostDone;
 
     // ── -Dcrystalgui.harness.desktop.profiler=true: open the profiler, drive it, photograph it ──
 
@@ -1042,6 +1054,15 @@ public class CgUiDesktopScene
             log("compare: A " + model.sideA() + ", B " + model.sideB() + ", " + model.compare().size()
                     + " zones; " + panel.compare().summaryText());
             shot("30-compare");
+        // EXPORT, and the file read straight back as B.
+        } else if (at == 368) {
+            click(panel.exportButton());
+            panel.compare().loadDropdown().select(0);
+        } else if (at == 369) {
+            log("export: " + panel.exportNote().getText());
+            log("loaded as B: A " + model.sideA() + ", B " + model.sideB() + " (" + model.framesOf(model.sideB()).size()
+                    + " frames, " + String.format("%.2f", model.meanFrameMillis(model.sideB())) + " ms), "
+                    + model.compare().size() + " zones");
         // THE FOOTER, and the viewer's own work shown on request.
         } else if (at == 370) {
             log("footer: " + panel.footerText().getText());
@@ -1513,7 +1534,7 @@ public class CgUiDesktopScene
 
     @Override
     public boolean isRunning() {
-        return !profilerShotDone;
+        return !profilerShotDone && !traceCostDone;
     }
 
     @Override
@@ -1523,6 +1544,6 @@ public class CgUiDesktopScene
 
     @Override
     public boolean shouldShutdownOnComplete() {
-        return PROFILER_SHOT;
+        return PROFILER_SHOT || TRACE_COST;
     }
 }
