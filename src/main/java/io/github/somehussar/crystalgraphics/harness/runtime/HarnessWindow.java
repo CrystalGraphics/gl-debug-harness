@@ -62,10 +62,16 @@ public final class HarnessWindow {
 
     private static long nextFrameNanos;
 
+    /**
+     * Asked for newest first. A driver grants the version asked rather than its newest, so asking for 3.3 on
+     * a 4.6 card hides every 4.x path from {@code CgCapabilities}. 4.1 is macOS's ceiling.
+     */
+    private static final int[][] CORE_VERSIONS = {{4, 6}, {4, 5}, {4, 3}, {4, 1}, {3, 3}};
+
     private HarnessWindow() {}
 
     /**
-     * Opens the window and makes its OpenGL 3.3 core context current.
+     * Opens the window and makes current the newest OpenGL core context the driver grants, 4.6 down to 3.3.
      *
      * @throws IllegalStateException when GLFW cannot start or the driver refuses the context
      */
@@ -73,20 +79,26 @@ public final class HarnessWindow {
         GLFWErrorCallback.createPrint(System.err).set();
         if (!GLFW.glfwInit()) throw new IllegalStateException("GLFW failed to initialise");
 
-        GLFW.glfwDefaultWindowHints();
-        GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 3);
-        GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 3);
-        GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_PROFILE, GLFW.GLFW_OPENGL_CORE_PROFILE);
-        // macOS hands out a core context above 2.1 only when it is forward-compatible.
-        GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_FORWARD_COMPAT, GLFW.GLFW_TRUE);
-        GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
-        GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE);
-
-        window = GLFW.glfwCreateWindow(width, height, title, 0L, 0L);
+        // A refused version is expected on the way down; only the last refusal is worth printing.
+        GLFWErrorCallback print = GLFW.glfwSetErrorCallback(null);
+        for (int[] version : CORE_VERSIONS) {
+            GLFW.glfwDefaultWindowHints();
+            GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, version[0]);
+            GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, version[1]);
+            GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_PROFILE, GLFW.GLFW_OPENGL_CORE_PROFILE);
+            // macOS hands out a core context above 2.1 only when it is forward-compatible.
+            GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_FORWARD_COMPAT, GLFW.GLFW_TRUE);
+            GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
+            GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE);
+            if (version == CORE_VERSIONS[CORE_VERSIONS.length - 1]) GLFW.glfwSetErrorCallback(print);
+            window = GLFW.glfwCreateWindow(width, height, title, 0L, 0L);
+            if (window != 0L) break;
+        }
+        GLFW.glfwSetErrorCallback(print);
         if (window == 0L) {
             GLFW.glfwTerminate();
             throw new IllegalStateException("GLFW could not create a " + width + "x" + height
-                    + " window with an OpenGL 3.3 core context");
+                    + " window with an OpenGL core context of 3.3 or newer");
         }
         GLFW.glfwMakeContextCurrent(window);
         GL.createCapabilities();

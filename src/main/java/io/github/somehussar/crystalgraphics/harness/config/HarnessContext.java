@@ -106,7 +106,7 @@ public final class HarnessContext {
 
     /**
      * Creates a new HarnessContext by opening the harness window and its
-     * OpenGL 3.3 core context with the default dimensions (800×600).
+     * OpenGL core context (4.6 down to 3.3) with the default dimensions (800×600).
      *
      * @return a fully initialized context with GL info populated
      * @throws RuntimeException if the GL context cannot be created
@@ -121,7 +121,7 @@ public final class HarnessContext {
 
     /**
      * Creates a new HarnessContext by opening the harness window and its
-     * OpenGL 3.3 core context with the specified dimensions.
+     * OpenGL core context (4.6 down to 3.3) with the specified dimensions.
      *
      * @param width  initial window width in pixels
      * @param height initial window height in pixels
