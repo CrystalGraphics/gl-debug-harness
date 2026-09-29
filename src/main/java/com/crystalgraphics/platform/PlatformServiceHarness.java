@@ -95,7 +95,9 @@ public final class PlatformServiceHarness implements CgPlatformService {
             p.recordingDevice = new CgRecordingDevice(width, height).withoutLog();
             p.device = p.recordingDevice;
         } else if (device.equals("vulkan")) {
-            p.vulkanHost = new OwnedVulkanHost(HarnessWindow.handle(), true);
+            // -Dcrystalgraphics.harness.vulkanValidation=false for a timing run: the layer checks every command.
+            boolean validate = !"false".equals(System.getProperty("crystalgraphics.harness.vulkanValidation"));
+            p.vulkanHost = new OwnedVulkanHost(HarnessWindow.handle(), validate);
             p.vulkanDevice = new CgVulkanDevice(p.vulkanHost, width, height);
             p.device = p.vulkanDevice;
         }
