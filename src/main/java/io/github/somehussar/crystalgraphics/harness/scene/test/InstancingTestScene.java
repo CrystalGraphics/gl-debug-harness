@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.api.vertex.CgInstanceFormat;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.gl.buffer.staging.CgInstanceWriter;
@@ -14,7 +15,6 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
-import org.lwjgl.opengl.GL11;
 
 /**
  * GL harness diagnostics scene for the instancing backend.
@@ -117,9 +117,9 @@ public class InstancingTestScene implements InteractiveSceneLifecycle {
         int h = ctx.getViewport().getHeight();
         Matrix4f ortho = new Matrix4f().ortho(0, w, h, 0, -1, 1);
 
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        CgGL.glDisable(CgGL.GL_DEPTH_TEST);
+        CgGL.glEnable(CgGL.GL_BLEND);
+        CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
 
         // Phase: shader-compile
         boolean shaderOk = baseShader.isCompiled() && instancedShader.isCompiled();
@@ -137,8 +137,8 @@ public class InstancingTestScene implements InteractiveSceneLifecycle {
             baseRenderer.flush();
             baseRenderer.end();
             baseShader.unbind();
-            int err = GL11.glGetError();
-            baseBeforeOk = (err == GL11.GL_NO_ERROR);
+            int err = CgGL.glGetError();
+            baseBeforeOk = (err == CgGL.GL_NO_ERROR);
             if (baseBeforeOk) { logInfoIf(report, "PASS [2/{}] base-before (gl-error={})", total, err); passed++; }
             else { logErrorIf(report, "FAIL [2/{}] base-before gl-error={}", total, err); }
         } catch (Exception e) {
@@ -149,8 +149,8 @@ public class InstancingTestScene implements InteractiveSceneLifecycle {
         boolean instancedOk = false;
         try {
             final Matrix4f proj = ortho;
-            int err = GL11.glGetError();
-            instancedOk = (err == GL11.GL_NO_ERROR);
+            int err = CgGL.glGetError();
+            instancedOk = (err == CgGL.GL_NO_ERROR);
             if (instancedOk) { logInfoIf(report, "PASS [3/{}] instanced (count={}, gl-error={})", total, INSTANCE_COUNT, err); passed++; }
             else { logErrorIf(report, "FAIL [3/{}] instanced gl-error={}", total, err); }
         } catch (Exception e) {
@@ -167,8 +167,8 @@ public class InstancingTestScene implements InteractiveSceneLifecycle {
             baseRenderer.flush();
             baseRenderer.end();
             baseShader.unbind();
-            int err = GL11.glGetError();
-            baseAfterOk = (err == GL11.GL_NO_ERROR);
+            int err = CgGL.glGetError();
+            baseAfterOk = (err == CgGL.GL_NO_ERROR);
             if (baseAfterOk) { logInfoIf(report, "PASS [4/{}] base-after (gl-error={})", total, err); passed++; }
             else { logErrorIf(report, "FAIL [4/{}] base-after gl-error={}", total, err); }
         } catch (Exception e) {
@@ -185,8 +185,8 @@ public class InstancingTestScene implements InteractiveSceneLifecycle {
                         : "multi-mesh demo not initialized");
             }
             multiMeshDemo.render(ortho, w, h);
-            int err = GL11.glGetError();
-            multiMeshOk = (err == GL11.GL_NO_ERROR);
+            int err = CgGL.glGetError();
+            multiMeshOk = (err == CgGL.GL_NO_ERROR);
             if (multiMeshOk) { logInfoIf(report, "PASS [5/{}] multi-mesh-ergonomics (3 mesh shapes, gl-error={})", total, err); passed++; }
             else { logErrorIf(report, "FAIL [5/{}] multi-mesh-ergonomics gl-error={}", total, err); }
         } catch (Exception e) {
@@ -194,8 +194,8 @@ public class InstancingTestScene implements InteractiveSceneLifecycle {
         }
 
         // Phase: gl-error (final check)
-        int finalErr = GL11.glGetError();
-        if (finalErr == GL11.GL_NO_ERROR) {
+        int finalErr = CgGL.glGetError();
+        if (finalErr == CgGL.GL_NO_ERROR) {
             logInfoIf(report, "PASS [6/{}] gl-error (final check: no pending errors)", total);
             passed++;
         } else {

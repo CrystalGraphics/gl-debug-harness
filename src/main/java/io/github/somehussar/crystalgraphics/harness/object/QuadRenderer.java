@@ -1,11 +1,9 @@
 package io.github.somehussar.crystalgraphics.harness.object;
 
+import io.github.somehussar.crystalgraphics.harness.util.HarnessBuffers;
+import com.crystalgraphics.platform.gl.CgGL;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL20;
-import org.lwjgl.opengl.GL30;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -30,29 +28,29 @@ public class QuadRenderer {
         IntBuffer iBuff = BufferUtils.createIntBuffer(indexCount);
         iBuff.put(indices).flip();
 
-        int vaoId = GL30.glGenVertexArrays();
-        GL30.glBindVertexArray(vaoId);
+        int vaoId = CgGL.glGenVertexArrays();
+        CgGL.glBindVertexArray(vaoId);
 
-        int vboId = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vboId);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buff, GL15.GL_STATIC_DRAW);
+        int vboId = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vboId);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(buff), CgGL.GL_STATIC_DRAW);
 
-        int eboId = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, eboId);
-        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, iBuff, GL15.GL_STATIC_DRAW);
+        int eboId = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ELEMENT_ARRAY_BUFFER, eboId);
+        CgGL.glBufferData(CgGL.GL_ELEMENT_ARRAY_BUFFER, HarnessBuffers.bytes(iBuff), CgGL.GL_STATIC_DRAW);
 
-        GL20.glVertexAttribPointer(0, 2, GL11.GL_FLOAT, false, 16, 0);
-        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 16, 8);
+        CgGL.glVertexAttribPointer(0, 2, CgGL.GL_FLOAT, false, 16, 0);
+        CgGL.glVertexAttribPointer(1, 2, CgGL.GL_FLOAT, false, 16, 8);
 
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glEnableVertexAttribArray(1);
+        CgGL.glEnableVertexAttribArray(0);
+        CgGL.glEnableVertexAttribArray(1);
 
         binding = new VertexBinding(vaoId, vboId, eboId, indexCount);
         return this;
     }
 
     public void render(HarnessContext ctx) {
-        GL30.glBindVertexArray(binding.vaoId);
-        GL11.glDrawElements(GL11.GL_TRIANGLES, binding.indexCount, GL11.GL_UNSIGNED_INT, 0);
+        CgGL.glBindVertexArray(binding.vaoId);
+        CgGL.glDrawElements(CgGL.GL_TRIANGLES, binding.indexCount, CgGL.GL_UNSIGNED_INT, 0);
     }
 }

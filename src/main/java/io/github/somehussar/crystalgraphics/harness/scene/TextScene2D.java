@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
@@ -19,8 +20,6 @@ import io.github.somehussar.crystalgraphics.harness.util.ScreenshotUtil;
 import com.crystalgraphics.api.text.CgShapedRun;
 import com.crystalgraphics.api.text.CgTextLayout;
 
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL30;
 
 import java.io.File;
 import java.util.List;
@@ -124,29 +123,29 @@ public class TextScene2D implements HarnessSceneLifecycle {
                 ? totalBandHeight
                 : config.getHeight();
 
-        int fbo = GL30.glGenFramebuffers();
-        int colorTex = GL11.glGenTextures();
+        int fbo = CgGL.glGenFramebuffers();
+        int colorTex = CgGL.glGenTextures();
 
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, colorTex);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8,
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, colorTex);
+        CgGL.glTexImage2D(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA8,
                 fboWidth, fboHeight, 0,
-                GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+                CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MIN_FILTER, CgGL.GL_LINEAR);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MAG_FILTER, CgGL.GL_LINEAR);
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
 
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER,
-                GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, colorTex, 0);
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fbo);
+        CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER,
+                CgGL.GL_COLOR_ATTACHMENT0, CgGL.GL_TEXTURE_2D, colorTex, 0);
 
-        int status = GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER);
-        if (status != GL30.GL_FRAMEBUFFER_COMPLETE) {
+        int status = CgGL.glCheckFramebufferStatus(CgGL.GL_FRAMEBUFFER);
+        if (status != CgGL.GL_FRAMEBUFFER_COMPLETE) {
             throw new RuntimeException("Text scene FBO incomplete: 0x" + Integer.toHexString(status));
         }
 
-        GL11.glViewport(0, 0, fboWidth, fboHeight);
-        GL11.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
-        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+        CgGL.glViewport(0, 0, fboWidth, fboHeight);
+        CgGL.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
+        CgGL.glClear(CgGL.GL_COLOR_BUFFER_BIT);
 
         renderer.context(CgTextRenderContext.orthographic(fboWidth, fboHeight));
         long frame = 1;
@@ -196,8 +195,6 @@ public class TextScene2D implements HarnessSceneLifecycle {
         }
         renderer.endBatch();
 
-        GL11.glFinish();
-
         ScreenshotUtil.captureFboColorTexture(fbo, colorTex,
                 fboWidth, fboHeight, outputDir, outputFilename);
 
@@ -217,12 +214,12 @@ public class TextScene2D implements HarnessSceneLifecycle {
             }
         }
 
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
         renderer.delete();
         registry.releaseAll();
         font.dispose();
-        GL30.glDeleteFramebuffers(fbo);
-        GL11.glDeleteTextures(colorTex);
+        CgGL.glDeleteFramebuffers(fbo);
+        CgGL.glDeleteTextures(colorTex);
 
         LOGGER.info("[Harness] Text scene complete.");
     }
@@ -274,8 +271,8 @@ public class TextScene2D implements HarnessSceneLifecycle {
             renderer.endBatch();
         }
 
-        GL11.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
-        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+        CgGL.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
+        CgGL.glClear(CgGL.GL_COLOR_BUFFER_BIT);
         return frame + warmupFrames;
     }
 

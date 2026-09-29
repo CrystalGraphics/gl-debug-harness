@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.gl.CgGlRecording;
@@ -32,7 +33,6 @@ import io.github.somehussar.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import io.github.somehussar.crystalgraphics.harness.runtime.HarnessWindow;
-import org.lwjgl.opengl.GL11C;
 
 import com.sun.management.ThreadMXBean;
 import java.lang.management.ManagementFactory;
@@ -220,9 +220,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
         debugTools = new HarnessDebugTools(camera, artifactService);
 
-        GL11C.glViewport(0, 0, currentWidth, currentHeight);
-        GL11C.glEnable(GL11C.GL_DEPTH_TEST);
-        GL11C.glDepthFunc(GL11C.GL_LEQUAL);
+        CgGL.glViewport(0, 0, currentWidth, currentHeight);
+        CgGL.glEnable(CgGL.GL_DEPTH_TEST);
+        CgGL.glDepthFunc(CgGL.GL_LEQUAL);
 
         init();
 

@@ -1,5 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
+import io.github.somehussar.crystalgraphics.harness.util.HarnessBuffers;
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.api.texture.CgTexture;
 import com.crystalgraphics.gl.shader.CgShaderFactory;
@@ -13,7 +15,6 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.*;
 
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -60,18 +61,18 @@ public class ReviewScene implements InteractiveSceneLifecycle {
         FloatBuffer buff = BufferUtils.createFloatBuffer(vertices.length);
         buff.put(vertices).flip();
 
-        int vao = GL30.glGenVertexArrays();
-        GL30.glBindVertexArray(vao);
+        int vao = CgGL.glGenVertexArrays();
+        CgGL.glBindVertexArray(vao);
 
-        int vbo = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buff, GL15.GL_STATIC_DRAW);
+        int vbo = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vbo);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(buff), CgGL.GL_STATIC_DRAW);
 
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 16, 0);
-        GL20.glVertexAttribPointer(1, 4, GL11.GL_UNSIGNED_BYTE, true, 16, 12);
+        CgGL.glVertexAttribPointer(0, 3, CgGL.GL_FLOAT, false, 16, 0);
+        CgGL.glVertexAttribPointer(1, 4, CgGL.GL_UNSIGNED_BYTE, true, 16, 12);
 
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glEnableVertexAttribArray(1);
+        CgGL.glEnableVertexAttribArray(0);
+        CgGL.glEnableVertexAttribArray(1);
 
         return new VertexBinding(vao, vbo, -1, 3);
     }
@@ -93,24 +94,24 @@ public class ReviewScene implements InteractiveSceneLifecycle {
         IntBuffer iBuff = BufferUtils.createIntBuffer(indexCount);
         iBuff.put(indices).flip();
 
-        int vao = GL30.glGenVertexArrays();
-        GL30.glBindVertexArray(vao);
+        int vao = CgGL.glGenVertexArrays();
+        CgGL.glBindVertexArray(vao);
 
-        int vbo = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buff, GL15.GL_STATIC_DRAW);
+        int vbo = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vbo);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(buff), CgGL.GL_STATIC_DRAW);
 
-        int ebo = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, ebo);
-        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, iBuff, GL15.GL_STATIC_DRAW);
+        int ebo = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ELEMENT_ARRAY_BUFFER, ebo);
+        CgGL.glBufferData(CgGL.GL_ELEMENT_ARRAY_BUFFER, HarnessBuffers.bytes(iBuff), CgGL.GL_STATIC_DRAW);
 
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 24, 0);
-        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 24, 12);
-        GL20.glVertexAttribPointer(2, 4, GL11.GL_UNSIGNED_BYTE, true, 24, 20);
+        CgGL.glVertexAttribPointer(0, 3, CgGL.GL_FLOAT, false, 24, 0);
+        CgGL.glVertexAttribPointer(1, 2, CgGL.GL_FLOAT, false, 24, 12);
+        CgGL.glVertexAttribPointer(2, 4, CgGL.GL_UNSIGNED_BYTE, true, 24, 20);
 
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glEnableVertexAttribArray(1);
-        GL20.glEnableVertexAttribArray(2);
+        CgGL.glEnableVertexAttribArray(0);
+        CgGL.glEnableVertexAttribArray(1);
+        CgGL.glEnableVertexAttribArray(2);
 
         return new VertexBinding(vao, vbo, ebo, indexCount);
     }
@@ -165,28 +166,28 @@ public class ReviewScene implements InteractiveSceneLifecycle {
         IntBuffer iBuff = BufferUtils.createIntBuffer(indexCount);
         iBuff.put(indices).flip();
 
-        int vao = GL30.glGenVertexArrays();
-        GL30.glBindVertexArray(vao);
+        int vao = CgGL.glGenVertexArrays();
+        CgGL.glBindVertexArray(vao);
 
-        int vbo = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buff, GL15.GL_STATIC_DRAW);
+        int vbo = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vbo);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(buff), CgGL.GL_STATIC_DRAW);
 
-        int ebo = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, ebo);
-        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, iBuff, GL15.GL_STATIC_DRAW);
+        int ebo = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ELEMENT_ARRAY_BUFFER, ebo);
+        CgGL.glBufferData(CgGL.GL_ELEMENT_ARRAY_BUFFER, HarnessBuffers.bytes(iBuff), CgGL.GL_STATIC_DRAW);
 
         int stride = (3 + 2 + 3) * 4 + 4;
         // POS3_UV2_NORMAL3_COL4UB
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, stride, 0);           // a_pos
-        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, stride, 12);          // a_uv
-        GL20.glVertexAttribPointer(2, 3, GL11.GL_FLOAT, false, stride, 20);          // a_normal
-        GL20.glVertexAttribPointer(3, 4, GL11.GL_UNSIGNED_BYTE, true, stride, 32);   // a_col
+        CgGL.glVertexAttribPointer(0, 3, CgGL.GL_FLOAT, false, stride, 0);           // a_pos
+        CgGL.glVertexAttribPointer(1, 2, CgGL.GL_FLOAT, false, stride, 12);          // a_uv
+        CgGL.glVertexAttribPointer(2, 3, CgGL.GL_FLOAT, false, stride, 20);          // a_normal
+        CgGL.glVertexAttribPointer(3, 4, CgGL.GL_UNSIGNED_BYTE, true, stride, 32);   // a_col
 
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glEnableVertexAttribArray(1);
-        GL20.glEnableVertexAttribArray(2);
-        GL20.glEnableVertexAttribArray(3);
+        CgGL.glEnableVertexAttribArray(0);
+        CgGL.glEnableVertexAttribArray(1);
+        CgGL.glEnableVertexAttribArray(2);
+        CgGL.glEnableVertexAttribArray(3);
 
         return new VertexBinding(vao, vbo, ebo, indexCount);
     }
@@ -209,18 +210,18 @@ public class ReviewScene implements InteractiveSceneLifecycle {
         FloatBuffer buff = BufferUtils.createFloatBuffer(vertices.length);
         buff.put(vertices).flip();
 
-        int vao = GL30.glGenVertexArrays();
-        GL30.glBindVertexArray(vao);
+        int vao = CgGL.glGenVertexArrays();
+        CgGL.glBindVertexArray(vao);
 
-        int vbo = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buff, GL15.GL_STATIC_DRAW);
+        int vbo = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vbo);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(buff), CgGL.GL_STATIC_DRAW);
 
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 16, 0);
-        GL20.glVertexAttribPointer(1, 4, GL11.GL_UNSIGNED_BYTE, true, 16, 12);
+        CgGL.glVertexAttribPointer(0, 3, CgGL.GL_FLOAT, false, 16, 0);
+        CgGL.glVertexAttribPointer(1, 4, CgGL.GL_UNSIGNED_BYTE, true, 16, 12);
 
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glEnableVertexAttribArray(1);
+        CgGL.glEnableVertexAttribArray(0);
+        CgGL.glEnableVertexAttribArray(1);
 
         return new VertexBinding(vao, vbo, -1, 6);
     }
@@ -237,8 +238,8 @@ public class ReviewScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        CgGL.glEnable(CgGL.GL_BLEND);
+        CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
 
         triangleShader.bindings()
                       .mat4("u_model", ORIGIN.getModel())
@@ -248,33 +249,33 @@ public class ReviewScene implements InteractiveSceneLifecycle {
         triangleShader.bind();
 
         //Axis
-        GL30.glBindVertexArray(axis.vaoId);
-        GL11.glLineWidth(2f);
-        GL11.glDrawArrays(GL11.GL_LINES, 0, axis.indexCount);
-        GL11.glLineWidth(1f);
+        CgGL.glBindVertexArray(axis.vaoId);
+        CgGL.glLineWidth(2f);
+        CgGL.glDrawArrays(CgGL.GL_LINES, 0, axis.indexCount);
+        CgGL.glLineWidth(1f);
 
         // Triangle
-        GL30.glBindVertexArray(triangle.vaoId);
-        // GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, triangle.indexCount);
+        CgGL.glBindVertexArray(triangle.vaoId);
+        // CgGL.glDrawArrays(CgGL.GL_TRIANGLES, 0, triangle.indexCount);
 
         // Sun
-        GL30.glBindVertexArray(quad.vaoId);
+        CgGL.glBindVertexArray(quad.vaoId);
         //  rotateSun();
         //  sunShader.applyBindings(b -> {
         //  b.mat4("u_model", sunPose.getModel());
         //  b.mat4("u_view", ctx.getCamera3D().getViewMatrix());
         //  b.mat4("u_projection", projection);
         //  }).bind();
-        //        GL11.glDrawElements(GL11.GL_TRIANGLES, quad.indexCount, GL11.GL_UNSIGNED_INT, 0);
+        //        CgGL.glDrawElements(CgGL.GL_TRIANGLES, quad.indexCount, CgGL.GL_UNSIGNED_INT, 0);
 
         // Cube
-        GL30.glBindVertexArray(cube.vaoId);
+        CgGL.glBindVertexArray(cube.vaoId);
         cubeShader.applyBindings(b -> {
             b.mat4("u_model", cubePos.getModel());
             b.mat4("u_view", ctx.getCamera3D().getViewMatrix());
             b.mat4("u_projection", projection);
         }).bind();
-        // GL11.glDrawElements(GL11.GL_TRIANGLES, cube.indexCount, GL11.GL_UNSIGNED_INT, 0);
+        // CgGL.glDrawElements(CgGL.GL_TRIANGLES, cube.indexCount, CgGL.GL_UNSIGNED_INT, 0);
 
         // Ray traced sphere
         Camera3D cam = ctx.getCamera3D();
@@ -286,32 +287,32 @@ public class ReviewScene implements InteractiveSceneLifecycle {
             b.vec4("u_cameraPos", cam.getPos());
             b.vec4("u_localCameraPos", cam.getPos().mul(cubePos.getModel().invert(new Matrix4f()), TEMP4));
         }).bind();
-        GL11.glDrawElements(GL11.GL_TRIANGLES, cube.indexCount, GL11.GL_UNSIGNED_INT, 0);
+        CgGL.glDrawElements(CgGL.GL_TRIANGLES, cube.indexCount, CgGL.GL_UNSIGNED_INT, 0);
 
 
-        //        GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        //        GL11.glBindTexture(GL11.GL_TEXTURE_2D, UV_DISTORTION_MAP);
+        //        CgGL.glActiveTexture(CgGL.GL_TEXTURE0);
+        //        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, UV_DISTORTION_MAP);
 //        if (UV_DISTORTION == null)
 //            UV_DISTORTION =  CgTexture2D.create(DIR1 + "tex2.png", CgTextureSpec.RGBA8_LINEAR_REPEAT);
         UV_DISTORTION.bind(0);
 
-        GL13.glActiveTexture(GL13.GL_TEXTURE1);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, NOISE_MAP);
+        CgGL.glActiveTexture(CgGL.GL_TEXTURE1);
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, NOISE_MAP);
 
-        GL13.glActiveTexture(GL13.GL_TEXTURE2);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, ALPHA_MAP);
+        CgGL.glActiveTexture(CgGL.GL_TEXTURE2);
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, ALPHA_MAP);
 
-        GL13.glActiveTexture(GL13.GL_TEXTURE3);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, FLAME_NOISE);
+        CgGL.glActiveTexture(CgGL.GL_TEXTURE3);
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, FLAME_NOISE);
 
-        GL30.glBindVertexArray(quad.vaoId);
+        CgGL.glBindVertexArray(quad.vaoId);
         outlineShader.applyBindings(b -> {
             b.set1i("distortion_map", 0);
             b.set1i("noise_map", 1);
             b.set1i("alpha_map", 2);
             b.set1i("flame_map", 3);
         }).bind();
-        GL11.glDrawElements(GL11.GL_TRIANGLES, quad.indexCount, GL11.GL_UNSIGNED_INT, 0);
+        CgGL.glDrawElements(CgGL.GL_TRIANGLES, quad.indexCount, CgGL.GL_UNSIGNED_INT, 0);
     }
 
     private static final Vector3f TEMP = new Vector3f();

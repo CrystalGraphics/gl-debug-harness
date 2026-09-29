@@ -1,11 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.util;
 
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL20;
-import org.lwjgl.opengl.GL30;
-import com.crystalgraphics.platform.gl.state.CgGlState;
+import com.crystalgraphics.platform.gl.CgGL;
 
 /**
  * Shared GL state reset helper for the harness render pipeline.
@@ -43,46 +38,31 @@ public final class GlStateResetHelper {
      */
     public static void resetAfterScene() {
         // Unbind shader program — scenes may leave MSDF/bitmap shaders bound
-        GL20.glUseProgram(0);
+        CgGL.glUseProgram(0);
 
         // Unbind VAO — scene geometry VAOs must not leak into overlay draws
-        GL30.glBindVertexArray(0);
+        CgGL.glBindVertexArray(0);
 
         // Unbind VBO and IBO — CgGlyphVbo or cube VBOs may remain bound
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
-        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, 0);
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, 0);
+        CgGL.glBindBuffer(CgGL.GL_ELEMENT_ARRAY_BUFFER, 0);
 
         // Unbind texture on unit 0 — atlas textures may remain bound
-        GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        CgGL.glActiveTexture(CgGL.GL_TEXTURE0);
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
 
         // Restore depth state — FloorRenderer requires depth test ON + depth writes ON
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthMask(true);
-        GL11.glDepthFunc(GL11.GL_LEQUAL);
+        CgGL.glEnable(CgGL.GL_DEPTH_TEST);
+        CgGL.glDepthMask(true);
+        CgGL.glDepthFunc(CgGL.GL_LEQUAL);
 
         // Disable blend — FloorRenderer expects blend OFF; HUD/pause manage their own
-        GL11.glDisable(GL11.GL_BLEND);
+        CgGL.glDisable(CgGL.GL_BLEND);
 
         // Disable cull face — world-text draw() enables GL_CULL_FACE for single-sided text
-        GL11.glDisable(GL11.GL_CULL_FACE);
+        CgGL.glDisable(CgGL.GL_CULL_FACE);
 
         // Ensure we're rendering to the default framebuffer (backbuffer)
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
-
-        // MANDATORY, and the reason is not obvious: everything above is raw LWJGL, so
-        // CgGlStateManager cannot observe any of it. It keeps a CPU-side shadow of GL state and skips
-        // calls it believes are already current, so a wholesale reset behind its back makes it confidently
-        // elide calls that were genuinely needed.
-        //
-        // Concretely: this method disables blending, the shadow still read "blend enabled with alpha", and
-        // the next text draw's blend setup was eliminated as redundant. Blending stayed off, and
-        // bitmap-tier glyphs rendered as opaque quads — while MSDF looked fine, because its near-binary
-        // alpha still discards cleanly without blending. Nothing threw; it just drew wrongly.
-        //
-        // Any code that resets GL state wholesale must say so. This is called mid-frame (after the scene,
-        // before overlays), so the frame-boundary invalidation in CgGraphicsLifecycle.tickFrame() is not
-        // sufficient on its own.
-        CgGlState.invalidateAllIfPresent();
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
     }
 }

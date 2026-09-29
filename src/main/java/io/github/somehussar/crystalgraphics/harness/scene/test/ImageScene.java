@@ -1,5 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
+import io.github.somehussar.crystalgraphics.harness.util.HarnessBuffers;
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.api.text.CgTextLayout;
@@ -11,7 +13,6 @@ import io.github.somehussar.crystalgraphics.harness.config.TextContext;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessTextureUtil;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.*;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -109,44 +110,44 @@ public class ImageScene implements InteractiveSceneLifecycle {
         //colBuffer.put((byte)0).put((byte)255).put((byte)0).put((byte)255); // Green
         //colBuffer.put((byte)0).put((byte)0).put((byte)255).put((byte)255); // Blue
         //colBuffer.flip();
-        squareControlVao = GL30.glGenVertexArrays();
-        GL30.glBindVertexArray(squareControlVao);
+        squareControlVao = CgGL.glGenVertexArrays();
+        CgGL.glBindVertexArray(squareControlVao);
 
-        eboId = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, eboId);
-        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, eboBuff, GL15.GL_STATIC_DRAW);
+        eboId = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ELEMENT_ARRAY_BUFFER, eboId);
+        CgGL.glBufferData(CgGL.GL_ELEMENT_ARRAY_BUFFER, HarnessBuffers.bytes(eboBuff), CgGL.GL_STATIC_DRAW);
 
-        squareControlVbo = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, squareControlVbo);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, controlBuff, GL15.GL_STATIC_DRAW);
+        squareControlVbo = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, squareControlVbo);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(controlBuff), CgGL.GL_STATIC_DRAW);
 
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glVertexAttribPointer(0, 2, GL11.GL_FLOAT, false, 16, 0);
-        GL20.glEnableVertexAttribArray(1);
-        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 16, 8);
-
-
-        vaoId = GL30.glGenVertexArrays();
-        GL30.glBindVertexArray(vaoId);
-
-        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, eboId);
-
-        vboId = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vboId);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, fBuff, GL15.GL_STATIC_DRAW);
-
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glVertexAttribPointer(0, 2, GL11.GL_FLOAT, false, 16, 0);
-        GL20.glEnableVertexAttribArray(1);
-        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 16, 8);
+        CgGL.glEnableVertexAttribArray(0);
+        CgGL.glVertexAttribPointer(0, 2, CgGL.GL_FLOAT, false, 16, 0);
+        CgGL.glEnableVertexAttribArray(1);
+        CgGL.glVertexAttribPointer(1, 2, CgGL.GL_FLOAT, false, 16, 8);
 
 
-        colorVbo = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, colorVbo);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, colBuffer, GL15.GL_STATIC_DRAW);
+        vaoId = CgGL.glGenVertexArrays();
+        CgGL.glBindVertexArray(vaoId);
 
-        GL20.glEnableVertexAttribArray(2);
-        GL20.glVertexAttribPointer(2, 4, GL11.GL_UNSIGNED_BYTE, true, 0, 0);
+        CgGL.glBindBuffer(CgGL.GL_ELEMENT_ARRAY_BUFFER, eboId);
+
+        vboId = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vboId);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(fBuff), CgGL.GL_STATIC_DRAW);
+
+        CgGL.glEnableVertexAttribArray(0);
+        CgGL.glVertexAttribPointer(0, 2, CgGL.GL_FLOAT, false, 16, 0);
+        CgGL.glEnableVertexAttribArray(1);
+        CgGL.glVertexAttribPointer(1, 2, CgGL.GL_FLOAT, false, 16, 8);
+
+
+        colorVbo = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, colorVbo);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(colBuffer), CgGL.GL_STATIC_DRAW);
+
+        CgGL.glEnableVertexAttribArray(2);
+        CgGL.glVertexAttribPointer(2, 4, CgGL.GL_UNSIGNED_BYTE, true, 0, 0);
 
         ortho = new Matrix4f();
         onResize(width, height);
@@ -165,8 +166,8 @@ public class ImageScene implements InteractiveSceneLifecycle {
         FloatBuffer buff = BufferUtils.createFloatBuffer(quad.length);
         buff.put(quad).flip();
 
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-        GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0, buff);
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vbo);
+        CgGL.glBufferSubData(CgGL.GL_ARRAY_BUFFER, 0, HarnessBuffers.bytes(buff));
     }
 
     public void onResize(int width, int height) {
@@ -230,16 +231,16 @@ public class ImageScene implements InteractiveSceneLifecycle {
         int frameIdx = (int) rawT % totalFrames;   // integer frame: 7
         float blendT = rawT - (int) rawT;
 
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glEnable(GL11.GL_ALPHA_TEST);
-        //GL11.glAlphaFunc(GL11.GL_GREATER, 0.001f);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        CgGL.glEnable(CgGL.GL_BLEND);
+        CgGL.glEnable(CgGL.GL_ALPHA_TEST);
+        //CgGL.glAlphaFunc(CgGL.GL_GREATER, 0.001f);
+        CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
 
-        GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        GL11.glBindTexture(GL30.GL_TEXTURE_2D_ARRAY, textureArrayId);
+        CgGL.glActiveTexture(CgGL.GL_TEXTURE0);
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D_ARRAY, textureArrayId);
 
 
-        GL30.glBindVertexArray(vaoId);
+        CgGL.glBindVertexArray(vaoId);
         shader.applyBindings(b -> {
             b.mat4("u_projection", ortho);
             b.set1i("u_frames", 0);
@@ -250,9 +251,9 @@ public class ImageScene implements InteractiveSceneLifecycle {
             b.set1f("u_totalTime", elapsedSec);
             b.set1i("u_lerp", 1);
         }).bind();
-        GL11.glDrawElements(GL11.GL_TRIANGLES, 6, GL11.GL_UNSIGNED_INT, 0);
+        CgGL.glDrawElements(CgGL.GL_TRIANGLES, 6, CgGL.GL_UNSIGNED_INT, 0);
 
-        GL30.glBindVertexArray(squareControlVao);
+        CgGL.glBindVertexArray(squareControlVao);
         shader.applyBindings(b -> {
             b.mat4("u_projection", ortho);
             b.set1i("u_frames", 0);
@@ -263,7 +264,7 @@ public class ImageScene implements InteractiveSceneLifecycle {
             b.set1f("u_totalTime", elapsedSec);
             b.set1i("u_lerp", 0);
         }).bind();
-        GL11.glDrawElements(GL11.GL_TRIANGLES, 6, GL11.GL_UNSIGNED_INT, 0);
+        CgGL.glDrawElements(CgGL.GL_TRIANGLES, 6, CgGL.GL_UNSIGNED_INT, 0);
 
         // Overlay text
         renderText(ctx);
@@ -271,13 +272,13 @@ public class ImageScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
-        GL30.glDeleteVertexArrays(vaoId);
-        GL30.glDeleteVertexArrays(squareControlVao);
-        GL15.glDeleteBuffers(vboId);
-        GL15.glDeleteBuffers(squareControlVbo);
+        CgGL.glDeleteVertexArrays(vaoId);
+        CgGL.glDeleteVertexArrays(squareControlVao);
+        CgGL.glDeleteBuffers(vboId);
+        CgGL.glDeleteBuffers(squareControlVbo);
         shader.delete();
-        GL11.glDeleteTextures(textureId);
-        GL11.glDeleteTextures(textureArrayId);
+        CgGL.glDeleteTextures(textureId);
+        CgGL.glDeleteTextures(textureArrayId);
     }
 
     @Override

@@ -1,12 +1,12 @@
 package io.github.somehussar.crystalgraphics.harness.runtime;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import io.github.somehussar.crystalgraphics.harness.camera.Camera3D;
 import io.github.somehussar.crystalgraphics.harness.camera.FloorRenderer;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.config.WorldConfig;
 import io.github.somehussar.crystalgraphics.harness.config.WorldSettings;
 import org.joml.Matrix4f;
-import org.lwjgl.opengl.GL11;
 
 import java.util.logging.Logger;
 
@@ -99,9 +99,9 @@ public final class WorldPassCoordinator {
      */
     public void executeWorldPass(HarnessContext ctx, Camera3D camera, boolean uses3DCamera) {
         // Clear framebuffer with sky color from resolved world settings
-        GL11.glClearColor(worldSettings.getSkyR(), worldSettings.getSkyG(),
+        CgGL.glClearColor(worldSettings.getSkyR(), worldSettings.getSkyG(),
                 worldSettings.getSkyB(), 1.0f);
-        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+        CgGL.glClear(CgGL.GL_COLOR_BUFFER_BIT | CgGL.GL_DEPTH_BUFFER_BIT);
 
         // Render floor plane before scene content so 3D objects composite
         // over the floor rather than over the raw sky clear color.

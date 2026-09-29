@@ -1,10 +1,11 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
+import io.github.somehussar.crystalgraphics.harness.util.HarnessBuffers;
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.api.shader.CgActiveUniform;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.api.shader.CgShaderPreprocessor;
 import com.crystalgraphics.gl.shader.CgShaderFactory;
-import com.crystalgraphics.platform.gl.CgGL;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
 import io.github.somehussar.crystalgraphics.harness.InteractiveSceneLifecycle;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
@@ -12,10 +13,6 @@ import io.github.somehussar.crystalgraphics.harness.object.VertexBinding;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL20;
-import org.lwjgl.opengl.GL30;
 
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -215,26 +212,26 @@ public class ShaderLibTestScene implements InteractiveSceneLifecycle {
         IntBuffer ib = BufferUtils.createIntBuffer(indices.length);
         ib.put(indices).flip();
 
-        int vao = GL30.glGenVertexArrays();
-        GL30.glBindVertexArray(vao);
+        int vao = CgGL.glGenVertexArrays();
+        CgGL.glBindVertexArray(vao);
 
-        int vbo = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, vb, GL15.GL_STATIC_DRAW);
+        int vbo = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vbo);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(vb), CgGL.GL_STATIC_DRAW);
 
-        int ebo = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, ebo);
-        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, ib, GL15.GL_STATIC_DRAW);
+        int ebo = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ELEMENT_ARRAY_BUFFER, ebo);
+        CgGL.glBufferData(CgGL.GL_ELEMENT_ARRAY_BUFFER, HarnessBuffers.bytes(ib), CgGL.GL_STATIC_DRAW);
 
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT,         false, 24, 0);   // a_pos
-        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT,         false, 24, 12);  // a_uv
-        GL20.glVertexAttribPointer(2, 4, GL11.GL_UNSIGNED_BYTE, true,  24, 20);  // a_col
+        CgGL.glVertexAttribPointer(0, 3, CgGL.GL_FLOAT,         false, 24, 0);   // a_pos
+        CgGL.glVertexAttribPointer(1, 2, CgGL.GL_FLOAT,         false, 24, 12);  // a_uv
+        CgGL.glVertexAttribPointer(2, 4, CgGL.GL_UNSIGNED_BYTE, true,  24, 20);  // a_col
 
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glEnableVertexAttribArray(1);
-        GL20.glEnableVertexAttribArray(2);
+        CgGL.glEnableVertexAttribArray(0);
+        CgGL.glEnableVertexAttribArray(1);
+        CgGL.glEnableVertexAttribArray(2);
 
-        GL30.glBindVertexArray(0);
+        CgGL.glBindVertexArray(0);
 
         return new VertexBinding(vao, vbo, ebo, indices.length);
     }

@@ -1,9 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.util;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL12;
-import org.lwjgl.opengl.GL30;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
@@ -103,15 +101,15 @@ public class HarnessTextureUtil {
 
 
         buff.flip();
-        int texId = GL11.glGenTextures();
-        GL11.glBindTexture(GL30.GL_TEXTURE_2D_ARRAY, texId);
+        int texId = CgGL.glGenTextures();
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D_ARRAY, texId);
 
-        GL12.glTexImage3D(GL30.GL_TEXTURE_2D_ARRAY, 0, GL11.GL_RGBA8, iWidth, iHeight, images, 0, GL11.GL_RGBA,
-                GL11.GL_UNSIGNED_BYTE, buff);
-        GL11.glTexParameteri(GL30.GL_TEXTURE_2D_ARRAY, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-        GL11.glTexParameteri(GL30.GL_TEXTURE_2D_ARRAY, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-        GL11.glTexParameteri(GL30.GL_TEXTURE_2D_ARRAY, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
-        GL11.glTexParameteri(GL30.GL_TEXTURE_2D_ARRAY, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+        CgGL.glTexImage3D(CgGL.GL_TEXTURE_2D_ARRAY, 0, CgGL.GL_RGBA8, iWidth, iHeight, images, 0, CgGL.GL_RGBA,
+                CgGL.GL_UNSIGNED_BYTE, buff);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D_ARRAY, CgGL.GL_TEXTURE_MAG_FILTER, CgGL.GL_NEAREST);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D_ARRAY, CgGL.GL_TEXTURE_MIN_FILTER, CgGL.GL_NEAREST);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D_ARRAY, CgGL.GL_TEXTURE_WRAP_T, CgGL.GL_CLAMP_TO_EDGE);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D_ARRAY, CgGL.GL_TEXTURE_WRAP_S, CgGL.GL_CLAMP_TO_EDGE);
 
         return texId;
     }
@@ -204,22 +202,22 @@ public class HarnessTextureUtil {
         }
 
 
-        int texId = GL11.glGenTextures();
-        GL11.glBindTexture(GL30.GL_TEXTURE_2D_ARRAY, texId);
-        GL12.glTexImage3D(GL30.GL_TEXTURE_2D_ARRAY, 0, GL11.GL_RGBA8, width, height, images.length, 0, GL11.GL_RGBA,
-                GL11.GL_UNSIGNED_BYTE, toByteBuffer(images));
+        int texId = CgGL.glGenTextures();
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D_ARRAY, texId);
+        CgGL.glTexImage3D(CgGL.GL_TEXTURE_2D_ARRAY, 0, CgGL.GL_RGBA8, width, height, images.length, 0, CgGL.GL_RGBA,
+                CgGL.GL_UNSIGNED_BYTE, toByteBuffer(images));
 
 
         //        for (int i = 0; i <= images.length; i++) {
         //            ByteBuffer image = toByteBuffer(images[i]);
-        //            GL12.glTexSubImage3D(GL30.GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, width, height, i, GL11.GL_RGBA,
-        //                    GL11.GL_UNSIGNED_BYTE, image);
+        //            CgGL.glTexSubImage3D(CgGL.GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, width, height, i, CgGL.GL_RGBA,
+        //                    CgGL.GL_UNSIGNED_BYTE, image);
         //        }
 
-        GL11.glTexParameteri(GL30.GL_TEXTURE_2D_ARRAY, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL30.GL_TEXTURE_2D_ARRAY, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL30.GL_TEXTURE_2D_ARRAY, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-        GL11.glTexParameteri(GL30.GL_TEXTURE_2D_ARRAY, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D_ARRAY, CgGL.GL_TEXTURE_MAG_FILTER, CgGL.GL_LINEAR);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D_ARRAY, CgGL.GL_TEXTURE_MIN_FILTER, CgGL.GL_LINEAR);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D_ARRAY, CgGL.GL_TEXTURE_WRAP_S, CgGL.GL_CLAMP_TO_EDGE);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D_ARRAY, CgGL.GL_TEXTURE_WRAP_T, CgGL.GL_CLAMP_TO_EDGE);
 
         return texId;
     }

@@ -1,6 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.tool;
 
-import org.lwjgl.opengl.GL11;
+import com.crystalgraphics.platform.gl.CgGL;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +21,7 @@ public  class GlErrorChecker {
         List<String> errors = new ArrayList<String>();
         int count = 0;
         int err;
-        while ((err = GL11.glGetError()) != GL11.GL_NO_ERROR) {
+        while ((err = CgGL.glGetError()) != CgGL.GL_NO_ERROR) {
             String name = errorName(err);
             errors.add("0x" + Integer.toHexString(err) + " (" + name + ")");
             count++;
@@ -52,13 +52,13 @@ public  class GlErrorChecker {
      */
     public static String errorName(int error) {
         switch (error) {
-            case GL11.GL_NO_ERROR:          return "GL_NO_ERROR";
-            case GL11.GL_INVALID_ENUM:      return "GL_INVALID_ENUM";
-            case GL11.GL_INVALID_VALUE:     return "GL_INVALID_VALUE";
-            case GL11.GL_INVALID_OPERATION: return "GL_INVALID_OPERATION";
-            case GL11.GL_STACK_OVERFLOW:    return "GL_STACK_OVERFLOW";
-            case GL11.GL_STACK_UNDERFLOW:   return "GL_STACK_UNDERFLOW";
-            case GL11.GL_OUT_OF_MEMORY:     return "GL_OUT_OF_MEMORY";
+            case CgGL.GL_NO_ERROR:          return "GL_NO_ERROR";
+            case CgGL.GL_INVALID_ENUM:      return "GL_INVALID_ENUM";
+            case CgGL.GL_INVALID_VALUE:     return "GL_INVALID_VALUE";
+            case CgGL.GL_INVALID_OPERATION: return "GL_INVALID_OPERATION";
+            case CgGL.GL_STACK_OVERFLOW:    return "GL_STACK_OVERFLOW";
+            case 0x0504:                    return "GL_STACK_UNDERFLOW";
+            case CgGL.GL_OUT_OF_MEMORY:     return "GL_OUT_OF_MEMORY";
             case 0x0506:                    return "GL_INVALID_FRAMEBUFFER_OPERATION";
             default:                        return "UNKNOWN";
         }

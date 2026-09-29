@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.api.buffer.CgBufferFormat;
 import com.crystalgraphics.api.render.CgFrameData;
 import com.crystalgraphics.api.render.CgRenderPipeline;
@@ -16,7 +17,6 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.tool.GlErrorChecker;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.lwjgl.opengl.GL11;
 
 import static com.crystalgraphics.api.buffer.CgBufferFormat.MemoryLayout.STD140;
 import static com.crystalgraphics.api.buffer.CgBufferFormat.MemoryLayout.STD430;
@@ -149,13 +149,11 @@ public class CgAttachedBufferStressScene implements InteractiveSceneLifecycle {
             particleBuf.endRecord();
         }
         particleBuf.endWrite();
-        GL11.glEnable(GL11.GL_BLEND);
-GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK,GL11.GL_FILL);
-        GL11.glPointSize(15);
-        GL11.glLineWidth(2);
-        GL11.glEnable(GL11.GL_POINT_SMOOTH);
-        GL11.glEnable(GL11.GL_LINE_SMOOTH);
+        CgGL.glEnable(CgGL.GL_BLEND);
+CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
+        CgGL.glPolygonMode(CgGL.GL_FRONT_AND_BACK,CgGL.GL_FILL);
+        CgGL.glPointSize(15);
+        CgGL.glEnable(CgGL.GL_LINE_SMOOTH);
 
         CgShaderBuffer objBuf = pipeline.objectBuffer();
         CgBufferWriter ow = objBuf.beginWrite(N_PARTICLE);

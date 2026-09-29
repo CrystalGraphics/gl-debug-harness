@@ -1,10 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.util;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL20;
-import org.lwjgl.opengl.GL30;
 
 import java.nio.FloatBuffer;
 
@@ -38,8 +35,8 @@ public final class ValidationCubeHelper {
     private static final String CUBE_VERT =
             "#version 330 core\n" +
             "uniform mat4 u_mvp;\n" +
-            "in vec3 a_pos;\n" +
-            "in vec3 a_color;\n" +
+            "layout(location = 0) in vec3 a_pos;\n" +
+            "layout(location = 1) in vec3 a_color;\n" +
             "out vec3 v_color;\n" +
             "void main() {\n" +
             "    gl_Position = u_mvp * vec4(a_pos, 1.0);\n" +
@@ -49,7 +46,7 @@ public final class ValidationCubeHelper {
     private static final String CUBE_FRAG =
             "#version 330 core\n" +
             "in vec3 v_color;\n" +
-            "out vec4 fragColor;\n" +
+            "layout(location = 0) out vec4 fragColor;\n" +
             "void main() {\n" +
             "    fragColor = vec4(v_color, 1.0);\n" +
             "}\n";
@@ -74,36 +71,29 @@ public final class ValidationCubeHelper {
      */
     public static ValidationCubeHelper create() {
         int program = HarnessShaderUtil.compileProgram(CUBE_VERT, CUBE_FRAG);
-        int mvpLocation = GL20.glGetUniformLocation(program, "u_mvp");
+        int mvpLocation = CgGL.glGetUniformLocation(program, "u_mvp");
 
-        int vao = GL30.glGenVertexArrays();
-        int vbo = GL15.glGenBuffers();
+        int vao = CgGL.glGenVertexArrays();
+        int vbo = CgGL.glGenBuffers();
 
         float[] vertices = buildCubeVertices();
 
-        GL30.glBindVertexArray(vao);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+        CgGL.glBindVertexArray(vao);
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vbo);
 
         FloatBuffer buf = BufferUtils.createFloatBuffer(vertices.length);
         buf.put(vertices).flip();
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buf, GL15.GL_STATIC_DRAW);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(buf), CgGL.GL_STATIC_DRAW);
 
         // Stride: 6 floats per vertex (3 pos + 3 color) × 4 bytes
         int stride = 6 * 4;
-        int posLoc = GL20.glGetAttribLocation(program, "a_pos");
-        int colorLoc = GL20.glGetAttribLocation(program, "a_color");
+        CgGL.glVertexAttribPointer(0, 3, CgGL.GL_FLOAT, false, stride, 0);
+        CgGL.glEnableVertexAttribArray(0);
+        CgGL.glVertexAttribPointer(1, 3, CgGL.GL_FLOAT, false, stride, 12);
+        CgGL.glEnableVertexAttribArray(1);
 
-        if (posLoc >= 0) {
-            GL20.glVertexAttribPointer(posLoc, 3, GL11.GL_FLOAT, false, stride, 0);
-            GL20.glEnableVertexAttribArray(posLoc);
-        }
-        if (colorLoc >= 0) {
-            GL20.glVertexAttribPointer(colorLoc, 3, GL11.GL_FLOAT, false, stride, 12);
-            GL20.glEnableVertexAttribArray(colorLoc);
-        }
-
-        GL30.glBindVertexArray(0);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+        CgGL.glBindVertexArray(0);
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, 0);
 
         return new ValidationCubeHelper(program, vao, vbo, mvpLocation);
     }
@@ -119,14 +109,14 @@ public final class ValidationCubeHelper {
      * @param mvpBuf a flipped FloatBuffer containing the 4×4 column-major MVP matrix
      */
     public void render(FloatBuffer mvpBuf) {
-        GL20.glUseProgram(program);
-        GL20.glUniformMatrix4fv(mvpLocation, false, mvpBuf);
+        CgGL.glUseProgram(program);
+        CgGL.glUniformMatrix4fv(mvpLocation, false, mvpBuf);
 
-        GL30.glBindVertexArray(vao);
-        GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, CUBE_VERTEX_COUNT);
-        GL30.glBindVertexArray(0);
+        CgGL.glBindVertexArray(vao);
+        CgGL.glDrawArrays(CgGL.GL_TRIANGLES, 0, CUBE_VERTEX_COUNT);
+        CgGL.glBindVertexArray(0);
 
-        GL20.glUseProgram(0);
+        CgGL.glUseProgram(0);
     }
 
     /**
@@ -135,13 +125,13 @@ public final class ValidationCubeHelper {
      */
     public void delete() {
         if (vbo != 0) {
-            GL15.glDeleteBuffers(vbo);
+            CgGL.glDeleteBuffers(vbo);
         }
         if (vao != 0) {
-            GL30.glDeleteVertexArrays(vao);
+            CgGL.glDeleteVertexArrays(vao);
         }
         if (program != 0) {
-            GL20.glDeleteProgram(program);
+            CgGL.glDeleteProgram(program);
         }
     }
 

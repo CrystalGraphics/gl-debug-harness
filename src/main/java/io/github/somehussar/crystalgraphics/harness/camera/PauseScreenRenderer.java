@@ -1,12 +1,10 @@
 package io.github.somehussar.crystalgraphics.harness.camera;
 
+import io.github.somehussar.crystalgraphics.harness.util.HarnessBuffers;
+import com.crystalgraphics.platform.gl.CgGL;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessShaderUtil;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL20;
-import org.lwjgl.opengl.GL30;
 
 import java.nio.FloatBuffer;
 import java.util.logging.Logger;
@@ -34,10 +32,13 @@ public final class PauseScreenRenderer {
     private static final float OVERLAY_B = 0.15f;
     private static final float OVERLAY_A = 0.5f;
 
+    /** Not among CgGL's constants. */
+    private static final int GL_DYNAMIC_DRAW = 0x88E8;
+
     // Shader for colored quad with alpha — uses pixel-to-NDC conversion
     private static final String PAUSE_VERT =
             "#version 330 core\n" +
-            "in vec2 a_pos;\n" +
+            "layout(location = 0) in vec2 a_pos;\n" +
             "uniform vec2 u_screenSize;\n" +
             "void main() {\n" +
             "    vec2 ndc = (a_pos / u_screenSize) * 2.0 - 1.0;\n" +
@@ -48,7 +49,7 @@ public final class PauseScreenRenderer {
     private static final String PAUSE_FRAG =
             "#version 330 core\n" +
             "uniform vec4 u_color;\n" +
-            "out vec4 fragColor;\n" +
+            "layout(location = 0) out vec4 fragColor;\n" +
             "void main() {\n" +
             "    fragColor = u_color;\n" +
             "}\n";
@@ -73,32 +74,25 @@ public final class PauseScreenRenderer {
         }
 
         program = HarnessShaderUtil.compileProgram(PAUSE_VERT, PAUSE_FRAG);
-        // Explicitly bind fragment output for driver compatibility
-        GL30.glBindFragDataLocation(program, 0, "fragColor");
-        GL20.glLinkProgram(program);
 
-        screenSizeLoc = GL20.glGetUniformLocation(program, "u_screenSize");
-        colorLoc = GL20.glGetUniformLocation(program, "u_color");
+        screenSizeLoc = CgGL.glGetUniformLocation(program, "u_screenSize");
+        colorLoc = CgGL.glGetUniformLocation(program, "u_color");
 
-        vao = GL30.glGenVertexArrays();
-        vbo = GL15.glGenBuffers();
+        vao = CgGL.glGenVertexArrays();
+        vbo = CgGL.glGenBuffers();
 
-        GL30.glBindVertexArray(vao);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+        CgGL.glBindVertexArray(vao);
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vbo);
 
         // Allocate buffer for 6 vertices * 2 floats (x, y)
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, 6 * 2 * 4, GL15.GL_DYNAMIC_DRAW);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, 6 * 2 * 4, GL_DYNAMIC_DRAW);
 
         int stride = 2 * 4;
-        int posLoc = GL20.glGetAttribLocation(program, "a_pos");
+        CgGL.glVertexAttribPointer(0, 2, CgGL.GL_FLOAT, false, stride, 0);
+        CgGL.glEnableVertexAttribArray(0);
 
-        if (posLoc >= 0) {
-            GL20.glVertexAttribPointer(posLoc, 2, GL11.GL_FLOAT, false, stride, 0);
-            GL20.glEnableVertexAttribArray(posLoc);
-        }
-
-        GL30.glBindVertexArray(0);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+        CgGL.glBindVertexArray(0);
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, 0);
 
         initialized = true;
         LOGGER.info("[PauseScreenRenderer] Initialized: program=" + program
@@ -153,19 +147,19 @@ public final class PauseScreenRenderer {
         FloatBuffer vertBuf = BufferUtils.createFloatBuffer(verts.length);
         vertBuf.put(verts).flip();
 
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-        GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0, vertBuf);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vbo);
+        CgGL.glBufferSubData(CgGL.GL_ARRAY_BUFFER, 0, HarnessBuffers.bytes(vertBuf));
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, 0);
 
-        GL20.glUseProgram(program);
-        GL20.glUniform2f(screenSizeLoc, (float) screenWidth, (float) screenHeight);
-        GL20.glUniform4f(colorLoc, OVERLAY_R, OVERLAY_G, OVERLAY_B, OVERLAY_A);
+        CgGL.glUseProgram(program);
+        CgGL.glUniform2f(screenSizeLoc, (float) screenWidth, (float) screenHeight);
+        CgGL.glUniform4f(colorLoc, OVERLAY_R, OVERLAY_G, OVERLAY_B, OVERLAY_A);
 
-        GL30.glBindVertexArray(vao);
-        GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 6);
-        GL30.glBindVertexArray(0);
+        CgGL.glBindVertexArray(vao);
+        CgGL.glDrawArrays(CgGL.GL_TRIANGLES, 0, 6);
+        CgGL.glBindVertexArray(0);
 
-        GL20.glUseProgram(0);
+        CgGL.glUseProgram(0);
     }
 
     /**
@@ -187,9 +181,9 @@ public final class PauseScreenRenderer {
         if (!initialized) {
             return;
         }
-        GL15.glDeleteBuffers(vbo);
-        GL30.glDeleteVertexArrays(vao);
-        GL20.glDeleteProgram(program);
+        CgGL.glDeleteBuffers(vbo);
+        CgGL.glDeleteVertexArrays(vao);
+        CgGL.glDeleteProgram(program);
         vbo = 0;
         vao = 0;
         program = 0;

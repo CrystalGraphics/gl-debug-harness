@@ -1,8 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.util;
 
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL30;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import java.util.logging.Logger;
 
 /**
@@ -33,36 +32,36 @@ public final class HarnessFboHelper {
      * Create an FBO with a color texture and optional depth renderbuffer.
      */
     public static HarnessFboHelper create(int width, int height, boolean withDepth) {
-        int fbo = GL30.glGenFramebuffers();
-        int colorTex = GL11.glGenTextures();
+        int fbo = CgGL.glGenFramebuffers();
+        int colorTex = CgGL.glGenTextures();
         int depthRb = 0;
 
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, colorTex);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8,
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, colorTex);
+        CgGL.glTexImage2D(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA8,
                 width, height, 0,
-                GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+                CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MIN_FILTER, CgGL.GL_LINEAR);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MAG_FILTER, CgGL.GL_LINEAR);
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
 
         if (withDepth) {
-            depthRb = GL30.glGenRenderbuffers();
-            GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthRb);
-            GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL11.GL_DEPTH_COMPONENT,
+            depthRb = CgGL.glGenRenderbuffers();
+            CgGL.glBindRenderbuffer(CgGL.GL_RENDERBUFFER, depthRb);
+            CgGL.glRenderbufferStorage(CgGL.GL_RENDERBUFFER, CgGL.GL_DEPTH_COMPONENT,
                     width, height);
-            GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, 0);
+            CgGL.glBindRenderbuffer(CgGL.GL_RENDERBUFFER, 0);
         }
 
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER,
-                GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, colorTex, 0);
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fbo);
+        CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER,
+                CgGL.GL_COLOR_ATTACHMENT0, CgGL.GL_TEXTURE_2D, colorTex, 0);
         if (withDepth) {
-            GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER,
-                    GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthRb);
+            CgGL.glFramebufferRenderbuffer(CgGL.GL_FRAMEBUFFER,
+                    CgGL.GL_DEPTH_ATTACHMENT, CgGL.GL_RENDERBUFFER, depthRb);
         }
 
-        int status = GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER);
-        if (status != GL30.GL_FRAMEBUFFER_COMPLETE) {
+        int status = CgGL.glCheckFramebufferStatus(CgGL.GL_FRAMEBUFFER);
+        if (status != CgGL.GL_FRAMEBUFFER_COMPLETE) {
             throw new RuntimeException("FBO incomplete: status=0x" + Integer.toHexString(status));
         }
 
@@ -74,23 +73,23 @@ public final class HarnessFboHelper {
 
     /** Bind this FBO and set viewport. */
     public void bind() {
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fboId);
-        GL11.glViewport(0, 0, width, height);
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fboId);
+        CgGL.glViewport(0, 0, width, height);
     }
 
     /** Unbind FBO (bind default framebuffer 0). */
     public void unbind() {
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
     }
 
     /** Clear color (and optionally depth) buffers. */
     public void clear(float r, float g, float b, float a) {
-        GL11.glClearColor(r, g, b, a);
-        int bits = GL11.GL_COLOR_BUFFER_BIT;
+        CgGL.glClearColor(r, g, b, a);
+        int bits = CgGL.GL_COLOR_BUFFER_BIT;
         if (hasDepth) {
-            bits |= GL11.GL_DEPTH_BUFFER_BIT;
+            bits |= CgGL.GL_DEPTH_BUFFER_BIT;
         }
-        GL11.glClear(bits);
+        CgGL.glClear(bits);
     }
 
     /** Capture the FBO's color attachment to a PNG file. */
@@ -101,17 +100,17 @@ public final class HarnessFboHelper {
 
     /** Delete all GL resources. */
     public void delete() {
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
         if (fboId != 0) {
-            GL30.glDeleteFramebuffers(fboId);
+            CgGL.glDeleteFramebuffers(fboId);
             fboId = 0;
         }
         if (colorTexId != 0) {
-            GL11.glDeleteTextures(colorTexId);
+            CgGL.glDeleteTextures(colorTexId);
             colorTexId = 0;
         }
         if (depthRbId != 0) {
-            GL30.glDeleteRenderbuffers(depthRbId);
+            CgGL.glDeleteRenderbuffers(depthRbId);
             depthRbId = 0;
         }
     }

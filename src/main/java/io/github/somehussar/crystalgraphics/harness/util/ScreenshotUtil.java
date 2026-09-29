@@ -1,8 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.util;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL30;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -17,8 +16,8 @@ public final class ScreenshotUtil {
 
     public static void captureBackbuffer(int width, int height, String outputDir, String filename) {
         ByteBuffer pixels = BufferUtils.createByteBuffer(width * height * 4);
-        GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
-        GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixels);
+        CgGL.glPixelStorei(CgGL.GL_PACK_ALIGNMENT, 1);
+        CgGL.glReadPixels(0, 0, width, height, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, pixels);
 
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         for (int y = 0; y < height; y++) {
@@ -38,14 +37,14 @@ public final class ScreenshotUtil {
 
     public static void captureTexture(int textureId, int width, int height,
                                int internalFormat, String outputDir, String filename) {
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
-        GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, textureId);
+        CgGL.glPixelStorei(CgGL.GL_PACK_ALIGNMENT, 1);
 
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 
-        if (internalFormat == GL30.GL_R8 || internalFormat == 0x1903 /* GL_RED */) {
+        if (internalFormat == CgGL.GL_R8 || internalFormat == 0x1903 /* GL_RED */) {
             ByteBuffer buf = BufferUtils.createByteBuffer(width * height);
-            GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, 0x1903 /* GL_RED */, GL11.GL_UNSIGNED_BYTE, buf);
+            CgGL.glGetTexImage(CgGL.GL_TEXTURE_2D, 0, 0x1903 /* GL_RED */, CgGL.GL_UNSIGNED_BYTE, buf);
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     int val = buf.get(y * width + x) & 0xFF;
@@ -55,7 +54,7 @@ public final class ScreenshotUtil {
         } else {
             // RGBA fallback
             ByteBuffer buf = BufferUtils.createByteBuffer(width * height * 4);
-            GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buf);
+            CgGL.glGetTexImage(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, buf);
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     int idx = (y * width + x) * 4;
@@ -68,7 +67,7 @@ public final class ScreenshotUtil {
             }
         }
 
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
         writePng(image, outputDir, filename);
     }
 
@@ -95,15 +94,15 @@ public final class ScreenshotUtil {
     public static void captureArrayTextureLayer(int arrayTextureId, int layer,
                                                   int width, int height,
                                                   String outputDir, String filename) {
-        int fbo = GL30.glGenFramebuffers();
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GL30.glFramebufferTextureLayer(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
+        int fbo = CgGL.glGenFramebuffers();
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fbo);
+        CgGL.glFramebufferTextureLayer(CgGL.GL_FRAMEBUFFER, CgGL.GL_COLOR_ATTACHMENT0,
                 arrayTextureId, 0, layer);
 
-        int status = GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER);
-        if (status != GL30.GL_FRAMEBUFFER_COMPLETE) {
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
-            GL30.glDeleteFramebuffers(fbo);
+        int status = CgGL.glCheckFramebufferStatus(CgGL.GL_FRAMEBUFFER);
+        if (status != CgGL.GL_FRAMEBUFFER_COMPLETE) {
+            CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+            CgGL.glDeleteFramebuffers(fbo);
             throw new IllegalStateException(
                     "Framebuffer incomplete capturing array layer " + layer + " of texture "
                             + arrayTextureId + " (status 0x" + Integer.toHexString(status) + ")");
@@ -111,8 +110,8 @@ public final class ScreenshotUtil {
 
         try {
             ByteBuffer pixels = BufferUtils.createByteBuffer(width * height * 4);
-            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
-            GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixels);
+            CgGL.glPixelStorei(CgGL.GL_PACK_ALIGNMENT, 1);
+            CgGL.glReadPixels(0, 0, width, height, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, pixels);
 
             BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
             for (int y = 0; y < height; y++) {
@@ -134,8 +133,8 @@ public final class ScreenshotUtil {
             }
             writePng(image, outputDir, filename);
         } finally {
-            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
-            GL30.glDeleteFramebuffers(fbo);
+            CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+            CgGL.glDeleteFramebuffers(fbo);
         }
     }
 
@@ -143,11 +142,11 @@ public final class ScreenshotUtil {
                                        int width, int height,
                                        String outputDir, String filename) {
         // Read from the FBO directly via glReadPixels bound to the FBO
-        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, fboId);
+        CgGL.glBindFramebuffer(CgGL.GL_READ_FRAMEBUFFER, fboId);
         ByteBuffer pixels = BufferUtils.createByteBuffer(width * height * 4);
-        GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
-        GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixels);
-        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, 0);
+        CgGL.glPixelStorei(CgGL.GL_PACK_ALIGNMENT, 1);
+        CgGL.glReadPixels(0, 0, width, height, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, pixels);
+        CgGL.glBindFramebuffer(CgGL.GL_READ_FRAMEBUFFER, 0);
 
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         for (int y = 0; y < height; y++) {

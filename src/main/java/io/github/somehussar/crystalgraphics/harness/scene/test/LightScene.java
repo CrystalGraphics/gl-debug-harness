@@ -1,5 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
+import io.github.somehussar.crystalgraphics.harness.util.HarnessBuffers;
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.api.state.CgBlendState;
 import com.crystalgraphics.gl.shader.CgShaderFactory;
@@ -11,10 +13,6 @@ import io.github.somehussar.crystalgraphics.harness.object.LightSource;
 import io.github.somehussar.crystalgraphics.harness.object.WorldAxisRenderer;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL20;
-import org.lwjgl.opengl.GL30;
 
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -88,11 +86,11 @@ public class LightScene implements InteractiveSceneLifecycle {
         IntBuffer iBuff = BufferUtils.createIntBuffer(indices.length);
         iBuff.put(indices).flip();
 
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vboId);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buff, GL15.GL_STATIC_DRAW);
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vboId);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(buff), CgGL.GL_STATIC_DRAW);
 
-        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, eboId);
-        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, iBuff, GL15.GL_STATIC_DRAW);
+        CgGL.glBindBuffer(CgGL.GL_ELEMENT_ARRAY_BUFFER, eboId);
+        CgGL.glBufferData(CgGL.GL_ELEMENT_ARRAY_BUFFER, HarnessBuffers.bytes(iBuff), CgGL.GL_STATIC_DRAW);
     }
 
     @Override
@@ -106,25 +104,25 @@ public class LightScene implements InteractiveSceneLifecycle {
 
         projection.perspective((float) Math.toRadians(60), ctx.getViewport().getAspectRatio(), 0.001f, 1000f);
 
-        vaoId = GL30.glGenVertexArrays();
-        GL30.glBindVertexArray(vaoId);
+        vaoId = CgGL.glGenVertexArrays();
+        CgGL.glBindVertexArray(vaoId);
 
-        vboId = GL15.glGenBuffers();
-        eboId = GL15.glGenBuffers();
+        vboId = CgGL.glGenBuffers();
+        eboId = CgGL.glGenBuffers();
 
         initCube();
 
         //  POS3_UV2_NORMAL3_COL4UB
         int stride = (3 + 2 + 3) * 4 + 4;
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, stride, 0);          // a_pos
-        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, stride, 12);         // a_uv
-        GL20.glVertexAttribPointer(2, 3, GL11.GL_FLOAT, false, stride, 20);         // a_normal
-        GL20.glVertexAttribPointer(3, 4, GL11.GL_UNSIGNED_BYTE, true, stride, 32);  // a_col
+        CgGL.glVertexAttribPointer(0, 3, CgGL.GL_FLOAT, false, stride, 0);          // a_pos
+        CgGL.glVertexAttribPointer(1, 2, CgGL.GL_FLOAT, false, stride, 12);         // a_uv
+        CgGL.glVertexAttribPointer(2, 3, CgGL.GL_FLOAT, false, stride, 20);         // a_normal
+        CgGL.glVertexAttribPointer(3, 4, CgGL.GL_UNSIGNED_BYTE, true, stride, 32);  // a_col
 
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glEnableVertexAttribArray(1);
-        GL20.glEnableVertexAttribArray(2);
-        GL20.glEnableVertexAttribArray(3);
+        CgGL.glEnableVertexAttribArray(0);
+        CgGL.glEnableVertexAttribArray(1);
+        CgGL.glEnableVertexAttribArray(2);
+        CgGL.glEnableVertexAttribArray(3);
     }
     
     @Override
@@ -132,9 +130,9 @@ public class LightScene implements InteractiveSceneLifecycle {
         Camera3D cam = ctx.getCamera3D();
         CgBlendState.ALPHA.apply();
         axis.render(ctx);
-        GL11.glDisable(GL11.GL_ALPHA_TEST);
-       // GL11.glAlphaFunc(GL11.GL_GREATER,0.01f);
-        GL30.glBindVertexArray(vaoId);
+        CgGL.glDisable(CgGL.GL_ALPHA_TEST);
+       // CgGL.glAlphaFunc(CgGL.GL_GREATER,0.01f);
+        CgGL.glBindVertexArray(vaoId);
         sphereShader.applyBindings(b -> {
             b.mat4("u_model", model);
             b.mat4("u_view", cam.getViewMatrix());
@@ -144,7 +142,7 @@ public class LightScene implements InteractiveSceneLifecycle {
             b.vec4("u_cameraPos", cam.getPos());
             b.vec4("u_localCameraPos" , cam.getPos().mul(model.invert(new Matrix4f())));
         }).bind();
-        GL11.glDrawElements(GL11.GL_TRIANGLES, cubeIndexCount, GL11.GL_UNSIGNED_INT, 0);
+        CgGL.glDrawElements(CgGL.GL_TRIANGLES, cubeIndexCount, CgGL.GL_UNSIGNED_INT, 0);
 
         lightSource.render(ctx, frame);
     }
@@ -186,9 +184,9 @@ public class LightScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
-        GL30.glDeleteVertexArrays(vaoId);
-        GL15.glDeleteBuffers(vboId);
-        GL15.glDeleteBuffers(eboId);
+        CgGL.glDeleteVertexArrays(vaoId);
+        CgGL.glDeleteBuffers(vboId);
+        CgGL.glDeleteBuffers(eboId);
         shader.delete();
         sphereShader.delete();
         axis.dispose();

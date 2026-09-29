@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.msdfgen.FreeTypeMSDFIntegration;
 import com.crystalgraphics.msdfgen.MSDFException;
 import com.crystalgraphics.msdfgen.MSDFShape;
@@ -27,8 +28,6 @@ import io.github.somehussar.crystalgraphics.harness.util.HarnessOutputDir;
 import io.github.somehussar.crystalgraphics.harness.util.ScreenshotUtil;
 import com.crystalgraphics.api.text.CgTextLayout;
 
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL30;
 
 import java.io.File;
 import java.util.*;
@@ -125,29 +124,29 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         CgFontRegistry registry = new CgFontRegistry(registryAtlasSize, registryMsdfConfig);
         CgTextRenderer renderer = CgTextRenderer.createManualSized();
 
-        int fbo = GL30.glGenFramebuffers();
-        int colorTex = GL11.glGenTextures();
+        int fbo = CgGL.glGenFramebuffers();
+        int colorTex = CgGL.glGenTextures();
 
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, colorTex);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8,
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, colorTex);
+        CgGL.glTexImage2D(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA8,
                 fboWidth, fboHeight, 0,
-                GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+                CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MIN_FILTER, CgGL.GL_LINEAR);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MAG_FILTER, CgGL.GL_LINEAR);
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
 
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER,
-                GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, colorTex, 0);
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fbo);
+        CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER,
+                CgGL.GL_COLOR_ATTACHMENT0, CgGL.GL_TEXTURE_2D, colorTex, 0);
 
-        int status = GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER);
-        if (status != GL30.GL_FRAMEBUFFER_COMPLETE) {
+        int status = CgGL.glCheckFramebufferStatus(CgGL.GL_FRAMEBUFFER);
+        if (status != CgGL.GL_FRAMEBUFFER_COMPLETE) {
             throw new RuntimeException("Atlas dump FBO incomplete: 0x" + Integer.toHexString(status));
         }
 
-        GL11.glViewport(0, 0, fboWidth, fboHeight);
-        GL11.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
-        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+        CgGL.glViewport(0, 0, fboWidth, fboHeight);
+        CgGL.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
+        CgGL.glClear(CgGL.GL_COLOR_BUFFER_BIT);
 
         renderer.context(CgTextRenderContext.orthographic(fboWidth, fboHeight));
         PoseStack poseStack = new PoseStack();
@@ -204,8 +203,6 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
             }
         }
 
-        GL11.glFinish();
-
         // ── Atlas capture and dump ─────────────────────────────────────
         if (wantBitmap && bitmapFont != null) {
             dumpBitmapAtlases(registry, bitmapFont, bitmapPxSize, dumpAllPages, atlasDir);
@@ -232,7 +229,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
             }
         }
 
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
         renderer.delete();
         registry.releaseAll();
         if (msdfFont != null) {
@@ -241,8 +238,8 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         if (bitmapFont != null) {
             bitmapFont.dispose();
         }
-        GL30.glDeleteFramebuffers(fbo);
-        GL11.glDeleteTextures(colorTex);
+        CgGL.glDeleteFramebuffers(fbo);
+        CgGL.glDeleteTextures(colorTex);
 
         LOGGER.info("[Harness] Atlas dump scene complete.");
     }

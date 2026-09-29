@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.pipeline.CgForwardRenderer;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -239,8 +240,8 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
         // → CgForwardRenderer (opaque) → CgTransparentRenderer (transparent).
         // GL state is saved before and restored after the entire execute() call.
         // fbo.bind();
-        // GL11.glClearColor(0f, 0f, 0f, 1f);
-        //  GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+        // CgGL.glClearColor(0f, 0f, 0f, 1f);
+        //  CgGL.glClear(CgGL.GL_COLOR_BUFFER_BIT | CgGL.GL_DEPTH_BUFFER_BIT);
         Vector4f camPos = ctx.getCamera3D().getPos();
         Vector3f camLook = ctx.getCamera3D().getLookVector();
         System.out.println(String.format("camerPos = [%.2f,%.2f,%.2f], lookVector = [%.2f,%.2f,%.2f]",
@@ -253,7 +254,7 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
         //        int tex = fbo.getColorTexture(0).getId();
         //        CgDebugBlit.rgba(tex);
         //   CgDebugBlit.depth(tex,0.001f,20f);
-        //ScreenshotUtil.captureTexture(tex, fbo.getWidth(),fbo.getHeight(), GL11.GL_RGBA8,"","idk.png");
+        //ScreenshotUtil.captureTexture(tex, fbo.getWidth(),fbo.getHeight(), CgGL.GL_RGBA8,"","idk.png");
 
        // GlErrorChecker.assertNoGlError("CgForwardRendererScene.frame");
 

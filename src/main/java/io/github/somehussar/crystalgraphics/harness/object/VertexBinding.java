@@ -1,7 +1,7 @@
 package io.github.somehussar.crystalgraphics.harness.object;
 
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL30;
+import com.crystalgraphics.platform.gl.CgGL;
+
 
 public class VertexBinding {
     public int vaoId, vboId, eboId, indexCount;
@@ -14,8 +14,8 @@ public class VertexBinding {
     }
 
     public void dispose() {
-        if (vaoId != -1) GL30.glDeleteVertexArrays(vaoId);
-        if (vboId != -1) GL15.glDeleteBuffers(vboId);
-        if (eboId != -1) GL15.glDeleteBuffers(eboId);
+        if (vaoId != -1) CgGL.glDeleteVertexArrays(vaoId);
+        if (vboId != -1) CgGL.glDeleteBuffers(vboId);
+        if (eboId != -1) CgGL.glDeleteBuffers(eboId);
     }
 }

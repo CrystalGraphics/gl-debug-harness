@@ -1,8 +1,8 @@
 package io.github.somehussar.crystalgraphics.harness.runtime;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 
-import org.lwjgl.opengl.GL11C;
 
 import java.util.logging.Logger;
 
@@ -78,7 +78,7 @@ public final class ResizeHandler {
         ctx.setScreenDimensions(newWidth, newHeight);
 
         // Update GL viewport to match new window size
-        GL11C.glViewport(0, 0, newWidth, newHeight);
+        CgGL.glViewport(0, 0, newWidth, newHeight);
 
         overlayPipeline.onResize(newWidth, newHeight);
         worldPassCoordinator.onResize(newWidth, newHeight);

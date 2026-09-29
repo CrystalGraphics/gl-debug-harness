@@ -1,13 +1,11 @@
 package io.github.somehussar.crystalgraphics.harness.camera;
 
+import io.github.somehussar.crystalgraphics.harness.util.HarnessBuffers;
+import com.crystalgraphics.platform.gl.CgGL;
 import io.github.somehussar.crystalgraphics.harness.config.WorldSettings;
 import io.github.somehussar.crystalgraphics.harness.util.HarnessShaderUtil;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL20;
-import org.lwjgl.opengl.GL30;
 
 import java.nio.FloatBuffer;
 import java.util.logging.Logger;
@@ -31,8 +29,8 @@ public class FloorRenderer {
     private static final String FLOOR_VERT =
             "#version 330 core\n" +
             "uniform mat4 u_mvp;\n" +
-            "in vec3 a_pos;\n" +
-            "in vec3 a_color;\n" +
+            "layout(location = 0) in vec3 a_pos;\n" +
+            "layout(location = 1) in vec3 a_color;\n" +
             "out vec3 v_color;\n" +
             "void main() {\n" +
             "    gl_Position = u_mvp * vec4(a_pos, 1.0);\n" +
@@ -42,7 +40,7 @@ public class FloorRenderer {
     private static final String FLOOR_FRAG =
             "#version 330 core\n" +
             "in vec3 v_color;\n" +
-            "out vec4 fragColor;\n" +
+            "layout(location = 0) out vec4 fragColor;\n" +
             "void main() {\n" +
             "    fragColor = vec4(v_color, 1.0);\n" +
             "}\n";
@@ -88,56 +86,36 @@ public class FloorRenderer {
 
         program = HarnessShaderUtil.compileProgram(FLOOR_VERT, FLOOR_FRAG);
 
-        // Explicitly bind the fragment output to color attachment 0.
-        // While GLSL 130 implicitly maps a single 'out' to location 0 on most
-        // drivers, being explicit prevents issues on Intel/Mesa drivers that
-        // may not auto-assign the output.
-        GL30.glBindFragDataLocation(program, 0, "fragColor");
-        // Re-link after binding frag data location
-        GL20.glLinkProgram(program);
+        mvpLocation = CgGL.glGetUniformLocation(program, "u_mvp");
 
-        mvpLocation = GL20.glGetUniformLocation(program, "u_mvp");
+        vao = CgGL.glGenVertexArrays();
+        vbo = CgGL.glGenBuffers();
 
-        vao = GL30.glGenVertexArrays();
-        vbo = GL15.glGenBuffers();
-
-        GL30.glBindVertexArray(vao);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+        CgGL.glBindVertexArray(vao);
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vbo);
 
         FloatBuffer buf = BufferUtils.createFloatBuffer(floorVertices.length);
         buf.put(floorVertices).flip();
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buf, GL15.GL_STATIC_DRAW);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(buf), CgGL.GL_STATIC_DRAW);
 
         int stride = 6 * 4; // 6 floats * 4 bytes
-        int posLoc = GL20.glGetAttribLocation(program, "a_pos");
-        int colorLoc = GL20.glGetAttribLocation(program, "a_color");
+        CgGL.glVertexAttribPointer(0, 3, CgGL.GL_FLOAT, false, stride, 0);
+        CgGL.glEnableVertexAttribArray(0);
+        CgGL.glVertexAttribPointer(1, 3, CgGL.GL_FLOAT, false, stride, 12);
+        CgGL.glEnableVertexAttribArray(1);
 
-        if (posLoc >= 0) {
-            GL20.glVertexAttribPointer(posLoc, 3, GL11.GL_FLOAT, false, stride, 0);
-            GL20.glEnableVertexAttribArray(posLoc);
-        } else {
-            LOGGER.warning("[FloorRenderer] a_pos attribute not found in shader!");
-        }
-        if (colorLoc >= 0) {
-            GL20.glVertexAttribPointer(colorLoc, 3, GL11.GL_FLOAT, false, stride, 12);
-            GL20.glEnableVertexAttribArray(colorLoc);
-        } else {
-            LOGGER.warning("[FloorRenderer] a_color attribute not found in shader!");
-        }
-
-        GL30.glBindVertexArray(0);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+        CgGL.glBindVertexArray(0);
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, 0);
 
         // Check for any GL errors during initialization
-        int glError = GL11.glGetError();
-        if (glError != GL11.GL_NO_ERROR) {
+        int glError = CgGL.glGetError();
+        if (glError != CgGL.GL_NO_ERROR) {
             LOGGER.warning("[FloorRenderer] GL error during init: 0x" + Integer.toHexString(glError));
         }
 
         initialized = true;
         LOGGER.info("[FloorRenderer] Initialized: program=" + program + " vao=" + vao
-                + " vbo=" + vbo + " posLoc=" + posLoc + " colorLoc=" + colorLoc
-                + " mvpLoc=" + mvpLocation);
+                + " vbo=" + vbo + " mvpLoc=" + mvpLocation);
     }
 
     /**
@@ -163,14 +141,14 @@ public class FloorRenderer {
         // No need to flip
         // mvpBuf.flip();
 
-        GL20.glUseProgram(program);
-        GL20.glUniformMatrix4fv(mvpLocation, false, mvpBuf);
+        CgGL.glUseProgram(program);
+        CgGL.glUniformMatrix4fv(mvpLocation, false, mvpBuf);
 
-        GL30.glBindVertexArray(vao);
-        GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 6);
-        GL30.glBindVertexArray(0);
+        CgGL.glBindVertexArray(vao);
+        CgGL.glDrawArrays(CgGL.GL_TRIANGLES, 0, 6);
+        CgGL.glBindVertexArray(0);
 
-        GL20.glUseProgram(0);
+        CgGL.glUseProgram(0);
     }
 
     /**
@@ -191,11 +169,11 @@ public class FloorRenderer {
         if (!initialized) {
             return;
         }
-        GL30.glBindVertexArray(0);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
-        GL15.glDeleteBuffers(vbo);
-        GL30.glDeleteVertexArrays(vao);
-        GL20.glDeleteProgram(program);
+        CgGL.glBindVertexArray(0);
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, 0);
+        CgGL.glDeleteBuffers(vbo);
+        CgGL.glDeleteVertexArrays(vao);
+        CgGL.glDeleteProgram(program);
         vbo = 0;
         vao = 0;
         program = 0;

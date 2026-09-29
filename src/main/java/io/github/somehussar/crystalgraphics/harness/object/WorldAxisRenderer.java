@@ -1,14 +1,12 @@
 package io.github.somehussar.crystalgraphics.harness.object;
 
+import io.github.somehussar.crystalgraphics.harness.util.HarnessBuffers;
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL20;
-import org.lwjgl.opengl.GL30;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -51,36 +49,36 @@ public class WorldAxisRenderer {
         IntBuffer iBuff = BufferUtils.createIntBuffer(indexCount);
         iBuff.put(indices).flip();
 
-        int vaoId = GL30.glGenVertexArrays();
-        GL30.glBindVertexArray(vaoId);
+        int vaoId = CgGL.glGenVertexArrays();
+        CgGL.glBindVertexArray(vaoId);
 
-        int vboId = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vboId);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buff, GL15.GL_STATIC_DRAW);
+        int vboId = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ARRAY_BUFFER, vboId);
+        CgGL.glBufferData(CgGL.GL_ARRAY_BUFFER, HarnessBuffers.bytes(buff), CgGL.GL_STATIC_DRAW);
 
-        int eboId = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, eboId);
-        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, iBuff, GL15.GL_STATIC_DRAW);
+        int eboId = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_ELEMENT_ARRAY_BUFFER, eboId);
+        CgGL.glBufferData(CgGL.GL_ELEMENT_ARRAY_BUFFER, HarnessBuffers.bytes(iBuff), CgGL.GL_STATIC_DRAW);
 
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 16, 0);
-        GL20.glVertexAttribPointer(1, 4, GL11.GL_UNSIGNED_BYTE, true, 16, 12);
+        CgGL.glVertexAttribPointer(0, 3, CgGL.GL_FLOAT, false, 16, 0);
+        CgGL.glVertexAttribPointer(1, 4, CgGL.GL_UNSIGNED_BYTE, true, 16, 12);
 
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glEnableVertexAttribArray(1);
+        CgGL.glEnableVertexAttribArray(0);
+        CgGL.glEnableVertexAttribArray(1);
 
         return binding = new VertexBinding(vaoId, vboId, eboId, indexCount);
     }
 
     public void render(HarnessContext ctx) {
-        GL30.glBindVertexArray(binding.vaoId);
+        CgGL.glBindVertexArray(binding.vaoId);
         shader.applyBindings(b -> {
             b.mat4("u_model", model);
             b.mat4("u_view", ctx.getCamera3D().getViewMatrix());
             b.mat4("u_projection", ctx.getProjection());
         }).bind();
-        GL11.glLineWidth(2);
-        GL11.glDrawElements(GL11.GL_LINES, binding.indexCount, GL11.GL_UNSIGNED_INT, 0);
-        GL11.glLineWidth(1);
+        CgGL.glLineWidth(2);
+        CgGL.glDrawElements(CgGL.GL_LINES, binding.indexCount, CgGL.GL_UNSIGNED_INT, 0);
+        CgGL.glLineWidth(1);
     }
 
     public void dispose() {

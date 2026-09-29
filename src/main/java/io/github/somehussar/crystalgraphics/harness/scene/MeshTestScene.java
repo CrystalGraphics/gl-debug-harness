@@ -1,5 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.scene;
 
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.api.mesh.CgMeshData;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
@@ -16,8 +17,6 @@ import io.github.somehussar.crystalgraphics.harness.scheduler.TaskScheduler;
 
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL20;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -172,12 +171,12 @@ public class MeshTestScene implements InteractiveSceneLifecycle {
         renderMesh(meshQuad2D, -3.0f, 0.0f, 0.0f, 1);
         renderMesh(meshPlane, 0.0f, -2.0f, 0.0f, 1);
         renderMesh(meshUvSphere, 0.0f, 2.0f, 0.0f, 1);
-        GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK,GL11.GL_FILL);
+        CgGL.glPolygonMode(CgGL.GL_FRONT_AND_BACK,CgGL.GL_FILL);
         renderMesh(iso2, 0.0f, 0.0f, -4.0f, 1);
         renderMesh(meshObj, -1.5f, 0.0f, 0.0f, 1);
         renderMesh(meshGltf, 4.5f, 2.0f, 0.0f, 1);
 
-        GL20.glUseProgram(0);
+        CgGL.glUseProgram(0);
     }
 
     // ── Procedural mesh builders ─────────────────────────────────────────────

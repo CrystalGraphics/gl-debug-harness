@@ -1,7 +1,7 @@
 # GL Debug Harness — Agent Knowledge Base
 
 **Module**: `gl-debug-harness/`  
-**Purpose**: Standalone LWJGL 3 (GLFW, OpenGL 3.3 core) debug harness for CrystalGraphics, running outside Minecraft to test font rendering, FBO pipelines, atlas generation, and shader behavior in isolation.
+**Purpose**: Standalone LWJGL 3 debug harness (GLFW, the newest OpenGL core context the driver grants, 4.6 down to 3.3) for CrystalGraphics, running outside Minecraft to test font rendering, FBO pipelines, atlas generation, and shader behavior in isolation.
 
 ---
 
@@ -86,6 +86,11 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   Cg registeries such as CgVertexArray|BufferRegistry. Same for Shaders -> CgShaderBuffer,
   Textures -> CgTexture, Shader buffers -> CgShaderBuffer,
   FBO -> CgFrameBuffer, etc...
+- **What is left at the GL level goes through `CgGL`, never `org.lwjgl.opengl`.** CrystalGraphics' state
+  shadow sees only `CgGL`, so a raw write makes it skip a later call it thinks is redundant. Two exceptions:
+  the host layer (`HarnessWindow`, `HarnessContext`) is the harness's LWJGL host, and a scene playing a
+  foreign host (`CgHostSectionScene`) draws raw inside `CgGlState.hostForeign` on purpose. For an upload
+  from a `FloatBuffer`/`IntBuffer`, `HarnessBuffers.bytes(buffer)` is the byte view `CgGL` takes.
 
 ---
 
@@ -273,7 +278,7 @@ The interactive runtime decomposes into focused services instead of one monolith
 | Component | Location | Purpose |
 |---|---|---|
 | `InteractiveSceneRunner` | `InteractiveSceneRunner.java` | Slim loop coordinator: sequences services, drives render loop |
-| `HarnessWindow` | `runtime/HarnessWindow.java` | The GLFW window and its 3.3 core context: swap, poll, pacing, resize, cursor grab, and the key/char/pointer events the runner hands to scenes. Key STATE is `CgPlatform.input()`'s, not this class's |
+| `HarnessWindow` | `runtime/HarnessWindow.java` | The GLFW window and its core context (newest granted, 4.6 down to 3.3): swap, poll, pacing, resize, cursor grab, and the key/char/pointer events the runner hands to scenes. Key STATE is `CgPlatform.input()`'s, not this class's |
 | `FrameClock` | `runtime/FrameClock.java` | High-resolution frame timing (delta, elapsed, frame number) |
 | `InputPauseHandler` | `runtime/InputPauseHandler.java` | Keyboard pause toggle (ESC/T) + mouse grab management |
 | `ResizeHandler` | `runtime/ResizeHandler.java` | Framebuffer resize detection (`HarnessWindow.takeResized`) + propagation to viewport, GL, and renderers |
@@ -343,7 +348,7 @@ Rot: yaw=Y pitch=P
 // Screenshot capture (direct, for managed scenes)
 ScreenshotUtil.captureBackbuffer(width, height, outputDir, "screenshot.png");
 ScreenshotUtil.captureFboColorTexture(fboId, texId, w, h, outputDir, "fbo.png");
-ScreenshotUtil.captureTexture(texId, w, h, GL30.GL_R8, outputDir, "tex.png");
+ScreenshotUtil.captureTexture(texId, w, h, CgGL.GL_R8, outputDir, "tex.png");
 
 // Interactive scene capture (preferred for interactive scenes)
 ArtifactService artifacts = ctx.getArtifactService();
