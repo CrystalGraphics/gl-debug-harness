@@ -666,7 +666,7 @@ Key tasks:
 ## Package Structure
 
 ```
-io.github.somehussar.crystalgraphics.harness/
+com.crystalgraphics.harness/
 ├── FontDebugHarnessMain.java        # Entry point: CLI parsing, config resolution, runtime dispatch
 ├── HarnessSceneFactory.java         # Factory for deferred scene creation
 ├── HarnessSceneLifecycle.java       # Unified scene lifecycle v2 (init/render/onResize/dispose)

@@ -1,0 +1,497 @@
+package com.crystalgraphics.harness.scene;
+
+import com.crystalgraphics.platform.gl.CgGL;
+import com.crystalgraphics.msdfgen.FreeTypeMSDFIntegration;
+import com.crystalgraphics.msdfgen.MSDFException;
+import com.crystalgraphics.msdfgen.MSDFShape;
+import com.crystalgraphics.platform.gl.CgCapabilities;
+import com.crystalgraphics.api.PoseStack;
+import com.crystalgraphics.api.font.CgFont;
+import com.crystalgraphics.api.font.CgFontStyle;
+import com.crystalgraphics.api.font.CgGlyphKey;
+import com.crystalgraphics.text.cache.CgFontRegistry;
+import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
+import com.crystalgraphics.text.msdf.CgMsdfGenerator;
+import com.crystalgraphics.text.render.context.CgTextRenderContext;
+import com.crystalgraphics.text.render.CgTextRenderer;
+import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
+import com.crystalgraphics.text.msdf.CgMsdfGlyphLayout;
+import com.crystalgraphics.harness.FrameInfo;
+import com.crystalgraphics.harness.HarnessSceneLifecycle;
+import com.crystalgraphics.harness.config.AtlasDumpConfig;
+import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.harness.tool.AtlasDumper;
+import com.crystalgraphics.harness.tool.MsdfVerificationTool;
+import com.crystalgraphics.harness.tool.MsdfAtlasSizeEstimator;
+import com.crystalgraphics.harness.util.HarnessFontUtil;
+import com.crystalgraphics.harness.util.HarnessOutputDir;
+import com.crystalgraphics.harness.util.ScreenshotUtil;
+import com.crystalgraphics.api.text.CgTextLayout;
+
+
+import java.io.File;
+import java.util.*;
+import java.util.logging.Logger;
+
+public class AtlasDumpScene implements HarnessSceneLifecycle {
+
+    private static final Logger LOGGER = Logger.getLogger(AtlasDumpScene.class.getName());
+
+    @Override
+    public void init(HarnessContext ctx) {
+    }
+
+    @Override
+    public void render(HarnessContext ctx, FrameInfo frame) {
+        // Typed config is resolved before execution in FontDebugHarnessMain
+        // and set on the context — no scene-side CLI parsing needed.
+        AtlasDumpConfig config = (AtlasDumpConfig) ctx.getSceneConfig();
+        run(ctx, ctx.getOutputDir(), config);
+    }
+
+    @Override
+    public void dispose() {
+    }
+
+    void run(HarnessContext ctx, String outputDir, AtlasDumpConfig config) {
+        int fboWidth = ctx.getScreenWidth();
+        int fboHeight = ctx.getScreenHeight();
+        String fontPath = HarnessFontUtil.resolveFontPath(config.getFontPath());
+        int bitmapPxSize = config.getBitmapPxSize();
+        int msdfPxSize = config.getMsdfPxSize();
+        int msdfAtlasScale = config.getMsdfAtlasScale() > 0
+                ? config.getMsdfAtlasScale()
+                : CgMsdfAtlasConfig.DEFAULT_ATLAS_SCALE_PX;
+        String text = config.getText();
+        AtlasDumpConfig.AtlasType atlasType = config.getAtlasType();
+        boolean dumpAllPages = config.isDumpAllPages();
+        boolean parityPrewarm = config.isParityPrewarm();
+        boolean prewarmBitmap = config.isPrewarmBitmap();
+        int atlasPageSize = config.getAtlasPageSize();
+
+        boolean wantMsdf = atlasType == AtlasDumpConfig.AtlasType.MSDF
+                || atlasType == AtlasDumpConfig.AtlasType.MTSDF
+                || atlasType == AtlasDumpConfig.AtlasType.BOTH;
+        if (wantMsdf && msdfPxSize < AtlasDumpConfig.MIN_MSDF_PX_SIZE) {
+            throw new IllegalArgumentException(
+                    "MSDF atlas requires --msdf-px-size >= " + AtlasDumpConfig.MIN_MSDF_PX_SIZE
+                    + ", got " + msdfPxSize);
+        }
+
+        LOGGER.info("[Harness] Atlas dump: font=" + fontPath);
+        LOGGER.info("[Harness] Atlas dump: atlasType=" + atlasType
+                + ", bitmapPxSize=" + bitmapPxSize + ", msdfPxSize=" + msdfPxSize
+                + ", msdfAtlasScale=" + msdfAtlasScale);
+        LOGGER.info("[Harness] Atlas dump: text=\"" + text + "\"");
+        LOGGER.info("[Harness] Atlas dump: dumpAllPages=" + dumpAllPages
+                + ", parityPrewarm=" + parityPrewarm + ", prewarmBitmap=" + prewarmBitmap
+                + ", atlasPageSize=" + (atlasPageSize == AtlasDumpConfig.ATLAS_PAGE_SIZE_AUTO
+                        ? "auto" : atlasPageSize));
+
+        String atlasDir = outputDir + File.separator + "atlas";
+        HarnessOutputDir.ensureExists(atlasDir);
+
+        CgCapabilities caps = CgCapabilities.detect();
+
+
+        // Resolve effective atlas size: CLI override takes precedence, then parity estimator,
+        // then legacy auto-compute for non-parity smoke runs.
+        int registryAtlasSize;
+        if (atlasPageSize != AtlasDumpConfig.ATLAS_PAGE_SIZE_AUTO) {
+            registryAtlasSize = atlasPageSize;
+            LOGGER.info("[Harness] Using explicit atlas page size: " + registryAtlasSize);
+        } else if (wantMsdf && parityPrewarm) {
+            CgFont estimatorCgFont = CgFont.load(fontPath, CgFontStyle.REGULAR, msdfPxSize);
+            try {
+                FreeTypeMSDFIntegration.Font estimatorFont = estimatorCgFont.getMsdfFont();
+                if (estimatorFont != null) {
+                    CgMsdfAtlasConfig estimatorConfig = CgMsdfAtlasConfig.forHarnessParity(msdfAtlasScale, null);
+                    registryAtlasSize = MsdfAtlasSizeEstimator.estimate(estimatorFont, text, estimatorConfig);
+                    LOGGER.info("[Harness] Estimated parity MSDF atlas size: " + registryAtlasSize);
+                } else {
+                    registryAtlasSize = computeAtlasSize(msdfPxSize, text.length());
+                    LOGGER.info("[Harness] MSDF estimator unavailable, falling back to coarse auto-size: " + registryAtlasSize);
+                }
+            } finally {
+                estimatorCgFont.dispose();
+            }
+        } else {
+            registryAtlasSize = computeAtlasSize(msdfPxSize, text.length());
+            LOGGER.info("[Harness] Auto-computed atlas size: " + registryAtlasSize);
+        }
+
+        CgMsdfAtlasConfig registryMsdfConfig = config.buildMsdfAtlasConfig(registryAtlasSize);
+        CgFontRegistry registry = new CgFontRegistry(registryAtlasSize, registryMsdfConfig);
+        CgTextRenderer renderer = CgTextRenderer.createManualSized();
+
+        int fbo = CgGL.glGenFramebuffers();
+        int colorTex = CgGL.glGenTextures();
+
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, colorTex);
+        CgGL.glTexImage2D(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA8,
+                fboWidth, fboHeight, 0,
+                CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MIN_FILTER, CgGL.GL_LINEAR);
+        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MAG_FILTER, CgGL.GL_LINEAR);
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
+
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fbo);
+        CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER,
+                CgGL.GL_COLOR_ATTACHMENT0, CgGL.GL_TEXTURE_2D, colorTex, 0);
+
+        int status = CgGL.glCheckFramebufferStatus(CgGL.GL_FRAMEBUFFER);
+        if (status != CgGL.GL_FRAMEBUFFER_COMPLETE) {
+            throw new RuntimeException("Atlas dump FBO incomplete: 0x" + Integer.toHexString(status));
+        }
+
+        CgGL.glViewport(0, 0, fboWidth, fboHeight);
+        CgGL.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
+        CgGL.glClear(CgGL.GL_COLOR_BUFFER_BIT);
+
+        renderer.context(CgTextRenderContext.orthographic(fboWidth, fboHeight));
+        PoseStack poseStack = new PoseStack();
+        long frame = 1;
+
+        boolean wantBitmap = atlasType == AtlasDumpConfig.AtlasType.BITMAP
+                || atlasType == AtlasDumpConfig.AtlasType.BOTH;
+
+        CgFont bitmapFont = null;
+        if (wantBitmap) {
+            bitmapFont = CgFont.load(fontPath, CgFontStyle.REGULAR, bitmapPxSize);
+            CgTextLayout bitmapLayout = CgTextLayout.of(text, bitmapFont).maxWidth(fboWidth).build();
+
+            if (prewarmBitmap) {
+                // Deterministic prewarm: render enough frames so every unique glyph
+                // is rasterized and allocated before the dump capture. This produces
+                // denser packing because all glyphs are present simultaneously.
+                frame = prewarmAllGlyphs(registry, renderer, bitmapLayout, bitmapFont,
+                        text, 20.0f, 40.0f, frame, poseStack);
+                LOGGER.info("[Harness] Bitmap prewarm complete at frame " + frame);
+            } else {
+                renderer.draw().layout(bitmapLayout).font(bitmapFont).at(20.0f, 40.0f)
+                        .color(0xFFFFFF).pose(poseStack).submit();
+                LOGGER.info("[Harness] Bitmap pass: drew at " + bitmapPxSize + "px");
+            }
+        }
+
+        CgFont msdfFont = null;
+        if (wantMsdf) {
+            msdfFont = CgFont.load(fontPath, CgFontStyle.REGULAR, msdfPxSize);
+            CgTextLayout msdfLayout = CgTextLayout.of(text, msdfFont).maxWidth(fboWidth).build();
+
+            if (parityPrewarm) {
+                // Deterministic parity prewarm: render many frames with the full text
+                // so that every unique MSDF glyph is generated, bypassing the per-frame
+                // budget limit. This is the static build mode described in plan §7.9:
+                // it loads the full glyph set up front and generates all MSDF glyph
+                // placements before capturing, producing dense atlas packing comparable
+                // to msdf-atlas-gen's static output.
+                frame = prewarmMsdfGlyphsLargestFirst(registry, msdfFont, text, frame);
+                LOGGER.info("[Harness] MSDF parity prewarm complete at frame " + frame);
+            } else {
+                // CgMsdfGenerator.MAX_PER_FRAME=4, so we need enough frames
+                // for all unique glyphs. tickFrame() resets the per-frame budget.
+                int framesNeeded = (text.length() / 4) + 5;
+                for (long f = 1; f <= framesNeeded; f++) {
+                    registry.tickFrame(frame + f);
+                    renderer.draw().layout(msdfLayout).font(msdfFont).at(20.0f, 80.0f)
+                            .color(0xFFFFFF).pose(poseStack).submit();
+                }
+                frame += framesNeeded;
+                LOGGER.info("[Harness] MSDF pass: drew " + framesNeeded
+                        + " frames at " + msdfPxSize + "px");
+            }
+        }
+
+        // ── Atlas capture and dump ─────────────────────────────────────
+        if (wantBitmap && bitmapFont != null) {
+            dumpBitmapAtlases(registry, bitmapFont, bitmapPxSize, dumpAllPages, atlasDir);
+        }
+
+        if (wantMsdf && msdfFont != null) {
+            registry.awaitAsyncGlyphs(5000L);
+            registry.tickFrame(frame + 1);
+            String dfPrefix = (atlasType == AtlasDumpConfig.AtlasType.MTSDF) ? "mtsdf" : "msdf";
+            dumpMsdfAtlases(registry, msdfFont, msdfPxSize, dumpAllPages, atlasDir, dfPrefix);
+            if (config.isVerifyMsdf()) {
+                MsdfVerificationTool verifier = new MsdfVerificationTool();
+                MsdfVerificationTool.VerificationSummary summary = verifier.verifyText(
+                        msdfFont,
+                        text,
+                        registryMsdfConfig,
+                        config.buildMsdfVerificationConfig(),
+                        atlasDir,
+                        dfPrefix + "-verify-" + msdfPxSize + "px");
+                LOGGER.info("[Harness] " + verifier.getClass().getSimpleName()
+                        + " verification complete: glyphs=" + summary.getGlyphCount()
+                        + ", failing=" + summary.getFailingGlyphCount()
+                        + ", worstMismatch=" + summary.getWorstMismatchRatio());
+            }
+        }
+
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+        renderer.delete();
+        registry.releaseAll();
+        if (msdfFont != null) {
+            msdfFont.dispose();
+        }
+        if (bitmapFont != null) {
+            bitmapFont.dispose();
+        }
+        CgGL.glDeleteFramebuffers(fbo);
+        CgGL.glDeleteTextures(colorTex);
+
+        LOGGER.info("[Harness] Atlas dump scene complete.");
+    }
+
+    // ── Prewarm logic ──────────────────────────────────────────────────
+
+    /**
+     * Runs the renderer repeatedly until all unique glyphs in the layout
+     * are fully generated and allocated. Returns the frame counter after
+     * prewarm completes.
+     *
+     * <p>The loop renders the full text each frame, ticking the registry
+     * between frames to reset the per-frame MSDF generation budget
+     * ({@code CgMsdfGenerator.MAX_PER_FRAME}). It terminates when two
+     * consecutive frames produce no new atlas allocations, meaning all
+     * glyphs have been generated.</p>
+     *
+     * <p>Safety cap: stops after {@code maxFrames} iterations to prevent
+     * infinite loops if glyph generation stalls.</p>
+     */
+    private long prewarmAllGlyphs(CgFontRegistry registry,
+                                   CgTextRenderer renderer,
+                                   CgTextLayout layout,
+                                   CgFont font,
+                                   String text,
+                                   float x, float y,
+                                   long startFrame,
+                                   PoseStack poseStack) {
+        // Upper bound: each unique char needs at most 1 frame per MAX_PER_FRAME slot.
+        // Add generous headroom for multi-pass convergence and edge cases.
+        int uniqueChars = countUniqueChars(text);
+        int maxFrames = (uniqueChars / CgMsdfGenerator.MAX_PER_FRAME) + 20;
+
+        long frame = startFrame;
+        int stableCount = 0;
+        int prevTotalSlots = countTotalAtlasSlots(registry, font);
+
+        for (int i = 0; i < maxFrames; i++) {
+            frame++;
+            registry.tickFrame(frame);
+            renderer.draw().layout(layout).font(font).at(x, y).color(0xFFFFFF).pose(poseStack).submit();
+
+            int currentSlots = countTotalAtlasSlots(registry, font);
+            if (currentSlots == prevTotalSlots) {
+                stableCount++;
+                // Two consecutive frames with no new allocations = prewarm converged
+                if (stableCount >= 2) {
+                    LOGGER.info("[Harness] Prewarm converged after " + (i + 1)
+                            + " frames, total slots=" + currentSlots);
+                    break;
+                }
+            } else {
+                stableCount = 0;
+                prevTotalSlots = currentSlots;
+            }
+        }
+
+        return frame;
+    }
+
+    private int countTotalAtlasSlots(CgFontRegistry registry, CgFont font) {
+        int total = 0;
+
+        for (CgGlyphAtlasPage page : registry.findAllPopulatedBitmapPages(font.getKey())) {
+            total += page.getSlotCount();
+        }
+        for (CgGlyphAtlasPage page : registry.findAllPopulatedMsdfPages(font.getKey())) {
+            total += page.getSlotCount();
+        }
+
+        return total;
+    }
+
+    private long prewarmMsdfGlyphsLargestFirst(CgFontRegistry registry,
+                                               CgFont font,
+                                               String text,
+                                               long startFrame) {
+        FreeTypeMSDFIntegration.Font msdfFont = font.getMsdfFont();
+        CgMsdfAtlasConfig config = registry.getResolvedMsdfConfig(font.getKey());
+        List<GlyphPrewarmEntry> glyphs = collectSortedMsdfGlyphs(msdfFont, text, config);
+        long frame = startFrame;
+        int queued = 0;
+        for (int i = 0; i < glyphs.size(); i++) {
+            if (queued == CgMsdfGenerator.MAX_PER_FRAME) {
+                frame++;
+                registry.tickFrame(frame);
+                queued = 0;
+            }
+            GlyphPrewarmEntry entry = glyphs.get(i);
+            CgGlyphKey glyphKey = new CgGlyphKey(font.getKey(), entry.glyphId, true, 0);
+            registry.queueGlyph(font, glyphKey, font.getKey().getTargetPx(), 0, frame);
+            queued++;
+        }
+        registry.awaitAsyncGlyphs(5000L);
+        registry.tickFrame(frame + 1);
+        return frame + 1;
+    }
+
+    private List<GlyphPrewarmEntry> collectSortedMsdfGlyphs(FreeTypeMSDFIntegration.Font msdfFont,
+                                                            String text,
+                                                            CgMsdfAtlasConfig config) {
+        Map<Integer, GlyphPrewarmEntry> unique = new HashMap<>();
+        for (int i = 0; i < text.length(); i++) {
+            int glyphId = msdfFont.getGlyphIndex(text.charAt(i));
+            if (glyphId <= 0 || unique.containsKey(Integer.valueOf(glyphId))) {
+                continue;
+            }
+            GlyphPrewarmEntry entry = computeGlyphPrewarmEntry(msdfFont, glyphId, config);
+            if (entry != null) {
+                unique.put(Integer.valueOf(glyphId), entry);
+            }
+        }
+        List<GlyphPrewarmEntry> sorted = new ArrayList<>(unique.values());
+        Collections.sort(sorted, (a, b) -> {
+            if (a.area != b.area) {
+                return Integer.compare(b.area, a.area);
+            }
+            if (a.height != b.height) {
+                return Integer.compare(b.height, a.height);
+            }
+            return Integer.compare(b.width, a.width);
+        });
+        return sorted;
+    }
+
+    private GlyphPrewarmEntry computeGlyphPrewarmEntry(FreeTypeMSDFIntegration.Font msdfFont,
+                                                       int glyphId,
+                                                       CgMsdfAtlasConfig config) {
+        try {
+            FreeTypeMSDFIntegration.GlyphData glyphData = msdfFont.loadGlyphByIndex(
+                    glyphId, FreeTypeMSDFIntegration.FONT_SCALING_EM_NORMALIZED);
+            MSDFShape shape = glyphData.getShape();
+            if (shape.getEdgeCount() == 0) {
+                return null;
+            }
+            shape.normalize();
+            double[] bounds = shape.getBounds();
+            CgMsdfGlyphLayout layout = CgMsdfGlyphLayout.compute(
+                    bounds[0], bounds[1], bounds[2], bounds[3],
+                    config.atlasScalePx(),
+                    config.pxRange(),
+                    config.miterLimit(),
+                    config.alignOriginX(),
+                    config.alignOriginY());
+            if (layout.isEmpty()) {
+                return null;
+            }
+            return new GlyphPrewarmEntry(glyphId, layout.getBoxWidth(), layout.getBoxHeight());
+        } catch (MSDFException e) {
+            LOGGER.warning("[Harness] Failed to inspect glyph " + glyphId + " for parity prewarm: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private static final class GlyphPrewarmEntry {
+        private final int glyphId;
+        private final int width;
+        private final int height;
+        private final int area;
+
+        private GlyphPrewarmEntry(int glyphId, int width, int height) {
+            this.glyphId = glyphId;
+            this.width = width;
+            this.height = height;
+            this.area = width * height;
+        }
+    }
+
+    private static int countUniqueChars(String text) {
+        boolean[] seen = new boolean[65536];
+        int count = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (!seen[c]) {
+                seen[c] = true;
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // ── Atlas dump helpers ──────────────────────────────────────────────
+
+    private void dumpBitmapAtlases(CgFontRegistry registry, CgFont font,
+                                     int pxSize, boolean dumpAllPages, String atlasDir) {
+        if (dumpAllPages) {
+            List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedBitmapPages(font.getKey());
+            if (!pagedPages.isEmpty()) {
+                AtlasDumper.dumpAllPagedPages(pagedPages,
+                        "bitmap-atlas-dump", pxSize + "px", atlasDir);
+                LOGGER.info("[Harness] Dumped " + pagedPages.size() + " bitmap atlas page(s)");
+            } else {
+                LOGGER.warning("[Harness] No bitmap atlas pages found after rendering");
+            }
+        } else {
+            List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedBitmapPages(font.getKey());
+            if (!pagedPages.isEmpty()) {
+                CgGlyphAtlasPage page = pagedPages.get(0);
+                String filename = "bitmap-atlas-dump-" + pxSize + "px.png";
+                LOGGER.info("[Harness] Bitmap atlas captured: texture=" + page.getTextureId()
+                        + ", layer=" + page.getPageIndex()
+                        + ", size=" + page.getPageWidth() + "x" + page.getPageHeight());
+                ScreenshotUtil.captureArrayTextureLayer(page.getTextureId(), page.getPageIndex(),
+                        page.getPageWidth(), page.getPageHeight(), atlasDir, filename);
+            } else {
+                LOGGER.warning("[Harness] Bitmap atlas not available after rendering");
+            }
+        }
+    }
+
+    private void dumpMsdfAtlases(CgFontRegistry registry, CgFont font,
+                                    int pxSize, boolean dumpAllPages, String atlasDir,
+                                    String typePrefix) {
+
+        if (dumpAllPages) {
+            List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedMsdfPages(font.getKey());
+            if (!pagedPages.isEmpty()) {
+                AtlasDumper.dumpAllPagedPages(pagedPages,
+                        typePrefix + "-atlas-dump", pxSize + "px", atlasDir);
+                LOGGER.info("[Harness] Dumped " + pagedPages.size() + " " + typePrefix.toUpperCase()
+                        + " atlas page(s)");
+            } else {
+                LOGGER.warning("[Harness] No " + typePrefix.toUpperCase() + " atlas pages found after rendering");
+            }
+        } else {
+            List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedMsdfPages(font.getKey());
+            if (!pagedPages.isEmpty()) {
+                CgGlyphAtlasPage page = pagedPages.get(0);
+                String filename = typePrefix + "-atlas-dump-" + pxSize + "px.png";
+                LOGGER.info("[Harness] " + typePrefix.toUpperCase() + " atlas captured: texture="
+                        + page.getTextureId() + ", layer=" + page.getPageIndex()
+                        + ", size=" + page.getPageWidth() + "x" + page.getPageHeight());
+                ScreenshotUtil.captureArrayTextureLayer(page.getTextureId(), page.getPageIndex(),
+                        page.getPageWidth(), page.getPageHeight(), atlasDir, filename);
+            } else {
+                LOGGER.warning("[Harness] " + typePrefix.toUpperCase() + " atlas not available after rendering");
+            }
+        }
+    }
+
+    private static int computeAtlasSize(int msdfPxSize, int glyphCount) {
+        int cellSize = CgMsdfGenerator.cellSizeForFontPx(msdfPxSize);
+        int cellsPerRow = 1024 / cellSize;
+        int totalSlots = cellsPerRow * cellsPerRow;
+        if (totalSlots >= glyphCount) {
+            return 1024;
+        }
+        cellsPerRow = 2048 / cellSize;
+        totalSlots = cellsPerRow * cellsPerRow;
+        if (totalSlots >= glyphCount) {
+            return 2048;
+        }
+        return 4096;
+    }
+}

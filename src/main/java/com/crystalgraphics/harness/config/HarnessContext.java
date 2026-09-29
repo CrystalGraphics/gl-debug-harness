@@ -1,0 +1,410 @@
+package com.crystalgraphics.harness.config;
+
+import java.nio.file.Paths;
+import java.nio.file.Path;
+import com.crystalgraphics.harness.camera.Camera3D;
+import com.crystalgraphics.harness.capture.ArtifactService;
+import com.crystalgraphics.harness.scheduler.TaskScheduler;
+
+import com.crystalgraphics.harness.runtime.HarnessWindow;
+
+import com.crystalgraphics.harness.util.ScreenshotUtil;
+import org.joml.Matrix4f;
+import org.lwjgl.opengl.GL11C;
+
+import java.util.logging.Logger;
+
+/**
+ * Central context object for the debug harness, serving as the composition
+ * root for all configuration, viewport state, output settings, and shared
+ * runtime services.
+ *
+ * <p>Holds the GL context information (version, vendor, renderer) as immutable
+ * fields, and composes typed sub-objects for viewport dimensions
+ * ({@link ViewportState}), output configuration ({@link OutputSettings}),
+ * and interactive runtime access ({@link RuntimeServices}).</p>
+ *
+ * <p>Scenes and renderers access configuration through typed accessors
+ * ({@link #getViewport()}, {@link #getOutputSettings()},
+ * {@link #getRuntimeServices()}) rather than a loose bag of mutable fields.
+ * This design ensures that:</p>
+ * <ul>
+ *   <li>Viewport dimensions are tracked in one place and updated on resize</li>
+ *   <li>Output settings are immutable once resolved before scene init</li>
+ *   <li>Runtime services are strongly typed (no Object casts)</li>
+ * </ul>
+ *
+ * <p>Compatibility accessors were removed after migration completion; callers
+ * should use the typed accessors directly.</p>
+ */
+public final class HarnessContext {
+
+    private static final Logger LOGGER = Logger.getLogger(HarnessContext.class.getName());
+
+    /** Default initial screen width. */
+    public static final int DEFAULT_WIDTH = 800;
+    /** Default initial screen height. */
+    public static final int DEFAULT_HEIGHT = 600;
+    private static HarnessContext INSTANCE;
+
+    // ── Immutable GL context info (set at creation) ──
+    private final String glVersion;
+    private final String glVendor;
+    private final String glRenderer;
+
+    // ── Typed sub-objects ──
+
+    /**
+     * Mutable viewport state tracking current screen dimensions.
+     * Updated by the runner on Display resize events.
+     */
+    private final ViewportState viewport;
+
+    /**
+     * Immutable output settings resolved before scene init.
+     * Null until {@link #setOutputSettings(OutputSettings)} is called.
+     */
+    private OutputSettings outputSettings;
+
+    /**
+     * Typed runtime services for interactive scenes.
+     * Null for MANAGED/DIAGNOSTIC scenes.
+     */
+    private RuntimeServices runtimeServices;
+
+    /**
+     * Framework-owned artifact capture service for interactive scenes.
+     * Null for MANAGED/DIAGNOSTIC scenes.
+     */
+    private ArtifactService artifactService;
+
+    // ── Typed scene configuration ──
+    // The resolved HarnessConfig (or subclass like TextSceneConfig, AtlasDumpConfig)
+    // built once in FontDebugHarnessMain from defaults → system props → CLI args.
+    // Scenes read this instead of re-parsing raw CLI args from a global static.
+    private HarnessConfig sceneConfig;
+
+    /**
+     * Immutable world settings resolved once per run from {@link WorldConfig}
+     * defaults. Null until set by the main entry point or runner.
+     */
+    private WorldSettings worldSettings;
+
+    // ── Shared subsystem references (set by InteractiveSceneRunner for interactive scenes) ──
+    private final Matrix4f projection = new Matrix4f();
+    private Camera3D camera3D;
+    private TaskScheduler taskScheduler;
+    
+    private TextContext textContext;
+
+    private HarnessContext(String glVersion, String glVendor, String glRenderer,
+                           int screenWidth, int screenHeight) {
+        this.glVersion = glVersion;
+        this.glVendor = glVendor;
+        this.glRenderer = glRenderer;
+        this.viewport = new ViewportState(screenWidth, screenHeight);
+    }
+
+    /**
+     * Creates a new HarnessContext by opening the harness window and its
+     * OpenGL core context (4.6 down to 3.3) with the default dimensions (800×600).
+     *
+     * @return a fully initialized context with GL info populated
+     * @throws RuntimeException if the GL context cannot be created
+     */
+    public static HarnessContext create() {
+        return create(DEFAULT_WIDTH, DEFAULT_HEIGHT);
+    }
+
+    public static HarnessContext getInstance() {
+        return INSTANCE;
+    }
+
+    /**
+     * Creates a new HarnessContext by opening the harness window and its
+     * OpenGL core context (4.6 down to 3.3) with the specified dimensions.
+     *
+     * @param width  initial window width in pixels
+     * @param height initial window height in pixels
+     * @return a fully initialized context with GL info populated
+     * @throws RuntimeException if the GL context cannot be created
+     */
+    public static HarnessContext create(int width, int height) {
+        HarnessWindow.create(width, height, "CrystalGraphics Debug Harness");
+
+        String glVersion = GL11C.glGetString(GL11C.GL_VERSION);
+        String glVendor = GL11C.glGetString(GL11C.GL_VENDOR);
+        String glRenderer = GL11C.glGetString(GL11C.GL_RENDERER);
+
+        LOGGER.info("[Harness] GL Version:  " + glVersion);
+        LOGGER.info("[Harness] GL Vendor:   " + glVendor);
+        LOGGER.info("[Harness] GL Renderer: " + glRenderer);
+
+        // The FRAMEBUFFER's size, which is the window's on a display with no scaling.
+        INSTANCE = new HarnessContext(glVersion, glVendor, glRenderer,
+                HarnessWindow.width(), HarnessWindow.height());
+        return INSTANCE;
+    }
+
+    /**
+     * Closes the harness window, releasing its GL context.
+     */
+    public void destroy() {
+        HarnessWindow.destroy();
+        LOGGER.info("[Harness] Window destroyed.");
+    }
+
+    // ── GL context info (immutable) ──
+
+    public String getGlVersion() { return glVersion; }
+    public String getGlVendor() { return glVendor; }
+    public String getGlRenderer() { return glRenderer; }
+
+    // ── Typed sub-object accessors ──
+
+    /**
+     * Returns the typed viewport state tracking current screen dimensions.
+     *
+     * <p>The viewport is always available (never null). Its dimensions are
+     * updated by the runtime when the display is resized.</p>
+     *
+     * @return the viewport state, never null
+     */
+    public ViewportState getViewport() {
+        return viewport;
+    }
+
+    /**
+     * Returns the typed output settings, or null if not yet configured.
+     *
+     * <p>Output settings are resolved and set before scene init by the
+     * main entry point. Once set, they are immutable for the duration
+     * of the scene's execution.</p>
+     *
+     * @return the output settings, or null if not yet configured
+     */
+    public OutputSettings getOutputSettings() {
+        return outputSettings;
+    }
+
+    /**
+     * Sets the output settings. Called by the main entry point after
+     * resolving the output directory and name prefix.
+     *
+     * @param settings the output settings (must not be null)
+     */
+    public void setOutputSettings(OutputSettings settings) {
+        this.outputSettings = settings;
+    }
+
+    /**
+     * Returns the typed runtime services for interactive scenes, or null
+     * if this context is being used for a MANAGED/DIAGNOSTIC scene.
+     *
+     * <p>This replaces the previous untyped runner storage and exposes a
+     * narrowed interactive runtime surface instead.</p>
+     *
+     * @return the runtime services, or null for non-interactive scenes
+     */
+    public RuntimeServices getRuntimeServices() {
+        return runtimeServices;
+    }
+
+    /**
+     * Sets the runtime services. Called by
+     * {@link InteractiveSceneRunner} before scene init.
+     *
+     * @param services the runtime services wrapping the active runner
+     */
+    public void setRuntimeServices(RuntimeServices services) {
+        this.runtimeServices = services;
+    }
+    
+    /**
+     * Returns the shared {@link TextContext}, constructing it on first call. Deliberately lazy
+     * (not built in the constructor): by the time any real caller reaches this method,
+     * {@code CgGraphicsLifecycle.initContext()} has already run, so {@code TextContext}'s
+     * {@code CgTextRenderer.create()} field initializer sees fully-resolved
+     * {@code CgBindingPoints} values instead of racing them.
+     */
+    public TextContext getTextContext() {
+        if (textContext == null) {
+            textContext = new TextContext();
+        }
+        return textContext;
+    }
+
+    // ── Screen dimensions — delegate to ViewportState ──
+
+    /**
+     * Returns the current screen/viewport width in pixels.
+     * Updated automatically when the window's framebuffer is resized.
+     *
+     * <p><b>Prefer</b> {@code getViewport().getWidth()} for new code.</p>
+     */
+    public int getScreenWidth() { return viewport.getWidth(); }
+
+    /**
+     * Returns the current screen/viewport height in pixels.
+     * Updated automatically when the window's framebuffer is resized.
+     *
+     * <p><b>Prefer</b> {@code getViewport().getHeight()} for new code.</p>
+     */
+    public int getScreenHeight() { return viewport.getHeight(); }
+
+    /**
+     * Updates the stored screen dimensions. Called by the InteractiveSceneRunner
+     * when the Display is resized.
+     *
+     * <p><b>Prefer</b> {@code getViewport().update(w, h)} for new code.</p>
+     *
+     * @param width  new viewport width in pixels
+     * @param height new viewport height in pixels
+     */
+    public void setScreenDimensions(int width, int height) {
+        viewport.update(width, height);
+    }
+
+    // ── Output configuration — delegate to OutputSettings ──
+
+    /**
+     * Where the harness keeps anything CrystalGUI stores — the {@code crystalgui/} tree goes here.
+     *
+     * <p>The harness's answer to {@code HostServices.installationDirectory()}: the directory it was launched
+     * from. A scene asks for it rather than deciding one, so every scene writes to the same place and
+     * none of them spells a path.</p>
+     *
+     * <pre>{@code
+     * desktop.useStorage(ctx.installation());
+     * desktop.persistAs("my-scene");
+     * }</pre>
+     */
+    public Path installation() {
+        return Paths.get(".").toAbsolutePath().normalize();
+    }
+
+    /**
+     * Returns the output directory for screenshots and artifacts.
+     * This is the scene-specific subdirectory (e.g. {@code harness-output/text-3d/}).
+     *
+     * <p><b>Prefer</b> {@code getOutputSettings().getOutputDir()} for new code.</p>
+     */
+    public String getOutputDir() {
+        return outputSettings != null ? outputSettings.getOutputDir() : null;
+    }
+
+    /**
+     * Returns the output name prefix for filenames.
+     * For example, "test1" causes screenshots to be named "test1-normal.png".
+     *
+     * <p><b>Prefer</b> {@code getOutputSettings().getOutputName()} for new code.</p>
+     */
+    public String getOutputName() {
+        return outputSettings != null ? outputSettings.getOutputName() : null;
+    }
+
+    // ── Typed scene configuration ──
+
+    /**
+     * Returns the typed scene configuration resolved before scene execution.
+     * This is the concrete config subclass (e.g. {@link TextSceneConfig},
+     * {@link AtlasDumpConfig}) built from defaults → system properties → CLI args
+     * in {@code FontDebugHarnessMain}. Scenes should read from this instead of
+     * re-parsing raw CLI arguments.
+     *
+     * @return the pre-resolved scene config, never null after context setup
+     */
+    public HarnessConfig getSceneConfig() { return sceneConfig; }
+
+    /**
+     * Sets the typed scene configuration. Called by {@code FontDebugHarnessMain}
+     * after resolving CLI args into the appropriate config subclass.
+     *
+     * @param config the resolved config (may be {@link TextSceneConfig},
+     *               {@link AtlasDumpConfig}, or base {@link HarnessConfig})
+     */
+    public void setSceneConfig(HarnessConfig config) { this.sceneConfig = config; }
+
+    // ── World settings ──
+
+    /**
+     * Returns the immutable world settings for this run, or null if not yet
+     * resolved.
+     *
+     * <p>World settings are resolved once at run startup from
+     * {@link WorldConfig} defaults and frozen for the duration of the run.
+     * The runner and renderers read sky/floor colors from this object
+     * instead of calling {@link WorldConfig#get()} during rendering.</p>
+     *
+     * @return the resolved world settings, or null before resolution
+     */
+    public WorldSettings getWorldSettings() { return worldSettings; }
+
+    /**
+     * Sets the resolved world settings. Called by the main entry point
+     * or runner before scene init.
+     *
+     * @param settings the resolved world settings (must not be null)
+     */
+    public void setWorldSettings(WorldSettings settings) { this.worldSettings = settings; }
+
+    // ── Shared subsystem references ──
+
+    /**
+     * Returns the shared projection matrix, or null if not in interactive mode.
+     */
+    public Matrix4f getProjection() { return projection; }
+
+    /**
+     * Sets the shared projection matrix reference.
+     */
+    public void setProjection(Matrix4f projection) { this.projection.set(projection); }
+    /**
+     * Returns the shared 3D camera, or null if not in interactive mode.
+     */
+    public Camera3D getCamera3D() { return camera3D; }
+
+    /**
+     * Sets the shared 3D camera reference. Called by InteractiveSceneRunner
+     * before scene init.
+     */
+    public void setCamera3D(Camera3D camera3D) { this.camera3D = camera3D; }
+
+    /**
+     * Returns the shared task scheduler, or null if not in interactive mode.
+     */
+    public TaskScheduler getTaskScheduler() { return taskScheduler; }
+
+    /**
+     * Sets the shared task scheduler reference. Called by InteractiveSceneRunner
+     * before scene init.
+     */
+    public void setTaskScheduler(TaskScheduler taskScheduler) { this.taskScheduler = taskScheduler; }
+
+    // ── Artifact service ──
+
+    /**
+     * Returns the framework-owned artifact capture service, or null if not
+     * in interactive mode.
+     *
+     * <p>The artifact service centralizes screenshot capture, filename
+     * composition, and post-render callback scheduling. Scenes should use
+     * this instead of manually composing filenames and calling
+     * {@link ScreenshotUtil}
+     * directly.</p>
+     *
+     * @return the artifact service, or null for non-interactive scenes
+     */
+    public ArtifactService getArtifactService() { return artifactService; }
+
+    /**
+     * Sets the artifact service. Called by {@link InteractiveSceneRunner}
+     * before scene init.
+     *
+     * @param artifactService the artifact service instance
+     */
+    public void setArtifactService(ArtifactService artifactService) {
+        this.artifactService = artifactService;
+    }
+
+}

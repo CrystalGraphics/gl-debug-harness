@@ -2,7 +2,7 @@ plugins {
     `java-library`
 }
 
-group = "io.github.somehussar.crystalgraphics"
+group = "com.crystalgraphics"
 version = "1.0.0-SNAPSHOT"
 
 java {
@@ -108,7 +108,7 @@ tasks.register<JavaExec>("runHarness") {
         logger.warn("[harness] -Pharness.extraClasspath names '${'$'}{it.absolutePath}', which does not exist")
     }
     classpath = sourceSets.main.get().runtimeClasspath + files(extraClasspath)
-    mainClass.set("io.github.somehussar.crystalgraphics.harness.FontDebugHarnessMain")
+    mainClass.set("com.crystalgraphics.harness.FontDebugHarnessMain")
 
     systemProperty("harness.output.dir", file("harness-output").absolutePath)
 
