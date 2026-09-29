@@ -8,8 +8,9 @@ import com.crystalgraphics.api.text.CgShapedParagraph;
 import com.crystalgraphics.api.text.CgTextLayout;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.render.context.CgTextRenderContext;
-import com.crystalgraphics.util.profiling.CgProfiler;
-import com.crystalgraphics.util.profiling.CgProfilerReport;
+import com.crystalgraphics.trace.CgTrace;
+import com.crystalgraphics.util.trace.CgChannels;
+import com.crystalgraphics.harness.trace.TraceReport;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -19,7 +20,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import com.crystalgraphics.mc.CgAssetReloader;
-import com.crystalgraphics.util.profiling.CgGpuProfiler;
+import com.crystalgraphics.trace.CgGpuTrace;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
@@ -214,7 +215,7 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         this.ctx = ctx;
-        CgProfiler.setEnabled(true);
+        CgTrace.enable("crystalgraphics");
 
         font = CgFont.load(HarnessFontUtil.LATIN_FONT, CgFontStyle.REGULAR, FONT_SIZE_PX);
         family = CgFontFamily.of(font);
@@ -233,8 +234,9 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
         StringBuilder header = new StringBuilder(String.join(",", FIXED_HEADER));
         for (Column column : COLUMNS) header.append(',').append(column.header());
         csvRows.add(header.toString());
-        CgGpuProfiler.enable();
-        LOGGER.info("[text-stress] GPU timing " + (CgGpuProfiler.isAvailable()
+        CgTrace.enable(CgGpuTrace.GPU.name());
+        CgGpuTrace.probe();
+        LOGGER.info("[text-stress] GPU timing " + ((CgGpuTrace.support() == CgGpuTrace.Support.SUPPORTED)
                 ? "enabled (GL_TIME_ELAPSED)" : "UNAVAILABLE on this context"));
         LOGGER.info("[text-stress] " + LABEL_COUNT + " labels x " + LABEL_CHARS
                 + " chars, draw=" + DRAW_LABELS);
@@ -263,7 +265,7 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
         long f = frame.getFrameNumber();
 
         // Reshape: the direct analogue of UIText.setText -> shapedParagraph = null -> recompute().
-        try (CgProfiler.Scope ignored = CgProfiler.scope("text.reshape")) {
+        try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.TEXT, "text.reshape")) {
             for (int i = 0; i < labels.size(); i++) {
                 Label label = labels.get(i);
                 String next = switch (mode) {
@@ -282,10 +284,10 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
 
         if (DRAW_LABELS) {
             // GPU timing wraps the whole text draw. Results arrive some frames later (see
-            // CgGpuProfiler), so this is a per-run average rather than a per-frame figure — which is
+            // CgGpuTrace), so this is a per-run average rather than a per-frame figure — which is
             // the only honest way to read it without stalling the pipeline being measured.
-            CgGpuProfiler.begin("gpu.textDraw");
-            try (CgProfiler.Scope ignored = CgProfiler.scope("text.draw")) {
+            CgGpuTrace.begin("textDraw");
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.TEXT, "text.draw")) {
                 renderer.context(CgTextRenderContext.orthographic(ctx.getScreenWidth(), ctx.getScreenHeight()));
                 renderer.beginBatch();
                 for (int i = 0; i < labels.size(); i++) {
@@ -296,20 +298,19 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
                 }
                 renderer.endBatch();
             }
-            CgGpuProfiler.end();
+            CgGpuTrace.end();
         }
-        CgGpuProfiler.endFrame();
+        CgGpuTrace.collect();
 
         maybeMeasureAssetReload(now);
 
         double inMode = now - modeStartedAt;
         boolean measured = inMode >= WARMUP_SECONDS;
 
-        CgProfilerReport report = CgProfiler.report();
+        TraceReport report = TraceReport.lastFrame();
         recordRow(frame, measured, report);
         if (measured) samples.add(frame.getDeltaTime() * 1000.0);
         if (inMode >= MODE_SECONDS) advanceMode();
-        CgProfiler.reset();
     }
 
     /**
@@ -348,7 +349,7 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
         samples.clear();
     }
 
-    private void recordRow(FrameInfo frame, boolean measured, CgProfilerReport report) {
+    private void recordRow(FrameInfo frame, boolean measured, TraceReport report) {
         if (report == null) return;
         StringBuilder row = new StringBuilder(512);
         row.append(frame.getFrameNumber()).append(',')
@@ -367,20 +368,20 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
         csvRows.add(row.toString());
     }
 
-    private static double scope(CgProfilerReport report, String name) {
+    private static double scope(TraceReport report, String name) {
         double total = 0;
-        for (CgProfilerReport.ScopeEntry e : report.scopes()) {
+        for (TraceReport.ScopeEntry e : report.scopes()) {
             if (e.name().equals(name)) total += e.totalNanos() / 1_000_000.0;
         }
         return total;
     }
 
-    private static double sample(CgProfilerReport report, String name) {
+    private static double sample(TraceReport report, String name) {
         var s = report.samples().get(name);
         return s == null ? 0 : s.last();
     }
 
-    private static long counter(CgProfilerReport report, String name) {
+    private static long counter(TraceReport report, String name) {
         Long v = report.counters().get(name);
         return v == null ? 0L : v;
     }
@@ -405,11 +406,11 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
 
         // GPU time, averaged over the whole run: results come back some frames after the work, so
         // per-frame attribution is not available without stalling the pipeline being measured.
-        if (CgGpuProfiler.isAvailable()) {
+        if ((CgGpuTrace.support() == CgGpuTrace.Support.SUPPORTED)) {
             System.out.println("  --- GPU time (GL_TIME_ELAPSED, run average) ---");
-            for (var e : CgGpuProfiler.report().entrySet()) {
+            for (var e : CgGpuTrace.totals().entrySet()) {
                 System.out.printf(Locale.ROOT, "  %-22s %8.3f ms/frame over %d samples%n",
-                        e.getKey(), e.getValue().avgMillis(), e.getValue().samples());
+                        e.getKey(), e.getValue()[1] == 0 ? 0.0 : e.getValue()[0] / 1e6 / e.getValue()[1], e.getValue()[1]);
             }
         } else {
             System.out.println("  --- GPU timing unavailable on this context ---");

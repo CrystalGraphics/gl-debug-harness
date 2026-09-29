@@ -4,8 +4,9 @@ import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.gl.CgGlRecording;
-import com.crystalgraphics.util.profiling.CgProfiler;
-import com.crystalgraphics.util.profiling.CgProfilerDump;
+import com.crystalgraphics.trace.CgTrace;
+import com.crystalgraphics.util.trace.CgChannels;
+import com.crystalgraphics.harness.trace.TraceDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import java.io.File;
 
@@ -252,14 +253,18 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // is the only way these numbers mean anything: run to run on one machine they spread further
         // than most differences worth finding.
         int profileFrames = Integer.getInteger("crystalgraphics.harness.profile", 0);
-        if (profileFrames > 0) CgProfiler.setEnabled(true);
+        if (profileFrames > 0) CgTrace.enable("crystalgraphics");
+        long profileFrom = 0L;
+        // THE HARNESS IS THE HOST, so it brackets each loop as a trace frame -- unless the scene frames
+        // itself (a UIDocument does), which it notices the first time the index moves under a render.
+        boolean sceneFrames = false;
 
         while (!HarnessWindow.shouldClose() && scene.isRunning() && !HarnessDeadline.expired()) {
             if (profileFrames > 0) {
-                if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES) CgProfiler.reset();
+                if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES) profileFrom = CgTrace.currentFrameIndex() + 1;
                 if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES + profileFrames) {
-                    File dump = CgProfilerDump.dump(new File(ctx.getOutputDir()),
-                            "harness-" + profileFrames + "f");
+                    File dump = TraceDump.dump(new File(ctx.getOutputDir()),
+                            "harness-" + profileFrames + "f", profileFrom);
                     LOGGER.info("[InteractiveSceneRunner] profile dump=" + dump);
                     break;
                 }
@@ -267,6 +272,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
             // 1. Frame clock tick — compute delta, elapsed, frame number
             frameClock.tick();
+            if (!sceneFrames) CgTrace.frameBegin();
 
             // 2. Handle window resize events — update context and notify renderers.
             //    Also notifies the scene via the unified lifecycle onResize hook.
@@ -292,7 +298,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // Pass ordering: world → scene → post-scene reset → overlays → capture
             // Each pass uses RenderPassState to declare its GL state requirements.
 
-            // Every step below carries a CgProfiler scope. Before they did, a profiling scene
+            // Every step below carries a trace zone. Before they did, a profiling scene
             // could only see its own render() call -- typically a third of the frame -- and the
             // rest showed up as time belonging to no scope at all. On text-3d that unattributed
             // remainder was 60-110 ms on individual warmup frames, i.e. larger than everything
@@ -304,28 +310,30 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // 6. Pre-render: set world pass state (depth ON, blend OFF, depth writes ON)
             RenderPassState.beginWorldPass();
 
-            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.worldPass")) {
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.worldPass")) {
                 worldPassCoordinator.executeWorldPass(ctx, camera, scene.uses3DCamera());
             }
 
             // Text context
-            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.textContext")) {
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.textContext")) {
                 ctx.getTextContext().update(ctx);
             }
 
             // 9. Scene pass: set baseline state, then let the scene render freely
             RenderPassState.beginScenePass();
-            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.scene")) {
+            long framedAs = CgTrace.currentFrameIndex();
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.scene")) {
                 renderScene(ctx, new FrameInfo(frameClock.getDeltaTime(),
                         frameClock.getElapsedTime(), frameClock.getFrameNumber()));
             }
+            if (CgTrace.currentFrameIndex() != framedAs) sceneFrames = true;
             if (CAPTURE_AT > 0 && frameClock.getFrameNumber() == CAPTURE_AT) {
                 artifactService.requestCapture("frame" + CAPTURE_AT);
             }
 
             // 10-13. Post-scene sequence: GL reset → pause overlay → HUD → capture callback
             //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
-            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.overlay")) {
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.overlay")) {
                 overlayCaptureOrchestrator.executePostSceneSequence(
                         inputPauseHandler.isPaused(), scene.uses3DCamera());
             }
@@ -334,9 +342,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             //      canonical per-frame tick point (ticks CgFontRegistry's frame clock via
             //      the platform lifecycle service, not called directly by feature code
             //      like HUDRenderer/CgUiPaintContext).
-            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.onFrameRendered")) {
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.onFrameRendered")) {
                 CgPlatform.lifecycle().onFrameRendered();
             }
+            // The CPU mark: everything above was the frame's own work, and the swap below is waiting.
+            if (!sceneFrames) CgTrace.frameEnd();
 
             // 14. Buffer swap + frame sync.
             //
@@ -344,11 +354,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // behind the CPU shows up as a block; sync() is a deliberate sleep to hold TARGET_FPS, and
             // being large there means the frame finished EARLY. Lumping them together would make an
             // idle frame look like a stalled one.
-            try (CgProfiler.Scope ignored = CgProfiler.scope("frame.swap")) {
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.swap")) {
                 HarnessWindow.swapBuffers();
             }
             if (TARGET_FPS > 0) {
-                try (CgProfiler.Scope ignored = CgProfiler.scope("frame.sync")) {
+                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.sync")) {
                     HarnessWindow.sync(TARGET_FPS);
                 }
             }

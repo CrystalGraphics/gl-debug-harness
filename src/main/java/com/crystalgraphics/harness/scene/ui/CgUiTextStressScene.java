@@ -1,7 +1,8 @@
 package com.crystalgraphics.harness.scene.ui;
 
-import com.crystalgraphics.util.profiling.CgProfiler;
-import com.crystalgraphics.util.profiling.CgProfilerReport;
+import com.crystalgraphics.trace.CgTrace;
+import com.crystalgraphics.util.trace.CgChannels;
+import com.crystalgraphics.harness.trace.TraceReport;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgui.render.CgUiPaintContext;
@@ -143,7 +144,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
     @Override
     public void init(HarnessContext ctx) {
         this.ctx = ctx;
-        CgProfiler.setEnabled(true);
+        CgTrace.enable("crystalgraphics");
         this.document = new UIDocument().markFrameThread();
         this.document.boxes().setUiScale(SCALE);
         UIElement sceneRoot = buildStressPanel();
@@ -218,7 +219,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
 
 
         long f = frame.getFrameNumber();
-        try (CgProfiler.Scope ignored = CgProfiler.scope("uiText.setText")) {
+        try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "uiText.setText")) {
             for (int i = 0; i < labels.size(); i++) {
                 switch (mode) {
                     case STATIC -> { /* deliberately nothing */ }
@@ -228,7 +229,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
             }
         }
 
-        try (CgProfiler.Scope ignored = CgProfiler.scope("document.paintFrame")) {
+        try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "document.paintFrame")) {
             if (DRAW_LABELS) {
                 document.frame(frame.getDeltaTime(), ctx.getScreenWidth() / SCALE, ctx.getScreenHeight() / SCALE);
 
@@ -250,13 +251,12 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
         // cost rather than an accumulation since the last reset. Accumulated rows are readable only
         // if you also know how many frames they span, which is exactly the kind of footgun that
         // turns a profile into a wrong conclusion.
-        CgProfilerReport report = CgProfiler.report();
+        TraceReport report = TraceReport.lastFrame();
         recordRow(frame, measured, report);
         if (measured) samples.add(frame.getDeltaTime() * 1000.0);
 
         boolean lastFrameOfMode = inMode >= MODE_SECONDS;
         if (lastFrameOfMode) advanceMode(report);
-        CgProfiler.reset();
 
         var context = CgUiPaintContext.getInstance();
         context.text().draw().at(0, 0)
@@ -265,7 +265,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
                 .font(context.getFont().atSize(14)).submit();
     }
 
-    private void advanceMode(CgProfilerReport report) {
+    private void advanceMode(TraceReport report) {
         summary.add(formatRow(mode, samples));
         System.out.println("[uitext-stress] " + summary.get(summary.size() - 1));
         trees.add("=== " + mode.name() + " — " + mode.description + " ===" + System.lineSeparator()
@@ -284,7 +284,7 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
         samples.clear();
     }
 
-    private void recordRow(FrameInfo frame, boolean measured, CgProfilerReport report) {
+    private void recordRow(FrameInfo frame, boolean measured, TraceReport report) {
         if (report == null) return;
         csvRows.add(String.format(Locale.ROOT,
                 "%d,%.3f,%s,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.0f,%d,%d",
@@ -324,20 +324,20 @@ public class CgUiTextStressScene implements InteractiveSceneLifecycle, CgSystemI
     }
 
     /** Totals a scope by bare name — UI text draws do not sit under one fixed parent path. */
-    private static double scope(CgProfilerReport report, String name) {
+    private static double scope(TraceReport report, String name) {
         double total = 0;
-        for (CgProfilerReport.ScopeEntry e : report.scopes()) {
+        for (TraceReport.ScopeEntry e : report.scopes()) {
             if (e.name().equals(name)) total += e.totalNanos() / 1_000_000.0;
         }
         return total;
     }
 
-    private static double sample(CgProfilerReport report, String name) {
+    private static double sample(TraceReport report, String name) {
         var s = report.samples().get(name);
         return s == null ? 0 : s.last();
     }
 
-    private static long counter(CgProfilerReport report, String name) {
+    private static long counter(TraceReport report, String name) {
         Long v = report.counters().get(name);
         return v == null ? 0L : v;
     }

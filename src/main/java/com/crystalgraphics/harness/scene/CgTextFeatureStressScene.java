@@ -12,9 +12,10 @@ import com.crystalgraphics.api.text.CgTextDecoration;
 import com.crystalgraphics.api.text.CgTextLayout;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.text.render.context.CgTextRenderContext;
-import com.crystalgraphics.util.profiling.CgGpuProfiler;
-import com.crystalgraphics.util.profiling.CgProfiler;
-import com.crystalgraphics.util.profiling.CgProfilerReport;
+import com.crystalgraphics.trace.CgGpuTrace;
+import com.crystalgraphics.trace.CgTrace;
+import com.crystalgraphics.util.trace.CgChannels;
+import com.crystalgraphics.harness.trace.TraceReport;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -138,8 +139,9 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
         fallbackChain = CgFontFamily.of(latinFont, arabicFont, cjkFont);
         latinGroup = CgFontFamilyGroup.ofRegular(latinOnly);
 
-        CgProfiler.setEnabled(true);
-        CgGpuProfiler.enable();
+        CgTrace.enable("crystalgraphics");
+        CgTrace.enable(CgGpuTrace.GPU.name());
+        CgGpuTrace.probe();
         csvRows.add("frame,elapsedSec,mode,measured,frameDtMs,reshapeMs,drawMs,"
                 + "shapeRunsMs,shapeBidiMs,shapeResolveRunsMs,shapeHarfbuzzMs,hbShapeMs,"
                 + "wrapBreakLinesMs,resolveGlyphsMs,submitQuadsMs,resolveDecorationsMs,glyphCount,"
@@ -147,7 +149,7 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
                 + "markupHtmlMs,markupMcMs,ellipsisMs,orthoResolves,perspResolves,"
                 + "msdfForcedByTransform,msdfAtlasHits,bitmapAtlasHits");
         LOGGER.info("[text-feature] " + LABEL_COUNT + " labels/mode, GPU timing "
-                + (CgGpuProfiler.isAvailable() ? "on" : "unavailable"));
+                + ((CgGpuTrace.support() == CgGpuTrace.Support.SUPPORTED) ? "on" : "unavailable"));
         rebuildLayouts();
     }
 
@@ -263,12 +265,12 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
         double now = frame.getElapsedTime();
         if (modeStartedAt < 0) modeStartedAt = now;
 
-        try (CgProfiler.Scope ignored = CgProfiler.scope("text.reshape")) {
+        try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.TEXT, "text.reshape")) {
             rebuildLayouts();
         }
 
-        CgGpuProfiler.begin("gpu." + mode.name());
-        try (CgProfiler.Scope ignored = CgProfiler.scope("text.draw")) {
+        CgGpuTrace.begin(mode.name());
+        try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.TEXT, "text.draw")) {
             renderer.context(CgTextRenderContext.orthographic(
                     context.getScreenWidth(), context.getScreenHeight()));
             renderer.beginBatch();
@@ -292,15 +294,14 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
             }
             renderer.endBatch();
         }
-        CgGpuProfiler.end();
-        CgGpuProfiler.endFrame();
+        CgGpuTrace.end();
+        CgGpuTrace.collect();
 
         double inMode = now - modeStartedAt;
         boolean measured = inMode >= WARMUP_SECONDS;
-        recordRow(frame, measured, CgProfiler.report());
+        recordRow(frame, measured, TraceReport.lastFrame());
         if (measured) samples.add(frame.getDeltaTime() * 1000.0);
         if (inMode >= MODE_SECONDS) advanceMode();
-        CgProfiler.reset();
     }
 
     /**
@@ -345,7 +346,7 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
         rebuildLayouts();
     }
 
-    private void recordRow(FrameInfo frame, boolean measured, CgProfilerReport report) {
+    private void recordRow(FrameInfo frame, boolean measured, TraceReport report) {
         if (report == null) return;
         csvRows.add(String.format(Locale.ROOT,
                 "%d,%.3f,%s,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.0f,"
@@ -375,29 +376,29 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
                 counter(report, "glyph.bitmap.atlasHit")));
     }
 
-    private static long counter(CgProfilerReport report, String name) {
+    private static long counter(TraceReport report, String name) {
         Long v = report.counters().get(name);
         return v == null ? 0L : v;
     }
 
-    private static double scope(CgProfilerReport report, String name) {
+    private static double scope(TraceReport report, String name) {
         double total = 0;
-        for (CgProfilerReport.ScopeEntry e : report.scopes()) {
+        for (TraceReport.ScopeEntry e : report.scopes()) {
             if (e.name().equals(name)) total += e.totalNanos() / 1_000_000.0;
         }
         return total;
     }
 
     /** Call count for a scope — how many times it ran, as opposed to how long it took. */
-    private static long calls(CgProfilerReport report, String name) {
+    private static long calls(TraceReport report, String name) {
         long total = 0;
-        for (CgProfilerReport.ScopeEntry e : report.scopes()) {
+        for (TraceReport.ScopeEntry e : report.scopes()) {
             if (e.name().equals(name)) total += e.callCount();
         }
         return total;
     }
 
-    private static double sample(CgProfilerReport report, String name) {
+    private static double sample(TraceReport report, String name) {
         var s = report.samples().get(name);
         return s == null ? 0 : s.last();
     }
@@ -417,11 +418,11 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
         System.out.println();
         System.out.println("=== text feature stress: " + LABEL_COUNT + " labels/mode ===");
         for (String row : summary) System.out.println("  " + row);
-        if (CgGpuProfiler.isAvailable()) {
+        if ((CgGpuTrace.support() == CgGpuTrace.Support.SUPPORTED)) {
             System.out.println("  --- GPU time (run average) ---");
-            for (var e : CgGpuProfiler.report().entrySet()) {
+            for (var e : CgGpuTrace.totals().entrySet()) {
                 System.out.printf(Locale.ROOT, "  %-24s %8.3f ms/frame over %d samples%n",
-                        e.getKey(), e.getValue().avgMillis(), e.getValue().samples());
+                        e.getKey(), e.getValue()[1] == 0 ? 0.0 : e.getValue()[0] / 1e6 / e.getValue()[1], e.getValue()[1]);
             }
         }
         System.out.println();
@@ -443,7 +444,7 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         if (renderer != null) renderer.delete();
-        CgGpuProfiler.dispose();
+        CgGpuTrace.dispose();
         for (CgFont f : new CgFont[]{latinFont, arabicFont, cjkFont}) {
             if (f != null) f.dispose();
         }
