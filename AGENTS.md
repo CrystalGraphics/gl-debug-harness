@@ -11,7 +11,7 @@
 Every scene accepts `--seconds=N`, and any agent or script launching one should pass it.
 
 ```bash
-./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-gallery --seconds=5"
+./gradlew :gl-debug-harness:runHarness --args="--mode=text-3d --seconds=5"
 ```
 
 | | |
@@ -583,14 +583,14 @@ tops out at the cap, and that number is the limiter's, not the engine's.
 
 ```bash
 # Uncapped, for a headroom measurement: how fast CAN this scene run?
-./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop" -Dcrystalgraphics.harness.fps=0
+./gradlew :gl-debug-harness:runHarness --args="--mode=forward-renderer" -Dcrystalgraphics.harness.fps=0
 
 # Or pin it somewhere else
 -Dcrystalgraphics.harness.fps=240
 ```
 
 Capped stays the default: a UI scene otherwise spins a core redrawing a picture nobody asked for. Pair
-an uncapped run with the frame readout (**F7** in `cgui-desktop`) and with
+an uncapped run with a frame readout — from CrystalGUI, **F7** in its `cgui-desktop` and
 `-Dcrystalgui.frameprofile=true` for the per-phase breakdown.
 
 ### Output Organization
@@ -692,7 +692,7 @@ Use `--output-name=PREFIX` to customize output filenames:
 
 ## Build Configuration
 
-The harness is a standalone Gradle subproject (`gl-debug-harness/build.gradle.kts`) that depends on the root project for CgCapabilities, CgGlyphAtlasPage, and font APIs. It resolves LWJGL 3 through its BOM, with the natives for the running OS and architecture chosen at configuration time (no extraction step), plus the JNI bindings for freetype-harfbuzz and msdfgen.
+The harness is a standalone Gradle subproject (`gl-debug-harness/build.gradle.kts`) that depends on CrystalGraphics alone — `platform`, `core`, the JNI bindings and the `lwjgl3` tier-1 runtime, by `com.crystalgraphics:*` coordinates a host resolves through its composite build — and names no project on top of it. It resolves LWJGL 3 through its BOM, with the natives for the running OS and architecture chosen at configuration time (no extraction step), plus the JNI bindings for freetype-harfbuzz and msdfgen.
 
 Key tasks:
 - `compileJava` — Compile all harness code
