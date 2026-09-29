@@ -10,6 +10,12 @@ import com.crystalgraphics.util.trace.CgChannels;
 import com.crystalgraphics.harness.trace.TraceDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.camera.FloorRenderer;
@@ -39,8 +45,10 @@ import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.sun.management.ThreadMXBean;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 /**
  * Drives the render loop for interactive scene implementations.
@@ -109,6 +117,20 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * picture of any interactive scene. Pair with {@code fixedDelta} for one that repeats run to run. Live input
      * is ignored meanwhile: a pointer crossing the window would otherwise grab it and turn the camera. */
     private static final int CAPTURE_AT = Integer.getInteger("crystalgraphics.harness.captureAt", 0);
+    /** {@code -Dcrystalgraphics.harness.reloadAt=<frame>}: Ctrl+R's reload at that frame, unattended. With
+     * {@code .reloadStage=<dir>}, that directory's files are first copied over the first override root
+     * ({@code crystalgraphics.resourceOverrideDirs}): an edit saved, then reloaded. */
+    private static final int RELOAD_AT = Integer.getInteger("crystalgraphics.harness.reloadAt", 0);
+    /** {@code -Dcrystalgraphics.harness.resizeAt=<frame>:<width>x<height>}: resizes the window at that frame. */
+    private static final String RESIZE_AT = System.getProperty("crystalgraphics.harness.resizeAt");
+    /** {@code -Dcrystalgraphics.harness.frameTimes=<frames>}: after {@value #FRAME_TIME_WARMUP} frames, times that
+     * many frame to frame, logs the median, mean and 95th percentile, and stops. Pair with {@code .fps=0}, or the
+     * pacing is what gets measured. Live input is ignored, as under {@code captureAt}: a turned camera is a
+     * different frame to time. */
+    private static final int FRAME_TIMES = Integer.getInteger("crystalgraphics.harness.frameTimes", 0);
+    private static final int FRAME_TIME_WARMUP = 60;
+    /** A capture or a timing run: nobody is at the keyboard, and a hand on the mouse must not change the picture. */
+    private static final boolean UNATTENDED = CAPTURE_AT > 0 || FRAME_TIMES > 0;
     /** {@code -Dcrystalgraphics.harness.record=<frame>}: from that frame on, the scene pass is recorded and replayed
      * instead of drawn, so a capture shows the replay. Logs what a recorded frame allocates beside a direct one. */
     private static final int RECORD_FROM = Integer.getInteger("crystalgraphics.harness.record", 0);
@@ -273,6 +295,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // 1. Frame clock tick — compute delta, elapsed, frame number
             frameClock.tick();
             if (!sceneFrames) CgTrace.frameBegin();
+            if (FRAME_TIMES > 0 && timeFrame(frameClock.getFrameNumber())) break;
+            if (RELOAD_AT > 0 && frameClock.getFrameNumber() == RELOAD_AT) {
+                stageEdits();
+                reloadAssets();
+            }
+            if (RESIZE_AT != null) resizeIfDue(frameClock.getFrameNumber());
 
             // 2. Handle window resize events — update context and notify renderers.
             //    Also notifies the scene via the unified lifecycle onResize hook.
@@ -288,7 +316,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             pollInput();
 
             // 4. Camera update (skipped when paused, and in an unattended capture)
-            if (scene.uses3DCamera() && !inputPauseHandler.isPaused() && CAPTURE_AT == 0) {
+            if (scene.uses3DCamera() && !inputPauseHandler.isPaused() && !UNATTENDED) {
                 camera.update(frameClock.getDeltaTime());
             }
 
@@ -395,7 +423,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private void pollInput() {
         HarnessWindow.pollEvents();
-        if (CAPTURE_AT > 0) {
+        if (UNATTENDED) {
             HarnessWindow.drainMouse();
             HarnessWindow.drainKeyboard();
             return;
@@ -440,6 +468,54 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * {@code crystalgraphics.resourceOverrideDirs} at the source trees, so an edited file is what the reload
      * sees rather than the copy {@code processResources} made at build time.</p>
      */
+    private long[] frameNanos;
+    private long lastFrameStart;
+
+    /** One frame-to-frame interval into {@link #FRAME_TIMES}' sample; true once it is full and reported. */
+    private boolean timeFrame(long frame) {
+        long now = System.nanoTime();
+        if (frame > FRAME_TIME_WARMUP) {
+            if (frameNanos == null) frameNanos = new long[FRAME_TIMES];
+            int i = (int) (frame - FRAME_TIME_WARMUP - 1);
+            frameNanos[i] = now - lastFrameStart;
+            if (i == FRAME_TIMES - 1) {
+                long[] sorted = frameNanos.clone();
+                Arrays.sort(sorted);
+                double mean = Arrays.stream(sorted).average().orElse(0);
+                LOGGER.info(String.format("[frame-times] %d frames: median %.3f ms, mean %.3f ms, p95 %.3f ms",
+                        FRAME_TIMES, sorted[FRAME_TIMES / 2] / 1e6, mean / 1e6, sorted[FRAME_TIMES * 95 / 100] / 1e6));
+                return true;
+            }
+        }
+        lastFrameStart = now;
+        return false;
+    }
+
+    /** {@link #RELOAD_AT}'s staged edit: every file under {@code .reloadStage} over the first override root. */
+    private static void stageEdits() {
+        String stage = System.getProperty("crystalgraphics.harness.reloadStage");
+        String roots = System.getProperty("crystalgraphics.resourceOverrideDirs",
+                System.getProperty("crystalgraphics.shader.resourceOverrideDir"));
+        if (stage == null || roots == null) return;
+        Path from = Paths.get(stage), to = Paths.get(roots.split(File.pathSeparator)[0].trim());
+        try (Stream<Path> files = Files.walk(from)) {
+            for (Path file : (Iterable<Path>) files.filter(Files::isRegularFile)::iterator) {
+                Path target = to.resolve(from.relativize(file).toString());
+                Files.createDirectories(target.getParent());
+                Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("staging " + stage + " into " + to, e);
+        }
+    }
+
+    private static void resizeIfDue(long frame) {
+        String[] at = RESIZE_AT.split(":");
+        if (Long.parseLong(at[0]) != frame) return;
+        String[] size = at[1].split("x");
+        HarnessWindow.setSize(Integer.parseInt(size[0]), Integer.parseInt(size[1]));
+    }
+
     private void reloadAssets() {
         try {
             for (HarnessExtension extension : HarnessExtensions.all()) {

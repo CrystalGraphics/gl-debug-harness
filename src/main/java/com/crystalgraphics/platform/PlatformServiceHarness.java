@@ -141,6 +141,8 @@ public final class PlatformServiceHarness implements CgPlatformService {
     public static void shutdown() {
         if (INSTANCE == null || INSTANCE.vulkanDevice == null) return;
         INSTANCE.vulkanDevice.close();
+        // After the device, so what its teardown raised is counted; the tracked: line came before it.
+        System.out.println("[Harness] vulkan after teardown: validationErrors=" + INSTANCE.vulkanHost.validationErrors());
         INSTANCE.vulkanHost.close();
         INSTANCE.vulkanDevice = null;
     }

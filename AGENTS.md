@@ -62,6 +62,18 @@ the camera. This is how GL and Vulkan are compared (`plan/device-seam/device-mil
 is a different picture every run. What may read the wall clock is what shows measured time — the HUD's FPS,
 a frame-time readout — and a comparison masks those.
 
+Three more unattended switches, for what a single picture cannot show:
+
+| Flag | Does |
+|---|---|
+| `-Dcrystalgraphics.harness.frameTimes=<n>` | after 60 frames, times `n` frame to frame, logs `[frame-times]` median, mean and p95, and stops. Pair with `.fps=0`, or the pacing is what gets timed; live input is ignored |
+| `-Dcrystalgraphics.harness.reloadAt=<frame>` | Ctrl+R's reload at that frame; with `.reloadStage=<dir>`, that directory's files are first copied over the first `crystalgraphics.resourceOverrideDirs` root — an edit saved mid-run |
+| `-Dcrystalgraphics.harness.resizeAt=<frame>:<w>x<h>` | resizes the window at that frame |
+
+On `--device=vulkan`, `[Harness] vulkan after teardown: validationErrors=N` is printed after the device has
+closed, so it counts what teardown raised. `-Dcrystalgraphics.vulkan.presentMode=immediate|mailbox|fifo` forces
+a present mode.
+
 
 ---
 

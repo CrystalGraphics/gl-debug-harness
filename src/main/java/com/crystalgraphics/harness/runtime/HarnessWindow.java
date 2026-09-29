@@ -225,6 +225,11 @@ public final class HarnessWindow {
         }
     }
 
+    /** Resizes the window; the framebuffer callback follows, and the runner's resize handling with it. */
+    public static void setSize(int width, int height) {
+        GLFW.glfwSetWindowSize(window, width, height);
+    }
+
     public static void setTitle(String title) {
         if (window != 0L) GLFW.glfwSetWindowTitle(window, title);
     }
