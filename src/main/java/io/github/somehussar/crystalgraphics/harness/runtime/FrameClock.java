@@ -20,6 +20,13 @@ package io.github.somehussar.crystalgraphics.harness.runtime;
  */
 public final class FrameClock {
 
+    /**
+     * {@code -Dcrystalgraphics.harness.fixedDelta=<seconds>}: every tick advances by exactly this much,
+     * so what a frame shows depends on its number and not on how fast the machine ran. Zero is wall time.
+     */
+    private static final float FIXED_DELTA =
+            Float.parseFloat(System.getProperty("crystalgraphics.harness.fixedDelta", "0"));
+
     private long lastTimeNanos;
     private float deltaTime;
     private double elapsedTime;
@@ -46,7 +53,7 @@ public final class FrameClock {
     public void tick() {
         long nowNanos = System.nanoTime();
         // Convert nanosecond delta to seconds as float for per-frame use
-        deltaTime = (nowNanos - lastTimeNanos) / 1_000_000_000.0f;
+        deltaTime = FIXED_DELTA > 0 ? FIXED_DELTA : (nowNanos - lastTimeNanos) / 1_000_000_000.0f;
         lastTimeNanos = nowNanos;
         elapsedTime += deltaTime;
         frameNumber++;

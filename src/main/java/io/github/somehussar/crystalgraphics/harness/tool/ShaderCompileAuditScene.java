@@ -391,9 +391,6 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
             CgCapabilities caps = CgCapabilities.detect();
             pw.println("ShaderBufferPath:  " + caps.shaderBufferPath()
                     + "   (decides #version 430 vs 330)");
-            pw.println("Core FBO:          " + caps.isCoreFbo());
-            pw.println("Core Shaders:      " + caps.isCoreShaders());
-            pw.println("VAO:               " + caps.isVaoSupported());
             pw.println("Max Texture Size:  " + caps.getMaxTextureSize());
             pw.println("Max Draw Buffers:  " + caps.getMaxDrawBuffers());
         } catch (Throwable t) {

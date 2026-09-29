@@ -6,8 +6,6 @@ import com.crystalgraphics.gl.buffer.staging.CgInstanceWriter;
 import com.crystalgraphics.gl.buffer.staging.CgVertexWriter;
 import com.crystalgraphics.gl.render.CgBatchRenderer;
 import com.crystalgraphics.gl.render.CgInstanceRenderer;
-import com.crystalgraphics.gl.vertex.CgInstanceVertexArrayBinding;
-import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.gl.shader.CgShaderFactory;
 import io.github.somehussar.crystalgraphics.harness.FrameInfo;
@@ -102,28 +100,15 @@ public class InstancingTestScene implements InteractiveSceneLifecycle {
             LOG.error("FAIL instanced shader compile error: {}", instancedShader.getLastCompileError());
         }
 
-        if (CgInstanceVertexArrayBinding.isSupported()) {
-            baseRenderer = CgBatchRenderer.create(CgVertexFormat.POS2_UV2_COL4UB, 4);
-     
-            multiMeshDemo = new MultiMeshInstancingDemoRenderer();
-            multiMeshDemo.init();
-        }
+        baseRenderer = CgBatchRenderer.create(CgVertexFormat.POS2_UV2_COL4UB, 4);
+        multiMeshDemo = new MultiMeshInstancingDemoRenderer();
+        multiMeshDemo.init();
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         boolean report = !diagnosticsRan;
         diagnosticsRan = true;
-
-        CgCapabilities caps = CgCapabilities.detect();
-        boolean supported = CgInstanceVertexArrayBinding.isSupported(caps);
-
-        if (!supported) {
-            logInfoIf(report, "SKIP instancing-test: drawInstanced={} vertexAttribDivisor={}",
-                    caps.isDrawInstancedSupported(), caps.isVertexAttribDivisorSupported());
-            running = false;
-            return;
-        }
 
         int passed = 0;
         int total = 6;

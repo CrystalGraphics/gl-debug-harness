@@ -92,6 +92,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * few carry every lazy allocation and every shader variant's first compile, which is a scene's
      * startup cost rather than its frame cost. */
     private static final int PROFILE_WARMUP_FRAMES = 30;
+    /** {@code -Dcrystalgraphics.harness.captureAt=<frame>}: photograph that frame and stop -- an unattended
+     * picture of any interactive scene. Pair with {@code fixedDelta} for one that repeats run to run. */
+    private static final int CAPTURE_AT = Integer.getInteger("crystalgraphics.harness.captureAt", 0);
     /**
      * How many nanoseconds are represented by a millisecond.
      */
@@ -282,6 +285,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 scene.render(ctx, new FrameInfo(frameClock.getDeltaTime(),
                         frameClock.getElapsedTime(), frameClock.getFrameNumber()));
             }
+            if (CAPTURE_AT > 0 && frameClock.getFrameNumber() == CAPTURE_AT) {
+                artifactService.requestCapture("frame" + CAPTURE_AT);
+            }
 
             // 10-13. Post-scene sequence: GL reset → pause overlay → HUD → capture callback
             //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
@@ -317,6 +323,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             scene.onFrameEnd(ctx, new FrameInfo(
                     (float) ((System.nanoTime() - frameStartNanos) / 1_000_000_000.0),
                     frameClock.getElapsedTime(), frameClock.getFrameNumber()));
+            if (CAPTURE_AT > 0 && frameClock.getFrameNumber() >= CAPTURE_AT) break;
         }
 
         LOGGER.info("[InteractiveSceneRunner] Render loop exited after "

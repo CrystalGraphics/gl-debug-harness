@@ -1,6 +1,6 @@
 package io.github.somehussar.crystalgraphics.harness.util;
 
-import org.lwjgl.opengl.GL11;
+import com.crystalgraphics.platform.gl.CgGL;
 
 /**
  * Shared GL state boundary helpers for the harness render pipeline.
@@ -31,6 +31,8 @@ import org.lwjgl.opengl.GL11;
  * @see GlStateResetHelper#resetAfterScene()
  */
 public final class RenderPassState {
+    // Through CgGL, never raw GL: CrystalGraphics' state shadow has to see these writes or it elides the
+    // next CgGL write that disagrees with them.
 
     private RenderPassState() { }
 
@@ -57,9 +59,9 @@ public final class RenderPassState {
      * sets the correct state for the scene.</p>
      */
     public static void beginWorldPass() {
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthMask(true);
-        GL11.glDisable(GL11.GL_BLEND);
+        CgGL.glEnable(CgGL.GL_DEPTH_TEST);
+        CgGL.glDepthMask(true);
+        CgGL.glDisable(CgGL.GL_BLEND);
     }
 
     /**
@@ -75,9 +77,9 @@ public final class RenderPassState {
      * runner's render loop before the scene call.</p>
      */
     public static void beginScenePass() {
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthMask(true);
-        GL11.glDisable(GL11.GL_BLEND);
+        CgGL.glEnable(CgGL.GL_DEPTH_TEST);
+        CgGL.glDepthMask(true);
+        CgGL.glDisable(CgGL.GL_BLEND);
     }
 
     /**
@@ -100,15 +102,15 @@ public final class RenderPassState {
      */
     public static void beginOverlayPass() {
         // Save current state so endOverlayPass() can restore it
-        savedDepthEnabled.set(GL11.glIsEnabled(GL11.GL_DEPTH_TEST));
-        savedBlendEnabled.set(GL11.glIsEnabled(GL11.GL_BLEND));
+        savedDepthEnabled.set(CgGL.glGetBoolean(CgGL.GL_DEPTH_TEST));
+        savedBlendEnabled.set(CgGL.glGetBoolean(CgGL.GL_BLEND));
 
         // Overlays render on top of the 3D scene — disable depth test
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
+        CgGL.glDisable(CgGL.GL_DEPTH_TEST);
 
         // Enable alpha blending for semi-transparent overlays and text
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        CgGL.glEnable(CgGL.GL_BLEND);
+        CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     /**
@@ -124,16 +126,16 @@ public final class RenderPassState {
 
         // Restore depth test state
         if (depthWas != null && depthWas) {
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
+            CgGL.glEnable(CgGL.GL_DEPTH_TEST);
         } else {
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            CgGL.glDisable(CgGL.GL_DEPTH_TEST);
         }
 
         // Restore blend state
         if (blendWas != null && blendWas) {
-            GL11.glEnable(GL11.GL_BLEND);
+            CgGL.glEnable(CgGL.GL_BLEND);
         } else {
-            GL11.glDisable(GL11.GL_BLEND);
+            CgGL.glDisable(CgGL.GL_BLEND);
         }
 
         // Clear saved state to avoid stale reads on next frame

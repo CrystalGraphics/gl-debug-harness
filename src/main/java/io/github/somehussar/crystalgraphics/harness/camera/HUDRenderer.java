@@ -174,11 +174,6 @@ public final class HUDRenderer {
         }
 
         caps = CgCapabilities.detect();
-        if (!caps.isCoreFbo() || !caps.isCoreShaders()
-                || !caps.isVaoSupported() || !caps.isMapBufferRangeSupported()) {
-            throw new IllegalStateException(
-                    "HUDRenderer requires modern GL: core FBO, core shaders, VAO, glMapBufferRange");
-        }
 
         // Load font from system/test font path at base size
         String fontPath = HarnessFontUtil.resolveFontPath(null);
