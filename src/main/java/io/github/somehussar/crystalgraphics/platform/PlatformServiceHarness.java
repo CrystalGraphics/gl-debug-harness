@@ -25,14 +25,6 @@ import io.github.somehussar.crystalgraphics.platform.service.ResourceServiceHarn
  *
  * <p>{@link RenderingServiceHarness} and {@link LifecycleServiceHarness} instances are exposed
  * via package-visible accessors if needed.</p>
- *
- * <h3>Sound is a mutable field, and the input adapter carries a swappable clipboard</h3>
- * <p>{@link CgPlatform} reads services only through the registered bundle and has no per-service setter,
- * which is right for a real loader — it has everything to hand at once, and half-registration is the
- * failure mode that shape rules out. Harness scenes are the awkward case: {@code CgUiButtonScene} counts
- * sound calls, {@code CgUiTextFieldScene} wants the AWT system clipboard. Since there is exactly one
- * bundle and it is a singleton, those scenes reach in and set the piece they care about via
- * {@link #getInstance()} rather than standing up a bundle of their own.</p>
  */
 public final class PlatformServiceHarness implements CgPlatformService {
     
@@ -52,13 +44,10 @@ public final class PlatformServiceHarness implements CgPlatformService {
     public final Lwjgl3GLContext glContextImpl = new Lwjgl3GLContext();
     public final GlfwInputService inputImpl = new GlfwInputService(HarnessWindow::handle);
     /**
-     * Swappable — see the class javadoc. Silent unless a scene installs a counter.
-     *
-     * <p>The harness has no audio backend at all, so this is the "empty method body" case the platform
-     * SPI expects rather than a shared no-op borrowed from it — there is deliberately no
-     * {@code CgSoundService.NOOP} to reach for.</p>
+     * The harness has no audio backend, so this is the "empty method body" case the platform SPI expects
+     * rather than a shared no-op borrowed from it — there is deliberately no {@code CgSoundService.NOOP}.
      */
-    public CgSoundService soundImpl = soundId -> {};
+    public final CgSoundService soundImpl = soundId -> {};
 
     @Override public CgGLBackend       gl()           { return glDispatchImpl; }
     @Override public CgGLContext         capabilities() { return glContextImpl; }

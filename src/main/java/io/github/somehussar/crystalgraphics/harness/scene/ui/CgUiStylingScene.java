@@ -24,7 +24,7 @@ import io.github.somehussar.crystalgraphics.harness.config.HarnessContext;
  * cross-fades ({@code CgUiCrossFade}, via {@code TextureProperty}'s interpolator) between
  * color/texture/9-slice drawable pairs, triggered by hovering the {@code .fade-*} swatches.
  *
- * <p>Built on the same real {@link UIDocument}/input plumbing as {@link CgUiTestScene}, so
+ * <p>Built on the real {@link UIDocument}/input plumbing, so
  * {@code :hover}/{@code :active} are driven by genuine mouse input in the harness window — move
  * the cursor over a button, click and hold it, tab between them (focus policy is default CLICK).</p>
  *

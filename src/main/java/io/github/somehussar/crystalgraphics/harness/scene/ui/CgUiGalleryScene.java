@@ -188,8 +188,8 @@ public class CgUiGalleryScene implements InteractiveSceneLifecycle, CgSystemInpu
 
         pages = new TabView();
         pages.addClass("gallery-tabs");
-        // A sidebar, not a top strip: twelve tabs across the top is the overflow case cgui-tabview
-        // exists to demonstrate. The rail is a ScrollerView either way, so a long list still scrolls.
+        // A sidebar, not a top strip: thirty tabs across the top would overflow. The rail is a
+        // ScrollerView either way, so a long list still scrolls.
         pages.setTabSide(TabView.TabSide.LEFT);
         root.append(pages);
 

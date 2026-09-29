@@ -11,26 +11,12 @@ import io.github.somehussar.crystalgraphics.harness.scene.test.CgAttachedBufferS
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgVectorRendererTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.test.CgForwardRendererScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiButtonScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCheckboxScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiGalleryScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiDesktopScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNewEngineGalleryScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiNineSliceScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiOreThemeScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSpriteStressScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiScrollerScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSliderScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTabViewScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiWorkspaceScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiCompletionScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextFieldScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiDockScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSplitViewScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiStylingScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSvgIconScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiSwitchScene;
-import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTestScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiTextStressScene;
 import io.github.somehussar.crystalgraphics.harness.scene.ui.CgUiVisualLayersScene;
@@ -248,18 +234,6 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("cgui-test")
-                .description("CrystalGUI UI test: DOM tree with Taffy layout, sprites, and quads")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiTestScene()
-        );
-
-        reg.register(
             SceneDescriptor.builder("cgui-styling")
                 .description("CrystalGUI stylesheet test: selectors, combinators, pseudo-classes, transitions")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
@@ -332,31 +306,6 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("cgui-button")
-                .description("CrystalGUI Button: press/release-over-same-element activation, Space/Enter keyboard activation, sound-hook logging")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiButtonScene()
-        );
-
-
-        reg.register(
-            SceneDescriptor.builder("cgui-checkbox")
-                .description("CrystalGUI Checkbox/CheckboxGroup: click/keyboard toggle, :checked-driven mark, group exclusivity (allowEmpty vs required)")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiCheckboxScene()
-        );
-
-        reg.register(
             SceneDescriptor.builder("cgui-new-gallery")
                 .description("M6 NEW ENGINE: every ported widget in one scrolling column, over UIDocument + the box tree -- the counterpart to cgui-gallery, and the only thing that can see whether a ported widget actually DRAWS")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
@@ -407,30 +356,6 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("cgui-ore-theme")
-                .description("CrystalGUI ported LDLib2 'Ore' theme: 9-slice button/checkbox/panel sprites via StyleSheetRegistry.of(\"crystalgui:ore\")")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiOreThemeScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-nineslice")
-                .description("CrystalGUI 9-slice tiling: stretch/repeat/round/space, CPU quad path vs SDF shader path side by side")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiNineSliceScene()
-        );
-
-        reg.register(
             SceneDescriptor.builder("cgui-svg-icon")
                 .description("Every shipped icon in a labelled grid -- red = failed to load, amber = drew nothing. Scroll to scale.")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
@@ -440,117 +365,6 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgUiSvgIconScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-switch")
-                .description("CrystalGUI Switch: knob slides via animated flex-grow, timing declared in ore.css")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiSwitchScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-slider")
-                .description("CrystalGUI Slider: continuous + stepped, drag/click/keyboard, thumb hover/active/focus states")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiSliderScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-dock")
-                .description("CrystalGUI docking: drag tabs to split/merge/reorder, outer-edge drops, save and restore")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiDockScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-splitview")
-                .description("CrystalGUI SplitView: draggable divider, both orientations, nested, oversized-pane content")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiSplitViewScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-scroller")
-                .description("CrystalGUI scrolling: overflow as an element capability, plus ScrollerView bars")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiScrollerScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-completion")
-                .description("CrystalGUI completion popup + tracked diagnostic ranges, scripted and captured")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiCompletionScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-textfield")
-                .description("CrystalGUI TextField: editing, selection, clipboard, validation layers")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiTextFieldScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("cgui-tabview")
-                .description("CrystalGUI TabView: four strip sides, arrow navigation, strip overflow")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiTabViewScene()
-        );
-
-        // P6.1.10: a server-hosted project workspace, both halves in this process. The files are real
-        // and live in harness-output/workspace -- edit one on disk, then save here, to see the conflict
-        // path the whole etag mechanism exists for.
-        reg.register(
-            SceneDescriptor.builder("cgui-workspace")
-                .description("CrystalGUI remote workspace: project tree, editor tabs, save conflicts")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgUiWorkspaceScene()
         );
 
         // The front door: every widget, one page each, with a live Ore <-> default theme toggle.
