@@ -2,6 +2,7 @@ package com.crystalgraphics.platform;
 
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.CgPlatformService;
+import com.crystalgraphics.platform.device.CgDevice;
 import com.crystalgraphics.platform.device.CgRecordingDevice;
 import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
@@ -23,6 +24,8 @@ import com.crystalgraphics.platform.service.LifecycleServiceHarness;
 import com.crystalgraphics.platform.service.ReloadServiceHarness;
 import com.crystalgraphics.platform.service.RenderingServiceHarness;
 import com.crystalgraphics.platform.service.ResourceServiceHarness;
+import com.crystalgraphics.vulkan.CgVulkanDevice;
+import com.crystalgraphics.vulkan.OwnedVulkanHost;
 import com.crystalgraphics.vulkan.ShadercGlslCompiler;
 
 /**
@@ -55,8 +58,11 @@ public final class PlatformServiceHarness implements CgPlatformService {
      */
     public final CgSoundService soundImpl = soundId -> {};
 
-    // ── --device=tracked ─────────────────────────────────────────────────────
+    // ── --device=tracked and --device=vulkan ──────────────────────────────────
+    private CgDevice device;
     private CgRecordingDevice recordingDevice;
+    private OwnedVulkanHost vulkanHost;
+    private CgVulkanDevice vulkanDevice;
     private CgTrackedGLBackend tracked;
 
     @Override public CgGLBackend       gl()           { return tracked != null ? tracked : glDispatchImpl; }
@@ -79,15 +85,21 @@ public final class PlatformServiceHarness implements CgPlatformService {
     }
 
     /**
-     * @param device {@code gl}, or {@code tracked}: {@code CgGL} on the tracked backend over a recording device the
-     *               size of the window, which validates every command and presents nothing
+     * @param device {@code gl}; {@code tracked}: {@code CgGL} on the tracked backend over a recording device the size
+     *               of the window, which validates every command and presents nothing; {@code vulkan}: the tracked
+     *               backend over CrystalGraphics' Vulkan device, presenting to the window, which must already exist
      */
     public static void onPreInit(String device, int width, int height) {
         PlatformServiceHarness p = getInstance();
         if (device.equals("tracked")) {
             p.recordingDevice = new CgRecordingDevice(width, height).withoutLog();
-            p.tracked = new CgTrackedGLBackend(p.recordingDevice, new ShadercGlslCompiler(), true);
+            p.device = p.recordingDevice;
+        } else if (device.equals("vulkan")) {
+            p.vulkanHost = new OwnedVulkanHost(HarnessWindow.handle(), true);
+            p.vulkanDevice = new CgVulkanDevice(p.vulkanHost, width, height);
+            p.device = p.vulkanDevice;
         }
+        if (p.device != null) p.tracked = new CgTrackedGLBackend(p.device, new ShadercGlslCompiler(), true);
         CgPlatform.register(p);
         if (p.tracked != null) CgGlState.setProvider(new CgTrackedStateProvider(p.tracked));
         // NATIVE CONTENT IS NOT DECLARED HERE, and it used to be.
@@ -105,9 +117,19 @@ public final class PlatformServiceHarness implements CgPlatformService {
         return INSTANCE == null ? null : INSTANCE.tracked;
     }
 
-    /** The recording device's surface follows the window's framebuffer. Nothing on GL. */
+    /** The device's surface follows the window's framebuffer. Nothing on GL. */
     public static void resizeSurface(int width, int height) {
-        if (tracked() != null) INSTANCE.recordingDevice.resize(width, height);
+        if (tracked() == null) return;
+        if (INSTANCE.recordingDevice != null) INSTANCE.recordingDevice.resize(width, height);
+        else INSTANCE.vulkanDevice.resize(width, height);
+    }
+
+    /** Closes the Vulkan device and its host; before the window goes. Nothing otherwise. */
+    public static void shutdown() {
+        if (INSTANCE == null || INSTANCE.vulkanDevice == null) return;
+        INSTANCE.vulkanDevice.close();
+        INSTANCE.vulkanHost.close();
+        INSTANCE.vulkanDevice = null;
     }
 
     /** Ends the tracked backend's frame; once a frame, after everything drawn in it. Nothing on GL. */
@@ -118,7 +140,10 @@ public final class PlatformServiceHarness implements CgPlatformService {
     /** What the tracked backend did over the run, for the log; null on GL. */
     public static String trackedReport() {
         if (tracked() == null) return null;
-        return "frames=" + INSTANCE.recordingDevice.frameIndex() + " deviceDraws=" + INSTANCE.recordingDevice.draws()
-                + " liveObjects=" + INSTANCE.recordingDevice.liveObjects() + " " + INSTANCE.tracked.stats();
+        String device = INSTANCE.recordingDevice != null
+                ? "deviceDraws=" + INSTANCE.recordingDevice.draws() + " liveObjects=" + INSTANCE.recordingDevice.liveObjects()
+                : INSTANCE.vulkanDevice.info().name() + " barriers=" + INSTANCE.vulkanDevice.barriers()
+                        + " validationErrors=" + INSTANCE.vulkanDevice.validationErrors();
+        return "frames=" + INSTANCE.device.frameIndex() + " " + device + " " + INSTANCE.tracked.stats();
     }
 }

@@ -130,11 +130,16 @@ public final class HarnessContext {
      * @throws RuntimeException if the GL context cannot be created
      */
     public static HarnessContext create(int width, int height) {
-        HarnessWindow.create(width, height, "CrystalGraphics Debug Harness");
+        return create(width, height, true);
+    }
 
-        String glVersion = GL11C.glGetString(GL11C.GL_VERSION);
-        String glVendor = GL11C.glGetString(GL11C.GL_VENDOR);
-        String glRenderer = GL11C.glGetString(GL11C.GL_RENDERER);
+    /** @param gl false for a window a Vulkan device presents to, which has no GL context to describe */
+    public static HarnessContext create(int width, int height, boolean gl) {
+        HarnessWindow.create(width, height, "CrystalGraphics Debug Harness", gl);
+
+        String glVersion = gl ? GL11C.glGetString(GL11C.GL_VERSION) : "none (Vulkan)";
+        String glVendor = gl ? GL11C.glGetString(GL11C.GL_VENDOR) : "none (Vulkan)";
+        String glRenderer = gl ? GL11C.glGetString(GL11C.GL_RENDERER) : "none (Vulkan)";
 
         LOGGER.info("[Harness] GL Version:  " + glVersion);
         LOGGER.info("[Harness] GL Vendor:   " + glVendor);

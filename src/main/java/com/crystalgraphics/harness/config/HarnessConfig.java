@@ -37,9 +37,9 @@ public class HarnessConfig {
     private double seconds;
 
     /**
-     * What {@code CgGL} runs on: {@code gl}, or {@code tracked} -- the tracked backend over a recording device,
-     * which validates every command a Vulkan device would be sent and presents nothing. Set with
-     * {@code --device=gl|tracked}.
+     * What {@code CgGL} runs on: {@code gl}; {@code tracked} -- the tracked backend over a recording device, which
+     * validates every command a Vulkan device would be sent and presents nothing; or {@code vulkan} -- the tracked
+     * backend over CrystalGraphics' Vulkan device, presenting to the window. Set with {@code --device=gl|tracked|vulkan}.
      */
     private String device;
 
@@ -77,7 +77,7 @@ public class HarnessConfig {
     public double getSeconds() { return seconds; }
     public void setSeconds(double val) { this.seconds = val; }
 
-    /** {@code gl} or {@code tracked}. See {@link #device}. */
+    /** {@code gl}, {@code tracked} or {@code vulkan}. See {@link #device}. */
     public String getDevice() { return device; }
 
     /**
@@ -138,8 +138,8 @@ public class HarnessConfig {
     }
 
     private static String parseDevice(String value, String paramName) {
-        if (value.equals("gl") || value.equals("tracked")) return value;
-        throw new IllegalArgumentException("Invalid value for " + paramName + ": '" + value + "' (gl or tracked)");
+        if (value.equals("gl") || value.equals("tracked") || value.equals("vulkan")) return value;
+        throw new IllegalArgumentException("Invalid value for " + paramName + ": '" + value + "' (gl, tracked or vulkan)");
     }
 
     /**
