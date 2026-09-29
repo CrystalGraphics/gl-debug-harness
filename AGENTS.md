@@ -46,6 +46,22 @@ with no buffer, a draw with no program) -- a non-zero exit, with the `tracked:` 
 apply: `host-section` and `gl-state-dump` call raw GL, and `gpu-trace-probe` times a GPU a recording device
 does not have.
 
+## One picture per frame number — `captureAt` and `fixedDelta`
+
+```bash
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=vulkan --seconds=150" \
+    -Dcrystalgraphics.harness.fixedDelta=0.0166667 -Dcrystalgraphics.harness.captureAt=180
+# <scene>-frame180.png: the same picture on any device and machine, however fast each ran
+```
+
+`fixedDelta` advances the frame clock by exactly that much per frame; `captureAt` photographs that frame and
+stops, **ignoring live input meanwhile** — a pointer crossing the window would otherwise be grabbed and turn
+the camera. This is how GL and Vulkan are compared (`plan/device-seam/device-milestones.md` D3.10).
+
+**A scene animates from `FrameInfo`, never from `System.nanoTime()` or `currentTimeMillis()`**, or its frame N
+is a different picture every run. What may read the wall clock is what shows measured time — the HUD's FPS,
+a frame-time readout — and a comparison masks those.
+
 
 ---
 

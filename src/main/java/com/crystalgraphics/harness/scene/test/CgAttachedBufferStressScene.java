@@ -176,7 +176,7 @@ CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
                   .vec4("fogColor", fogR, fogR * 0.9f, fogR * 1.2f, 1f)
                   .vec4("sunDirAndAmbient", 0.3f, 5.6f, 0.5f, 0.15f)
                   .float_("fogDensity", 0.04f)
-                  .float_("_p0", 0f).float_("_p1", 0f).float_("_p2", 0f).int64("state", System.currentTimeMillis());
+                  .float_("_p0", 0f).float_("_p1", 0f).float_("_p2", 0f).int64("state", (long) (t * 1000.0));
         
         terrainUbo.endRecord();
         terrainUbo.upload();

@@ -106,7 +106,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * startup cost rather than its frame cost. */
     private static final int PROFILE_WARMUP_FRAMES = 30;
     /** {@code -Dcrystalgraphics.harness.captureAt=<frame>}: photograph that frame and stop -- an unattended
-     * picture of any interactive scene. Pair with {@code fixedDelta} for one that repeats run to run. */
+     * picture of any interactive scene. Pair with {@code fixedDelta} for one that repeats run to run. Live input
+     * is ignored meanwhile: a pointer crossing the window would otherwise grab it and turn the camera. */
     private static final int CAPTURE_AT = Integer.getInteger("crystalgraphics.harness.captureAt", 0);
     /** {@code -Dcrystalgraphics.harness.record=<frame>}: from that frame on, the scene pass is recorded and replayed
      * instead of drawn, so a capture shows the replay. Logs what a recorded frame allocates beside a direct one. */
@@ -286,8 +287,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // 3. Input, before the camera reads it.
             pollInput();
 
-            // 4. Camera update (skipped when paused)
-            if (scene.uses3DCamera() && !inputPauseHandler.isPaused()) {
+            // 4. Camera update (skipped when paused, and in an unattended capture)
+            if (scene.uses3DCamera() && !inputPauseHandler.isPaused() && CAPTURE_AT == 0) {
                 camera.update(frameClock.getDeltaTime());
             }
 
@@ -394,6 +395,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private void pollInput() {
         HarnessWindow.pollEvents();
+        if (CAPTURE_AT > 0) {
+            HarnessWindow.drainMouse();
+            HarnessWindow.drainKeyboard();
+            return;
+        }
         for (CgSystemInput.Mouse.Event event : HarnessWindow.drainMouse()) {
             for (CgSystemInput.Mouse listener : mouseListeners) {
                 if (!listener.consumeMouseEvent(event)) break;
