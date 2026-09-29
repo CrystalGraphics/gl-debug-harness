@@ -225,7 +225,8 @@ public class ImageScene implements InteractiveSceneLifecycle {
         float totalDurSec = totalFrames * frameDurSec;  // 1.56s
 
         // How many frames have elapsed (e.g. 7.34)
-        float elapsedSec = (System.currentTimeMillis() % (long) (totalDurSec * 1000)) / 1000f;
+        // The frame clock, not the wall's: a capture at frame N is then the same picture on every run.
+        float elapsedSec = (float) (frame.getElapsedTime() % totalDurSec);
         float rawT = elapsedSec / frameDurSec;
 
         int frameIdx = (int) rawT % totalFrames;   // integer frame: 7

@@ -44,6 +44,8 @@ import java.util.List;
 public final class HarnessWindow {
 
     private static long window;
+    /** False for a window a Vulkan device presents to: no GL context, and no buffers of its own to swap. */
+    private static boolean glContext = true;
     private static int framebufferWidth;
     private static int framebufferHeight;
     private static boolean resized;
@@ -76,8 +78,27 @@ public final class HarnessWindow {
      * @throws IllegalStateException when GLFW cannot start or the driver refuses the context
      */
     public static void create(int width, int height, String title) {
+        create(width, height, title, true);
+    }
+
+    /** @param gl false for a Vulkan device's window: no context, and {@link #swapBuffers()} does nothing */
+    public static void create(int width, int height, String title, boolean gl) {
         GLFWErrorCallback.createPrint(System.err).set();
         if (!GLFW.glfwInit()) throw new IllegalStateException("GLFW failed to initialise");
+        glContext = gl;
+        if (!gl) {
+            GLFW.glfwDefaultWindowHints();
+            GLFW.glfwWindowHint(GLFW.GLFW_CLIENT_API, GLFW.GLFW_NO_API);
+            GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
+            GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE);
+            window = GLFW.glfwCreateWindow(width, height, title, 0L, 0L);
+            if (window == 0L) {
+                GLFW.glfwTerminate();
+                throw new IllegalStateException("GLFW could not create a " + width + "x" + height + " window");
+            }
+            afterCreate();
+            return;
+        }
 
         // A refused version is expected on the way down; only the last refusal is worth printing.
         GLFWErrorCallback print = GLFW.glfwSetErrorCallback(null);
@@ -104,7 +125,11 @@ public final class HarnessWindow {
         GL.createCapabilities();
         // Unsynchronised, as LWJGL 2's Display was: sync(fps) paces the loop.
         GLFW.glfwSwapInterval(0);
+        afterCreate();
+    }
 
+    /** The size and input callbacks, the same for either kind of window. */
+    private static void afterCreate() {
         int[] w = new int[1];
         int[] h = new int[1];
         GLFW.glfwGetFramebufferSize(window, w, h);
@@ -168,7 +193,12 @@ public final class HarnessWindow {
     }
 
     public static void swapBuffers() {
-        GLFW.glfwSwapBuffers(window);
+        if (glContext) GLFW.glfwSwapBuffers(window);
+    }
+
+    /** Whether the window has a GL context: false when a Vulkan device presents to it. */
+    public static boolean hasGlContext() {
+        return glContext;
     }
 
     /**
@@ -193,6 +223,11 @@ public final class HarnessWindow {
                 Thread.onSpinWait();
             }
         }
+    }
+
+    /** Resizes the window; the framebuffer callback follows, and the runner's resize handling with it. */
+    public static void setSize(int width, int height) {
+        GLFW.glfwSetWindowSize(window, width, height);
     }
 
     public static void setTitle(String title) {

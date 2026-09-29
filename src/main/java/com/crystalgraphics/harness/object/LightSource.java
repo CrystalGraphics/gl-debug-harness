@@ -41,8 +41,7 @@ public class LightSource {
         float angle = 0;
         float cycleInSec = 0;
         if (rotates) {
-            long cycleInMillis = System.currentTimeMillis() % (long) (cycleDurationSec * 1000L);
-            cycleInSec = cycleInMillis / 1000f;
+            cycleInSec = (float) (frame.getElapsedTime() % cycleDurationSec);
             float progress = cycleInSec / cycleDurationSec;
             angle = (float) (progress * 2 * Math.PI);
 

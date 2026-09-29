@@ -43,7 +43,7 @@ void main(){
     // 6. COLORING
     // Combine everything. We use the red channel of the flame detail 
     // to drive a fiery color gradient.
-    vec3 coreColor = vec3(1f, 0.13f, 0f);// Bright Orange/Red
+    vec3 coreColor = vec3(1.0f, 0.13f, 0.0f);// Bright Orange/Red
     vec3 glowColor = vec3(1.0, 0.8, 0.2);// Yellow highlight
 
     vec3 finalRGB = mix(coreColor, glowColor, flameDetail.r);

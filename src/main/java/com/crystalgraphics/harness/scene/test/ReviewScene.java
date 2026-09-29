@@ -4,6 +4,8 @@ import com.crystalgraphics.harness.util.HarnessBuffers;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.api.texture.CgTexture;
+import com.crystalgraphics.api.texture.CgTextureSpec;
+import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.gl.shader.CgShaderFactory;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -292,8 +294,8 @@ public class ReviewScene implements InteractiveSceneLifecycle {
 
         //        CgGL.glActiveTexture(CgGL.GL_TEXTURE0);
         //        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, UV_DISTORTION_MAP);
-//        if (UV_DISTORTION == null)
-//            UV_DISTORTION =  CgTexture2D.create(DIR1 + "tex2.png", CgTextureSpec.RGBA8_LINEAR_REPEAT);
+        if (UV_DISTORTION == null)
+            UV_DISTORTION = CgTexture2D.create(DIR1 + "tex2.png", CgTextureSpec.RGBA8_LINEAR_REPEAT);
         UV_DISTORTION.bind(0);
 
         CgGL.glActiveTexture(CgGL.GL_TEXTURE1);

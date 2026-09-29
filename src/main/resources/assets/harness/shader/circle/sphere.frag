@@ -69,7 +69,7 @@ void main(){
     //Fresnel
     float fresnel =  pow(1 - max(dot(viewDir, normal), 0), 3) * 2;
     fresnel = smoothstep(0.03, 0.98, fresnel); 
-    vec3 fresCol = vec3(1f, 0.57f, 0.64f) * fresnel;
+    vec3 fresCol = vec3(1.0f, 0.57f, 0.64f) * fresnel;
     
     vec3 color = (specular + diffuse) * vec3(1);
     color = mix(color, fresCol, fresnel);
