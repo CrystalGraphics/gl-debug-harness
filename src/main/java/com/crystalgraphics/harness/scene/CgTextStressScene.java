@@ -216,6 +216,9 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
     public void init(HarnessContext ctx) {
         this.ctx = ctx;
         CgTrace.enable("crystalgraphics");
+        // Its columns read the steps inside binds, flushes, uploads and text draws, which a prefix leaves off.
+        CgTrace.setEnabled(CgChannels.GL_DETAIL, true);
+        CgTrace.setEnabled(CgChannels.TEXT_DETAIL, true);
 
         font = CgFont.load(HarnessFontUtil.LATIN_FONT, CgFontStyle.REGULAR, FONT_SIZE_PX);
         family = CgFontFamily.of(font);

@@ -145,6 +145,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
         camera.moveCamera(0, 0.1f, 0.75F);
 
         CgTrace.enable("crystalgraphics");
+        // Its columns read the steps inside binds, flushes, uploads and text draws, which a prefix leaves off.
+        CgTrace.setEnabled(CgChannels.GL_DETAIL, true);
+        CgTrace.setEnabled(CgChannels.TEXT_DETAIL, true);
 
         // Typed config is resolved before execution and available via context.
         // For interactive scenes, the config is set on ctx before init() is called.
