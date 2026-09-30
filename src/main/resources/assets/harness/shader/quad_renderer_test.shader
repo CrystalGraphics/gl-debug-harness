@@ -1,7 +1,7 @@
 // Test material for CgQuadRenderer -- a shared unit quad, drawn instanced, with all
 // per-instance data (world-space origin/right/up basis vectors, UV rect, color) read
 // from an attached SSBO/TBO instead of GL vertex attributes. See
-// CrystalGraphics/docs_research/CGTEXTRENDERER_INSTANCING_FOUNDATIONS.md Decision 5.
+// plan/text-instancing.md.
 //
 // Pure screen-space 2D, same as crystalgui:shaders/gui_quad.shader: intentionally does
 // NOT reference CG_OBJECT_TO_WORLD / CG_MATRIX_MVP, so no per-instance object-buffer
@@ -9,6 +9,7 @@
 // the per-instance world position reconstructed from origin + a_pos.x*right + a_pos.y*up.
 
 #type pos2_uv2_col4ub
+#pragma cg_use quad
 
 Tags { "RenderType" = "Transparent" }
 Queue = "Overlay"

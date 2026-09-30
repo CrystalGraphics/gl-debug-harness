@@ -20,7 +20,7 @@ repositories {
 }
 
 val lwjglVersion = "3.4.1"
-val lwjglModules = listOf("lwjgl", "lwjgl-glfw", "lwjgl-opengl", "lwjgl-vulkan", "lwjgl-shaderc", "lwjgl-vma")
+val lwjglModules = listOf("lwjgl", "lwjgl-glfw", "lwjgl-opengl", "lwjgl-vulkan", "lwjgl-shaderc", "lwjgl-spvc", "lwjgl-vma")
 val lwjglNatives: String = run {
     val os = System.getProperty("os.name").lowercase()
     val arm = System.getProperty("os.arch").let { it == "aarch64" || it.startsWith("arm") }
@@ -40,9 +40,14 @@ dependencies {
     api("com.crystalgraphics:core:1.0.0")
     // Tier 1 for LWJGL 3: the GL backend, context, input and cursor, shared with every modern host.
     implementation("com.crystalgraphics:lwjgl3:1.0.0")
+    // Tier 1 for Vulkan: the tracked backend's GLSL compiler, for --device=tracked.
+    implementation("com.crystalgraphics:vulkan:1.0.0")
 
     api("org.joml:joml:${rootProject.findProperty("jomlVersion") ?: "1.10.8"}")
     implementation("com.google.code.findbugs:jsr305:3.0.2")
+    // Core compiles against its mesh loaders and ships neither: CgObjLoader and CgGltfLoader, for mesh-test.
+    runtimeOnly("de.javagl:obj:0.4.0")
+    runtimeOnly("de.javagl:jgltf-model:2.0.4")
 
     // LWJGL 3, with the Vulkan, shaderc and VMA bindings the device seam needs. Natives for the OS this
     // runs on; LWJGL extracts them itself. lwjgl-vulkan has natives only on macOS (MoltenVK) -- elsewhere
@@ -75,6 +80,19 @@ dependencies {
 // time it recompiled the harness. Invisible until somebody builds from the other side.
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
+}
+
+// -Pharness.bytecode=8: run against the engine modules' Java 8 copies -- the bytecode the shipped jars
+// carry -- instead of their Java 25 originals, on the same JVM. What FrameBench compares.
+(findProperty("harness.bytecode") as String?)?.toInt()?.let { level ->
+    configurations.named("runtimeClasspath") {
+        attributes { attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, level) }
+    }
+    // A host module asking the same of ITS classpath reaches this project too, which is Java 25 only.
+    // Advertised as `level` so it still resolves: it runs on the same Java 25 JVM either way.
+    listOf("apiElements", "runtimeElements").forEach { name ->
+        configurations.named(name) { attributes { attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, level) } }
+    }
 }
 
 /**

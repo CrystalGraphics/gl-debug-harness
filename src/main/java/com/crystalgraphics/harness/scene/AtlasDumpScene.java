@@ -334,8 +334,17 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
             queued++;
         }
         registry.awaitAsyncGlyphs(5000L);
-        registry.tickFrame(frame + 1);
-        return frame + 1;
+        // A frame commits finished glyphs under a time budget, so one tick lands however many that frame's speed
+        // allowed. Ticking until two frames add nothing is what makes the dump the whole set on any device.
+        int stable = 0;
+        int slots = countTotalAtlasSlots(registry, font);
+        for (int i = 0; i < glyphs.size() + 20 && stable < 2; i++) {
+            registry.tickFrame(++frame);
+            int now = countTotalAtlasSlots(registry, font);
+            stable = now == slots ? stable + 1 : 0;
+            slots = now;
+        }
+        return frame;
     }
 
     private List<GlyphPrewarmEntry> collectSortedMsdfGlyphs(FreeTypeMSDFIntegration.Font msdfFont,

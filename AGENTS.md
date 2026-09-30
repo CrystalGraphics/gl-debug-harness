@@ -11,7 +11,7 @@
 Every scene accepts `--seconds=N`, and any agent or script launching one should pass it.
 
 ```bash
-./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-gallery --seconds=5"
+./gradlew :gl-debug-harness:runHarness --args="--mode=text-3d --seconds=5"
 ```
 
 | | |
@@ -21,6 +21,58 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
 | Values | any positive number; fractional is fine (`--seconds=0.5` is enough to prove a scene draws) |
 | Exit code | **0**. Reaching the cap is the requested outcome, not a failure — a non-zero code would make every timed run a red build |
 | Default | absent = run until closed, which is the right default for a human at the keyboard |
+
+## `--device=gl|tracked|vulkan` — what `CgGL` runs on
+
+`gl` (the default) is the driver. The other two run CrystalGraphics' tracked backend (`plan/device-seam.md`
+§5), and the tracker's counts print at the end:
+
+- **`tracked`** — over a **recording device**: every command a Vulkan device would be sent, validated, and
+  **nothing presented** — the window stays black. Captures and readbacks come back black.
+- **`vulkan`** — over **`CgVulkanDevice`** on its own device (`OwnedVulkanHost`), presenting to the window,
+  which then has no GL context. The Khronos validation layer is on whenever it is installed (the LunarG SDK);
+  `-Dcrystalgraphics.harness.vulkanValidation=false` turns it off for a timing run, since it checks every
+  command. Its messages print as `[vulkan] ERROR ...`, and their count ends the `tracked:` line.
+
+```bash
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=tracked --seconds=10"
+# INFO: [Harness] tracked: frames=314 deviceDraws=88495 ... passes=4778 breaks=709 ... misses=17
+./gradlew :gl-debug-harness:runHarness --args="--mode=shader-compile-audit --device=vulkan"
+# every shipped shader and keyword combination compiled, and its pipeline built: the driver's own compile
+```
+
+A scene fails on either by throwing: a call the device cannot express, or a draw it would refuse (a binding
+with no buffer, a draw with no program) -- a non-zero exit, with the `tracked:` line missing. What cannot
+apply: `host-section` and `gl-state-dump` call raw GL, and `gpu-trace-probe` times a GPU a recording device
+does not have.
+
+## One picture per frame number — `captureAt` and `fixedDelta`
+
+```bash
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=vulkan --seconds=150" \
+    -Dcrystalgraphics.harness.fixedDelta=0.0166667 -Dcrystalgraphics.harness.captureAt=180
+# <scene>-frame180.png: the same picture on any device and machine, however fast each ran
+```
+
+`fixedDelta` advances the frame clock by exactly that much per frame; `captureAt` photographs that frame and
+stops, **ignoring live input meanwhile** — a pointer crossing the window would otherwise be grabbed and turn
+the camera. This is how GL and Vulkan are compared (`plan/device-seam/device-milestones.md` D3.10).
+
+**A scene animates from `FrameInfo`, never from `System.nanoTime()` or `currentTimeMillis()`**, or its frame N
+is a different picture every run. What may read the wall clock is what shows measured time — the HUD's FPS,
+a frame-time readout — and a comparison masks those.
+
+Three more unattended switches, for what a single picture cannot show:
+
+| Flag | Does |
+|---|---|
+| `-Dcrystalgraphics.harness.frameTimes=<n>` | after 60 frames, times `n` frame to frame, logs `[frame-times]` median, mean and p95, and stops. Pair with `.fps=0`, or the pacing is what gets timed; live input is ignored |
+| `-Dcrystalgraphics.harness.reloadAt=<frame>` | Ctrl+R's reload at that frame; with `.reloadStage=<dir>`, that directory's files are first copied over the first `crystalgraphics.resourceOverrideDirs` root — an edit saved mid-run |
+| `-Dcrystalgraphics.harness.resizeAt=<frame>:<w>x<h>` | resizes the window at that frame |
+
+On `--device=vulkan`, `[Harness] vulkan after teardown: validationErrors=N` is printed after the device has
+closed, so it counts what teardown raised. `-Dcrystalgraphics.vulkan.presentMode=immediate|mailbox|fifo` forces
+a present mode.
 
 
 ---
@@ -583,15 +635,37 @@ tops out at the cap, and that number is the limiter's, not the engine's.
 
 ```bash
 # Uncapped, for a headroom measurement: how fast CAN this scene run?
-./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop" -Dcrystalgraphics.harness.fps=0
+./gradlew :gl-debug-harness:runHarness --args="--mode=forward-renderer" -Dcrystalgraphics.harness.fps=0
 
 # Or pin it somewhere else
 -Dcrystalgraphics.harness.fps=240
 ```
 
 Capped stays the default: a UI scene otherwise spins a core redrawing a picture nobody asked for. Pair
-an uncapped run with the frame readout (**F7** in `cgui-desktop`) and with
+an uncapped run with a frame readout — from CrystalGUI, **F7** in its `cgui-desktop` and
 `-Dcrystalgui.frameprofile=true` for the per-phase breakdown.
+
+### Timing a scene — `FrameBench`
+
+`-Dcrystalgraphics.harness.bench=<frames>` times that many frames of any interactive scene, after
+`bench.warmup` (default 300) discarded ones, then prints wall-time percentiles, allocation per frame and
+mean CPU time, and stops. It also prints the class-file version the engine was loaded from.
+
+```bash
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop" \
+    -Dcrystalgraphics.harness.bench=1500 -Dcrystalgraphics.harness.fps=0 -Dcrystalgraphics.harness.fixedDelta=0.0166667
+
+# the same, against the Java 8 bytecode the shipped jars carry
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop" -Pharness.bytecode=8 \
+    -Dcrystalgraphics.harness.bench=1500 -Dcrystalgraphics.harness.fps=0 -Dcrystalgraphics.harness.fixedDelta=0.0166667
+```
+
+- Run uncapped (`fps=0`), or the cap's sleep is what gets measured.
+- CPU time is a mean only: a thread's CPU clock ticks in 15.6 ms steps on Windows.
+- One run is one sample. Alternate the builds being compared, several times each: run to run on one
+  machine, wall time spreads by more than most differences worth finding.
+- A scene that ends itself (`text-stress`, `cgui-text-stress` stop at 543 frames) needs a warm-up and
+  window that fit, or it prints nothing.
 
 ### Output Organization
 
@@ -692,7 +766,7 @@ Use `--output-name=PREFIX` to customize output filenames:
 
 ## Build Configuration
 
-The harness is a standalone Gradle subproject (`gl-debug-harness/build.gradle.kts`) that depends on the root project for CgCapabilities, CgGlyphAtlasPage, and font APIs. It resolves LWJGL 3 through its BOM, with the natives for the running OS and architecture chosen at configuration time (no extraction step), plus the JNI bindings for freetype-harfbuzz and msdfgen.
+The harness is a standalone Gradle subproject (`gl-debug-harness/build.gradle.kts`) that depends on CrystalGraphics alone — `platform`, `core`, the JNI bindings and the `lwjgl3` tier-1 runtime, by `com.crystalgraphics:*` coordinates a host resolves through its composite build — and names no project on top of it. It resolves LWJGL 3 through its BOM, with the natives for the running OS and architecture chosen at configuration time (no extraction step), plus the JNI bindings for freetype-harfbuzz and msdfgen.
 
 Key tasks:
 - `compileJava` — Compile all harness code

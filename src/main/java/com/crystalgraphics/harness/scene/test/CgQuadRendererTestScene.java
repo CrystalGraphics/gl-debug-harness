@@ -16,7 +16,7 @@ import org.joml.Matrix4f;
 /**
  * Interactive visual test for {@link CgQuadRenderer} — the new SSBO/TBO-backed general
  * quad-instancing renderer (see
- * {@code CrystalGraphics/docs_research/CGTEXTRENDERER_INSTANCING_FOUNDATIONS.md} Decision 5).
+ * {@code plan/text-instancing.md}).
  *
  * <p>Renders two groups of quads, submitted into the <strong>same</strong> begin/flush/end
  * window so both land in a single instanced draw call, both via the fluent

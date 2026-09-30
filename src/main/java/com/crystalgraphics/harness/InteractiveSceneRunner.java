@@ -3,12 +3,19 @@ package com.crystalgraphics.harness;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.gl.CgGlRecording;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.util.trace.CgChannels;
 import com.crystalgraphics.harness.trace.TraceDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.camera.FloorRenderer;
@@ -33,13 +40,16 @@ import com.crystalgraphics.harness.util.HarnessProjectionUtil;
 import com.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.input.CgKeyCodes;
+import com.crystalgraphics.harness.runtime.FrameBench;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 
 import com.sun.management.ThreadMXBean;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 /**
  * Drives the render loop for interactive scene implementations.
@@ -102,20 +112,26 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     /** Frames discarded before {@code -Dcrystalgraphics.harness.profile} starts counting: the first
      * few carry every lazy allocation and every shader variant's first compile, which is a scene's
-     * startup cost rather than its frame cost. {@code .profile.warmup=<frames>} for a scene that keeps
-     * loading longer -- the desktop generates glyphs and starts the language stack for seconds. */
-    private static final int PROFILE_WARMUP_FRAMES = Integer.getInteger("crystalgraphics.harness.profile.warmup", 30);
-
-    /** The swap blocks when the GPU is behind, and the sync sleeps to hold the rate: waits, not work. */
-    private static final int SWAP = CgTrace.waitName("frame.swap");
-    private static final int SYNC = CgTrace.waitName("frame.sync");
-
-    /** Zones a profiled frame may hold, per thread: the ring is sized so no profiled frame loses its own. */
-    private static final int PROFILE_ZONES_PER_FRAME =
-            Integer.getInteger("crystalgraphics.harness.profile.zonesPerFrame", 16_384);
+     * startup cost rather than its frame cost. */
+    private static final int PROFILE_WARMUP_FRAMES = 30;
     /** {@code -Dcrystalgraphics.harness.captureAt=<frame>}: photograph that frame and stop -- an unattended
-     * picture of any interactive scene. Pair with {@code fixedDelta} for one that repeats run to run. */
+     * picture of any interactive scene. Pair with {@code fixedDelta} for one that repeats run to run. Live input
+     * is ignored meanwhile: a pointer crossing the window would otherwise grab it and turn the camera. */
     private static final int CAPTURE_AT = Integer.getInteger("crystalgraphics.harness.captureAt", 0);
+    /** {@code -Dcrystalgraphics.harness.reloadAt=<frame>}: Ctrl+R's reload at that frame, unattended. With
+     * {@code .reloadStage=<dir>}, that directory's files are first copied over the first override root
+     * ({@code crystalgraphics.resourceOverrideDirs}): an edit saved, then reloaded. */
+    private static final int RELOAD_AT = Integer.getInteger("crystalgraphics.harness.reloadAt", 0);
+    /** {@code -Dcrystalgraphics.harness.resizeAt=<frame>:<width>x<height>}: resizes the window at that frame. */
+    private static final String RESIZE_AT = System.getProperty("crystalgraphics.harness.resizeAt");
+    /** {@code -Dcrystalgraphics.harness.frameTimes=<frames>}: after {@value #FRAME_TIME_WARMUP} frames, times that
+     * many frame to frame, logs the median, mean and 95th percentile, and stops. Pair with {@code .fps=0}, or the
+     * pacing is what gets measured. Live input is ignored, as under {@code captureAt}: a turned camera is a
+     * different frame to time. */
+    private static final int FRAME_TIMES = Integer.getInteger("crystalgraphics.harness.frameTimes", 0);
+    private static final int FRAME_TIME_WARMUP = 60;
+    /** A capture or a timing run: nobody is at the keyboard, and a hand on the mouse must not change the picture. */
+    private static final boolean UNATTENDED = CAPTURE_AT > 0 || FRAME_TIMES > 0;
     /** {@code -Dcrystalgraphics.harness.record=<frame>}: from that frame on, the scene pass is recorded and replayed
      * instead of drawn, so a capture shows the replay. Logs what a recorded frame allocates beside a direct one. */
     private static final int RECORD_FROM = Integer.getInteger("crystalgraphics.harness.record", 0);
@@ -259,29 +275,22 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // every scene having to grow one. Unattended, so two builds can be compared back to back, which
         // is the only way these numbers mean anything: run to run on one machine they spread further
         // than most differences worth finding.
-        // CrystalGraphics' own channels always; anything else -- a project on top of it, the GPU -- through
-        // -Dcrystalgraphics.trace.channels, which the engine applied at launch.
         int profileFrames = Integer.getInteger("crystalgraphics.harness.profile", 0);
-        if (profileFrames > 0) {
-            // EVERY PROFILED FRAME KEEPS ITS ZONES. At the default ceiling a dense channel wraps a thread's
-            // arena within a dozen frames, and the report's older frames came back with nothing in them.
-            // After the scene's init, so a viewer's saved ring and stop-after-hitch cannot cut a profile short.
-            CgTrace.configure(0, PROFILE_WARMUP_FRAMES + profileFrames + 8, PROFILE_ZONES_PER_FRAME);
-            CgTrace.stopAfterHitch(0L, 0);
-            CgTrace.enable("crystalgraphics");
-        }
+        if (profileFrames > 0) CgTrace.enable("crystalgraphics");
         long profileFrom = 0L;
         // THE HARNESS IS THE HOST, so it brackets each loop as a trace frame -- unless the scene frames
         // itself (a UIDocument does), which it notices the first time the index moves under a render.
         boolean sceneFrames = false;
+        FrameBench bench = FrameBench.fromProperty();
 
         while (!HarnessWindow.shouldClose() && scene.isRunning() && !HarnessDeadline.expired()) {
+            if (bench != null) bench.begin();
             if (profileFrames > 0) {
                 if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES) profileFrom = CgTrace.currentFrameIndex() + 1;
                 if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES + profileFrames) {
-                    File report = TraceDump.profile(new File(ctx.getOutputDir()),
+                    File dump = TraceDump.dump(new File(ctx.getOutputDir()),
                             "harness-" + profileFrames + "f", profileFrom);
-                    LOGGER.info("[InteractiveSceneRunner] profile report=" + report);
+                    LOGGER.info("[InteractiveSceneRunner] profile dump=" + dump);
                     break;
                 }
             }
@@ -289,30 +298,33 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // 1. Frame clock tick — compute delta, elapsed, frame number
             frameClock.tick();
             if (!sceneFrames) CgTrace.frameBegin();
+            if (FRAME_TIMES > 0 && timeFrame(frameClock.getFrameNumber())) break;
+            if (RELOAD_AT > 0 && frameClock.getFrameNumber() == RELOAD_AT) {
+                stageEdits();
+                reloadAssets();
+            }
+            if (RESIZE_AT != null) resizeIfDue(frameClock.getFrameNumber());
 
             // 2. Handle window resize events — update context and notify renderers.
             //    Also notifies the scene via the unified lifecycle onResize hook.
             if (resizeHandler.checkAndPropagate()) {
                 ViewportState vp = ctx.getViewport();
+                PlatformServiceHarness.resizeSurface(vp.getWidth(), vp.getHeight());
                 CgGraphicsLifecycle.onResize(vp.getWidth(), vp.getHeight());
                 scene.onResize(vp.getWidth(), vp.getHeight());
                 ctx.setProjection(HarnessProjectionUtil.perspective(vp.getWidth(), vp.getHeight()));
             }
 
-            // 3. Input, before the camera reads it. The OS message pump is here, and it can block.
-            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.input")) {
-                pollInput();
-            }
+            // 3. Input, before the camera reads it.
+            pollInput();
 
-            // 4. Camera update (skipped when paused)
-            if (scene.uses3DCamera() && !inputPauseHandler.isPaused()) {
+            // 4. Camera update (skipped when paused, and in an unattended capture)
+            if (scene.uses3DCamera() && !inputPauseHandler.isPaused() && !UNATTENDED) {
                 camera.update(frameClock.getDeltaTime());
             }
 
             // 5. Fire any scheduled tasks that are due (even when paused)
-            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.scheduler")) {
-                scheduler.tick(frameClock.getElapsedTime());
-            }
+            scheduler.tick(frameClock.getElapsedTime());
 
             // ── Frame render pipeline ──
             // Pass ordering: world → scene → post-scene reset → overlays → capture
@@ -342,16 +354,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // 9. Scene pass: set baseline state, then let the scene render freely
             RenderPassState.beginScenePass();
             long framedAs = CgTrace.currentFrameIndex();
-            FrameInfo info = new FrameInfo(frameClock.getDeltaTime(),
-                    frameClock.getElapsedTime(), frameClock.getFrameNumber());
-            if (sceneFrames) {
-                // A SCENE THAT FRAMES ITSELF begins its trace frame inside this call, so a zone around it
-                // would straddle every boundary: force-closed each frame, with the scene's work orphaned.
-                renderScene(ctx, info);
-            } else {
-                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.scene")) {
-                    renderScene(ctx, info);
-                }
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.scene")) {
+                renderScene(ctx, new FrameInfo(frameClock.getDeltaTime(),
+                        frameClock.getElapsedTime(), frameClock.getFrameNumber()));
             }
             if (CgTrace.currentFrameIndex() != framedAs) sceneFrames = true;
             if (CAPTURE_AT > 0 && frameClock.getFrameNumber() == CAPTURE_AT) {
@@ -381,11 +386,13 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // behind the CPU shows up as a block; sync() is a deliberate sleep to hold TARGET_FPS, and
             // being large there means the frame finished EARLY. Lumping them together would make an
             // idle frame look like a stalled one.
-            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, SWAP)) {
+            long swapStart = System.nanoTime();
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.swap")) {
                 HarnessWindow.swapBuffers();
             }
+            swapNanos += System.nanoTime() - swapStart;
             if (TARGET_FPS > 0) {
-                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, SYNC)) {
+                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.sync")) {
                     HarnessWindow.sync(TARGET_FPS);
                 }
             }
@@ -393,12 +400,14 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // 15. Frame is genuinely over -- hand the scene its true wall duration. See
             //     InteractiveSceneLifecycle#onFrameEnd for why profiling from inside render()
             //     misattributes both the duration and every post-render step.
-            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.onFrameEnd")) {
-                scene.onFrameEnd(ctx, new FrameInfo(
-                        (float) ((System.nanoTime() - frameStartNanos) / 1_000_000_000.0),
-                        frameClock.getElapsedTime(), frameClock.getFrameNumber()));
-            }
+            scene.onFrameEnd(ctx, new FrameInfo(
+                    (float) ((System.nanoTime() - frameStartNanos) / 1_000_000_000.0),
+                    frameClock.getElapsedTime(), frameClock.getFrameNumber()));
             if (CAPTURE_AT > 0 && frameClock.getFrameNumber() >= CAPTURE_AT) break;
+            if (bench != null && bench.end()) {
+                bench.report(scene.getClass().getSimpleName());
+                break;
+            }
         }
 
         LOGGER.info("[InteractiveSceneRunner] Render loop exited after "
@@ -423,6 +432,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private void pollInput() {
         HarnessWindow.pollEvents();
+        if (UNATTENDED) {
+            HarnessWindow.drainMouse();
+            HarnessWindow.drainKeyboard();
+            return;
+        }
         for (CgSystemInput.Mouse.Event event : HarnessWindow.drainMouse()) {
             for (CgSystemInput.Mouse listener : mouseListeners) {
                 if (!listener.consumeMouseEvent(event)) break;
@@ -463,6 +477,68 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * {@code crystalgraphics.resourceOverrideDirs} at the source trees, so an edited file is what the reload
      * sees rather than the copy {@code processResources} made at build time.</p>
      */
+    private long[] frameNanos, workNanos;
+    private long lastFrameStart, swapNanos;
+
+    /**
+     * One frame-to-frame interval into {@link #FRAME_TIMES}' sample, and the same without presentation — GL's swap,
+     * the Vulkan host's submit and present — which is what a host that presents for us would pay. True once full.
+     */
+    private boolean timeFrame(long frame) {
+        long now = System.nanoTime();
+        long present = swapNanos + PlatformServiceHarness.takePresentNanos();
+        swapNanos = 0;
+        if (frame > FRAME_TIME_WARMUP) {
+            if (frameNanos == null) {
+                frameNanos = new long[FRAME_TIMES];
+                workNanos = new long[FRAME_TIMES];
+            }
+            int i = (int) (frame - FRAME_TIME_WARMUP - 1);
+            frameNanos[i] = now - lastFrameStart;
+            workNanos[i] = frameNanos[i] - present;
+            if (i == FRAME_TIMES - 1) {
+                LOGGER.info("[frame-times] " + FRAME_TIMES + " frames: " + summary(frameNanos)
+                        + "; without presentation: " + summary(workNanos));
+                return true;
+            }
+        }
+        lastFrameStart = now;
+        return false;
+    }
+
+    private static String summary(long[] nanos) {
+        long[] sorted = nanos.clone();
+        Arrays.sort(sorted);
+        double mean = Arrays.stream(sorted).average().orElse(0);
+        return String.format("median %.3f ms, mean %.3f ms, p95 %.3f ms",
+                sorted[sorted.length / 2] / 1e6, mean / 1e6, sorted[sorted.length * 95 / 100] / 1e6);
+    }
+
+    /** {@link #RELOAD_AT}'s staged edit: every file under {@code .reloadStage} over the first override root. */
+    private static void stageEdits() {
+        String stage = System.getProperty("crystalgraphics.harness.reloadStage");
+        String roots = System.getProperty("crystalgraphics.resourceOverrideDirs",
+                System.getProperty("crystalgraphics.shader.resourceOverrideDir"));
+        if (stage == null || roots == null) return;
+        Path from = Paths.get(stage), to = Paths.get(roots.split(File.pathSeparator)[0].trim());
+        try (Stream<Path> files = Files.walk(from)) {
+            for (Path file : (Iterable<Path>) files.filter(Files::isRegularFile)::iterator) {
+                Path target = to.resolve(from.relativize(file).toString());
+                Files.createDirectories(target.getParent());
+                Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("staging " + stage + " into " + to, e);
+        }
+    }
+
+    private static void resizeIfDue(long frame) {
+        String[] at = RESIZE_AT.split(":");
+        if (Long.parseLong(at[0]) != frame) return;
+        String[] size = at[1].split("x");
+        HarnessWindow.setSize(Integer.parseInt(size[0]), Integer.parseInt(size[1]));
+    }
+
     private void reloadAssets() {
         try {
             for (HarnessExtension extension : HarnessExtensions.all()) {

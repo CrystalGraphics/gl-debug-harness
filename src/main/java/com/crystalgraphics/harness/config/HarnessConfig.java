@@ -36,6 +36,13 @@ public class HarnessConfig {
      */
     private double seconds;
 
+    /**
+     * What {@code CgGL} runs on: {@code gl}; {@code tracked} -- the tracked backend over a recording device, which
+     * validates every command a Vulkan device would be sent and presents nothing; or {@code vulkan} -- the tracked
+     * backend over CrystalGraphics' Vulkan device, presenting to the window. Set with {@code --device=gl|tracked|vulkan}.
+     */
+    private String device;
+
     public HarnessConfig() {
         this.outputDir = "gl-debug-harness/harness-output";
         this.width = 1920;
@@ -43,6 +50,7 @@ public class HarnessConfig {
         this.fontPath = null;
         this.outputName = null;
         this.seconds = 0d;
+        this.device = "gl";
     }
 
     public String getOutputDir() { return outputDir; }
@@ -69,6 +77,9 @@ public class HarnessConfig {
     public double getSeconds() { return seconds; }
     public void setSeconds(double val) { this.seconds = val; }
 
+    /** {@code gl}, {@code tracked} or {@code vulkan}. See {@link #device}. */
+    public String getDevice() { return device; }
+
     /**
      * Apply system property overrides (called before CLI args).
      */
@@ -92,6 +103,10 @@ public class HarnessConfig {
         String secs = System.getProperty("harness.seconds");
         if (secs != null && !secs.isEmpty()) {
             this.seconds = parseSecondsStrict(secs, "harness.seconds");
+        }
+        String dev = System.getProperty("harness.device");
+        if (dev != null && !dev.isEmpty()) {
+            this.device = parseDevice(dev, "harness.device");
         }
     }
 
@@ -117,6 +132,14 @@ public class HarnessConfig {
         if (args.containsKey("seconds")) {
             this.seconds = parseSecondsStrict(args.get("seconds"), "--seconds");
         }
+        if (args.containsKey("device")) {
+            this.device = parseDevice(args.get("device"), "--device");
+        }
+    }
+
+    private static String parseDevice(String value, String paramName) {
+        if (value.equals("gl") || value.equals("tracked") || value.equals("vulkan")) return value;
+        throw new IllegalArgumentException("Invalid value for " + paramName + ": '" + value + "' (gl, tracked or vulkan)");
     }
 
     /**

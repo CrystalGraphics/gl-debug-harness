@@ -18,6 +18,7 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
@@ -29,8 +30,9 @@ import org.lwjgl.opengl.GL30;
  * <p>What the picture proves, in painter's order:</p>
  * <ul>
  *   <li>red, ours: a slab at depth 0.6;</li>
- *   <li>green, the host's: a nearer quad, depth-tested against red, drawn with fixed function and leaving its
- *       own state behind — program 0, depth test {@code LESS}, blending {@code ONE, ZERO}, a 16 px viewport;</li>
+ *   <li>green, the host's: a nearer quad, depth-tested against red, drawn in raw GL with its own program and
+ *       vertex array and leaving its own state behind — both still bound, depth test {@code LESS}, blending
+ *       {@code ONE, ZERO}, a 16 px viewport;</li>
  *   <li>blue, ours: a slab at red's depth that must cover red ({@code LEQUAL}) and stay behind green.</li>
  * </ul>
  * <p>The whole frame sits in one outer scope, so the pipeline's own scopes are nested and trust the shadow: if
@@ -49,7 +51,9 @@ public final class CgHostSectionScene implements InteractiveSceneLifecycle {
     private CgMesh slab;
     private CgMaterial material;
     private CgRenderPipeline pipeline;
-    private final Runnable host = CgHostSectionScene::hostDraws;
+    private final Runnable host = this::hostDraws;
+    /** The host's own objects, made on its first draw: inside the section, where its bindings are declared. */
+    private int hostProgram, hostVao, hostVbo;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -104,34 +108,52 @@ public final class CgHostSectionScene implements InteractiveSceneLifecycle {
         pipeline.endFrame();
     }
 
-    /** The host's part: raw GL and fixed function, with its own state left behind as a host leaves it. */
-    private static void hostDraws() {
-        GL20.glUseProgram(0);
-        GL30.glBindVertexArray(0);
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
+    /** The host's part: raw GL on a core context, with its own state left behind as a host leaves it. */
+    private void hostDraws() {
+        if (hostProgram == 0) createHostObjects();
+        GL20.glUseProgram(hostProgram);
+        GL30.glBindVertexArray(hostVao);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
         GL11.glDepthFunc(GL11.GL_LESS);
         GL11.glDepthMask(true);
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glBlendFunc(GL11.GL_ONE, GL11.GL_ZERO);
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glPushMatrix();
-        GL11.glLoadIdentity();
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glPushMatrix();
-        GL11.glLoadIdentity();
-        GL11.glColor4f(0.2f, 0.8f, 0.3f, 1f);
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(-0.1f, -0.45f, -0.4f);
-        GL11.glVertex3f(0.75f, -0.45f, -0.4f);
-        GL11.glVertex3f(0.75f, 0.35f, -0.4f);
-        GL11.glVertex3f(-0.1f, 0.35f, -0.4f);
-        GL11.glEnd();
-        GL11.glPopMatrix();
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glPopMatrix();
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+        GL11.glDrawArrays(GL11.GL_TRIANGLE_FAN, 0, 4);
         GL11.glViewport(0, 0, 16, 16);
+    }
+
+    private void createHostObjects() {
+        int vs = compile(GL20.GL_VERTEX_SHADER,
+                "#version 330 core\nlayout(location = 0) in vec3 pos;\nvoid main() { gl_Position = vec4(pos, 1.0); }\n");
+        int fs = compile(GL20.GL_FRAGMENT_SHADER,
+                "#version 330 core\nout vec4 color;\nvoid main() { color = vec4(0.2, 0.8, 0.3, 1.0); }\n");
+        hostProgram = GL20.glCreateProgram();
+        GL20.glAttachShader(hostProgram, vs);
+        GL20.glAttachShader(hostProgram, fs);
+        GL20.glLinkProgram(hostProgram);
+        GL20.glDeleteShader(vs);
+        GL20.glDeleteShader(fs);
+        if (GL20.glGetProgrami(hostProgram, GL20.GL_LINK_STATUS) == GL11.GL_FALSE)
+            throw new IllegalStateException("host program: " + GL20.glGetProgramInfoLog(hostProgram));
+
+        hostVao = GL30.glGenVertexArrays();
+        GL30.glBindVertexArray(hostVao);
+        hostVbo = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, hostVbo);
+        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, new float[] {
+                -0.1f, -0.45f, -0.4f,   0.75f, -0.45f, -0.4f,   0.75f, 0.35f, -0.4f,   -0.1f, 0.35f, -0.4f },
+                GL15.GL_STATIC_DRAW);
+        GL20.glEnableVertexAttribArray(0);
+        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 0, 0L);
+    }
+
+    private static int compile(int stage, String source) {
+        int shader = GL20.glCreateShader(stage);
+        GL20.glShaderSource(shader, source);
+        GL20.glCompileShader(shader);
+        if (GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE)
+            throw new IllegalStateException("host shader: " + GL20.glGetShaderInfoLog(shader));
+        return shader;
     }
 
     @Override public boolean isRunning() { return true; }
@@ -141,5 +163,10 @@ public final class CgHostSectionScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         slab.delete();
+        if (hostProgram != 0) {
+            GL20.glDeleteProgram(hostProgram);
+            GL30.glDeleteVertexArrays(hostVao);
+            GL15.glDeleteBuffers(hostVbo);
+        }
     }
 }
