@@ -1,12 +1,27 @@
 package com.crystalgraphics.harness.trace;
 
+import com.crystalgraphics.trace.CgFrameRecord;
+import com.crystalgraphics.trace.CgTrace;
+import com.crystalgraphics.trace.CgTraceExport;
+import com.crystalgraphics.trace.CgTraceNames;
+import com.crystalgraphics.trace.CgTraceReport;
+import com.crystalgraphics.trace.CgTraceSnapshot;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Stream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -34,6 +49,122 @@ public final class TraceDump {
     /** Every thread's, including background workers. @return the file, or null */
     public static File dumpAllThreads(File directory, String label, long frameIndex) {
         return write(directory, label, TraceReport.allThreadsSince(frameIndex));
+    }
+
+    /**
+     * Everything one profiled run can say, from frame {@code fromFrame} on, into a folder whose name does
+     * not change — so an agent's loop is "run, read {@code report.txt}, edit, run, diff against
+     * {@code .prev}".
+     *
+     * <pre>{@code
+     * TraceDump.profile(outputDir, "harness-300f", mark);
+     * //   profile-<label>/report.txt   read this first: the breakdown, and the slowest, idlest and a
+     * //                                typical frame in detail
+     * //   profile-<label>/tree.txt     every thread's call tree, ms and calls per frame
+     * //   profile-<label>/trace.json   for ui.perfetto.dev -- only with -Dcrystalgraphics.harness.profile.json=true
+     * //   profile-<label>.prev/        the run before, for a diff
+     * }</pre>
+     *
+     * @return the report, or null if it could not be written
+     */
+    public static File profile(File directory, String label, long fromFrame) {
+        File folder = new File(directory, "profile-" + label);
+        try {
+            rotate(folder, new File(directory, "profile-" + label + ".prev"));
+            Files.createDirectories(folder.toPath());
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "[TraceDump] could not prepare " + folder, e);
+            return null;
+        }
+        CgTraceSnapshot range = since(CgTrace.snapshot(), fromFrame);
+        SourcePaths sources = SourcePaths.forRepository();
+        File report = new File(folder, "report.txt");
+        File tree = new File(folder, "tree.txt");
+        try {
+            Files.write(report.toPath(), CgTraceReport.of(range).sources(sources).breakdown()
+                    .getBytes(StandardCharsets.UTF_8));
+            Files.write(tree.toPath(), callTree(fromFrame, range.frames().size(), sources)
+                    .getBytes(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "[TraceDump] failed to write the profile", e);
+            return null;
+        }
+        if (Boolean.getBoolean("crystalgraphics.harness.profile.json")) {
+            File json = new File(folder, "trace.json");
+            try (Writer out = Files.newBufferedWriter(json.toPath(), StandardCharsets.UTF_8)) {
+                CgTraceExport.writeChromeJson(out, range);
+            } catch (IOException | RuntimeException e) {
+                LOGGER.log(Level.WARNING, "[TraceDump] failed to write the trace", e);
+            }
+        }
+        LOGGER.info("[TraceDump] wrote " + folder.getAbsolutePath() + " -- read report.txt first");
+        return report;
+    }
+
+    /** Moves the last run's folder aside, replacing the one before it. */
+    private static void rotate(File current, File previous) throws IOException {
+        if (!current.isDirectory()) return;
+        if (previous.exists()) deleteTree(previous.toPath());
+        Files.move(current.toPath(), previous.toPath());
+    }
+
+    private static void deleteTree(Path dir) throws IOException {
+        try (Stream<Path> walk = Files.walk(dir)) {
+            List<Path> all = walk.sorted(Comparator.reverseOrder()).toList();
+            for (Path each : all) Files.deleteIfExists(each);
+        }
+    }
+
+    /** Every thread's call tree over the profiled frames, in ms and calls per frame, with sources. */
+    private static String callTree(long fromFrame, int frames, SourcePaths sources) {
+        Map<String, TraceReport> threads = TraceReport.allThreadsSince(fromFrame);
+        int per = Math.max(1, frames);
+        StringBuilder out = new StringBuilder(16384);
+        out.append("CALL TREE  every thread, ").append(frames)
+                .append(" frames. ms per frame (total, self), calls per frame, the longest single call\n");
+        for (Map.Entry<String, TraceReport> thread : threads.entrySet()) {
+            List<TraceReport.ScopeEntry> scopes = thread.getValue().scopes();
+            int width = "zone".length();
+            for (TraceReport.ScopeEntry e : scopes) width = Math.max(width, e.depth() * 2 + e.name().length() + (CgTrace.isWait(e.name()) ? 7 : 0));
+            out.append("\n[").append(thread.getKey()).append("]\n");
+            out.append(String.format(Locale.ROOT, "  %-" + width + "s %10s %10s %10s %9s   %s%n",
+                    "zone", "total/fr", "self/fr", "calls/fr", "max ms", "source"));
+            for (TraceReport.ScopeEntry e : scopes) {
+                String source = CgTraceNames.sourceOf(CgTraceNames.intern(e.name()));
+                out.append(String.format(Locale.ROOT, "  %-" + width + "s %10.3f %10.3f %10.1f %9.3f   %s%n",
+                        "  ".repeat(e.depth()) + e.name() + (CgTrace.isWait(e.name()) ? " [wait]" : ""),
+                        e.totalNanos() / 1e6d / per, e.selfNanos() / 1e6d / per, e.callCount() / (double) per,
+                        e.maxNanos() / 1e6d, source == null ? "" : sources.apply(source)));
+            }
+        }
+        return out.toString();
+    }
+
+    /** {@code snapshot} from frame {@code fromFrame} on: its frames, the zones and events inside them. */
+    private static CgTraceSnapshot since(CgTraceSnapshot snapshot, long fromFrame) {
+        List<CgFrameRecord> frames = new ArrayList<>();
+        for (CgFrameRecord frame : snapshot.frames()) {
+            if (frame.index() >= fromFrame) frames.add(frame);
+        }
+        if (frames.isEmpty()) return snapshot;
+        long from = frames.get(0).beginNanos();
+        List<CgTraceSnapshot.ZoneView> zones = new ArrayList<>();
+        for (CgTraceSnapshot.ZoneView zone : snapshot.zones()) {
+            if (zone.startNanos() >= from) zones.add(zone);
+        }
+        List<CgTraceSnapshot.CounterView> counters = new ArrayList<>();
+        for (CgTraceSnapshot.CounterView counter : snapshot.counters()) {
+            if (counter.frameIndex() >= fromFrame) counters.add(counter);
+        }
+        List<CgTraceSnapshot.MarkerView> markers = new ArrayList<>();
+        for (CgTraceSnapshot.MarkerView marker : snapshot.markers()) {
+            if (marker.nanos() >= from) markers.add(marker);
+        }
+        List<CgTraceSnapshot.SpanView> spans = new ArrayList<>();
+        for (CgTraceSnapshot.SpanView span : snapshot.spans()) {
+            if (span.startNanos() >= from) spans.add(span);
+        }
+        return CgTraceSnapshot.of(frames, zones, counters, markers, spans);
     }
 
     private static File write(File directory, String label, Map<String, TraceReport> reports) {

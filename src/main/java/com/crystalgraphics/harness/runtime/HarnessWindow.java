@@ -178,7 +178,11 @@ public final class HarnessWindow {
     public static void sync(int fps) {
         long frame = 1_000_000_000L / fps;
         long now = System.nanoTime();
-        if (nextFrameNanos == 0L || now - nextFrameNanos > frame) nextFrameNanos = now;
+        if (nextFrameNanos == 0L || now - nextFrameNanos > frame) {
+            // Behind by more than a frame: re-anchor and do not sleep, or every overrun frame is doubled.
+            nextFrameNanos = now;
+            return;
+        }
         nextFrameNanos += frame;
         long wait;
         while ((wait = nextFrameNanos - System.nanoTime()) > 0L) {
