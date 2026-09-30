@@ -152,7 +152,7 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
             Column.scope("qrBindBufMs", "quadRenderer.bindBuffer"),
             Column.scope("qrDrawInstMs", "quadRenderer.drawInstanced"),
             Column.counter("qrFlushes", "quadRenderer.flush.count"),
-            Column.sample("qrInstances", "quadRenderer.instances"),
+            Column.counter("qrInstances", "quadRenderer.instances"),
             Column.scope("ssboMapMs", "streamBuffer.ssbo.map"),
             Column.scope("ssboWriteMs", "streamBuffer.ssbo.write"),
             Column.scope("ssboCommitMs", "streamBuffer.ssbo.commit"),
