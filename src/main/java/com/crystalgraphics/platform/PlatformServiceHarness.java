@@ -9,6 +9,7 @@ import com.crystalgraphics.platform.CgPlatformService;
 import com.crystalgraphics.platform.device.CgDevice;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.platform.device.recording.CgRecordingDevice;
+import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
 import com.crystalgraphics.platform.gl.state.CgGlState;
@@ -111,6 +112,8 @@ public final class PlatformServiceHarness implements CgPlatformService {
         }
         if (p.device != null) p.tracked = new CgTrackedGLBackend(p.device, new ShadercGlslCompiler(), true);
         CgPlatform.register(p);
+        // Scenes use CgGL from the start, before any host section would install it.
+        CgGL.init(p.gl());
         if (p.tracked != null) CgGlState.setProvider(new CgTrackedStateProvider(p.tracked));
         // NATIVE CONTENT IS NOT DECLARED HERE, and it used to be.
         //
