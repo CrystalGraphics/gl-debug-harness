@@ -339,35 +339,43 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // profiler.
             long frameStartNanos = System.nanoTime();
 
-            // 6. Pre-render: set world pass state (depth ON, blend OFF, depth writes ON)
-            RenderPassState.beginWorldPass();
+            // THE FRAME IS ONE HOST SECTION: the harness is the host, and nothing between here and the overlays
+            // touches GL behind CgGL, so the state shadow is trusted across scopes -- as in Minecraft, whose
+            // paint host brackets the UI's whole frame. The lifecycle's own brackets nest inside.
+            CgGL.fromHost();
+            try {
+                // 6. Pre-render: set world pass state (depth ON, blend OFF, depth writes ON)
+                RenderPassState.beginWorldPass();
 
-            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.worldPass")) {
-                worldPassCoordinator.executeWorldPass(ctx, camera, scene.uses3DCamera());
-            }
+                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.worldPass")) {
+                    worldPassCoordinator.executeWorldPass(ctx, camera, scene.uses3DCamera());
+                }
 
-            // Text context
-            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.textContext")) {
-                ctx.getTextContext().update(ctx);
-            }
+                // Text context
+                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.textContext")) {
+                    ctx.getTextContext().update(ctx);
+                }
 
-            // 9. Scene pass: set baseline state, then let the scene render freely
-            RenderPassState.beginScenePass();
-            long framedAs = CgTrace.currentFrameIndex();
-            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.scene")) {
-                renderScene(ctx, new FrameInfo(frameClock.getDeltaTime(),
-                        frameClock.getElapsedTime(), frameClock.getFrameNumber()));
-            }
-            if (CgTrace.currentFrameIndex() != framedAs) sceneFrames = true;
-            if (CAPTURE_AT > 0 && frameClock.getFrameNumber() == CAPTURE_AT) {
-                artifactService.requestCapture("frame" + CAPTURE_AT);
-            }
+                // 9. Scene pass: set baseline state, then let the scene render freely
+                RenderPassState.beginScenePass();
+                long framedAs = CgTrace.currentFrameIndex();
+                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.scene")) {
+                    renderScene(ctx, new FrameInfo(frameClock.getDeltaTime(),
+                            frameClock.getElapsedTime(), frameClock.getFrameNumber()));
+                }
+                if (CgTrace.currentFrameIndex() != framedAs) sceneFrames = true;
+                if (CAPTURE_AT > 0 && frameClock.getFrameNumber() == CAPTURE_AT) {
+                    artifactService.requestCapture("frame" + CAPTURE_AT);
+                }
 
-            // 10-13. Post-scene sequence: GL reset → pause overlay → HUD → capture callback
-            //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
-            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.overlay")) {
-                overlayCaptureOrchestrator.executePostSceneSequence(
-                        inputPauseHandler.isPaused(), scene.uses3DCamera());
+                // 10-13. Post-scene sequence: GL reset → pause overlay → HUD → capture callback
+                //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
+                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.overlay")) {
+                    overlayCaptureOrchestrator.executePostSceneSequence(
+                            inputPauseHandler.isPaused(), scene.uses3DCamera());
+                }
+            } finally {
+                CgGL.toHost();
             }
 
             // 13b. Whole frame (world + scene + HUD overlay) is now fully rendered — the
