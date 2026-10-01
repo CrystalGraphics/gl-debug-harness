@@ -17,6 +17,7 @@ import org.joml.Matrix4f;
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.orbit=false    // fly it yourself
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.focus=11        // circle one sphere, close
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.look=-0.5,0.7,0.5 // look at the sky
  * }</pre>
  *
  * <p>Back row to front: gold, copper, mercury, colour-shift paint; soap bubble, crystal ball, hologram, ice; plasma,
@@ -31,6 +32,8 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
     private static final float ORBIT_RADIUS = 13.5f, ORBIT_HEIGHT = 6.2f, ORBIT_SPEED = 0.09f;
     /** {@code -Dcrystalgraphics.harness.vfx.focus=<0..15>}: the orbit circles that sphere, in the order above, close up. */
     private static final int FOCUS = Integer.getInteger("crystalgraphics.harness.vfx.focus", -1);
+    /** {@code -Dcrystalgraphics.harness.vfx.look=x,y,z}: from where the scene starts, look along that direction. */
+    private static final float[] LOOK = parseLook(System.getProperty("crystalgraphics.harness.vfx.look"));
     /** {@code -Dcrystalgraphics.harness.vfx.focus.distance=<metres>}: how far from it, 6.5 by default. */
     private static final float FOCUS_RADIUS = Float.parseFloat(System.getProperty("crystalgraphics.harness.vfx.focus.distance", "6.5"));
     /** {@code -Dcrystalgraphics.harness.vfx.focus.height=<metres>}: how far above it, 0.2 by default. */
@@ -55,7 +58,12 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
         CgWorldRenderer world = CgWorldRenderer.get();
         float camX, camY, camZ;
         Matrix4f view;
-        if (FOCUS >= 0 && FOCUS < CgVfxShowcase.COUNT) {
+        if (LOOK != null) {
+            camX = 0f;
+            camY = ORBIT_HEIGHT;
+            camZ = ORBIT_RADIUS;
+            view = orbitView.setLookAt(camX, camY, camZ, camX + LOOK[0], camY + LOOK[1], camZ + LOOK[2], 0f, 1f, 0f);
+        } else if (FOCUS >= 0 && FOCUS < CgVfxShowcase.COUNT) {
             float tx = (FOCUS % 4 - 1.5f) * CgVfxShowcase.SPACING, tz = (FOCUS / 4 - 1.5f) * CgVfxShowcase.SPACING;
             float ty = CgVfxShowcase.HEIGHT;
             float angle = seconds * ORBIT_SPEED * 2f;
@@ -78,6 +86,12 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
         showcase.submit(world, 0.0, 0.0, 0.0, seconds);
         showcase.submitStage(world, 0.0, 0.0, 0.0, camX, camY, camZ);
         HarnessWorld.fire(ctx, view, ctx.getProjection());
+    }
+
+    private static float[] parseLook(String value) {
+        if (value == null) return null;
+        String[] parts = value.split(",");
+        return new float[]{Float.parseFloat(parts[0]), Float.parseFloat(parts[1]), Float.parseFloat(parts[2])};
     }
 
     @Override
