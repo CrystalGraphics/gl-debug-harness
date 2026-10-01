@@ -14,6 +14,7 @@ import com.crystalgraphics.harness.scene.test.CgTextThreadedTestScene;
 import com.crystalgraphics.harness.scene.test.CgGraphExecutorTestScene;
 import com.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgForwardRendererScene;
+import com.crystalgraphics.harness.scene.test.CgVfxShowcaseScene;
 import com.crystalgraphics.harness.tool.CapabilityReport;
 import com.crystalgraphics.harness.tool.GlStateDumper;
 import com.crystalgraphics.harness.tool.ShaderCompileAuditScene;
@@ -264,6 +265,18 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
                 .build(),
             () -> new CgForwardRendererScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-spheres")
+                .description("VFX showcase: sixteen effect spheres (PBR metals, glass, plasma, a black hole...) on a neon floor")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxShowcaseScene()
         );
 
         reg.register(
