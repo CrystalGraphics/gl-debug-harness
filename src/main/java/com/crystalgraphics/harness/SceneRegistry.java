@@ -10,6 +10,7 @@ import com.crystalgraphics.harness.scene.test.ShaderLibTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
 import com.crystalgraphics.harness.scene.test.CgAttachedBufferStressScene;
 import com.crystalgraphics.harness.scene.test.CgVectorRendererTestScene;
+import com.crystalgraphics.harness.scene.test.CgGraphExecutorTestScene;
 import com.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import com.crystalgraphics.harness.tool.CapabilityReport;
@@ -208,6 +209,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgQuadRendererTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("graph-executor-test")
+                .description("render-graph G1: one picture drawn by CgQuadRenderer, by CgImmediate, and by a frame built on a worker thread -- three PNGs that must match")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(900)
+                .defaultHeight(700)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgGraphExecutorTestScene()
         );
 
         reg.register(
