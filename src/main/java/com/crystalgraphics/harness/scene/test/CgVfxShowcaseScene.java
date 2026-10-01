@@ -33,7 +33,8 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
     private static final int FOCUS = Integer.getInteger("crystalgraphics.harness.vfx.focus", -1);
     /** {@code -Dcrystalgraphics.harness.vfx.focus.distance=<metres>}: how far from it, 6.5 by default. */
     private static final float FOCUS_RADIUS = Float.parseFloat(System.getProperty("crystalgraphics.harness.vfx.focus.distance", "6.5"));
-    private static final float FOCUS_HEIGHT = 0.2f;
+    /** {@code -Dcrystalgraphics.harness.vfx.focus.height=<metres>}: how far above it, 0.2 by default. */
+    private static final float FOCUS_HEIGHT = Float.parseFloat(System.getProperty("crystalgraphics.harness.vfx.focus.height", "0.2"));
 
     private final CgVfxShowcase showcase = new CgVfxShowcase();
     private final Matrix4f orbitView = new Matrix4f();
