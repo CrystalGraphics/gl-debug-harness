@@ -72,7 +72,7 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
         // reason to trigger the pointless failed compile at all — just attach first).
         // The shader's "Properties { _MainTex (...) = "white" }" default string is NOT
         // automatically resolved to a real bound texture (CgMaterialProperty.samplerTexture
-        // stays null until explicitly set) — every real 2D consumer (e.g. UiRecorder)
+        // stays null until explicitly set) — every real 2D consumer (e.g. CgUiPaintContext)
         // binds a real texture explicitly, so we do the same here rather than rely on a
         // shader-declared default that the property system doesn't currently apply.
         material.applyProperties(b -> b.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1));
