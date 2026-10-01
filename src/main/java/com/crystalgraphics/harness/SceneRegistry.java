@@ -10,6 +10,7 @@ import com.crystalgraphics.harness.scene.test.ShaderLibTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
 import com.crystalgraphics.harness.scene.test.CgAttachedBufferStressScene;
 import com.crystalgraphics.harness.scene.test.CgVectorRendererTestScene;
+import com.crystalgraphics.harness.scene.test.CgTextThreadedTestScene;
 import com.crystalgraphics.harness.scene.test.CgGraphExecutorTestScene;
 import com.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgForwardRendererScene;
@@ -223,6 +224,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgGraphExecutorTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("text-threaded")
+                .description("render-graph G2.2a: text recorded on a worker while the render thread draws text in the same faces; a converged text drawn both ways must match")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(1200)
+                .defaultHeight(800)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgTextThreadedTestScene()
         );
 
         reg.register(
