@@ -381,7 +381,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // 13b. Whole frame (world + scene + HUD overlay) is now fully rendered — the
             //      canonical per-frame tick point (ticks CgFontRegistry's frame clock via
             //      the platform lifecycle service, not called directly by feature code
-            //      like HUDRenderer/CgUiPaintContext).
+            //      like HUDRenderer/UiRecorder).
             try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.onFrameRendered")) {
                 CgPlatform.lifecycle().onFrameRendered();
             }
