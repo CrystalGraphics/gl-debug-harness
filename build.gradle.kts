@@ -114,6 +114,8 @@ tasks.register<JavaExec>("runHarness") {
     group = "harness"
     // GLFW must own the first thread on macOS.
     if (lwjglNatives.startsWith("natives-macos")) jvmArgs("-XstartOnFirstThread")
+    // RenderDoc's in-app API is called through java.lang.foreign (--renderdoc).
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
 
     // A CONSUMER'S OWN CLASSES, so a scene can build that project's real screens instead of a copy:
     //

@@ -74,6 +74,34 @@ On `--device=vulkan`, `[Harness] vulkan after teardown: validationErrors=N` is p
 closed, so it counts what teardown raised. `-Dcrystalgraphics.vulkan.presentMode=immediate|mailbox|fifo` forces
 a present mode.
 
+## A GPU capture — `--renderdoc`
+
+```bash
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --renderdoc"                  # RenderDoc's install path
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --renderdoc=D:/rd/renderdoc.dll"
+# [RenderDoc] attached, API 1.x.y -- then F12, or RenderDoc.java from code
+```
+
+Loads RenderDoc before the window exists (it hooks context creation) and binds its in-app API through
+`java.lang.foreign`. Captures go to `harness-output/<scene>/renderdoc/<scene>_frameN.rdc`; open one in the RenderDoc
+UI, which also lists them live under File > Attach to Running Instance. The replay gives each draw's GPU duration and
+every resource's contents — what the frame's own `gpu:` zones cannot, since a `GL_TIME_ELAPSED` zone includes
+whatever queue sat in front of it.
+
+From a scene or probe, `runtime.RenderDoc`: `captureNextFrames(n)`, `startFrameCapture()` then
+`endFrameCapture()` or `discardFrameCapture()`, and `captures()` for the files written. Every call is a no-op
+without `--renderdoc`, so none needs a guard. OpenGL only — a Vulkan capture needs RenderDoc's layer, which this does
+not load.
+
+**Attached, every frame is 2-4x slower, captured or not** (the desktop with the shader graph: 8.3 ms to 33 ms wall,
+GPU 4 ms to 32 ms). So a run with `--renderdoc` measures nothing live, and a hitch it catches is RenderDoc's: capture
+for what the replay shows, never for when. `ShaderGraphCostProbe`'s `-Dcrystalgui.harness.desktop.graphCost.renderDoc`
+captures one settled frame.
+
+Reading a capture without the UI: `qrenderdoc.exe --python script.py` runs a script in RenderDoc's embedded Python
+(`import renderdoc as rd`; `rd.OpenCaptureFile()`, `OpenCapture`, `FetchCounters([rd.GPUCounter.EventGPUDuration])`
+per event, `GetPipelineState()` for what an event drew into). End it with `os._exit(0)` or the UI stays open.
+
 
 ---
 

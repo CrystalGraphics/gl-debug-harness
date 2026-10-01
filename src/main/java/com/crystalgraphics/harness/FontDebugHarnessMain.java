@@ -8,9 +8,11 @@ import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.service.CgCursorService;
 import com.crystalgraphics.lwjgl3.GlfwCursorService;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
+import com.crystalgraphics.harness.runtime.RenderDoc;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -19,11 +21,9 @@ public final class FontDebugHarnessMain {
     private static final Logger LOGGER = Logger.getLogger(FontDebugHarnessMain.class.getName());
 
     public static void main(String[] args) {
-        try {
-//            System.load("C:\\Program Files\\RenderDoc\\renderdoc.dll");
-        } catch (Exception e) {
-        }
-        
+        // Before the window: RenderDoc hooks context creation.
+        RenderDoc.attachIfRequested(args);
+
         String mode = null;
         boolean listMode = false;
         boolean helpMode = false;
@@ -86,6 +86,7 @@ public final class FontDebugHarnessMain {
         // Resolve the output name prefix: --output-name overrides the default (scene name)
         String outputName = config.getOutputName() != null ? config.getOutputName() : mode;
         LOGGER.info("[Harness] Output name prefix: " + outputName);
+        RenderDoc.captureTo(Path.of(sceneOutputDir, "renderdoc", outputName));
 
         HarnessContext ctx = null;
         boolean shouldShutdown = true;
@@ -203,6 +204,8 @@ public final class FontDebugHarnessMain {
         System.out.println("  --device=gl|tracked|vulkan  What CgGL runs on (default: gl). tracked: the tracked backend");
         System.out.println("                         over a recording device -- every command validated, nothing presented;");
         System.out.println("                         vulkan: over CrystalGraphics' Vulkan device, presenting to the window");
+        System.out.println("  --renderdoc[=<library>] Attach RenderDoc's in-app API (default library: its install path);");
+        System.out.println("                         captures go to harness-output/<scene>/renderdoc/, F12 or RenderDoc.java");
         System.out.println("  --seconds=<n>          Stop the scene after n seconds (default: run until closed).");
         System.out.println("                         Honoured by EVERY scene. Use it for any unattended run --");
         System.out.println("                         an interactive scene otherwise never returns. Fractional");
