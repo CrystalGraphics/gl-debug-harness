@@ -31,6 +31,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -40,6 +43,7 @@ import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 /**
  * Compiles every shipped {@code .shader} — and every keyword variant of each — against the real
@@ -479,7 +483,7 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
     // ── Resource enumeration ──────────────────────────────────────────────────
 
     /**
-     * Every {@code .shader} under {@code assets/<namespace>/shaders/}. Handles both a directory on
+     * Every {@code .shader} under {@code assets/<namespace>/shaders/}, subdirectories included. Handles both a directory on
      * disk (IDE / exploded run) and a jar entry (the normal harness run), because which one applies
      * depends on how the tester launched it and neither can be assumed.
      */
@@ -489,13 +493,10 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
         if (dir == null) return out;
 
         if ("file".equals(dir.getProtocol())) {
-            File[] files = new File(dir.toURI()).listFiles();
-            if (files != null) {
-                for (File f : files) {
-                    if (f.isFile() && f.getName().endsWith(".shader")) {
-                        out.add(namespace + ":shaders/" + f.getName());
-                    }
-                }
+            Path root = Paths.get(dir.toURI());
+            try (Stream<Path> walk = Files.walk(root)) {
+                walk.filter(f -> f.toString().endsWith(".shader"))
+                        .forEach(f -> out.add(namespace + ":shaders/" + root.relativize(f).toString().replace('\\', '/')));
             }
         } else if ("jar".equals(dir.getProtocol())) {
             String spec = dir.getPath();
@@ -504,8 +505,7 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
                 String prefix = "assets/" + namespace + "/shaders/";
                 for (Enumeration<JarEntry> e = jar.entries(); e.hasMoreElements(); ) {
                     String n = e.nextElement().getName();
-                    if (n.startsWith(prefix) && n.endsWith(".shader")
-                            && n.indexOf('/', prefix.length()) < 0) {
+                    if (n.startsWith(prefix) && n.endsWith(".shader")) {
                         out.add(namespace + ":shaders/" + n.substring(prefix.length()));
                     }
                 }
