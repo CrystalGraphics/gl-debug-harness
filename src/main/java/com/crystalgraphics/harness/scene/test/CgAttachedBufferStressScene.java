@@ -119,7 +119,6 @@ public class CgAttachedBufferStressScene implements InteractiveSceneLifecycle {
         CgFrameData fd = pipeline.getFrameData();
         fd.viewMatrix.set(view);
         fd.projMatrix.set(projection);
-        fd.timeSecs  = (float) frame.getElapsedTime();
         fd.viewportW = ctx.getScreenWidth();
         fd.viewportH = ctx.getScreenHeight();
         fd.deriveFromViewMatrix();

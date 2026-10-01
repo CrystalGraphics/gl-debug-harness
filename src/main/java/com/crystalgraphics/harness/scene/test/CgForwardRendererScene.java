@@ -153,7 +153,6 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
 
         fd.viewMatrix.set(view);
         fd.projMatrix.set(proj);
-        fd.timeSecs  = (float) frame.getElapsedTime();
         fd.viewportW = ctx.getScreenWidth();
         fd.viewportH = ctx.getScreenHeight();
         // Derives cameraForward and cameraPos from the updated viewMatrix

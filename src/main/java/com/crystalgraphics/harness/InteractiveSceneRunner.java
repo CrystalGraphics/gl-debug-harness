@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness;
 
+import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.platform.CgPlatform;
@@ -183,6 +184,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * returning false, or the window is closed.</p>
      */
     private void renderScene(HarnessContext ctx, FrameInfo info) {
+        // The frame's time from the harness's own clock, so a fixed delta gives the same capture on every run.
+        CgFrameClock.set((float) info.getElapsedTime());
         long frame = info.getFrameNumber();
         boolean sample = RECORD_FROM > 0 && frame >= RECORD_FROM - ALLOCATION_SAMPLE;
         long before = sample ? allocatedBytes() : 0;

@@ -194,7 +194,6 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
         CgFrameData fd = pipeline.getFrameData();
         fd.viewMatrix.set(view);
         fd.projMatrix.set(projection);
-        fd.timeSecs  = t;
         fd.viewportW = ctx.getScreenWidth();
         fd.viewportH = ctx.getScreenHeight();
         fd.deriveFromViewMatrix();
