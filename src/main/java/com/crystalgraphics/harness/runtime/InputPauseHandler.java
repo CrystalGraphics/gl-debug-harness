@@ -101,7 +101,7 @@ public final class InputPauseHandler implements CgSystemInput.Keyboard, CgSystem
         boolean pressed = event.pressed();
 
         if (pressed && (key == CgKeyCodes.KEY_ESCAPE || key == CgKeyCodes.KEY_T)) {
-          //  setPaused(!isPaused());
+            setPaused(!isPaused());
             return false;
         }
 
