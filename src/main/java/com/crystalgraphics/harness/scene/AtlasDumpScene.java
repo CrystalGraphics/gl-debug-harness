@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.scene;
 
-import com.crystalgraphics.gl.texture.CgTextureUploads;
+import com.crystalgraphics.gpu.CgDeferral;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.msdfgen.FreeTypeMSDFIntegration;
 import com.crystalgraphics.msdfgen.MSDFException;
@@ -435,7 +435,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
 
     private void dumpBitmapAtlases(CgFontRegistry registry, CgFont font,
                                      int pxSize, boolean dumpAllPages, String atlasDir) {
-        CgTextureUploads.apply();
+        CgDeferral.applyAll();
         if (dumpAllPages) {
             List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedBitmapPages(font.getKey());
             if (!pagedPages.isEmpty()) {
@@ -464,7 +464,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
     private void dumpMsdfAtlases(CgFontRegistry registry, CgFont font,
                                     int pxSize, boolean dumpAllPages, String atlasDir,
                                     String typePrefix) {
-        CgTextureUploads.apply();
+        CgDeferral.applyAll();
 
         if (dumpAllPages) {
             List<CgGlyphAtlasPage> pagedPages = registry.findAllPopulatedMsdfPages(font.getKey());

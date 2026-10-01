@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.tool;
 
-import com.crystalgraphics.gl.texture.CgTextureUploads;
+import com.crystalgraphics.gpu.CgDeferral;
 import com.crystalgraphics.api.font.CgGlyphKey;
 import com.crystalgraphics.api.font.CgGlyphPlacement;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
@@ -111,7 +111,7 @@ public final class AtlasDumper {
 
         String basePrefix = typePrefix + "-" + pxSizeSuffix;
         // The atlas's texture is made on the render thread before a draw; nothing has drawn, so make it now.
-        CgTextureUploads.apply();
+        CgDeferral.applyAll();
 
         for (int i = 0; i < pages.size(); i++) {
             CgGlyphAtlasPage page = pages.get(i);
