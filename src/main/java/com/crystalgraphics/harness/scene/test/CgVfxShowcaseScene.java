@@ -20,7 +20,7 @@ import org.joml.Matrix4f;
  * }</pre>
  *
  * <p>Back row to front: gold, copper, mercury, colour-shift paint; soap bubble, crystal ball, hologram, ice; plasma,
- * lightning globe, lava world, star; black hole, galaxy in glass, force field, neon circuit.</p>
+ * lightning globe, lava world, supernova; black hole, galaxy in glass, force field, neon circuit.</p>
  */
 public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
 
@@ -45,7 +45,7 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().setPitch(-22f);
         ctx.getCamera3D().setMoveSpeed(4f);
         LOG.info("[vfx-spheres] back row to front: gold, copper, mercury, colour-shift paint | bubble, crystal, "
-                + "hologram, ice | plasma, lightning, lava, star | black hole, galaxy, force field, circuit");
+                + "hologram, ice | plasma, lightning, lava, supernova | black hole, galaxy, force field, circuit");
     }
 
     @Override
