@@ -151,8 +151,7 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
                     .submit();
         }
 
-        HarnessWorld.fire(ctx.getScreenWidth(), ctx.getScreenHeight(), ctx.getCamera3D().getViewMatrix(),
-                ctx.getProjection());
+        HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
 
         // ── 6. First-frame diagnostics ────────────────────────────────────────
         if (!loggedFirstFrame) {

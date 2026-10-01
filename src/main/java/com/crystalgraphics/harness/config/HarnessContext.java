@@ -258,6 +258,12 @@ public final class HarnessContext {
     public int getScreenHeight() { return viewport.getHeight(); }
 
     /**
+     * The framebuffer every scene draws into — the window's own, 0 — as a Minecraft host names its main target to
+     * the render stages. Stated here, never read back from GL.
+     */
+    public int getTargetFramebuffer() { return 0; }
+
+    /**
      * Updates the stored screen dimensions. Called by the InteractiveSceneRunner
      * when the Display is resized.
      *
