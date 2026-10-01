@@ -1,8 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
-import com.crystalgraphics.api.render.CgFrameData;
-import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.gl.render.CgQuadRenderer;
 import com.crystalgraphics.gl.texture.CgFallbackTextures;
 import com.crystalgraphics.harness.FrameInfo;
@@ -111,13 +109,10 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
     }
 
     private void drawImmediate(int w, int h) {
-        CgRenderPipeline pipeline = CgRenderPipeline.getInstance();
-        CgFrameData fd = pipeline.getFrameData();
-        fd.viewMatrix.identity();
-        fd.projMatrix.identity().ortho(0, w, h, 0, -1, 1);
-        fd.viewportW = w;
-        fd.viewportH = h;
-        pipeline.prepareFrame();
+        CgPassConstants constants = CgImmediate.constants();
+        constants.view.identity();
+        constants.projection.identity().ortho(0, w, h, 0, -1, 1);
+        constants.resolution(w, h).cameraFromView();
 
         CgQuadRenderer renderer = CgQuadRenderer.create();
         renderer.begin();

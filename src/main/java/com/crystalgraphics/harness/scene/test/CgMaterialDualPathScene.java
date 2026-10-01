@@ -3,12 +3,8 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.gl.material.CgMaterialShader;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.texture.CgTextureType;
-import com.crystalgraphics.api.render.CgFrameData;
-import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
-import com.crystalgraphics.gl.buffer.shader.CgShaderBuffer;
-import com.crystalgraphics.gl.buffer.staging.CgBufferWriter;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.gl.mesh.CgMesh;
 import com.crystalgraphics.gl.mesh.CgMeshBuilder;
@@ -16,6 +12,7 @@ import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.state.CgGlScope;
 import com.crystalgraphics.platform.gl.state.CgGlSlot;
 import com.crystalgraphics.platform.gl.state.CgGlState;
+import com.crystalgraphics.render.draw.CgPassConstants;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -79,7 +76,7 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
     private CgMaterial material;
     private CgMaterial outlineMaterial;
     private CgMesh mesh;
-    private CgRenderPipeline pipeline;
+    private final CgPassConstants constants = new CgPassConstants();
 
     // ── MRT section resources ─────────────────────────────────────────────────
 
@@ -111,7 +108,6 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        pipeline = CgRenderPipeline.getInstance();
 
         // Main material — loads dual_path_test.shader (full RenderState + Properties block)
         material = CgMaterial.load("assets/harness/shader/dual_path_test.shader");
@@ -191,13 +187,9 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
         Matrix4f view       = ctx.getCamera3D().getViewMatrix();
         Matrix4f projection = ctx.getProjection();
 
-        CgFrameData fd = pipeline.getFrameData();
-        fd.viewMatrix.set(view);
-        fd.projMatrix.set(projection);
-        fd.viewportW = ctx.getScreenWidth();
-        fd.viewportH = ctx.getScreenHeight();
-        fd.deriveFromViewMatrix();
-        pipeline.prepareFrame();
+        constants.view.set(view);
+        constants.projection.set(projection);
+        constants.resolution(ctx.getScreenWidth(), ctx.getScreenHeight()).time(t).cameraFromView();
 
         // Animate _Color — hue cycles over 4 s. Confirms per-frame UBO re-upload via
         // materialPropsDirty (set by applyBindings()) and the cached bindingsAdapter.
@@ -205,38 +197,17 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
         float[] rgb = hsvToRgb(hue, 0.8f, 1f);
         //material.applyProperties(b -> b.vec4("_Color", rgb[0], rgb[1], rgb[2], 0.9f));
 
-        // ── drawChain: non-instanced (1 cube at origin) ───────────────────────
-        // Writes one object record then lets drawChain run both passes.
-        CgShaderBuffer objectBuffer = pipeline.objectBuffer();
-        CgBufferWriter w = objectBuffer.beginWrite(1);
-        w.beginRecord()
-         .mat4("modelMatrix", SCRATCH_4.identity().translation(0f, 0f, 0f))
-         .mat4("normalMatrix", SCRATCH_4.identity())
-         .vec4("custom0", rgb[0], rgb[1], rgb[2], 1f);
-        objectBuffer.endRecord();
-        objectBuffer.endWrite();
-
-        // drawChain: pass 1 (material, Blend+DepthTest+Stencil etc.) then
-        //            pass 2 (outlineMaterial, Cull FRONT, orange extrusion)
-        material.drawChain(mesh::drawDirect);
+        // ── The chain: one cube at the origin, then 11 118 across X ──────────
+        // Each draw runs both passes: material (Blend+DepthTest+Stencil etc.), then outlineMaterial (Cull FRONT,
+        // orange extrusion).
+        ObjectDraws.draw(constants, material, mesh, 1, (i, data, at) ->
+                ObjectDraws.object(data, at, SCRATCH_4.identity(), rgb[0], rgb[1], rgb[2], 1f));
         GlErrorChecker.assertNoGlError("CgMaterialDualPathScene.drawChain.direct");
 
-        // ── drawChain: instanced (11 118 cubes across X) ──────────────────────
         int N = 11_118;
-        w = objectBuffer.beginWrite(N);
-        for (int i = 0; i < N; i++) {
-            float r = (i & 1) == 0 ? 1f : 0.25f;
-            float g = (i & 2) == 0 ? 1f : 0.25f;
-            float b = (i & 4) == 0 ? 1f : 0.25f;
-            w.beginRecord()
-             .mat4("modelMatrix", SCRATCH_4.identity().translation(i * 1.5f, 0f, -5f))
-             .mat4("normalMatrix", SCRATCH_4.identity())
-             .vec4("custom0", r, g, b, 1f);
-            objectBuffer.endRecord();
-        }
-        objectBuffer.endWrite();
-
-        material.drawChain(() -> mesh.drawInstanced(N));
+        ObjectDraws.draw(constants, material, mesh, N, (i, data, at) -> ObjectDraws.object(data, at,
+                SCRATCH_4.translation(i * 1.5f, 0f, -5f),
+                (i & 1) == 0 ? 1f : 0.25f, (i & 2) == 0 ? 1f : 0.25f, (i & 4) == 0 ? 1f : 0.25f, 1f));
         GlErrorChecker.assertNoGlError("CgMaterialDualPathScene.drawChain.instanced");
 
         // ── MRT section ───────────────────────────────────────────────────────
@@ -250,17 +221,8 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
                 CgGL.glClearColor(0f, 0f, 0f, 1f);
                 CgGL.glClear(CgGL.GL_COLOR_BUFFER_BIT | CgGL.GL_DEPTH_BUFFER_BIT);
 
-                CgShaderBuffer mrtBuf = pipeline.objectBuffer();
-                CgBufferWriter mw = mrtBuf.beginWrite(1);
-                mw.beginRecord()
-                  .mat4("modelMatrix", SCRATCH_4.identity())
-                  .mat4("normalMatrix", SCRATCH_4.identity());
-                mrtBuf.endRecord();
-                mrtBuf.endWrite();
-
-                mrtMaterial.bind();
-                mrtMesh.drawDirect();
-                mrtMaterial.unbind();
+                ObjectDraws.draw(constants, mrtMaterial, mrtMesh, 1, (i, data, at) ->
+                        ObjectDraws.object(data, at, SCRATCH_4.identity(), 0f, 0f, 0f, 0f));
                 GlErrorChecker.assertNoGlError("CgMrtSection.draw");
 
                 if (!mrtReadbackDone) {
@@ -294,51 +256,12 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
         // One beginWrite(1)/endWrite/drawInstanced(1) cycle per material so that each
         // draw reads its own record at gl_InstanceID=0 (the correct per-cube position).
         {
-            CgShaderBuffer kwBuf = pipeline.objectBuffer();
-
-            CgBufferWriter kw = kwBuf.beginWrite(1);
-            kw.beginRecord()
-              .mat4("modelMatrix",  SCRATCH_4.identity().translation(-3.75f, 3f, 0f))
-              .mat4("normalMatrix", SCRATCH_4.identity())
-              .vec4("custom0",      1f, 1f, 1f, 1f);
-            kwBuf.endRecord();
-            kwBuf.endWrite();
-            kwNone.bind();
-            kwMesh.drawInstanced(1);
-            kwNone.unbind();
-
-            kw = kwBuf.beginWrite(1);
-            kw.beginRecord()
-              .mat4("modelMatrix",  SCRATCH_4.identity().translation(-1.25f, 3f, 0f))
-              .mat4("normalMatrix", SCRATCH_4.identity())
-              .vec4("custom0",      1f, 1f, 1f, 1f);
-            kwBuf.endRecord();
-            kwBuf.endWrite();
-            kwTint.bind();
-            kwMesh.drawInstanced(1);
-            kwTint.unbind();
-
-            kw = kwBuf.beginWrite(1);
-            kw.beginRecord()
-              .mat4("modelMatrix",  SCRATCH_4.identity().translation(1.25f, 3f, 0f))
-              .mat4("normalMatrix", SCRATCH_4.identity())
-              .vec4("custom0",      1f, 1f, 1f, 1f);
-            kwBuf.endRecord();
-            kwBuf.endWrite();
-            kwEmission.bind();
-            kwMesh.drawInstanced(1);
-            kwEmission.unbind();
-
-            kw = kwBuf.beginWrite(1);
-            kw.beginRecord()
-              .mat4("modelMatrix",  SCRATCH_4.identity().translation(3.75f, 3f, 0f))
-              .mat4("normalMatrix", SCRATCH_4.identity())
-              .vec4("custom0",      1f, 1f, 1f, 1f);
-            kwBuf.endRecord();
-            kwBuf.endWrite();
-            kwAll.bind();
-            kwMesh.drawInstanced(1);
-            kwAll.unbind();
+            CgMaterial[] variants = {kwNone, kwTint, kwEmission, kwAll};
+            for (int v = 0; v < variants.length; v++) {
+                float x = -3.75f + v * 2.5f;
+                ObjectDraws.draw(constants, variants[v], kwMesh, 1, (i, data, at) ->
+                        ObjectDraws.object(data, at, SCRATCH_4.translation(x, 3f, 0f), 1f, 1f, 1f, 1f));
+            }
 
             GlErrorChecker.assertNoGlError("CgMaterialDualPathScene.keywordDemo");
         }

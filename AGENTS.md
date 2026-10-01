@@ -132,7 +132,7 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 # Material
 ./gradlew :gl-debug-harness:runHarness --args="--mode=material-dual-path"
 
-# CgRenderPipeline
+# CgWorldRenderer, fired as the world stages are
 ./gradlew :gl-debug-harness:runHarness --args="--mode=forward-renderer"
 
 # Attached buffer stress test

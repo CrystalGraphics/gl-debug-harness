@@ -1,43 +1,29 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.harness.SceneRegistry;
-import com.crystalgraphics.platform.gl.CgGL;
-import com.crystalgraphics.render.pipeline.CgForwardRenderer;
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgRenderQueue;
-import com.crystalgraphics.api.render.CgFrameData;
-import com.crystalgraphics.api.render.CgRenderCommand;
-import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
-import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.gl.mesh.CgMesh;
 import com.crystalgraphics.gl.mesh.CgMeshBuilder;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.joml.Matrix4f;
-import org.joml.Vector3f;
-import org.joml.Vector4f;
 
 /**
- * GL harness scene exercising the complete Phase 1 CrystalGraphics forward render pipeline.
- *
- * <p>All geometry is submitted through {@link CgRenderPipeline} — no direct
- * {@code material.bind()} / {@code material.drawChain()} calls. The scene validates
- * all three major pipeline behaviours in one run:</p>
+ * GL harness scene exercising {@link CgWorldRenderer} through both world stages, the harness standing in for the host.
+ * Three behaviours in one run:
  *
  * <ol>
- *   <li><b>GROUP A — auto-instancing stress</b>: 50 unit cubes in a 10×5 grid (y=0)
- *       all using the same material and mesh. The {@link CgForwardRenderer}
- *       must collapse these into a single {@code drawInstanced(50)} call.</li>
- *   <li><b>GROUP B — material break test</b>: 20 cubes at y=1.5, submitted interleaved
- *       (A-B-A-B…) but sorted by material identity. Expect 2 instanced draw calls
- *       of 10 each after sort groups them: 10×{@code tintMaterialA} then 10×{@code tintMaterialB}.</li>
- *   <li><b>GROUP C — transparent depth order</b>: 8 cubes at y=2 placed at z=−1…−8.
- *       Submitted in any order; sort must produce back-to-front (z=−8 first, z=−1 last).</li>
+ *   <li><b>GROUP A — instancing</b>: 50 unit cubes in a 10×5 grid (y=0), one material and mesh: one instanced
+ *       draw.</li>
+ *   <li><b>GROUP B — material break</b>: 20 cubes at y=1.5, submitted interleaved (A-B-A-B…), sorted by material
+ *       into two instanced draws of 10.</li>
+ *   <li><b>GROUP C — transparent depth order</b>: 8 cubes at y=2 along z=−1…−8, submitted front to back and drawn
+ *       back to front.</li>
  * </ol>
  *
  * <h3>Visual confirmation — what to look for</h3>
@@ -97,18 +83,11 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
      */
     private CgMaterial transparentMaterial;
 
-    /** Singleton orchestrator owning the sort, prepass, and all pass renderers. */
-    private CgRenderPipeline renderFrame;
-
-    public CgFrameBuffer fbo;
-    
     // ── State ─────────────────────────────────────────────────────────────────
 
     private boolean running         = true;
     private boolean loggedFirstFrame = false;
 
-    // Scratch matrix — reused every frame to avoid per-frame allocation
-    private final Matrix4f scratchModel = new Matrix4f();
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -118,7 +97,7 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
         unitCubeMesh = CgMeshBuilder.unitCube(CgVertexFormat.SPATIAL).upload();
 
         // GROUP A — shared opaque material; all 50 commands reference the same instance
-        // so CgForwardRenderer.canMerge() returns true for all 50 (identity comparison)
+        // so the sort leaves all 50 adjacent and they instance into one draw
         solidMaterial = CgMaterial.load("assets/harness/shader/dual_path_test.shader");
 
         // GROUP B — two independent instances from the same .shader asset so they each
@@ -133,137 +112,53 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
         transparentMaterial = CgMaterial.load(
                 "assets/harness/shader/forward_transparent_test.shader");
 
-        // Singleton pipeline orchestrator — created lazily on first access
-        renderFrame = CgRenderPipeline.getInstance();
-        fbo = CgFrameBuffer.createScreenSized("depth", CgFrameBufferFormat.RGBA8_WITH_DEPTH);
-        
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
+        CgWorldRenderer world = CgWorldRenderer.get();
 
-        // ── 1. Populate CgFrameData from harness camera ─────────────────────
-        // CgRenderPipeline.execute() reads frameData internally before uploading the frame UBO.
-        CgFrameData fd = renderFrame.getFrameData();
-
-        Matrix4f view = ctx.getCamera3D().getViewMatrix();
-        Matrix4f proj = ctx.getProjection();
-
-        fd.viewMatrix.set(view);
-        fd.projMatrix.set(proj);
-        fd.viewportW = ctx.getScreenWidth();
-        fd.viewportH = ctx.getScreenHeight();
-        // Derives cameraForward and cameraPos from the updated viewMatrix
-        fd.deriveFromViewMatrix();
-
-        // ── 2. GROUP A — auto-instancing stress ───────────────────────────────
-        // 50 cubes in a 10-column × 5-row grid at y=0. All share solidMaterial +
-        // unitCubeMesh. CgForwardRenderer must emit exactly 1 drawInstanced(50).
-        for (int idx = 0; idx < 50; idx++) {
-            int col = idx % 10;
-            int row = idx / 10;
-            // x: -4.5 … +4.5, z: -2 … +2 (step 1 in each axis)
-            float x = (col - 4.5f)+ idx*0.0f;
-            float z = (row - 2.0f) + idx*0.1f;
-            float y = 0f;
-
-            CgRenderCommand cmd = renderFrame.acquireCommand();
-            cmd.mesh     = unitCubeMesh;
-            cmd.material = solidMaterial;
-            cmd.queueSlot = CgRenderQueue.GEOMETRY;
-
-            cmd.modelMatrix.identity().translation(x, y, z);
-
-            // Per-cube HSV color encoded into custom0 — visible via CG_OBJECT_CUSTOM0 in the shader
-            float hue = idx / (float) GROUP_A_COUNT;
-            float[] rgb = hsvToRgb(hue, 1f, 1f);
-            cmd.custom0.set(rgb[0], rgb[1], rgb[2], 1f);
-
-            setUnitCubeAabb(cmd,x, y, z);
-            renderFrame.submit(cmd);
+        // ── GROUP A — auto-instancing stress ─────────────────────────────────
+        // 50 cubes in a 10-column × 5-row grid at y=0, all solidMaterial + unitCubeMesh: one instanced draw.
+        for (int idx = 0; idx < GROUP_A_COUNT; idx++) {
+            float[] rgb = hsvToRgb(idx / (float) GROUP_A_COUNT, 1f, 1f);
+            world.draw(unitCubeMesh, solidMaterial)
+                    .at(idx % 10 - 4.5f, 0f, idx / 10 - 2.0f + idx * 0.1f)
+                    .custom(0, rgb[0], rgb[1], rgb[2], 1f)
+                    .queue(CgRenderQueue.GEOMETRY)
+                    .submit();
         }
 
-        // ── 3. GROUP B — material break test ─────────────────────────────────
-        // 20 cubes at y=1.5, submitted interleaved (A-B-A-B…).
-        // After sort, commands are grouped by material identity (sort key encodes
-        // material hash bits), so expect 2 drawInstanced(10) calls.
+        // ── GROUP B — material break test ────────────────────────────────────
+        // 20 cubes at y=1.5, submitted interleaved A-B-A-B; the sort groups them by material: two draws of 10.
         for (int i = 0; i < GROUP_B_EACH; i++) {
-            float xA = (i - 4.5f) * 1.1f;  // tintMaterialA row
-            float xB = (i - 4.5f) * 1.1f;  // tintMaterialB row (same X, different material/z)
-
-            // Submit A (interleaved first)
-            CgRenderCommand cmdA = renderFrame.acquireCommand();
-            cmdA.mesh      = unitCubeMesh;
-            cmdA.material  = tintMaterialA;
-            cmdA.queueSlot = CgRenderQueue.GEOMETRY;
-            cmdA.modelMatrix.identity().translation(xA, 1.5f, -0.5f);
-            cmdA.custom0.set(1f, 1f, 1f, 1f);
-            setUnitCubeAabb(cmdA, xA, 1.5f, -0.5f);
-            renderFrame.submit(cmdA);
-
-            // Submit B (interleaved second — different identity → sort will group separately)
-            CgRenderCommand cmdB = renderFrame.acquireCommand();
-            cmdB.mesh      = unitCubeMesh;
-            cmdB.material  = tintMaterialB;
-            cmdB.queueSlot = CgRenderQueue.GEOMETRY;
-            cmdB.modelMatrix.identity().translation(xB, 1.5f, 0.5f);
-            cmdB.custom0.set(1f, 1f, 1f, 1f);
-            setUnitCubeAabb(cmdB, xB, 1.5f, 0.5f);
-            renderFrame.submit(cmdB);
+            float x = (i - 4.5f) * 1.1f;
+            world.draw(unitCubeMesh, tintMaterialA).at(x, 1.5f, -0.5f).custom(0, 1f, 1f, 1f, 1f)
+                    .queue(CgRenderQueue.GEOMETRY).submit();
+            world.draw(unitCubeMesh, tintMaterialB).at(x, 1.5f, 0.5f).custom(0, 1f, 1f, 1f, 1f)
+                    .queue(CgRenderQueue.GEOMETRY).submit();
         }
 
-        // ── 4. GROUP C — transparent depth order ─────────────────────────────
-        // 8 transparent cubes at y=2, z = -1 … -8, submitted front-to-back.
-        // CgRenderCommandQueue.sort() must reorder these back-to-front for correct blending.
-        // custom0 encodes a depth-based tint (bluer = further) so ordering is visually verifiable.
+        // ── GROUP C — transparent depth order ────────────────────────────────
+        // 8 cubes at y=2, z = -1 … -8, submitted front to back; drawn back to front. Bluer is further.
         for (int i = 0; i < GROUP_C_COUNT; i++) {
-            float z = -(i + 1f);   // z = -1, -2, -3, … -8 (submitted front-to-back)
-            float depth = (i + 1f) / GROUP_C_COUNT;  // 0..1, higher = further
-
-            CgRenderCommand cmd = renderFrame.acquireCommand();
-            cmd.mesh      = unitCubeMesh;
-            cmd.material  = transparentMaterial;
-            cmd.queueSlot = CgRenderQueue.TRANSPARENT;
-
-            cmd.modelMatrix.identity().translation(0f, 2f, z);
-            // Tint: closer cubes are warmer (red), further cubes are cooler (blue)
-            cmd.custom0.set(1f - depth, 0.5f, depth, 0.5f);  // alpha 0.5 for blending
-
-            setUnitCubeAabb(cmd, 0f, 2f, z);
-            renderFrame.submit(cmd);
+            float depth = (i + 1f) / GROUP_C_COUNT;
+            world.draw(unitCubeMesh, transparentMaterial).at(0f, 2f, -(i + 1f))
+                    .custom(0, 1f - depth, 0.5f, depth, 0.5f)
+                    .queue(CgRenderQueue.TRANSPARENT)
+                    .submit();
         }
 
-        // ── 5. Execute the full render frame ──────────────────────────────────
-        // Internally: sort() → updateFrameUniforms() → beginFrame() → depth prepass
-        // → CgForwardRenderer (opaque) → CgTransparentRenderer (transparent).
-        // GL state is saved before and restored after the entire execute() call.
-        // fbo.bind();
-        // CgGL.glClearColor(0f, 0f, 0f, 1f);
-        //  CgGL.glClear(CgGL.GL_COLOR_BUFFER_BIT | CgGL.GL_DEPTH_BUFFER_BIT);
-        Vector4f camPos = ctx.getCamera3D().getPos();
-        Vector3f camLook = ctx.getCamera3D().getLookVector();
-        System.out.println(String.format("camerPos = [%.2f,%.2f,%.2f], lookVector = [%.2f,%.2f,%.2f]",
-                camPos.x, camPos.y, camPos.z, camLook.x, camLook.y, camLook.z));
-        
-        renderFrame.execute(0.0f);
-        fbo.unbind();
-
-        int tex = fbo.getDepthTexture().getId();
-        //        int tex = fbo.getColorTexture(0).getId();
-        //        CgDebugBlit.rgba(tex);
-        //   CgDebugBlit.depth(tex,0.001f,20f);
-        //ScreenshotUtil.captureTexture(tex, fbo.getWidth(),fbo.getHeight(), CgGL.GL_RGBA8,"","idk.png");
-
-       // GlErrorChecker.assertNoGlError("CgForwardRendererScene.frame");
-
+        HarnessWorld.fire(ctx.getScreenWidth(), ctx.getScreenHeight(), ctx.getCamera3D().getViewMatrix(),
+                ctx.getProjection());
 
         // ── 6. First-frame diagnostics ────────────────────────────────────────
         if (!loggedFirstFrame) {
             loggedFirstFrame = true;
-            LOG.info("[ForwardRendererScene] GROUP A: submitted {} commands with solidMaterial " +
-                    "— expect CgForwardRenderer to emit drawInstanced(50)", GROUP_A_COUNT);
+            LOG.info("[ForwardRendererScene] GROUP A: submitted {} draws with solidMaterial " +
+                    "— expect one instanced draw of 50", GROUP_A_COUNT);
             LOG.info("[ForwardRendererScene] GROUP B: submitted {} interleaved A/B commands " +
                     "— expect 2 × drawInstanced(10) after sort", GROUP_B_EACH * 2);
             LOG.info("[ForwardRendererScene] GROUP C: submitted {} transparent cubes front-to-back " +
@@ -292,25 +187,6 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
     @Override public boolean shouldShutdownOnComplete() { return false; }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /**
-     * Sets the world-space AABB on {@code cmd} for a unit cube centred at (cx, cy, cz).
-     * A unit cube built by {@link CgMeshBuilder#unitCube} has half-extents of 0.5 on all axes.
-     *
-     * @param cmd the command to populate
-     * @param cx  cube centre X
-     * @param cy  cube centre Y
-     * @param cz  cube centre Z
-     */
-    private static void setUnitCubeAabb(CgRenderCommand cmd,
-                                        float cx, float cy, float cz) {
-        cmd.worldAabb[0] = cx - 0.5f;  // minX
-        cmd.worldAabb[1] = cy - 0.5f;  // minY
-        cmd.worldAabb[2] = cz - 0.5f;  // minZ
-        cmd.worldAabb[3] = cx + 0.5f;  // maxX
-        cmd.worldAabb[4] = cy + 0.5f;  // maxY
-        cmd.worldAabb[5] = cz + 0.5f;  // maxZ
-    }
 
     /**
      * Converts HSV (hue, saturation, value) to an RGB float triple.

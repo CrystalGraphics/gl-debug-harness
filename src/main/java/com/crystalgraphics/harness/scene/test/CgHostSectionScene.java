@@ -2,9 +2,9 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
-import com.crystalgraphics.api.render.CgFrameData;
-import com.crystalgraphics.api.render.CgRenderCommand;
-import com.crystalgraphics.api.render.CgRenderPipeline;
+import com.crystalgraphics.api.state.CgBlendState;
+import com.crystalgraphics.api.state.CgDepthState;
+import com.crystalgraphics.api.state.CgRenderState;
 import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
@@ -17,6 +17,8 @@ import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.render.draw.CgPassConstants;
+import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
@@ -35,7 +37,7 @@ import org.lwjgl.opengl.GL30;
  *       {@code ONE, ZERO}, a 16 px viewport;</li>
  *   <li>blue, ours: a slab at red's depth that must cover red ({@code LEQUAL}) and stay behind green.</li>
  * </ul>
- * <p>The whole frame sits in one outer scope, so the pipeline's own scopes are nested and trust the shadow: if
+ * <p>The whole frame sits in one outer scope, so the engine's own scopes are nested and trust the shadow: if
  * {@code hostForeign} failed to restore, blue would lose to red or to the host's viewport, visibly. Recorded
  * ({@code -Dcrystalgraphics.harness.record}), the host's quad is recorded as a body and drawn on replay in
  * its place.</p>
@@ -50,7 +52,10 @@ public final class CgHostSectionScene implements InteractiveSceneLifecycle {
     private CgFrameBuffer target;
     private CgMesh slab;
     private CgMaterial material;
-    private CgRenderPipeline pipeline;
+    private final CgPassConstants constants = new CgPassConstants();
+    private final Matrix4f model = new Matrix4f();
+    private static final CgRenderState OPAQUE = CgRenderState.builder()
+            .depth(CgDepthState.TEST_WRITE).blend(CgBlendState.DISABLED).build();
     private final Runnable host = this::hostDraws;
     /** The host's own objects, made on its first draw: inside the section, where its bindings are declared. */
     private int hostProgram, hostVao, hostVbo;
@@ -59,7 +64,6 @@ public final class CgHostSectionScene implements InteractiveSceneLifecycle {
     public void init(HarnessContext ctx) {
         slab = CgMeshBuilder.quad2D(CgVertexFormat.SPATIAL, -0.5f, -0.5f, 0.5f, 0.5f).upload();
         material = CgMaterial.load("assets/harness/shader/host_section.shader");
-        pipeline = CgRenderPipeline.getInstance();
         target = CgFrameBuffer.create("host-section", ctx.getScreenWidth(), ctx.getScreenHeight(),
                 CgFrameBufferFormat.builder("host-section")
                         .color(0, CgTextureType.RGBA8)
@@ -72,12 +76,9 @@ public final class CgHostSectionScene implements InteractiveSceneLifecycle {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
         if (target.getWidth() != w || target.getHeight() != h) target.resize(w, h);
 
-        CgFrameData fd = pipeline.getFrameData();
-        fd.viewMatrix.identity();
-        fd.projMatrix.identity();
-        fd.viewportW = w;
-        fd.viewportH = h;
-        fd.deriveFromViewMatrix();
+        constants.view.identity();
+        constants.projection.identity();
+        constants.resolution(w, h).cameraFromView();
 
         try (CgGlScope ignored = CgGlState.save(FRAME)) {
             target.bind();
@@ -95,17 +96,8 @@ public final class CgHostSectionScene implements InteractiveSceneLifecycle {
     }
 
     private void drawSlab(float cx, float cy, float sx, float sy, float z, float r, float g, float b) {
-        CgRenderCommand cmd = pipeline.acquireCommand();
-        cmd.mesh = slab;
-        cmd.material = material;
-        cmd.modelMatrix.identity().translate(cx, cy, z).scale(sx, sy, 1f);
-        cmd.custom0.set(r, g, b, 1f);
-        cmd.worldAabb[0] = cx - sx / 2; cmd.worldAabb[1] = cy - sy / 2; cmd.worldAabb[2] = z;
-        cmd.worldAabb[3] = cx + sx / 2; cmd.worldAabb[4] = cy + sy / 2; cmd.worldAabb[5] = z;
-        pipeline.submit(cmd);
-        pipeline.executeOpaquePass(0f, target.getId());
-        pipeline.executeTransparentPass();
-        pipeline.endFrame();
+        model.translation(cx, cy, z).scale(sx, sy, 1f);
+        ObjectDraws.draw(constants, OPAQUE, material, slab, 1, (i, data, at) -> ObjectDraws.object(data, at, model, r, g, b, 1f));
     }
 
     /** The host's part: raw GL on a core context, with its own state left behind as a host leaves it. */

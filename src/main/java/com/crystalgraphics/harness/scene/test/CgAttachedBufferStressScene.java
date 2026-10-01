@@ -2,8 +2,6 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.api.buffer.CgBufferFormat;
-import com.crystalgraphics.api.render.CgFrameData;
-import com.crystalgraphics.api.render.CgRenderPipeline;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.gl.buffer.shader.CgShaderBuffer;
@@ -15,6 +13,7 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.render.draw.CgPassConstants;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
@@ -39,7 +38,7 @@ public class CgAttachedBufferStressScene implements InteractiveSceneLifecycle {
 
     // Shared mesh — unit cube for all draws
     private CgMesh mesh;
-    private CgRenderPipeline pipeline;
+    private final CgPassConstants constants = new CgPassConstants();
 
     // Attached buffers (user-owned, not engine pipeline buffers)
     private CgShaderBuffer particleBuf;   // "ParticleData", userIndex=0
@@ -84,7 +83,6 @@ public class CgAttachedBufferStressScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        pipeline = CgRenderPipeline.getInstance();
         mesh = CgMeshBuilder.unitCube(CgVertexFormat.SPATIAL).upload();
 
         particleBuf = CgShaderBuffer.create("ParticleDataBuffer", PARTICLE_FORMAT, 0);
@@ -116,15 +114,10 @@ public class CgAttachedBufferStressScene implements InteractiveSceneLifecycle {
         Matrix4f view = ctx.getCamera3D().getViewMatrix();
         Matrix4f projection = ctx.getProjection();
 
-        CgFrameData fd = pipeline.getFrameData();
-        fd.viewMatrix.set(view);
-        fd.projMatrix.set(projection);
-        fd.viewportW = ctx.getScreenWidth();
-        fd.viewportH = ctx.getScreenHeight();
-        fd.deriveFromViewMatrix();
-        pipeline.prepareFrame();
-
         float t = (float) frame.getElapsedTime();
+        constants.view.set(view);
+        constants.projection.set(projection);
+        constants.resolution(ctx.getScreenWidth(), ctx.getScreenHeight()).time(t).cameraFromView();
 
         // ── Particle draw (N=500, spiral) ────────────────────────────────────
         int N_PARTICLE = 5000;
@@ -154,19 +147,6 @@ CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
         CgGL.glPointSize(15);
         CgGL.glEnable(CgGL.GL_LINE_SMOOTH);
 
-        CgShaderBuffer objBuf = pipeline.objectBuffer();
-        CgBufferWriter ow = objBuf.beginWrite(N_PARTICLE);
-        for (int i = 0; i < N_PARTICLE; i++) {
-            ow.beginRecord()
-              .mat4("modelMatrix", SCRATCH.identity())
-              .mat4("normalMatrix", SCRATCH.identity());
-            objBuf.endRecord();
-        }
-        objBuf.endWrite();
-        matParticle.bind();
-        particleBuf.bind();
-       // mesh.drawInstanced(N_PARTICLE);
-        matParticle.unbind();
         GlErrorChecker.assertNoGlError("particle");
 
         // ── Terrain draw (1 instance, large flat cube at Y=-2) ───────────────
@@ -180,16 +160,8 @@ CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
         terrainUbo.endRecord();
         terrainUbo.upload();
 
-        ow = objBuf.beginWrite(1);
-        ow.beginRecord()
-          .mat4("modelMatrix", SCRATCH.identity().translate(0f, -2f, -8f).scale(20f, 0.2f, 20f))
-          .mat4("normalMatrix", SCRATCH.identity());
-        objBuf.endRecord();
-        objBuf.endWrite();
-        matTerrain.bind();
-        terrainUbo.bind();
-        mesh.drawDirect();
-        matTerrain.unbind();
+        ObjectDraws.draw(constants, matTerrain, mesh, 1, (i, data, at) -> ObjectDraws.object(data, at,
+                SCRATCH.identity().translate(0f, -2f, -8f).scale(20f, 0.2f, 20f), 0f, 0f, 0f, 0f));
         GlErrorChecker.assertNoGlError("terrain");
 
         // ── Skinned draw (N=8 in a row) ───────────────────────────────────────
@@ -204,18 +176,8 @@ CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
         }
         skinnedBuf.endWrite();
 
-        ow = objBuf.beginWrite(N_SKIN);
-        for (int i = 0; i < N_SKIN; i++) {
-            ow.beginRecord()
-              .mat4("modelMatrix", SCRATCH.identity().translate(-14f + i * 4f, 0f, -10f))
-              .mat4("normalMatrix", SCRATCH.identity());
-            objBuf.endRecord();
-        }
-        objBuf.endWrite();
-        matSkinned.bind();
-        skinnedBuf.bind();
-        mesh.drawInstanced(N_SKIN);
-        matSkinned.unbind();
+        ObjectDraws.draw(constants, matSkinned, mesh, N_SKIN, (i, data, at) -> ObjectDraws.object(data, at,
+                SCRATCH.translation(-14f + i * 4f, 0f, -10f), 0f, 0f, 0f, 0f));
         GlErrorChecker.assertNoGlError("skinned");
 
         // ── Glyph draw (N=64, 8x8 grid) ──────────────────────────────────────
@@ -238,20 +200,8 @@ CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
         }
         glyphBuf.endWrite();
 
-        ow = objBuf.beginWrite(N_GLYPH);
-        for (int i = 0; i < N_GLYPH; i++) {
-            float gx = -7f + (i % 8) * 2f;
-            float gy = 4f - (i / 8) * 2f;
-            ow.beginRecord()
-              .mat4("modelMatrix", SCRATCH.identity().translate(gx, gy, -02f).scale(0.5f))
-              .mat4("normalMatrix", SCRATCH.identity());
-            objBuf.endRecord();
-        }
-        objBuf.endWrite();
-        matGlyph.bind();
-        glyphBuf.bind();
-        mesh.drawInstanced(N_GLYPH);
-        matGlyph.unbind();
+        ObjectDraws.draw(constants, matGlyph, mesh, N_GLYPH, (i, data, at) -> ObjectDraws.object(data, at,
+                SCRATCH.translation(-7f + (i % 8) * 2f, 4f - (i / 8) * 2f, -2f).scale(0.5f), 0f, 0f, 0f, 0f));
         GlErrorChecker.assertNoGlError("glyph");
 
         // ── Combined draw (N=32, two rows) ────────────────────────────────────
@@ -277,21 +227,8 @@ CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
         sceneUbo.endRecord();
         sceneUbo.upload();
 
-        ow = objBuf.beginWrite(N_COMB);
-        for (int i = 0; i < N_COMB; i++) {
-            float cx = -15.5f + (i % 16) * 2f;
-            float cy = 5f - (i / 16) * 2.5f;
-            ow.beginRecord()
-              .mat4("modelMatrix", SCRATCH.identity().translate(cx, cy, -20f))
-              .mat4("normalMatrix", SCRATCH.identity());
-            objBuf.endRecord();
-        }
-        objBuf.endWrite();
-        matCombined.bind();
-        instanceProps.bind();
-        sceneUbo.bind();
-        mesh.drawInstanced(N_COMB);
-        matCombined.unbind();
+        ObjectDraws.draw(constants, matCombined, mesh, N_COMB, (i, data, at) -> ObjectDraws.object(data, at,
+                SCRATCH.translation(-15.5f + (i % 16) * 2f, 5f - (i / 16) * 2.5f, -20f), 0f, 0f, 0f, 0f));
         GlErrorChecker.assertNoGlError("combined");
     }
 
