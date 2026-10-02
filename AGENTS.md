@@ -139,7 +139,6 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 ./gradlew :gl-debug-harness:runHarness --args="--mode=attached-buffer-stress"
 
 # Instanced rendering test
-./gradlew :gl-debug-harness:runHarness --args="--mode=instancing-test"
 
 # Mesh loader test
 ./gradlew :gl-debug-harness:runHarness --args="--mode=mesh-test"
@@ -162,8 +161,7 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 
 - **When creating new scenes, NEVER implement raw low level GL calls. Always rely on the existing infrastructure in CrystalGraphics.**
   Instead of `int vao = GL30.glGenVertexArrays` or `int vbo = GL11.glGenBuffers`, use
-  CgVertexArray/CgVertexBuffer/CgStreamingBuffer directly from the
-  Cg registeries such as CgVertexArray|BufferRegistry. Same for Shaders -> CgShaderBuffer,
+  CgMesh for geometry and the world renderer or CgImmediate to draw it. Same for Shaders -> CgShaderBuffer,
   Textures -> CgTexture, Shader buffers -> CgShaderBuffer,
   FBO -> CgFrameBuffer, etc...
 - **What is left at the GL level goes through `CgGL`, never `org.lwjgl.opengl`.** CrystalGraphics' state

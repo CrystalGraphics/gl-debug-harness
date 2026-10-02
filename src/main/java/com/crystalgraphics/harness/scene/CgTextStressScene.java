@@ -156,17 +156,6 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
             Column.scope("ssboMapMs", "streamBuffer.ssbo.map"),
             Column.scope("ssboWriteMs", "streamBuffer.ssbo.write"),
             Column.scope("ssboCommitMs", "streamBuffer.ssbo.commit"),
-            // CgBatchRenderer is a different (non-text) path; kept for when it is exercised.
-            Column.scope("batchFlushMs", "batch.flush"),
-            Column.scope("batchMapMs", "batch.map"),
-            Column.scope("batchCopyMs", "batch.copyToMapped"),
-            Column.scope("batchCommitMs", "batch.commit"),
-            Column.scope("batchBindVaoMs", "batch.bindVao"),
-            Column.scope("batchRebindPtrMs", "batch.rebindPointers"),
-            Column.scope("batchIndexBufMs", "batch.indexBuffer"),
-            Column.scope("batchDrawElemMs", "batch.drawElements"),
-            Column.scope("batchAfterSubmitMs", "batch.afterSubmit"),
-            Column.scope("batchStagingResetMs", "batch.stagingReset"),
             Column.scope("glFlushMs", "glFlush"),
 
             // ── counts and cache behaviour ─────────────────────────────────────────────────

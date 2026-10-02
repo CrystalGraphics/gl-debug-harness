@@ -4,7 +4,6 @@ import com.crystalgraphics.harness.config.SceneDescriptor;
 import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.ImageScene;
 import com.crystalgraphics.harness.scene.test.CgHostSectionScene;
-import com.crystalgraphics.harness.scene.test.InstancingTestScene;
 import com.crystalgraphics.harness.scene.test.ReviewScene;
 import com.crystalgraphics.harness.scene.test.ShaderLibTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
@@ -149,18 +148,6 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.05f, 1.0f)
                 .build(),
             () -> new ShaderLibTestScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("instancing-test")
-                .description("Instancing backend diagnostics: base VAO isolation, instanced draw, GL error checks")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
-                .build(),
-            () -> new InstancingTestScene()
         );
 
         reg.register(
