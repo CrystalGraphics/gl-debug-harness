@@ -35,7 +35,7 @@ public class Camera3D {
     public static final float FLOOR_Y = 0.0f;
 
     /** Minimum camera Y position (slightly above floor to avoid z-fighting). */
-    private static final float MIN_CAMERA_Y = FLOOR_Y + 0.1f;
+    private static final float MIN_CAMERA_Y = FLOOR_Y + 1f;
 
     /** Default mouse sensitivity (degrees per pixel of mouse movement). */
     private static final float DEFAULT_SENSITIVITY = 0.05f;
