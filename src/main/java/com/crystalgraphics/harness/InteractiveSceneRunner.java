@@ -113,8 +113,17 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     /** Frames discarded before {@code -Dcrystalgraphics.harness.profile} starts counting: the first
      * few carry every lazy allocation and every shader variant's first compile, which is a scene's
-     * startup cost rather than its frame cost. */
-    private static final int PROFILE_WARMUP_FRAMES = 30;
+     * startup cost rather than its frame cost. {@code .profile.warmup=<frames>} for a scene that keeps
+     * loading longer -- the desktop generates glyphs and starts the language stack for seconds. */
+    private static final int PROFILE_WARMUP_FRAMES = Integer.getInteger("crystalgraphics.harness.profile.warmup", 30);
+
+    /** The swap blocks when the GPU is behind, and the sync sleeps to hold the rate: waits, not work. */
+    private static final int SWAP = CgTrace.waitName("frame.swap");
+    private static final int SYNC = CgTrace.waitName("frame.sync");
+
+    /** Zones a profiled frame may hold, per thread: the ring is sized so no profiled frame loses its own. */
+    private static final int PROFILE_ZONES_PER_FRAME =
+            Integer.getInteger("crystalgraphics.harness.profile.zonesPerFrame", 16_384);
     /** {@code -Dcrystalgraphics.harness.captureAt=<frame>}: photograph that frame and stop -- an unattended
      * picture of any interactive scene. Pair with {@code fixedDelta} for one that repeats run to run. Live input
      * is ignored meanwhile: a pointer crossing the window would otherwise grab it and turn the camera. */
@@ -278,8 +287,17 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // every scene having to grow one. Unattended, so two builds can be compared back to back, which
         // is the only way these numbers mean anything: run to run on one machine they spread further
         // than most differences worth finding.
+        // CrystalGraphics' own channels always; anything else -- a project on top of it, the GPU -- through
+        // -Dcrystalgraphics.trace.channels, which the engine applied at launch.
         int profileFrames = Integer.getInteger("crystalgraphics.harness.profile", 0);
-        if (profileFrames > 0) CgTrace.enable("crystalgraphics");
+        if (profileFrames > 0) {
+            // Every profiled frame keeps its zones: at the default ceiling a dense channel wraps a thread's arena
+            // within a dozen frames. After the scene's init, so a viewer's saved ring and stop-after-hitch cannot
+            // cut a profile short.
+            CgTrace.configure(0, PROFILE_WARMUP_FRAMES + profileFrames + 8, PROFILE_ZONES_PER_FRAME);
+            CgTrace.stopAfterHitch(0L, 0);
+            CgTrace.enable("crystalgraphics");
+        }
         long profileFrom = 0L;
         // THE HARNESS IS THE HOST, so it brackets each loop as a trace frame -- unless the scene frames
         // itself (a UIDocument does), which it notices the first time the index moves under a render.
@@ -291,9 +309,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             if (profileFrames > 0) {
                 if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES) profileFrom = CgTrace.currentFrameIndex() + 1;
                 if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES + profileFrames) {
-                    File dump = TraceDump.dump(new File(ctx.getOutputDir()),
+                    File report = TraceDump.profile(new File(ctx.getOutputDir()),
                             "harness-" + profileFrames + "f", profileFrom);
-                    LOGGER.info("[InteractiveSceneRunner] profile dump=" + dump);
+                    LOGGER.info("[InteractiveSceneRunner] profile report=" + report);
                     break;
                 }
             }
@@ -318,8 +336,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 ctx.setProjection(HarnessProjectionUtil.perspective(vp.getWidth(), vp.getHeight()));
             }
 
-            // 3. Input, before the camera reads it.
-            pollInput();
+            // 3. Input, before the camera reads it. The OS message pump is here, and it can block.
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.input")) {
+                pollInput();
+            }
 
             // 4. Camera update (skipped when paused, and in an unattended capture)
             if (scene.uses3DCamera() && !inputPauseHandler.isPaused() && !UNATTENDED) {
@@ -327,7 +347,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             }
 
             // 5. Fire any scheduled tasks that are due (even when paused)
-            scheduler.tick(frameClock.getElapsedTime());
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.scheduler")) {
+                scheduler.tick(frameClock.getElapsedTime());
+            }
 
             // ── Frame render pipeline ──
             // Pass ordering: world → scene → post-scene reset → overlays → capture
@@ -362,9 +384,16 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 // 9. Scene pass: set baseline state, then let the scene render freely
                 RenderPassState.beginScenePass();
                 long framedAs = CgTrace.currentFrameIndex();
-                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.scene")) {
-                    renderScene(ctx, new FrameInfo(frameClock.getDeltaTime(),
-                            frameClock.getElapsedTime(), frameClock.getFrameNumber()));
+                FrameInfo info = new FrameInfo(frameClock.getDeltaTime(),
+                        frameClock.getElapsedTime(), frameClock.getFrameNumber());
+                if (sceneFrames) {
+                    // A scene that frames itself begins its trace frame inside this call, so a zone around it
+                    // would straddle every boundary: force-closed each frame, with the scene's work orphaned.
+                    renderScene(ctx, info);
+                } else {
+                    try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.scene")) {
+                        renderScene(ctx, info);
+                    }
                 }
                 if (CgTrace.currentFrameIndex() != framedAs) sceneFrames = true;
                 if (CAPTURE_AT > 0 && frameClock.getFrameNumber() == CAPTURE_AT) {
@@ -398,12 +427,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // being large there means the frame finished EARLY. Lumping them together would make an
             // idle frame look like a stalled one.
             long swapStart = System.nanoTime();
-            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.swap")) {
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, SWAP)) {
                 HarnessWindow.swapBuffers();
             }
             swapNanos += System.nanoTime() - swapStart;
             if (TARGET_FPS > 0) {
-                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.sync")) {
+                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, SYNC)) {
                     HarnessWindow.sync(TARGET_FPS);
                 }
             }
@@ -411,9 +440,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // 15. Frame is genuinely over -- hand the scene its true wall duration. See
             //     InteractiveSceneLifecycle#onFrameEnd for why profiling from inside render()
             //     misattributes both the duration and every post-render step.
-            scene.onFrameEnd(ctx, new FrameInfo(
-                    (float) ((System.nanoTime() - frameStartNanos) / 1_000_000_000.0),
-                    frameClock.getElapsedTime(), frameClock.getFrameNumber()));
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.onFrameEnd")) {
+                scene.onFrameEnd(ctx, new FrameInfo(
+                        (float) ((System.nanoTime() - frameStartNanos) / 1_000_000_000.0),
+                        frameClock.getElapsedTime(), frameClock.getFrameNumber()));
+            }
             if (CAPTURE_AT > 0 && frameClock.getFrameNumber() >= CAPTURE_AT) break;
             if (bench != null && bench.end()) {
                 bench.report(scene.getClass().getSimpleName());
