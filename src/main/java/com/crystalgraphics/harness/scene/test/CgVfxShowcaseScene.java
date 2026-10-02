@@ -5,12 +5,15 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.vfx.CgVfxEffect;
 import com.crystalgraphics.vfx.effect.beam.CgEnergyWave;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -69,6 +72,8 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
     private float momentRadius;
     private int momentCount;
     private final Set<String> lanesEnded = new HashSet<>();
+    /** Each watched lane's first shot: a later one may start while it still lingers, and is not photographed. */
+    private final Map<String, CgVfxEffect> firstShots = new HashMap<>();
 
     @Override
     public void init(HarnessContext ctx) {
@@ -80,6 +85,7 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
         if (MOMENTS != null && !"false".equals(MOMENTS)) showcase.vfx().onMoment((effect, name, x, y, z, radius) -> {
             String lane = showcase.laneOf(effect);
             if (lane == null || !(ALL_LANES || lane.equals(MOMENTS))) return;
+            if (firstShots.computeIfAbsent(lane, l -> effect) != effect) return;
             String label = lane + "-" + name;
             if (momentNames == null) {
                 momentNames = new StringBuilder(label);
