@@ -18,6 +18,7 @@ import com.crystalgraphics.harness.scene.test.CgSceneColorScene;
 import com.crystalgraphics.harness.scene.test.CgMeshDrawsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShowcaseScene;
+import com.crystalgraphics.harness.scene.test.CgVfxTrailsScene;
 import com.crystalgraphics.harness.tool.CapabilityReport;
 import com.crystalgraphics.harness.tool.GlStateDumper;
 import com.crystalgraphics.harness.tool.ShaderCompileAuditScene;
@@ -318,6 +319,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxShowcaseScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-trails")
+                .description("Trails rewritten every frame: the per-frame mesh path (CgMesh.Usage.FRAME)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxTrailsScene()
         );
 
         reg.register(
