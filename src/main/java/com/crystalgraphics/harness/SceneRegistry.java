@@ -17,6 +17,7 @@ import com.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import com.crystalgraphics.harness.scene.test.CgSceneColorScene;
 import com.crystalgraphics.harness.scene.test.CgMeshDrawsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
+import com.crystalgraphics.harness.scene.test.CgMeshFrameStressScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShowcaseScene;
 import com.crystalgraphics.harness.tool.CapabilityReport;
 import com.crystalgraphics.harness.tool.GlStateDumper;
@@ -294,6 +295,18 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
                 .build(),
             () -> new CgMeshLodsScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("mesh-frame-stress")
+                .description("64 FRAME meshes rewritten every frame: the frame ring against slabs (-Dcrystalgraphics.mesh.frameRing=false)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
+                .build(),
+            () -> new CgMeshFrameStressScene()
         );
 
         reg.register(
