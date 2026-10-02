@@ -14,6 +14,7 @@ import com.crystalgraphics.harness.scene.test.CgTextThreadedTestScene;
 import com.crystalgraphics.harness.scene.test.CgGraphExecutorTestScene;
 import com.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgForwardRendererScene;
+import com.crystalgraphics.harness.scene.test.CgSceneColorScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShowcaseScene;
 import com.crystalgraphics.harness.tool.CapabilityReport;
 import com.crystalgraphics.harness.tool.GlStateDumper;
@@ -267,6 +268,18 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
                 .build(),
             () -> new CgForwardRendererScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("scene-color-test")
+                .description("cg_SceneColor: a lens over a row of cubes, showing the scene behind it rippled and inverted")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
+                .build(),
+            () -> new CgSceneColorScene()
         );
 
         reg.register(
