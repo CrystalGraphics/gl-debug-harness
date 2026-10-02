@@ -1,7 +1,7 @@
 #type spatial
 
 // Sentinel material for MRT readback verification.
-// Uses a quad built with CgMeshBuilder.quad2D(-1,-1,1,1) -- vertices already in NDC space,
+// Uses CgMeshShapes.quad(SPATIAL, 1, 1) -- vertices already in NDC space,
 // so no MVP transform is applied. RenderState disables culling so winding never matters.
 
 Pass {

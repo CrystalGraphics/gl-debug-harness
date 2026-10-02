@@ -6,10 +6,9 @@ import com.crystalgraphics.api.state.CgBlendState;
 import com.crystalgraphics.api.state.CgDepthState;
 import com.crystalgraphics.api.state.CgRenderState;
 import com.crystalgraphics.api.texture.CgTextureType;
-import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
-import com.crystalgraphics.gl.mesh.CgMesh;
-import com.crystalgraphics.gl.mesh.CgMeshBuilder;
+import com.crystalgraphics.api.mesh.CgMesh;
+import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.state.CgGlScope;
 import com.crystalgraphics.platform.gl.state.CgGlSlot;
@@ -62,7 +61,7 @@ public final class CgHostSectionScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        slab = CgMeshBuilder.quad2D(CgVertexFormat.SPATIAL, -0.5f, -0.5f, 0.5f, 0.5f).upload();
+        slab = CgMeshShapes.quad();
         material = CgMaterial.load("assets/harness/shader/host_section.shader");
         target = CgFrameBuffer.create("host-section", ctx.getScreenWidth(), ctx.getScreenHeight(),
                 CgFrameBufferFormat.builder("host-section")
@@ -154,7 +153,6 @@ public final class CgHostSectionScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
-        slab.delete();
         if (hostProgram != 0) {
             GL20.glDeleteProgram(hostProgram);
             GL30.glDeleteVertexArrays(hostVao);

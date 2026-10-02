@@ -14,7 +14,7 @@ import org.joml.Matrix4fc;
  * HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
  * }</pre>
  */
-final class HarnessWorld {
+public final class HarnessWorld {
 
     private static final CgRenderStage[] WORLD = {CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT};
 
@@ -22,7 +22,7 @@ final class HarnessWorld {
     }
 
     /** Fires {@code WORLD_OPAQUE} then {@code WORLD_TRANSPARENT}: the camera at the origin, {@code view} whole. */
-    static void fire(HarnessContext ctx, Matrix4fc view, Matrix4fc projection) {
+    public static void fire(HarnessContext ctx, Matrix4fc view, Matrix4fc projection) {
         CgWorldRenderer.get().install();
         for (CgRenderStage stage : WORLD) {
             stage.host().set(0f, ctx.getScreenWidth(), ctx.getScreenHeight(), ctx.getTargetFramebuffer())

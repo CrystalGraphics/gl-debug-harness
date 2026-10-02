@@ -3,9 +3,8 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.harness.SceneRegistry;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgRenderQueue;
-import com.crystalgraphics.api.vertex.CgVertexFormat;
-import com.crystalgraphics.gl.mesh.CgMesh;
-import com.crystalgraphics.gl.mesh.CgMeshBuilder;
+import com.crystalgraphics.api.mesh.CgMesh;
+import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -94,7 +93,7 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         // Shared unit cube — SPATIAL format matches cg_env.glsl attribute layout
-        unitCubeMesh = CgMeshBuilder.unitCube(CgVertexFormat.SPATIAL).upload();
+        unitCubeMesh = CgMeshShapes.cube();
 
         // GROUP A — shared opaque material; all 50 commands reference the same instance
         // so the sort leaves all 50 adjacent and they instance into one draw
@@ -169,7 +168,6 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
-        if (unitCubeMesh    != null) unitCubeMesh.delete();
         // solidMaterial is owned by CgMaterialRegistry (loaded via load()) — do NOT delete directly.
         // tintMaterialA/B and transparentMaterial: load() variants are registry-owned too.
         // Per-instance materials created via newInstance() can technically be deleted here,

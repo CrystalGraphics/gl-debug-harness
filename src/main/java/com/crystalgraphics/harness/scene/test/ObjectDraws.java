@@ -2,7 +2,7 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.state.CgRenderState;
-import com.crystalgraphics.gl.mesh.CgMesh;
+import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;

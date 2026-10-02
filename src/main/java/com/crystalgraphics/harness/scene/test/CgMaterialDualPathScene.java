@@ -6,8 +6,8 @@ import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
-import com.crystalgraphics.gl.mesh.CgMesh;
-import com.crystalgraphics.gl.mesh.CgMeshBuilder;
+import com.crystalgraphics.api.mesh.CgMesh;
+import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.state.CgGlScope;
 import com.crystalgraphics.platform.gl.state.CgGlSlot;
@@ -133,7 +133,7 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
         // drawChain(cmd) will: bind material → cmd → unbind, then bind outline → cmd → unbind.
         material.setNextPass(outlineMaterial);
 
-        mesh = CgMeshBuilder.unitCube(CgVertexFormat.SPATIAL).upload();
+        mesh = CgMeshShapes.cube();
 
         // ── MRT section: 3-attachment FBO + sentinel material ─────────────────
         CgFrameBufferFormat mrtFormat = CgFrameBufferFormat.builder("mrt_test")
@@ -147,12 +147,12 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
  
    
         mrtMaterial = CgMaterial.load("assets/harness/shader/mrt_sentinel.shader");
-        mrtMesh = CgMeshBuilder.quad2D(CgVertexFormat.SPATIAL, -1f, -1f, 1f, 1f).upload();
+        mrtMesh = CgMeshShapes.quad(CgVertexFormat.SPATIAL, 1f, 1f);
 
         // ── Keyword variant demo ───────────────────────────────────────────────────
         // All four share the same underlying CgMaterialShader (same path, newInstance() API).
         // Each has an independent propStore + enabledKeywords → independent ProgramKey in the cache.
-        kwMesh = CgMeshBuilder.unitCube(CgVertexFormat.SPATIAL).upload();
+        kwMesh = CgMeshShapes.cube();
 
         kwNone = CgMaterial.newInstance("assets/harness/shader/feature_keyword_test.shader");
         kwNone.applyProperties(b -> b.vec4("_BaseTint", 0.7f, 0.7f, 0.7f, 1.0f));
@@ -288,17 +288,14 @@ public class CgMaterialDualPathScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
-        if (mesh != null) mesh.delete();
         if (material != null) { material.setNextPass(null); material.delete(); }
         if (outlineMaterial != null) outlineMaterial.delete();
         if (mrtMaterial != null) mrtMaterial.delete();
-        if (mrtMesh != null) mrtMesh.delete();
         if (mrtFbo != null) mrtFbo.delete();
         if (kwNone     != null) kwNone.delete();
         if (kwTint     != null) kwTint.delete();
         if (kwEmission != null) kwEmission.delete();
         if (kwAll      != null) kwAll.delete();
-        if (kwMesh     != null) kwMesh.delete();
     }
 
     @Override public boolean isRunning()              { return running; }

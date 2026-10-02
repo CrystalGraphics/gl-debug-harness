@@ -356,7 +356,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("mesh-test")
-                .description("3D mesh test: CgMeshBuilder shapes + OBJ + GLTF")
+                .description("3D mesh test: CgMeshShapes, OBJ, GLB, and a two-part glTF drawn a material per part")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)

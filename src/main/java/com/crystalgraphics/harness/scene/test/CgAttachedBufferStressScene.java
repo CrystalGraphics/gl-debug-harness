@@ -3,12 +3,11 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.api.buffer.CgBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
-import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.gl.buffer.shader.CgShaderBuffer;
 import com.crystalgraphics.gl.buffer.shader.CgUniformBuffer;
 import com.crystalgraphics.gl.buffer.staging.CgBufferWriter;
-import com.crystalgraphics.gl.mesh.CgMesh;
-import com.crystalgraphics.gl.mesh.CgMeshBuilder;
+import com.crystalgraphics.api.mesh.CgMesh;
+import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -83,7 +82,7 @@ public class CgAttachedBufferStressScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        mesh = CgMeshBuilder.unitCube(CgVertexFormat.SPATIAL).upload();
+        mesh = CgMeshShapes.cube();
 
         particleBuf = CgShaderBuffer.create("ParticleDataBuffer", PARTICLE_FORMAT, 0);
         skinnedBuf = CgShaderBuffer.create("SkinDataBuffer", SKIN_FORMAT, 1);
@@ -234,7 +233,6 @@ CgGL.glBlendFunc(CgGL.GL_SRC_ALPHA, CgGL.GL_ONE_MINUS_SRC_ALPHA);
 
     @Override
     public void dispose() {
-        if (mesh != null) mesh.delete();
         if (matParticle != null) matParticle.delete();
         if (matTerrain != null) matTerrain.delete();
         if (matSkinned != null) matSkinned.delete();
