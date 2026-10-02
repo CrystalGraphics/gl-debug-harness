@@ -3,6 +3,7 @@ package com.crystalgraphics.harness;
 import com.crystalgraphics.harness.config.SceneDescriptor;
 import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.ImageScene;
+import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
 import com.crystalgraphics.harness.scene.test.CgHostSectionScene;
 import com.crystalgraphics.harness.scene.test.ReviewScene;
 import com.crystalgraphics.harness.scene.test.ShaderLibTestScene;
@@ -212,6 +213,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgGraphExecutorTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("mesh-backend-test")
+                .description("mesh rewrite M1: base-vertex draws, integer and half-float attributes, attribute-less draws and buffer copies, beside the same picture drawn plainly -- two PNGs that must match on every device")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(900)
+                .defaultHeight(700)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgMeshBackendTestScene()
         );
 
         reg.register(
