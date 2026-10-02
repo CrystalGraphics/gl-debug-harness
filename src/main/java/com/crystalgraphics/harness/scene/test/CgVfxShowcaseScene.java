@@ -10,6 +10,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * The VFX showcase ({@link CgVfxShowcase}): sixteen effect spheres on a neon floor under a starfield, the camera
  * circling them slowly. Scene id {@code vfx-spheres}.
@@ -19,8 +22,8 @@ import org.joml.Matrix4f;
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.orbit=false    // fly it yourself
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.focus=11        // circle one sphere, close
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.look=-0.5,0.7,0.5 // look at the sky
- * // every moment of the effects' lives, each framed and photographed on the frame it happens, then exit:
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.moments=true -Dcrystalgraphics.harness.fixedDelta=0.0166667
+ * // every moment of one wave's life (or every wave's, with true), each framed and photographed on the frame it happens:
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.moments=kamehameha -Dcrystalgraphics.harness.fixedDelta=0.0166667
  * }</pre>
  *
  * <p>Back row to front: gold, copper, mercury, colour-shift paint; soap bubble, crystal ball, hologram, ice; plasma,
@@ -45,12 +48,14 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
     /** {@code -Dcrystalgraphics.harness.vfx.focus.height=<metres>}: how far above it, 0.2 by default. */
     private static final float FOCUS_HEIGHT = Float.parseFloat(System.getProperty("crystalgraphics.harness.vfx.focus.height", "0.2"));
     /**
-     * {@code -Dcrystalgraphics.harness.vfx.moments=true}: photograph each moment an effect announces
-     * ({@code CgVfxMomentListener}) on the frame it happens, the camera framing it, as {@code vfx-spheres-NN-<moment>.png};
-     * exit after the energy wave's first shot.
+     * {@code -Dcrystalgraphics.harness.vfx.moments=<lane>}: photograph each moment that lane's wave announces
+     * ({@code CgVfxMomentListener}) on the frame it happens, the camera framing it, as
+     * {@code vfx-spheres-NN-<lane>-<moment>.png}, and exit when its first shot ends. {@code true} watches every lane:
+     * {@code kamehameha}, {@code finalFlash}, {@code galickGun}.
      */
-    private static final boolean MOMENTS = Boolean.getBoolean("crystalgraphics.harness.vfx.moments");
-    private static final int MOMENT_SHOTS = 1;
+    private static final String MOMENTS = System.getProperty("crystalgraphics.harness.vfx.moments");
+    private static final boolean ALL_LANES = "true".equals(MOMENTS);
+    private static final int LANE_COUNT = 3;
     /** Where a moment's camera stands from what it frames, and how far for each block of the frame's radius. */
     private static final float[] MOMENT_VIEW = normalized(0.35f, 0.62f, 0.7f);
     private static final float MOMENT_DISTANCE = 1.55f;
@@ -62,7 +67,8 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
     private StringBuilder momentNames;
     private double momentX, momentY, momentZ;
     private float momentRadius;
-    private int momentCount, shotsEnded;
+    private int momentCount;
+    private final Set<String> lanesEnded = new HashSet<>();
 
     @Override
     public void init(HarnessContext ctx) {
@@ -71,17 +77,20 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().setMoveSpeed(4f);
         LOG.info("[vfx-spheres] back row to front: gold, copper, mercury, colour-shift paint | bubble, crystal, "
                 + "hologram, ice | plasma, lightning, lava, supernova | black hole, galaxy, force field, circuit");
-        if (MOMENTS) showcase.vfx().onMoment((effect, name, x, y, z, radius) -> {
+        if (MOMENTS != null && !"false".equals(MOMENTS)) showcase.vfx().onMoment((effect, name, x, y, z, radius) -> {
+            String lane = showcase.laneOf(effect);
+            if (lane == null || !(ALL_LANES || lane.equals(MOMENTS))) return;
+            String label = lane + "-" + name;
             if (momentNames == null) {
-                momentNames = new StringBuilder(name);
+                momentNames = new StringBuilder(label);
                 momentX = x;
                 momentY = y;
                 momentZ = z;
                 momentRadius = radius;
             } else {
-                momentNames.append('+').append(name);
+                momentNames.append('+').append(label);
             }
-            if (name.equals(CgEnergyWave.MOMENT_END)) shotsEnded++;
+            if (name.equals(CgEnergyWave.MOMENT_END)) lanesEnded.add(lane);
         });
     }
 
@@ -101,7 +110,7 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
             view = orbitView.setLookAt(camX, camY, camZ, (float) momentX, (float) momentY, (float) momentZ, 0f, 1f, 0f);
             ctx.getArtifactService().requestCapture(String.format("%02d-%s", ++momentCount, momentNames));
             momentNames = null;
-            if (shotsEnded >= MOMENT_SHOTS) running = false;
+            if (lanesEnded.size() >= (ALL_LANES ? LANE_COUNT : 1)) running = false;
         } else if (EYE != null) {
             camX = EYE[0];
             camY = EYE[1];
