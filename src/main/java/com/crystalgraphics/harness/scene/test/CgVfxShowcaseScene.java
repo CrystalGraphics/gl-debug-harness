@@ -5,6 +5,7 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.vfx.effect.beam.CgEnergyWave;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
@@ -18,6 +19,8 @@ import org.joml.Matrix4f;
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.orbit=false    // fly it yourself
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.focus=11        // circle one sphere, close
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.look=-0.5,0.7,0.5 // look at the sky
+ * // every moment of the effects' lives, each framed and photographed on the frame it happens, then exit:
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.moments=true -Dcrystalgraphics.harness.fixedDelta=0.0166667
  * }</pre>
  *
  * <p>Back row to front: gold, copper, mercury, colour-shift paint; soap bubble, crystal ball, hologram, ice; plasma,
@@ -41,10 +44,25 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
     private static final float FOCUS_RADIUS = Float.parseFloat(System.getProperty("crystalgraphics.harness.vfx.focus.distance", "6.5"));
     /** {@code -Dcrystalgraphics.harness.vfx.focus.height=<metres>}: how far above it, 0.2 by default. */
     private static final float FOCUS_HEIGHT = Float.parseFloat(System.getProperty("crystalgraphics.harness.vfx.focus.height", "0.2"));
+    /**
+     * {@code -Dcrystalgraphics.harness.vfx.moments=true}: photograph each moment an effect announces
+     * ({@code CgVfxMomentListener}) on the frame it happens, the camera framing it, as {@code vfx-spheres-NN-<moment>.png};
+     * exit after the energy wave's first shot.
+     */
+    private static final boolean MOMENTS = Boolean.getBoolean("crystalgraphics.harness.vfx.moments");
+    private static final int MOMENT_SHOTS = 1;
+    /** Where a moment's camera stands from what it frames, and how far for each block of the frame's radius. */
+    private static final float[] MOMENT_VIEW = normalized(0.35f, 0.62f, 0.7f);
+    private static final float MOMENT_DISTANCE = 1.55f;
 
     private final CgVfxShowcase showcase = new CgVfxShowcase();
     private final Matrix4f orbitView = new Matrix4f();
     private boolean running = true;
+    /** This frame's moments, framed on the first; null when none. */
+    private StringBuilder momentNames;
+    private double momentX, momentY, momentZ;
+    private float momentRadius;
+    private int momentCount, shotsEnded;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -53,15 +71,38 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().setMoveSpeed(4f);
         LOG.info("[vfx-spheres] back row to front: gold, copper, mercury, colour-shift paint | bubble, crystal, "
                 + "hologram, ice | plasma, lightning, lava, supernova | black hole, galaxy, force field, circuit");
+        if (MOMENTS) showcase.vfx().onMoment((effect, name, x, y, z, radius) -> {
+            if (momentNames == null) {
+                momentNames = new StringBuilder(name);
+                momentX = x;
+                momentY = y;
+                momentZ = z;
+                momentRadius = radius;
+            } else {
+                momentNames.append('+').append(name);
+            }
+            if (name.equals(CgEnergyWave.MOMENT_END)) shotsEnded++;
+        });
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         float seconds = (float) frame.getElapsedTime();
         CgWorldRenderer world = CgWorldRenderer.get();
+        // First, so a moment announced in it chooses this frame's camera.
+        showcase.submit(world, 0.0, 0.0, 0.0, seconds);
         float camX, camY, camZ;
         Matrix4f view;
-        if (EYE != null) {
+        if (momentNames != null) {
+            float distance = Math.max(momentRadius * MOMENT_DISTANCE, 3f);
+            camX = (float) momentX + MOMENT_VIEW[0] * distance;
+            camY = (float) momentY + MOMENT_VIEW[1] * distance;
+            camZ = (float) momentZ + MOMENT_VIEW[2] * distance;
+            view = orbitView.setLookAt(camX, camY, camZ, (float) momentX, (float) momentY, (float) momentZ, 0f, 1f, 0f);
+            ctx.getArtifactService().requestCapture(String.format("%02d-%s", ++momentCount, momentNames));
+            momentNames = null;
+            if (shotsEnded >= MOMENT_SHOTS) running = false;
+        } else if (EYE != null) {
             camX = EYE[0];
             camY = EYE[1];
             camZ = EYE[2];
@@ -91,9 +132,13 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
             camZ = ctx.getCamera3D().getPosZ();
             view = ctx.getCamera3D().getViewMatrix();
         }
-        showcase.submit(world, 0.0, 0.0, 0.0, seconds);
         showcase.submitStage(world, 0.0, 0.0, 0.0, camX, camY, camZ);
         HarnessWorld.fire(ctx, view, ctx.getProjection());
+    }
+
+    private static float[] normalized(float x, float y, float z) {
+        float length = (float) Math.sqrt(x * x + y * y + z * z);
+        return new float[]{x / length, y / length, z / length};
     }
 
     private static float[] parseLook(String value) {
