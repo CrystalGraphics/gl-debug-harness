@@ -76,8 +76,12 @@ public final class CgVfxTrailsScene implements InteractiveSceneLifecycle {
                     HALF_WIDTH);
         }
         if (MERGED) {
-            if (merged == null) merged = CgMesh.build(CgVertexFormat.SPATIAL, CgMesh.Usage.FRAME, m -> writeAll(m, trails));
-            else merged.edit(trails, CgVfxTrailsScene::writeAll);
+            if (merged == null) {
+                merged = CgMesh.build(CgVertexFormat.SPATIAL, CgMesh.Usage.FRAME, m -> writeAll(m, trails));
+                merged.reserve(COUNT * POINTS * 2, COUNT * (POINTS - 1) * 6);
+            } else {
+                merged.edit(trails, CgVfxTrailsScene::writeAll);
+            }
             merged.pad(HALF_WIDTH);
             world.draw(merged, glow).at(0.0, 0.0, 0.0).custom(0, 0.35f, 0.75f, 1f, STRENGTH).submit();
         } else {
