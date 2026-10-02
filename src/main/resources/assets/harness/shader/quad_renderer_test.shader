@@ -8,7 +8,7 @@
 // record is required before drawing -- gl_Position comes from cg_ProjMatrix applied to
 // the per-instance world position reconstructed from origin + a_pos.x*right + a_pos.y*up.
 
-#type pos2_uv2_col4ub
+#type none
 #pragma cg_use quad
 
 Tags { "RenderType" = "Transparent" }
