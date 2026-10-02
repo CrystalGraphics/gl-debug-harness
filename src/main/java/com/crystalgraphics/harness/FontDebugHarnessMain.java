@@ -21,6 +21,8 @@ public final class FontDebugHarnessMain {
     private static final Logger LOGGER = Logger.getLogger(FontDebugHarnessMain.class.getName());
 
     public static void main(String[] args) {
+        // CgRenderDemo is Minecraft's: in the harness it would draw a second showcase over vfx-spheres' own.
+        if (System.getProperty("crystalgraphics.demo") == null) System.setProperty("crystalgraphics.demo", "false");
         // Before the window: RenderDoc hooks context creation.
         RenderDoc.attachIfRequested(args);
 

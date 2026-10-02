@@ -34,6 +34,9 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
     private static final int FOCUS = Integer.getInteger("crystalgraphics.harness.vfx.focus", -1);
     /** {@code -Dcrystalgraphics.harness.vfx.look=x,y,z}: from where the scene starts, look along that direction. */
     private static final float[] LOOK = parseLook(System.getProperty("crystalgraphics.harness.vfx.look"));
+    /** {@code -Dcrystalgraphics.harness.vfx.eye=x,y,z} with {@code .vfx.at=x,y,z}: a fixed camera there, looking at that point. */
+    private static final float[] EYE = parseLook(System.getProperty("crystalgraphics.harness.vfx.eye"));
+    private static final float[] AT = parseLook(System.getProperty("crystalgraphics.harness.vfx.at", "0,1.35,0"));
     /** {@code -Dcrystalgraphics.harness.vfx.focus.distance=<metres>}: how far from it, 6.5 by default. */
     private static final float FOCUS_RADIUS = Float.parseFloat(System.getProperty("crystalgraphics.harness.vfx.focus.distance", "6.5"));
     /** {@code -Dcrystalgraphics.harness.vfx.focus.height=<metres>}: how far above it, 0.2 by default. */
@@ -58,7 +61,12 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
         CgWorldRenderer world = CgWorldRenderer.get();
         float camX, camY, camZ;
         Matrix4f view;
-        if (LOOK != null) {
+        if (EYE != null) {
+            camX = EYE[0];
+            camY = EYE[1];
+            camZ = EYE[2];
+            view = orbitView.setLookAt(camX, camY, camZ, AT[0], AT[1], AT[2], 0f, 1f, 0f);
+        } else if (LOOK != null) {
             camX = 0f;
             camY = ORBIT_HEIGHT;
             camZ = ORBIT_RADIUS;
