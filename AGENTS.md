@@ -38,7 +38,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   is then an error. `--mode=compute-seam` is the scene that proves it fires
   (`-Dcrystalgraphics.harness.computeSeam.skipBarriers=true` must fail). It also dispatches
   `harness:shaders/compute_seam.compute` through `CgKernelProgram`, subgroups native and emulated, against the same
-  CPU reference: the gate for `.compute` on each device.
+  CPU reference: the gate for `.compute` on each device. `--mode=compute-graph` is the frame graph's: kernels, a
+  history and an indirect dispatch recorded and built on a worker; with `-Dcrystalgraphics.graph.barriers=false` it
+  must fail under synchronization validation.
 
 ```bash
 ./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=tracked --seconds=10"

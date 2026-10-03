@@ -1,0 +1,38 @@
+// compute-graph's kernels (CgComputeGraphTestScene): a history seeded and stepped twice, an image painted from its
+// newest two versions by a dispatch sized on the GPU, all in one frame graph whose barriers the executor derives.
+#pragma kernel Args map
+#pragma kernel Seed 8 8 map
+#pragma kernel Step 8 8 map
+#pragma kernel Paint 8 8 image
+
+Buffers {
+    ARGS   ("Dispatch arguments", uvec4, writeonly)
+    OUT    ("Next state",         vec4,  writeonly)
+    IN     ("State",              vec4,  readonly)
+    BEFORE ("State before",       vec4,  readonly)
+}
+
+Images {
+    PICTURE ("Picture", rgba8, writeonly)
+}
+
+// Paint's work groups: 8 by 8 of them, 8 by 8 texels each.
+void Args() {
+    ARGS_WRITE(uvec4(8u, 8u, 1u, 0u));
+}
+
+void Seed() {
+    ivec2 p = CG_DISPATCH_ID.xy;
+    OUT_WRITE(vec4(float(p.x * 4), float(p.y * 4), 0.0, 255.0));
+}
+
+void Step() {
+    OUT_WRITE(IN(CG_ELEMENT) + vec4(0.0, 0.0, 32.0, 0.0));
+}
+
+// Blue is the newest version's 64 plus the one before's 32: right only if both steps ran, in order, fenced.
+void Paint() {
+    int i = CG_TEXEL.x + 64 * CG_TEXEL.y;
+    vec4 now = IN(i);
+    PICTURE_WRITE(vec4(now.r, now.g, now.b + BEFORE(i).b, now.a) / 255.0);
+}
