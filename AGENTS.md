@@ -156,7 +156,7 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 ./gradlew :gl-debug-harness:runHarness --args="--mode=triangle-2d"
 
 # Run atlas dump
-./gradlew :gl-debug-harnesTs:runHarness --args="--mode=atlas-dump"
+./gradlew :gl-debug-harness:runHarness --args="--mode=atlas-dump"
 
 # Run with options
 ./gradlew :gl-debug-harness:runHarness --args="--mode=atlas-dump --atlas-type=mtsdf --font-size-px=128"
@@ -179,10 +179,17 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 # Attached buffer stress test
 ./gradlew :gl-debug-harness:runHarness --args="--mode=attached-buffer-stress"
 
-# Instanced rendering test
-
 # Mesh loader test
 ./gradlew :gl-debug-harness:runHarness --args="--mode=mesh-test"
+
+# The VFX showcase: sixteen effect spheres (CgVfxShowcase)
+./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres"
+
+# Frame graph: three paths, identical PNGs
+./gradlew :gl-debug-harness:runHarness --args="--mode=graph-executor-test"
+
+# Text recorded on a worker beside render-thread text; prints PASS/FAIL lines
+./gradlew :gl-debug-harness:runHarness --args="--mode=text-threaded"
 
 # Run a 3D scene with custom output name
 ./gradlew :gl-debug-harness:runHarness --args="--mode=text-3d --output-name=my-test"
