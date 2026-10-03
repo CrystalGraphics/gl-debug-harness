@@ -1,0 +1,6 @@
+# Mesa extensions that share an internal flag with another one: removing one removes its owner too. Each stays in
+# Mesa while its owner is kept, and the engine treats it as absent (crystalgraphics.gl.disableExtensions).
+# <extension> <owner>
+GL_ATI_texture_float GL_ARB_texture_float
+GL_AMD_multi_draw_indirect GL_ARB_draw_indirect
+GL_ARB_multi_draw_indirect GL_ARB_draw_indirect

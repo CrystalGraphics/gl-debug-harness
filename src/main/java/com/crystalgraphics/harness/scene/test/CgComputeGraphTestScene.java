@@ -15,7 +15,6 @@ import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
-import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
@@ -108,10 +107,6 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        if (!CgCapabilities.detect().compute() || !CgCapabilities.detect().storageImages()) {
-            System.out.println("[compute-graph] SKIP: this context has no compute shaders or storage images");
-            return;
-        }
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
         CgGraphBuffer state = CgGraphBuffer.history("state", CgBufferDesc.elements(SIZE * SIZE, 16, CgBufferUsage.STORAGE));
         CgFrameBuilder builder = new CgFrameBuilder();

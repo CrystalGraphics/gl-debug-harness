@@ -9,10 +9,16 @@ import org.lwjgl.glfw.Callbacks;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GL11C;
+import org.lwjgl.opengl.GL30C;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * The harness's one window and GL context, on GLFW: creation, the frame's swap, poll and pacing, resize,
@@ -84,6 +90,27 @@ public final class HarnessWindow {
     private HarnessWindow() {}
 
     /**
+     * A downlevel context lists only its keep-list's extensions, the rest removed by Mesa or disabled in the engine; one
+     * in neither means Mesa now lists something {@code downlevel/mesa.txt} does not, and the context is not the one asked.
+     */
+    private static void checkDownlevel(String name) {
+        Set<String> known = new HashSet<>(Arrays.asList(System.getProperty("crystalgraphics.harness.downlevel.keep", "").split(",")));
+        known.addAll(Arrays.asList(System.getProperty("crystalgraphics.gl.disableExtensions", "").split(",")));
+        Set<String> unknown = new TreeSet<>();
+        int listed = GL11C.glGetInteger(GL30C.GL_NUM_EXTENSIONS);
+        for (int i = 0; i < listed; i++) {
+            String extension = GL30C.glGetStringi(GL11C.GL_EXTENSIONS, i);
+            if (!known.contains(extension)) unknown.add(extension);
+        }
+        if (!unknown.isEmpty()) {
+            throw new IllegalStateException("downlevel " + name + ": Mesa lists " + unknown
+                    + ", which gl-debug-harness/downlevel/mesa.txt does not; add them there");
+        }
+        System.out.println("[harness] downlevel " + name + ": " + GL11C.glGetString(GL11C.GL_VERSION) + " on "
+                + GL11C.glGetString(GL11C.GL_RENDERER) + ", " + listed + " extensions listed");
+    }
+
+    /**
      * Opens the window and makes current the newest OpenGL core context the driver grants, 4.6 down to 3.3.
      *
      * @throws IllegalStateException when GLFW cannot start or the driver refuses the context
@@ -95,6 +122,9 @@ public final class HarnessWindow {
     /** @param gl false for a Vulkan device's window: no context, and {@link #swapBuffers()} does nothing */
     public static void create(int width, int height, String title, boolean gl) {
         GLFWErrorCallback.createPrint(System.err).set();
+        // Mesa's, for a downlevel context (build.gradle.kts): loaded first, GLFW's and LWJGL's loads find it.
+        String opengl32 = System.getProperty("crystalgraphics.harness.opengl32");
+        if (gl && opengl32 != null) System.load(opengl32);
         if (!GLFW.glfwInit()) throw new IllegalStateException("GLFW failed to initialise");
         glContext = gl;
         if (!gl) {
@@ -135,6 +165,8 @@ public final class HarnessWindow {
         }
         GLFW.glfwMakeContextCurrent(window);
         GL.createCapabilities();
+        String downlevel = System.getProperty("crystalgraphics.harness.downlevel");
+        if (downlevel != null) checkDownlevel(downlevel);
         // Unsynchronised, as LWJGL 2's Display was: sync(fps) paces the loop.
         GLFW.glfwSwapInterval(0);
         afterCreate();

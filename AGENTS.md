@@ -44,8 +44,31 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   drawn in every mode and matched against direct draws, in a graph and through the world renderer; it must fail the
   same way with the barriers off. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
   shape, a general one with a lowerable fallback, one with only a Java body, one with neither, every result worked out
-  in Java. All four scenes must pass forced to each tier (`-Dcrystalgraphics.compute.tier=G43|G40|G33|CPU`, and G33
-  with `-Dcrystalgraphics.shaderBuffer.tier=TBO` for a 3.3 context's GLSL); on `vulkan`, at its own tier and at CPU.
+  in Java (`CgComputeSelfTest`, the engine's, which a client runs too). All four scenes must pass forced to each tier
+  (`-Dcrystalgraphics.compute.tier=G43|G40|G33|CPU`, and G33 with `-Dcrystalgraphics.shaderBuffer.tier=TBO` for a 3.3
+  context's GLSL), unforced on both downlevel contexts (below), and on `vulkan` at its own tier and at CPU.
+
+## `-Pharness.downlevel=mac41|gl33` — a context that genuinely lacks a feature
+
+A forced tier on NVIDIA still has every extension and NVIDIA's lenient GLSL compiler. A downlevel run loads Mesa's
+llvmpipe (mesa-dist-win, fetched once by `fetchMesa` into the Gradle cache) in place of the driver, shaped as macOS's
+GL 4.1 core or a bare GL 3.3: `MESA_GL_VERSION_OVERRIDE`, and every extension a real context of that version lacks
+removed. Windows only; `--device=gl` only.
+
+```bash
+./gradlew :gl-debug-harness:runHarness -Pharness.downlevel=mac41 --args="--mode=compute-tiers --seconds=5"
+# [harness] downlevel mac41: 4.1 (Core Profile) Mesa 26.2.3 on llvmpipe (LLVM ...), 98 extensions listed
+```
+
+- **`downlevel/<name>.txt` lists what a context keeps**; everything else in `downlevel/mesa.txt` is removed, and the
+  window refuses to open when Mesa lists one neither names, so a Mesa update cannot silently widen a context.
+- **Some Mesa extensions cannot be removed**: about 45 are always on, and a few share an internal flag with one a
+  context keeps (removing `GL_ATI_texture_float` kills `RGBA32F`, removing `GL_ARB_multi_draw_indirect` kills
+  draw indirect). `downlevel/mesa-shared.txt` keeps those listed by Mesa and the build hands every one to
+  `-Dcrystalgraphics.gl.disableExtensions`, so the engine treats them as absent all the same.
+- **`MESA_DEBUG=1`** prints each GL error with its function and enum; Mesa's context has no debug output for
+  `-Dcrystalgraphics.gl.debugStacks`.
+- llvmpipe renders on the CPU: a scene that times anything means nothing here.
 
 ```bash
 ./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=tracked --seconds=10"
