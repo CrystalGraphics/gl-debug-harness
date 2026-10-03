@@ -10,6 +10,7 @@ import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.api.text.CgTextLayout;
 
 import com.crystalgraphics.harness.runtime.HarnessWindow;
+import com.crystalgraphics.world.CgCameraShake;
 
 import java.util.logging.Logger;
 
@@ -30,6 +31,8 @@ import java.util.logging.Logger;
  * <pre>
  * Pos: x.xx y.yy z.zz
  * Rot: yaw° pitch°
+ * FPS: n
+ * Shake [C]: on, trauma t
  * </pre>
  */
 public final class HUDRenderer {
@@ -222,7 +225,9 @@ public final class HUDRenderer {
         String rotLine = String.format("Rot: %.2f%s %.2f%s",
                 camera.getYaw(), "\u00B0", camera.getPitch(), "\u00B0");
         String fpsLine = String.format("FPS: %.1f", displayedFps);
-        String hudText = posLine + "\n" + rotLine + "\n" + fpsLine;
+        String shakeLine = HarnessCameraShake.INSTANCE.on()
+                ? String.format("Shake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "Shake [C]: off";
+        String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine;
 
         // Build text layout for the current frame's text.
         // maxWidth=0 means unbounded (no line wrapping beyond our explicit newline).
