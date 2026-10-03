@@ -188,6 +188,9 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 # Frame graph: three paths, identical PNGs
 ./gradlew :gl-debug-harness:runHarness --args="--mode=graph-executor-test"
 
+# The world's bloom: a glowing ball behind a wall changes no pixel, one in front does; PASS/FAIL, run on gl and vulkan
+./gradlew :gl-debug-harness:runHarness --args="--mode=bloom-occlusion --seconds=20"
+
 # Text recorded on a worker beside render-thread text; prints PASS/FAIL lines
 ./gradlew :gl-debug-harness:runHarness --args="--mode=text-threaded"
 
