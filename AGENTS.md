@@ -33,6 +33,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   which then has no GL context. The Khronos validation layer is on whenever it is installed (the LunarG SDK);
   `-Dcrystalgraphics.harness.vulkanValidation=false` turns it off for a timing run, since it checks every
   command. Its messages print as `[vulkan] ERROR ...`, and their count ends the `tracked:` line.
+  `-Dcrystalgraphics.vulkan.syncValidation=true` adds its synchronization checks, with the shader-access analysis
+  they need to see what a shader reads and writes through pushed descriptors: a missing barrier between passes
+  is then an error. `--mode=compute-seam` is the scene that proves it fires
+  (`-Dcrystalgraphics.harness.computeSeam.skipBarriers=true` must fail).
 
 ```bash
 ./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=tracked --seconds=10"

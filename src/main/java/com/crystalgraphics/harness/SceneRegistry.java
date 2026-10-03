@@ -4,6 +4,7 @@ import com.crystalgraphics.harness.config.SceneDescriptor;
 import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.ImageScene;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
+import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
 import com.crystalgraphics.harness.scene.test.CgHostSectionScene;
 import com.crystalgraphics.harness.scene.test.ReviewScene;
 import com.crystalgraphics.harness.scene.test.ShaderLibTestScene;
@@ -231,6 +232,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgMeshBackendTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("compute-seam")
+                .description("gpu-compute C1: kernels write a buffer drawn as quads and an image a material samples, beside an indirect draw; the picture from the kernels must match one from CPU-written data on every device")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(900)
+                .defaultHeight(700)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgComputeSeamTestScene()
         );
 
         reg.register(
