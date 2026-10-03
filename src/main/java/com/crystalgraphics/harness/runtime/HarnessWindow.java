@@ -68,7 +68,18 @@ public final class HarnessWindow {
      * Asked for newest first. A driver grants the version asked rather than its newest, so asking for 3.3 on
      * a 4.6 card hides every 4.x path from {@code CgCapabilities}. 4.1 is macOS's ceiling.
      */
-    private static final int[][] CORE_VERSIONS = {{4, 6}, {4, 5}, {4, 3}, {4, 1}, {3, 3}};
+    private static final int[][] CORE_VERSIONS = coreVersions();
+
+    /**
+     * Newest first; {@code -Dcrystalgraphics.harness.gl=3.2} asks for that one alone, to stand in for a host's context
+     * (3.2 core is Minecraft 1.17 to 1.21.4's, 4.1 core macOS's).
+     */
+    private static int[][] coreVersions() {
+        String asked = System.getProperty("crystalgraphics.harness.gl");
+        if (asked == null) return new int[][]{{4, 6}, {4, 5}, {4, 3}, {4, 1}, {3, 3}};
+        String[] parts = asked.trim().split("[.]");
+        return new int[][]{{Integer.parseInt(parts[0]), Integer.parseInt(parts[1])}};
+    }
 
     private HarnessWindow() {}
 
@@ -119,7 +130,8 @@ public final class HarnessWindow {
         if (window == 0L) {
             GLFW.glfwTerminate();
             throw new IllegalStateException("GLFW could not create a " + width + "x" + height
-                    + " window with an OpenGL core context of 3.3 or newer");
+                    + " window with an OpenGL core context of " + CORE_VERSIONS[CORE_VERSIONS.length - 1][0] + "."
+                    + CORE_VERSIONS[CORE_VERSIONS.length - 1][1] + " or newer");
         }
         GLFW.glfwMakeContextCurrent(window);
         GL.createCapabilities();

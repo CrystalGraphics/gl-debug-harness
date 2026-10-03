@@ -1,6 +1,7 @@
 package com.crystalgraphics.harness.tool;
 
 import com.crystalgraphics.platform.gl.CgCapabilities;
+import com.crystalgraphics.platform.gl.CgGpuReport;
 import com.crystalgraphics.harness.config.HarnessConfig;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.FrameInfo;
@@ -62,6 +63,10 @@ public final class CapabilityReport implements HarnessSceneLifecycle {
                 } catch (Exception e) {
                     pw.println("ERROR: " + e.getMessage());
                 }
+                pw.println();
+
+                pw.println("-- GPU report (" + CgGpuReport.current().api() + ") --");
+                CgGpuReport.current().facts().forEach((key, value) -> pw.printf("%-22s %s%n", key, value));
                 pw.println();
 
                 pw.println("-- Harness Environment --");

@@ -62,6 +62,11 @@ the camera. This is how GL and Vulkan are compared (`plan/device-seam/device-mil
 is a different picture every run. What may read the wall clock is what shows measured time — the HUD's FPS,
 a frame-time readout — and a comparison masks those.
 
+**`-Dcrystalgraphics.harness.gl=<major.minor>`** asks for that core context alone instead of the newest the driver
+gives: `3.2` is Minecraft 1.17 to 1.21.4's. It is no stand-in for macOS's 4.1, since a desktop driver lists every
+extension in a 4.1 context too; `-Dcrystalgraphics.compute.tier` is how a lower tier is tested.
+`--mode=capability-report` writes `CgGpuReport`'s table for the context or device it ran on.
+
 Three more unattended switches, for what a single picture cannot show:
 
 | Flag | Does |
