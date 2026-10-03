@@ -10,16 +10,21 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 
+import java.time.LocalTime;
+
 /**
  * Many {@code FRAME} meshes rewritten every frame: {@code -Dcrystalgraphics.harness.frameStress.meshes} strips (64) of
  * {@code .points} vertex pairs (189), each its own mesh, waving. Profile it on the ring and, with
  * {@code -Dcrystalgraphics.mesh.frameRing=false}, on slabs. {@code .usage=DYNAMIC} builds them with another usage,
- * which the store reports as edited every frame.
+ * which the store reports as edited every frame. {@code .logSlowMs=N} prints each frame interval over N ms with the
+ * wall-clock time it ended, to line up against a JFR recording or another process's log.
  */
 public class CgMeshFrameStressScene implements InteractiveSceneLifecycle {
 
     private static final int MESHES = Integer.getInteger("crystalgraphics.harness.frameStress.meshes", 64);
     private static final int POINTS = Integer.getInteger("crystalgraphics.harness.frameStress.points", 189);
+    private static final long LOG_SLOW_NS =
+            Long.getLong("crystalgraphics.harness.frameStress.logSlowMs", 0L) * 1_000_000L;
     private static final CgMesh.Usage USAGE =
             CgMesh.Usage.valueOf(System.getProperty("crystalgraphics.harness.frameStress.usage", "FRAME"));
 
@@ -27,6 +32,7 @@ public class CgMeshFrameStressScene implements InteractiveSceneLifecycle {
     private CgMaterial solid;
     private long frameNumber;
     private int writing;
+    private long lastRender;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -50,6 +56,12 @@ public class CgMeshFrameStressScene implements InteractiveSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         frameNumber = frame.getFrameNumber();
+        long now = System.nanoTime();
+        if (LOG_SLOW_NS > 0 && lastRender != 0 && now - lastRender > LOG_SLOW_NS) {
+            System.out.printf("[frame-stress] slow before #%d %.1f ms at %s%n", frameNumber, (now - lastRender) / 1e6,
+                    LocalTime.now());
+        }
+        lastRender = now;
         CgWorldRenderer world = CgWorldRenderer.get();
         for (int i = 0; i < MESHES; i++) {
             writing = i;
