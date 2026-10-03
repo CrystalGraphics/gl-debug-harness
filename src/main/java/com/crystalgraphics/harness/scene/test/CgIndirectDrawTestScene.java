@@ -12,7 +12,6 @@ import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
-import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgIndirect;
@@ -97,10 +96,6 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        if (!CgCapabilities.detect().compute() || !CgCapabilities.detect().drawIndirect()) {
-            System.out.println("[indirect-draw] SKIP: this context has no compute shaders or indirect draws");
-            return;
-        }
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
         CgBufferDesc desc = CgBufferDesc.of(16, CgBufferUsage.STORAGE);
         CgGraphBuffer counts = CgGraphBuffer.persistent("counts", desc);

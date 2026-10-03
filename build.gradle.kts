@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 plugins {
     `java-library`
 }
@@ -104,6 +106,46 @@ tasks.withType<JavaCompile>().configureEach {
  */
 val hostAssetRoots: ConfigurableFileCollection = files()
 extra["hostAssetRoots"] = hostAssetRoots
+
+// DOWNLEVEL CONTEXTS: Mesa's software GL in place of the driver, capped at a version and stripped of every
+// extension that version lacks -- contexts genuinely without compute, which a forced tier on a 4.6 card is not,
+// and Mesa's GLSL compiler, which refuses what NVIDIA lets through (gpu-compute C12):
+//
+//   ./gradlew :gl-debug-harness:runHarness --args="--mode=compute-tiers" -Pharness.downlevel=mac41   # a Mac's 4.1: G40
+//   ./gradlew :gl-debug-harness:runHarness --args="--mode=compute-tiers" -Pharness.downlevel=gl33    # bare 3.3: G33
+//
+// downlevel/<name>.txt is what such a context lists. Whatever else Mesa lists (downlevel/mesa.txt) is removed,
+// and the engine treats all of it as absent (-Dcrystalgraphics.gl.disableExtensions): Mesa cannot remove some, and
+// removing others would take a kept one with them (downlevel/mesa-shared.txt). On Windows Mesa is fetched once,
+// pinned; elsewhere the system's Mesa runs in software.
+val mesaVersion = "26.2.3"
+val mesaDir: File = gradle.gradleUserHomeDir.resolve("caches/crystalgraphics-harness/mesa-$mesaVersion")
+val downlevels = mapOf("mac41" to "4.1", "gl33" to "3.3")
+val fetchMesa = tasks.register("fetchMesa") {
+    group = "harness"
+    description = "Fetches Mesa $mesaVersion for Windows (pal1000/mesa-dist-win), for -Pharness.downlevel."
+    onlyIf { !mesaDir.resolve("x64/opengl32.dll").isFile }
+    doLast {
+        fun fetch(url: String, sha256: String, to: File) {
+            to.parentFile.mkdirs()
+            uri(url).toURL().openStream().use { input -> to.outputStream().use { input.copyTo(it) } }
+            val digest = MessageDigest.getInstance("SHA-256").digest(to.readBytes())
+                .joinToString("") { "%02x".format(it) }
+            if (digest != sha256) throw GradleException("$url hashed $digest, not the pinned $sha256")
+        }
+        val sevenZip = mesaDir.resolve("7zr.exe")
+        val archive = mesaDir.resolve("mesa.7z")
+        fetch("https://github.com/ip7z/7zip/releases/download/26.03/7zr.exe",
+            "ad4c82fadcbdf93c03b4fc440f300509c7d60c5c2f4d183e35d9d70d6957037d", sevenZip)
+        fetch("https://github.com/pal1000/mesa-dist-win/releases/download/$mesaVersion/mesa3d-$mesaVersion-release-msvc.7z",
+            "3f3613adb43cfd0f2e665ce2400b130c275f0b3317cb3a05566320a3a67589ed", archive)
+        val extract = ProcessBuilder(sevenZip.absolutePath, "x", "-y", "-o" + mesaDir.absolutePath, archive.absolutePath, "x64/*")
+            .redirectErrorStream(true).start()
+        val log = extract.inputStream.bufferedReader().readText()
+        if (extract.waitFor() != 0) throw GradleException("7zr could not extract Mesa:\n$log")
+        archive.delete()
+    }
+}
 
 // CrystalGraphics' checkout: the included build of that name, or a sibling directory for a host that has
 // it as a plain folder.
@@ -240,6 +282,36 @@ tasks.register<JavaExec>("runHarness") {
 
     (project.findProperty("harness.hotswapAgent") as String?)?.let { agentPath ->
         jvmArgs("-javaagent:$agentPath")
+    }
+
+    (findProperty("harness.downlevel") as String?)?.let { name ->
+        val version = downlevels[name]
+            ?: throw GradleException("-Pharness.downlevel=$name is not one of ${downlevels.keys}")
+        fun names(path: String) = file(path).readLines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
+        val keep = names("downlevel/$name.txt").toSet()
+        val shared = names("downlevel/mesa-shared.txt").map { it.split(Regex("\\s+")) }
+            .filter { (_, owner) -> owner in keep }.map { (extension, _) -> extension }.toSet()
+        val disabled = names("downlevel/mesa.txt").filterNot { it in keep }
+        val removed = disabled.filterNot { it in shared }
+        environment("MESA_GL_VERSION_OVERRIDE", version)
+        environment("MESA_GLSL_VERSION_OVERRIDE", version.replace(".", "") + "0")
+        environment("MESA_EXTENSION_OVERRIDE", removed.joinToString(" ") { "-$it" })
+        systemProperty("crystalgraphics.gl.disableExtensions", disabled.joinToString(","))
+        systemProperty("crystalgraphics.harness.gl", version)
+        systemProperty("crystalgraphics.harness.downlevel", name)
+        systemProperty("crystalgraphics.harness.downlevel.keep", keep.joinToString(","))
+        if (System.getProperty("os.name").lowercase().contains("win")) {
+            dependsOn(fetchMesa)
+            val bin = mesaDir.resolve("x64")
+            // Loaded by path before GLFW starts, so GLFW's and LWJGL's own load of opengl32 find Mesa's; its
+            // libgallium_wgl.dll is found on PATH.
+            systemProperty("crystalgraphics.harness.opengl32", bin.resolve("opengl32.dll").absolutePath)
+            systemProperty("org.lwjgl.opengl.libname", bin.resolve("opengl32.dll").absolutePath)
+            environment("PATH", bin.absolutePath + File.pathSeparator + System.getenv("PATH"))
+            environment("GALLIUM_DRIVER", "llvmpipe")
+        } else {
+            environment("LIBGL_ALWAYS_SOFTWARE", "1")
+        }
     }
 
     // Extra JVM flags for one-off diagnostics — e.g. GC logging while chasing a frame spike:

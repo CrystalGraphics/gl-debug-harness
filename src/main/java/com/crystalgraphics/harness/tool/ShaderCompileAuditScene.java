@@ -9,6 +9,7 @@ import com.crystalgraphics.compute.lower.CgLoweredEmitter;
 import com.crystalgraphics.compute.lower.CgLoweredTarget;
 import com.crystalgraphics.compute.lower.CgLowering;
 import com.crystalgraphics.compute.parse.CgComputeParser;
+import com.crystalgraphics.compute.source.CgBufferDecl;
 import com.crystalgraphics.compute.source.CgComputeSource;
 import com.crystalgraphics.compute.source.CgKernelDecl;
 import com.crystalgraphics.gl.material.CgMaterialShader;
@@ -53,6 +54,7 @@ import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -344,7 +346,8 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
             checks++;
             capture.clear();
             String label = "  LOWER   %s kernel " + kernel.name() + " " + pass.kind().name().toLowerCase() + " pass of "
-                    + (pass.buffer() != null ? pass.buffer().name() : pass.image().name())
+                    + (pass.image() != null ? pass.image().name()
+                            : pass.buffers().stream().map(CgBufferDecl::name).collect(Collectors.joining(", ")))
                     + (pass.op() != null ? " (" + pass.op().name().toLowerCase() + ")" : "") + " keywords=" + keywords;
             try {
                 CgLoweredEmitter.Stages stages = CgLoweredEmitter.emit(source, kernel, keywords, pass, target);
