@@ -10,7 +10,7 @@ import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.api.text.CgTextLayout;
 
 import com.crystalgraphics.harness.runtime.HarnessWindow;
-import com.crystalgraphics.world.CgCameraShake;
+import com.crystalgraphics.vfx.camera.CgCameraShake;
 
 import java.util.logging.Logger;
 
