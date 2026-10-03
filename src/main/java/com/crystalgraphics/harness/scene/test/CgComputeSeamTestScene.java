@@ -1,6 +1,9 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.shader.CgShaderProgram;
+import com.crystalgraphics.compute.CgCompute;
+import com.crystalgraphics.compute.emit.CgKernelTarget;
+import com.crystalgraphics.compute.program.CgKernelProgram;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -21,6 +24,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 /**
  * gpu-compute C1's gate: the compute seam on every device. {@code compute-seam-new.png} draws what two kernels
@@ -29,6 +35,11 @@ import java.nio.ByteOrder;
  * {@code compute-seam-ref.png} is the same picture from CPU-written data through the same shaders. The scene
  * compares the two and prints {@code [compute-seam] PASS} or {@code FAIL}; the kernels use integer arithmetic, so
  * the pictures match exactly.
+ *
+ * <p>gpu-compute C2's gate beside it: {@code compute-seam-kernels.png} is the picture from
+ * {@code harness:shaders/compute_seam.compute} through {@code CgKernelProgram}, a map, a general and an image kernel,
+ * the general one counting its work group through subgroups; {@code compute-seam-emulated.png} the same with the
+ * subgroups emulated, where the context has them. Both must match the reference too.</p>
  *
  * <p>On Vulkan a validation error fails it too. {@code -Dcrystalgraphics.harness.computeSeam.skipBarriers=true} leaves
  * the two barriers out: under {@code -Dcrystalgraphics.vulkan.syncValidation=true} the buffer's must then be reported
@@ -88,8 +99,11 @@ public class CgComputeSeamTestScene implements HarnessSceneLifecycle {
     private static final String IMAGE_FRAGMENT = "#version 330 core\n"
             + "uniform sampler2D u_tex;\nin vec2 v_uv;\nout vec4 o;\nvoid main() { o = texture(u_tex, v_uv); }\n";
 
+    private enum Source { SEAM, CPU, FILE, FILE_EMULATED }
+
     private int fill, paint;
     private CgShaderProgram quads, image;
+    private CgKernelProgram place, colour, colourEmulated, painter;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -99,6 +113,15 @@ public class CgComputeSeamTestScene implements HarnessSceneLifecycle {
         quads = CgShaderProgram.compile(QUAD_VERTEX, QUAD_FRAGMENT, null);
         image = CgShaderProgram.compile(IMAGE_VERTEX, IMAGE_FRAGMENT, null);
         storageBlock(quads.getId());
+        CgCompute seam = CgCompute.load("harness:shaders/compute_seam.compute");
+        place = seam.kernel("Place").program();
+        colour = seam.kernel("Colour").program();
+        painter = seam.kernel("Paint").program();
+        CgKernelTarget current = CgKernelTarget.current();
+        if (current.nativeSubgroups()) {
+            colourEmulated = CgKernelProgram.build(seam.source(), seam.source().kernel("Colour"), Set.of(),
+                    current.withSubgroups(0));
+        }
     }
 
     @Override
@@ -113,28 +136,37 @@ public class CgComputeSeamTestScene implements HarnessSceneLifecycle {
         CgGL.glDisable(CgGL.GL_CULL_FACE);
         CgGL.glDisable(CgGL.GL_SCISSOR_TEST);
 
-        capture(ctx, w, h, "compute-seam-new.png", true);
-        capture(ctx, w, h, "compute-seam-ref.png", false);
-        compare(ctx, GlErrorChecker.checkAndLog("compute-seam"));
+        List<String> made = new ArrayList<>(List.of("compute-seam-new.png", "compute-seam-kernels.png"));
+        capture(ctx, w, h, "compute-seam-new.png", Source.SEAM);
+        capture(ctx, w, h, "compute-seam-ref.png", Source.CPU);
+        capture(ctx, w, h, "compute-seam-kernels.png", Source.FILE);
+        if (colourEmulated != null) {
+            capture(ctx, w, h, "compute-seam-emulated.png", Source.FILE_EMULATED);
+            made.add("compute-seam-emulated.png");
+        }
+        compare(ctx, GlErrorChecker.checkAndLog("compute-seam"), made);
     }
 
-    private void capture(HarnessContext ctx, int w, int h, String name, boolean kernels) {
+    private void capture(HarnessContext ctx, int w, int h, String name, Source source) {
         try (CgGlScope ignored = CgGlState.saveAll()) {
-            draw(ctx, w, h, name, kernels);
+            draw(ctx, w, h, name, source);
         }
     }
 
-    private void draw(HarnessContext ctx, int w, int h, String name, boolean kernels) {
+    private void draw(HarnessContext ctx, int w, int h, String name, Source source) {
         HarnessFboHelper fbo = HarnessFboHelper.create(w, h, false);
         fbo.bind();
         fbo.clear(0.08f, 0.08f, 0.1f, 1f);
         int records = CgGL.glGenBuffers(), texture = texture(), vao = CgGL.glGenVertexArrays();
         try (CgGlScope ignored = CgGlState.save(CgGlSlot.PROGRAM, CgGlSlot.TEXTURES, CgGlSlot.VERTEX_INPUT,
                 CgGlSlot.STORAGE_BUFFERS, CgGlSlot.IMAGES, CgGlSlot.INDIRECT_BUFFERS)) {
-            if (kernels) runKernels(records, texture);
-            else writeOnCpu(records, texture);
+            switch (source) {
+                case SEAM -> runKernels(records, texture);
+                case CPU -> writeOnCpu(records, texture);
+                default -> runFile(records, texture, source == Source.FILE ? colour : colourEmulated);
+            }
             CgGL.glBindVertexArray(vao);
-            drawQuads(records, w, h, kernels);
+            drawQuads(records, w, h, source == Source.SEAM);
             drawImage(texture, w, h);
             CgGL.glBindVertexArray(0);
         }
@@ -167,6 +199,18 @@ public class CgComputeSeamTestScene implements HarnessSceneLifecycle {
         CgGL.glDispatchCompute(IMAGE / 8, IMAGE / 8, 1);
         if (!SKIP_BARRIERS) CgGL.cgImageBarrier(texture, CgAccess.COMPUTE_WRITE, CgAccess.SAMPLED_READ);
         CgGL.glDeleteBuffers(groups);
+    }
+
+    /** The same picture from the .compute: placed, then coloured, then painted, each made visible to its reader. */
+    private void runFile(int records, int texture, CgKernelProgram colourer) {
+        CgGL.glBindBuffer(CgGL.GL_SHADER_STORAGE_BUFFER, records);
+        CgGL.glBufferData(CgGL.GL_SHADER_STORAGE_BUFFER, (long) QUADS * QUAD_BYTES, CgGL.GL_DYNAMIC_COPY);
+        place.use().buffer("QUADS", records).dispatch(QUADS);
+        CgGL.cgBufferBarrier(records, CgAccess.COMPUTE_WRITE, CgAccess.COMPUTE_READ | CgAccess.COMPUTE_WRITE);
+        colourer.use().buffer("QUADS", records).dispatch(QUADS);
+        CgGL.cgBufferBarrier(records, CgAccess.COMPUTE_WRITE, CgAccess.VERTEX_READ);
+        painter.use().image("PICTURE", texture, 0).dispatch(IMAGE, IMAGE, 1);
+        CgGL.cgImageBarrier(texture, CgAccess.COMPUTE_WRITE, CgAccess.SAMPLED_READ);
     }
 
     /** What the kernels write, computed here. */
@@ -219,31 +263,39 @@ public class CgComputeSeamTestScene implements HarnessSceneLifecycle {
 
     // ── The verdict ────────────────────────────────────────────────────────────
 
-    private static void compare(HarnessContext ctx, boolean glErrors) {
+    private static void compare(HarnessContext ctx, boolean glErrors, List<String> captures) {
+        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        String on = device == null ? "gl" : device.name();
+        int validation = PlatformServiceHarness.validationErrors();
+        if (glErrors) {
+            System.out.println("[compute-seam] FAIL on " + on + ": GL errors, logged above");
+            return;
+        }
+        if (validation > 0) {
+            System.out.println("[compute-seam] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
+            return;
+        }
         try {
-            BufferedImage made = ImageIO.read(new File(ctx.getOutputDir(), "compute-seam-new.png"));
             BufferedImage ref = ImageIO.read(new File(ctx.getOutputDir(), "compute-seam-ref.png"));
-            int differing = 0, firstX = -1, firstY = -1;
-            for (int y = 0; y < ref.getHeight(); y++) {
-                for (int x = 0; x < ref.getWidth(); x++) {
-                    if (made.getRGB(x, y) == ref.getRGB(x, y)) continue;
-                    if (differing++ == 0) { firstX = x; firstY = y; }
+            boolean pass = true;
+            for (String capture : captures) {
+                BufferedImage made = ImageIO.read(new File(ctx.getOutputDir(), capture));
+                int differing = 0, firstX = -1, firstY = -1;
+                for (int y = 0; y < ref.getHeight(); y++) {
+                    for (int x = 0; x < ref.getWidth(); x++) {
+                        if (made.getRGB(x, y) == ref.getRGB(x, y)) continue;
+                        if (differing++ == 0) { firstX = x; firstY = y; }
+                    }
+                }
+                if (differing > 0) {
+                    pass = false;
+                    System.out.println("[compute-seam] FAIL on " + on + ": " + capture + " differs in " + differing
+                            + " pixels, the first at (" + firstX + ", " + firstY + "): 0x"
+                            + Integer.toHexString(made.getRGB(firstX, firstY)) + " where the reference has 0x"
+                            + Integer.toHexString(ref.getRGB(firstX, firstY)));
                 }
             }
-            CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
-            String on = device == null ? "gl" : device.name();
-            int validation = PlatformServiceHarness.validationErrors();
-            if (glErrors) {
-                System.out.println("[compute-seam] FAIL on " + on + ": GL errors, logged above");
-            } else if (validation > 0) {
-                System.out.println("[compute-seam] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-            } else if (differing == 0) {
-                System.out.println("[compute-seam] PASS on " + on + ": the kernels' picture matches the reference");
-            } else {
-                System.out.println("[compute-seam] FAIL on " + on + ": " + differing + " pixels differ, the first at ("
-                        + firstX + ", " + firstY + "): kernels 0x" + Integer.toHexString(made.getRGB(firstX, firstY))
-                        + " reference 0x" + Integer.toHexString(ref.getRGB(firstX, firstY)));
-            }
+            if (pass) System.out.println("[compute-seam] PASS on " + on + ": " + captures + " match the reference");
         } catch (IOException e) {
             System.out.println("[compute-seam] FAIL: the captures could not be read: " + e);
         }
@@ -308,5 +360,6 @@ public class CgComputeSeamTestScene implements HarnessSceneLifecycle {
         if (paint != 0) CgGL.glDeleteProgram(paint);
         if (quads != null) quads.delete();
         if (image != null) image.delete();
+        if (colourEmulated != null) colourEmulated.delete();
     }
 }

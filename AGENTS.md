@@ -36,13 +36,15 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   `-Dcrystalgraphics.vulkan.syncValidation=true` adds its synchronization checks, with the shader-access analysis
   they need to see what a shader reads and writes through pushed descriptors: a missing barrier between passes
   is then an error. `--mode=compute-seam` is the scene that proves it fires
-  (`-Dcrystalgraphics.harness.computeSeam.skipBarriers=true` must fail).
+  (`-Dcrystalgraphics.harness.computeSeam.skipBarriers=true` must fail). It also dispatches
+  `harness:shaders/compute_seam.compute` through `CgKernelProgram`, subgroups native and emulated, against the same
+  CPU reference: the gate for `.compute` on each device.
 
 ```bash
 ./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=tracked --seconds=10"
 # INFO: [Harness] tracked: frames=314 deviceDraws=88495 ... passes=4778 breaks=709 ... misses=17
 ./gradlew :gl-debug-harness:runHarness --args="--mode=shader-compile-audit --device=vulkan"
-# every shipped shader and keyword combination compiled, and its pipeline built: the driver's own compile
+# every shipped shader, kernel and keyword combination compiled, and its pipeline built: the driver's own compile
 ```
 
 A scene fails on either by throwing: a call the device cannot express, or a draw it would refuse (a binding
@@ -207,7 +209,7 @@ Each entry has:
 `HarnessExtension`, found through `ServiceLoader`: CrystalGUI's live in its own `harness-scenes` module
 (`com.crystalgui.harness.CrystalGuiHarness`). One interface, three hooks — `registerScenes`, `beforeReload`
 (Ctrl+R, ahead of CrystalGraphics' `CgAssetReloader.reload()`), and `shaderNamespaces` (what
-`shader-compile-audit` checks). Its javadoc has the example.
+`shader-compile-audit` checks: each namespace's `.shader` and `.compute` under `shaders/`). Its javadoc has the example.
 
 The harness cannot depend on the module holding them, so that module wires itself into the run:
 
