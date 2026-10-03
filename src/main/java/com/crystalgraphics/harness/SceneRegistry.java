@@ -5,6 +5,7 @@ import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.ImageScene;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
+import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
 import com.crystalgraphics.harness.scene.test.CgHostSectionScene;
 import com.crystalgraphics.harness.scene.test.ReviewScene;
@@ -261,6 +262,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgComputeGraphTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("indirect-draw")
+                .description("gpu-compute C4: a kernel writes counts four indirect draws read in the same frame, one per CgIndirect mode and one past its mesh; each must match a direct draw of what its count means, in a graph, executed again, and through the world renderer")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(160)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgIndirectDrawTestScene()
         );
 
         reg.register(

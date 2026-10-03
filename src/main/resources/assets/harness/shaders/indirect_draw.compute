@@ -1,0 +1,14 @@
+// indirect-draw's counts (CgIndirectDrawTestScene): what its four indirect draws read, written on the GPU in the
+// frame that draws them.
+#pragma kernel Count scatter
+
+Buffers {
+    COUNTS ("Counts", uint, writeonly)
+}
+
+void Count() {
+    COUNTS_STORE(0, 37u);    // INDICES x 6: 37 quads
+    COUNTS_STORE(1, 5u);     // INSTANCES x 2: 10 quads
+    COUNTS_STORE(2, 9u);     // VERTICES x 3: 9 triangles
+    COUNTS_STORE(3, 100u);   // INDICES x 6 of a 64-quad mesh: held to 64
+}

@@ -40,7 +40,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   `harness:shaders/compute_seam.compute` through `CgKernelProgram`, subgroups native and emulated, against the same
   CPU reference: the gate for `.compute` on each device. `--mode=compute-graph` is the frame graph's: kernels, a
   history and an indirect dispatch recorded and built on a worker; with `-Dcrystalgraphics.graph.barriers=false` it
-  must fail under synchronization validation.
+  must fail under synchronization validation. `--mode=indirect-draw` is the indirect draws': counts a kernel wrote,
+  drawn in every mode and matched against direct draws, in a graph and through the world renderer; it must fail the
+  same way with the barriers off.
 
 ```bash
 ./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=tracked --seconds=10"
