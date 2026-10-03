@@ -4,6 +4,7 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshTopology;
 import com.crystalgraphics.compute.CgCompute;
+import com.crystalgraphics.compute.cpu.CgCpuBuffer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -85,6 +86,13 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
     public void init(HarnessContext ctx) {
         material = CgMaterial.load("assets/harness/shader/indirect_draw_test.shader");
         kernels = CgCompute.load("harness:shaders/indirect_draw.compute");
+        kernels.kernel("Count").cpu(d -> {                      // the CPU tier's
+            CgCpuBuffer counts = d.buffer("COUNTS");
+            counts.setInt(0, 37);
+            counts.setInt(1, 5);
+            counts.setInt(2, 9);
+            counts.setInt(3, 100);
+        });
     }
 
     @Override

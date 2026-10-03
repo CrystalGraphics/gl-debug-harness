@@ -5,6 +5,7 @@ import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.ImageScene;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
+import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
 import com.crystalgraphics.harness.scene.test.CgHostSectionScene;
@@ -276,6 +277,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgIndirectDrawTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("compute-tiers")
+                .description("gpu-compute C5/C6: one kernel per shape, every buffer and image checked against Java's arithmetic; run at each forced tier (-Dcrystalgraphics.compute.tier=G43|G40|G33|CPU), all must agree")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(64)
+                .defaultHeight(64)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgComputeTiersTestScene()
         );
 
         reg.register(

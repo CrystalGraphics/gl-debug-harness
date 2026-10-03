@@ -4,6 +4,8 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.texture.CgTexture;
 import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.compute.CgCompute;
+import com.crystalgraphics.compute.cpu.CgCpuBuffer;
+import com.crystalgraphics.compute.cpu.CgCpuImage;
 import com.crystalgraphics.gl.texture.CgFallbackTextures;
 import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
@@ -66,6 +68,42 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
         material = CgMaterial.load("assets/harness/shader/quad_renderer_test.shader");
         material.applyProperties(b -> b.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1));
         kernels = CgCompute.load("harness:shaders/compute_graph.compute");
+        giveBodies();
+    }
+
+    /** The kernels' Java bodies: what the CPU tier runs. */
+    private void giveBodies() {
+        kernels.kernel("Args").cpu(d -> {
+            CgCpuBuffer args = d.buffer("ARGS");
+            args.setInt(0, 0, 8);
+            args.setInt(0, 1, 8);
+            args.setInt(0, 2, 1);
+            args.setInt(0, 3, 0);
+        });
+        kernels.kernel("Seed").cpu(d -> {
+            CgCpuBuffer out = d.buffer("OUT");
+            for (int e = d.first(); e < d.end(); e++) {
+                out.setFloat(e, 0, d.x(e) * 4);
+                out.setFloat(e, 1, d.y(e) * 4);
+                out.setFloat(e, 2, 0f);
+                out.setFloat(e, 3, 255f);
+            }
+        });
+        kernels.kernel("Step").cpu(d -> {
+            CgCpuBuffer in = d.buffer("IN"), out = d.buffer("OUT");
+            for (int e = d.first(); e < d.end(); e++) {
+                for (int c = 0; c < 4; c++) out.setFloat(e, c, in.getFloat(e, c) + (c == 2 ? 32f : 0f));
+            }
+        });
+        kernels.kernel("Paint").cpu(d -> {
+            CgCpuBuffer in = d.buffer("IN"), before = d.buffer("BEFORE");
+            CgCpuImage picture = d.image("PICTURE");
+            for (int e = d.first(); e < d.end(); e++) {
+                int x = d.x(e), y = d.y(e), i = x + 64 * y;
+                picture.store(x, y, 0, in.getFloat(i, 0) / 255f, in.getFloat(i, 1) / 255f,
+                        (in.getFloat(i, 2) + before.getFloat(i, 2)) / 255f, in.getFloat(i, 3) / 255f);
+            }
+        });
     }
 
     @Override

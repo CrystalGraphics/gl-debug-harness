@@ -42,7 +42,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   history and an indirect dispatch recorded and built on a worker; with `-Dcrystalgraphics.graph.barriers=false` it
   must fail under synchronization validation. `--mode=indirect-draw` is the indirect draws': counts a kernel wrote,
   drawn in every mode and matched against direct draws, in a graph and through the world renderer; it must fail the
-  same way with the barriers off.
+  same way with the barriers off. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
+  shape, a general one with a lowerable fallback, one with only a Java body, one with neither, every result worked out
+  in Java. All four scenes must pass forced to each tier (`-Dcrystalgraphics.compute.tier=G43|G40|G33|CPU`, and G33
+  with `-Dcrystalgraphics.shaderBuffer.tier=TBO` for a 3.3 context's GLSL); on `vulkan`, at its own tier and at CPU.
 
 ```bash
 ./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=tracked --seconds=10"

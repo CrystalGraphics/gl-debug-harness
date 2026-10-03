@@ -5,6 +5,9 @@ import com.crystalgraphics.api.shader.CgShaderStages;
 import com.crystalgraphics.api.shader.CgShaderProgram;
 import com.crystalgraphics.compute.emit.CgKernelEmitter;
 import com.crystalgraphics.compute.emit.CgKernelTarget;
+import com.crystalgraphics.compute.lower.CgLoweredEmitter;
+import com.crystalgraphics.compute.lower.CgLoweredTarget;
+import com.crystalgraphics.compute.lower.CgLowering;
 import com.crystalgraphics.compute.parse.CgComputeParser;
 import com.crystalgraphics.compute.source.CgComputeSource;
 import com.crystalgraphics.compute.source.CgKernelDecl;
@@ -326,7 +329,35 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
                             appendCaptured(capture, body);
                         }
                     }
+                    if (PlatformServiceHarness.deviceInfo() == null) auditLowered(source, kernel, keywords, path, capture, body);
                 }
+            }
+        }
+    }
+
+    /** Each pass a kernel lowers to, as a context below compute runs it: GL only, since a device has no capture. */
+    private void auditLowered(CgComputeSource source, CgKernelDecl kernel, Set<String> keywords, String path,
+                              LogCapture capture, List<String> body) {
+        if (CgLowering.refusal(source, kernel) != null) return;
+        CgLoweredTarget target = CgLoweredTarget.current();
+        for (CgLowering.Pass pass : CgLowering.passes(source, kernel)) {
+            checks++;
+            capture.clear();
+            String label = "  LOWER   %s kernel " + kernel.name() + " " + pass.kind().name().toLowerCase() + " pass of "
+                    + (pass.buffer() != null ? pass.buffer().name() : pass.image().name())
+                    + (pass.op() != null ? " (" + pass.op().name().toLowerCase() + ")" : "") + " keywords=" + keywords;
+            try {
+                CgLoweredEmitter.Stages stages = CgLoweredEmitter.emit(source, kernel, keywords, pass, target);
+                CgShaderPreprocessor pre = new CgShaderPreprocessor();
+                CgShaderProgram.compileCapture(pre.process(stages.vertex(), path),
+                        stages.geometry() == null ? null : pre.process(stages.geometry(), path),
+                        stages.fragment() == null ? null : pre.process(stages.fragment(), path),
+                        stages.varyings()).delete();
+                body.add(String.format(label, "ok  "));
+            } catch (Throwable t) {
+                failures++;
+                body.add(String.format(label, "FAIL") + " — " + t.getMessage());
+                appendCaptured(capture, body);
             }
         }
     }
