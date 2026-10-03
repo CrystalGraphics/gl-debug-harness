@@ -1,0 +1,18 @@
+// material-buffer's cells (CgMaterialBufferTestScene): a record per cell of an 8 by 8 grid, and whether it is drawn.
+#pragma kernel Cells map
+
+struct Cell { vec4 rect; vec4 color; };
+
+Buffers {
+    CELLS ("Cells", Cell, writeonly)
+    LIVE  ("Live",  uint, writeonly)
+}
+
+void Cells() {
+    int e = CG_ELEMENT;
+    Cell c;
+    c.rect = vec4(float(e % 8) * 8.0 + 1.0, float(e / 8) * 8.0 + 1.0, 6.0, 6.0);
+    c.color = vec4(float(e * 4), float(255 - e * 3), float((e * 37) % 256), 255.0) / 255.0;
+    CELLS_WRITE(c);
+    LIVE_WRITE(e % 3 == 1 ? 0u : 1u);
+}
