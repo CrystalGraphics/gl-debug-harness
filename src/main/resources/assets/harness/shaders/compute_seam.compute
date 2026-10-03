@@ -1,0 +1,47 @@
+// compute-seam's picture from a .compute (CgComputeSeamTestScene): placed by a map kernel, coloured by a general
+// one whose subgroups must count the whole work group, painted by an image kernel. Matches the CPU reference
+// exactly, subgroups native or emulated.
+#pragma kernel Place map
+#pragma kernel Colour 64 general
+#pragma kernel Paint 8 8 image
+
+struct Quad { vec4 rect; uvec4 color; };
+
+Buffers {
+    QUADS ("Quads", Quad, readwrite)
+}
+
+Images {
+    PICTURE ("Picture", rgba8, writeonly)
+}
+
+shared uint counted[CG_GROUP_SIZE];
+
+void Place() {
+    uint i = uint(CG_ELEMENT);
+    Quad q;
+    q.rect = vec4(20.0 + float(i % 8u) * 60.0, 300.0 + float(i / 8u) * 60.0, 50.0, 50.0);
+    q.color = uvec4(0u);
+    QUADS_WRITE(q);
+}
+
+// Every invocation counts itself across its subgroup; the subgroups' counts add up to the group, or the colour is off.
+void Colour() {
+    uint ones = CG_SUBGROUP_ADD(1u);
+    if (CG_SUBGROUP_ELECT()) counted[CG_SUBGROUP_INDEX] = ones;
+    memoryBarrierShared();
+    barrier();
+    uint total = 0u;
+    for (int s = 0; s < CG_SUBGROUP_COUNT; s++) total += counted[s];
+    if (!CG_IN_RANGE) return;
+    uint i = uint(CG_ELEMENT);
+    Quad q = QUADS(i);
+    uint rgba = ((i * 37u) & 255u) | (((i * 91u) & 255u) << 8) | (((i * 53u) & 255u) << 16) | (255u << 24);
+    q.color = uvec4(rgba + (total - uint(CG_GROUP_SIZE)) * 0x10101u, 0u, 0u, 0u);
+    QUADS_STORE(i, q);
+}
+
+void Paint() {
+    ivec2 p = CG_TEXEL.xy;
+    PICTURE_WRITE(vec4(float(p.x * 4), float(p.y * 4), float(((p.x ^ p.y) * 4) & 255), 255.0) / 255.0);
+}

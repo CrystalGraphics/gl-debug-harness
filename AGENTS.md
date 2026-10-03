@@ -33,12 +33,25 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   which then has no GL context. The Khronos validation layer is on whenever it is installed (the LunarG SDK);
   `-Dcrystalgraphics.harness.vulkanValidation=false` turns it off for a timing run, since it checks every
   command. Its messages print as `[vulkan] ERROR ...`, and their count ends the `tracked:` line.
+  `-Dcrystalgraphics.vulkan.syncValidation=true` adds its synchronization checks, with the shader-access analysis
+  they need to see what a shader reads and writes through pushed descriptors: a missing barrier between passes
+  is then an error. `--mode=compute-seam` is the scene that proves it fires
+  (`-Dcrystalgraphics.harness.computeSeam.skipBarriers=true` must fail). It also dispatches
+  `harness:shaders/compute_seam.compute` through `CgKernelProgram`, subgroups native and emulated, against the same
+  CPU reference: the gate for `.compute` on each device. `--mode=compute-graph` is the frame graph's: kernels, a
+  history and an indirect dispatch recorded and built on a worker; with `-Dcrystalgraphics.graph.barriers=false` it
+  must fail under synchronization validation. `--mode=indirect-draw` is the indirect draws': counts a kernel wrote,
+  drawn in every mode and matched against direct draws, in a graph and through the world renderer; it must fail the
+  same way with the barriers off. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
+  shape, a general one with a lowerable fallback, one with only a Java body, one with neither, every result worked out
+  in Java. All four scenes must pass forced to each tier (`-Dcrystalgraphics.compute.tier=G43|G40|G33|CPU`, and G33
+  with `-Dcrystalgraphics.shaderBuffer.tier=TBO` for a 3.3 context's GLSL); on `vulkan`, at its own tier and at CPU.
 
 ```bash
 ./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=tracked --seconds=10"
 # INFO: [Harness] tracked: frames=314 deviceDraws=88495 ... passes=4778 breaks=709 ... misses=17
 ./gradlew :gl-debug-harness:runHarness --args="--mode=shader-compile-audit --device=vulkan"
-# every shipped shader and keyword combination compiled, and its pipeline built: the driver's own compile
+# every shipped shader, kernel and keyword combination compiled, and its pipeline built: the driver's own compile
 ```
 
 A scene fails on either by throwing: a call the device cannot express, or a draw it would refuse (a binding
@@ -61,6 +74,11 @@ the camera. This is how GL and Vulkan are compared (`plan/device-seam/device-mil
 **A scene animates from `FrameInfo`, never from `System.nanoTime()` or `currentTimeMillis()`**, or its frame N
 is a different picture every run. What may read the wall clock is what shows measured time — the HUD's FPS,
 a frame-time readout — and a comparison masks those.
+
+**`-Dcrystalgraphics.harness.gl=<major.minor>`** asks for that core context alone instead of the newest the driver
+gives: `3.2` is Minecraft 1.17 to 1.21.4's. It is no stand-in for macOS's 4.1, since a desktop driver lists every
+extension in a 4.1 context too; `-Dcrystalgraphics.compute.tier` is how a lower tier is tested.
+`--mode=capability-report` writes `CgGpuReport`'s table for the context or device it ran on.
 
 Three more unattended switches, for what a single picture cannot show:
 
@@ -198,7 +216,7 @@ Each entry has:
 `HarnessExtension`, found through `ServiceLoader`: CrystalGUI's live in its own `harness-scenes` module
 (`com.crystalgui.harness.CrystalGuiHarness`). One interface, three hooks — `registerScenes`, `beforeReload`
 (Ctrl+R, ahead of CrystalGraphics' `CgAssetReloader.reload()`), and `shaderNamespaces` (what
-`shader-compile-audit` checks). Its javadoc has the example.
+`shader-compile-audit` checks: each namespace's `.shader` and `.compute` under `shaders/`). Its javadoc has the example.
 
 The harness cannot depend on the module holding them, so that module wires itself into the run:
 

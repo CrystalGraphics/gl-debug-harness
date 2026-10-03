@@ -1,6 +1,16 @@
 package com.crystalgraphics.harness.tool;
 
 import com.crystalgraphics.api.shader.CgShaderPreprocessor;
+import com.crystalgraphics.api.shader.CgShaderStages;
+import com.crystalgraphics.api.shader.CgShaderProgram;
+import com.crystalgraphics.compute.emit.CgKernelEmitter;
+import com.crystalgraphics.compute.emit.CgKernelTarget;
+import com.crystalgraphics.compute.lower.CgLoweredEmitter;
+import com.crystalgraphics.compute.lower.CgLoweredTarget;
+import com.crystalgraphics.compute.lower.CgLowering;
+import com.crystalgraphics.compute.parse.CgComputeParser;
+import com.crystalgraphics.compute.source.CgComputeSource;
+import com.crystalgraphics.compute.source.CgKernelDecl;
 import com.crystalgraphics.gl.material.CgMaterialShader;
 import com.crystalgraphics.gl.material.CgMaterialShaderRegistry;
 import com.crystalgraphics.gl.material.parse.CgMaterialShaderCompiler;
@@ -46,8 +56,9 @@ import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 /**
- * Compiles every shipped {@code .shader} — and every keyword variant of each — against the real
- * driver, and writes a single report instead of crashing on the first failure.
+ * Compiles every shipped {@code .shader} and {@code .compute} — and every keyword variant of each — against the
+ * real driver, and writes a single report instead of crashing on the first failure. A kernel compiles with the
+ * context's subgroup operations and again with them emulated, where it has them.
  *
  * <p><b>Why this exists.</b> A tester on AMD could not start {@code cgui-gallery} at all: the very
  * first rounded rect aborted the run, so nothing downstream of it had <em>ever</em> been compiled on
@@ -136,6 +147,7 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
                     }
                     auditOne(path, capture, body);
                 }
+                auditKernels(namespace, capture, body);
             }
         } catch (Throwable t) {
             body.add("!! The audit itself failed: " + t);
@@ -158,7 +170,7 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
             pw.println(checks + " compile checks, " + pipelines + " pipelines built, " + failures
                     + " failure(s), " + warnings + " non-fatal warning(s)");
             pw.println(failures == 0
-                    ? "All shipped shaders and keyword variants compiled on this driver."
+                    ? "All shipped shaders, kernels and keyword variants compiled on this driver."
                     : "SEND THIS FILE BACK — the failures above are what we cannot reproduce here.");
             if (warnings > 0) {
                 pw.println("Warnings are auto-generated passes the engine failed to build and carried"
@@ -267,6 +279,99 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
         }
     }
 
+    /** Every kernel of every {@code .compute} under {@code shaders/}: on a device, linking builds its pipeline. */
+    private void auditKernels(String namespace, LogCapture capture, List<String> body) {
+        List<String> paths = CgIO.list(namespace, "shaders", ".compute");
+        if (paths.isEmpty()) return;
+        if (!CgCapabilities.detect().compute()) {
+            body.add("");
+            body.add("SKIP  " + namespace + " kernels  (this context runs no compute shaders)");
+            return;
+        }
+        CgKernelTarget current = CgKernelTarget.current();
+        List<CgKernelTarget> targets = current.nativeSubgroups()
+                ? List.of(current, current.withSubgroups(0)) : List.of(current);
+        for (String path : paths) {
+            body.add("");
+            body.add("── " + path);
+            CgComputeSource source;
+            try {
+                source = CgComputeParser.parse(CgIO.loadSource(path), path);
+            } catch (Throwable t) {
+                fail(body, "  PARSE   FAIL — " + t.getMessage());
+                continue;
+            }
+            body.add("  PARSE   ok   (" + source.kernels().size() + " kernel(s), features=" + source.features()
+                    + ", buffers=" + source.engineBuffers() + ")");
+            for (CgKernelDecl kernel : source.kernels()) {
+                for (Set<String> keywords : keywordSets(source.features())) {
+                    for (CgKernelTarget target : kernel.subgroups().isEmpty() ? List.of(current) : targets) {
+                        checks++;
+                        capture.clear();
+                        String label = "  COMPILE %s kernel " + kernel.name() + " (" + kernel.shape().name().toLowerCase()
+                                + ") keywords=" + keywords + (target == current ? "" : " subgroups emulated");
+                        int validationBefore = PlatformServiceHarness.validationErrors();
+                        try {
+                            String glsl = new CgShaderPreprocessor().process(
+                                    CgKernelEmitter.emit(source, kernel, keywords, target), path);
+                            CgShaderProgram.compileCompute(glsl).delete();
+                            int raised = PlatformServiceHarness.validationErrors() - validationBefore;
+                            if (raised > 0) {
+                                failures++;
+                                body.add(String.format(label, "FAIL") + " — " + raised
+                                        + " validation error(s), in the console as [vulkan] ERROR");
+                            } else {
+                                body.add(String.format(label, "ok  "));
+                            }
+                        } catch (Throwable t) {
+                            failures++;
+                            body.add(String.format(label, "FAIL") + " — " + t.getMessage());
+                            appendCaptured(capture, body);
+                        }
+                    }
+                    if (PlatformServiceHarness.deviceInfo() == null) auditLowered(source, kernel, keywords, path, capture, body);
+                }
+            }
+        }
+    }
+
+    /** Each pass a kernel lowers to, as a context below compute runs it: GL only, since a device has no capture. */
+    private void auditLowered(CgComputeSource source, CgKernelDecl kernel, Set<String> keywords, String path,
+                              LogCapture capture, List<String> body) {
+        if (CgLowering.refusal(source, kernel) != null) return;
+        CgLoweredTarget target = CgLoweredTarget.current();
+        for (CgLowering.Pass pass : CgLowering.passes(source, kernel)) {
+            checks++;
+            capture.clear();
+            String label = "  LOWER   %s kernel " + kernel.name() + " " + pass.kind().name().toLowerCase() + " pass of "
+                    + (pass.buffer() != null ? pass.buffer().name() : pass.image().name())
+                    + (pass.op() != null ? " (" + pass.op().name().toLowerCase() + ")" : "") + " keywords=" + keywords;
+            try {
+                CgLoweredEmitter.Stages stages = CgLoweredEmitter.emit(source, kernel, keywords, pass, target);
+                CgShaderPreprocessor pre = new CgShaderPreprocessor();
+                CgShaderProgram.compileCapture(pre.process(stages.vertex(), path),
+                        stages.geometry() == null ? null : pre.process(stages.geometry(), path),
+                        stages.fragment() == null ? null : pre.process(stages.fragment(), path),
+                        stages.varyings()).delete();
+                body.add(String.format(label, "ok  "));
+            } catch (Throwable t) {
+                failures++;
+                body.add(String.format(label, "FAIL") + " — " + t.getMessage());
+                appendCaptured(capture, body);
+            }
+        }
+    }
+
+    private static List<Set<String>> keywordSets(List<String> features) {
+        List<Set<String>> sets = new ArrayList<>();
+        for (int mask = 0; mask < 1 << features.size(); mask++) {
+            Set<String> set = new LinkedHashSet<>();
+            for (int i = 0; i < features.size(); i++) if ((mask & 1 << i) != 0) set.add(features.get(i));
+            sets.add(set);
+        }
+        return sets;
+    }
+
     /**
      * On a device, the pipeline a triangle draw would bind with this program, in GL's clip convention and in
      * zero-to-one: the Vulkan driver's own compile. A validation error raised meanwhile fails the variant; its
@@ -321,16 +426,16 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
             // #ifdef to the driver, so scanning its raw output would flag every correctly guarded
             // builtin — a line that fires on every run is noise, and noise in a report a volunteer
             // reads is worse than no line at all.
-            String vertex = vertexStageReachableText(stripComments(
-                    new CgShaderPreprocessor().process(cs.vertexSource(), path)));
+            String vertex = CgShaderStages.reachable(stripComments(
+                    new CgShaderPreprocessor().process(cs.vertexSource(), path)), CgShaderStages.Stage.VERTEX);
             List<String> found = new ArrayList<>();
             for (String builtin : FRAGMENT_ONLY) {
                 if (vertex.matches("(?s).*\\b" + builtin + "\\b.*")) found.add(builtin);
             }
             if (!found.isEmpty()) {
                 fail(body, "  STATIC  FAIL pass '" + pass.name() + "' — fragment-only builtin(s) "
-                        + found + " reach the VERTEX stage. Guard them with #ifndef CG_VERTEX_STAGE"
-                        + " in the lib that defines them.");
+                        + found + " reach the VERTEX stage. Guard them with"
+                        + " #if !defined(CG_VERTEX_STAGE) && !defined(CG_COMPUTE_STAGE) in the lib that defines them.");
             }
 
             String vv = firstLine(cs.vertexSource());
@@ -370,54 +475,6 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
             } else {
                 out.append(c);
             }
-        }
-        return out.toString();
-    }
-
-    /**
-     * Strips text the driver's preprocessor would discard for the vertex stage, resolving only
-     * {@code CG_VERTEX_STAGE} / {@code CG_FRAGMENT_STAGE}. Every other conditional keeps both
-     * branches, so an inactive keyword cannot hide a banned builtin from the scan.
-     *
-     * <p>Mirrors {@code ShippedShaderStagePurityTest.stripInactiveStageBlocks} in both projects —
-     * this check and those tests must agree, or a green report and a red build mean nothing.</p>
-     */
-    private static String vertexStageReachableText(String src) {
-        StringBuilder out = new StringBuilder(src.length());
-        // frame[0] = resolved stage conditional, frame[1] = this branch is emitting
-        java.util.Deque<boolean[]> stack = new java.util.ArrayDeque<>();
-
-        for (String line : src.split("\n", -1)) {
-            String t = line.trim();
-            if (t.startsWith("#ifdef ") || t.startsWith("#ifndef ")) {
-                boolean negated = t.startsWith("#ifndef ");
-                String name = t.substring(negated ? 8 : 7).trim();
-                Boolean defined = "CG_VERTEX_STAGE".equals(name) ? Boolean.TRUE
-                        : "CG_FRAGMENT_STAGE".equals(name) ? Boolean.FALSE : null;
-                stack.push(defined == null
-                        ? new boolean[]{false, true}
-                        : new boolean[]{true, negated != defined});
-                continue;
-            }
-            if (t.startsWith("#if")) { stack.push(new boolean[]{false, true}); continue; }
-            if (t.startsWith("#elif")) {
-                if (!stack.isEmpty()) { stack.peek()[0] = false; stack.peek()[1] = true; }
-                continue;
-            }
-            if (t.equals("#else")) {
-                if (!stack.isEmpty()) {
-                    boolean[] f = stack.peek();
-                    f[1] = f[0] ? !f[1] : true;
-                }
-                continue;
-            }
-            if (t.startsWith("#endif")) { if (!stack.isEmpty()) stack.pop(); continue; }
-
-            boolean emitting = true;
-            for (boolean[] f : stack) {
-                if (!f[1]) { emitting = false; break; }
-            }
-            if (emitting) out.append(line).append('\n');
         }
         return out.toString();
     }

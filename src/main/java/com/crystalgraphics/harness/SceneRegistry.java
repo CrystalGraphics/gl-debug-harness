@@ -4,6 +4,10 @@ import com.crystalgraphics.harness.config.SceneDescriptor;
 import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.ImageScene;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
+import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
+import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
+import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
+import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
 import com.crystalgraphics.harness.scene.test.CgHostSectionScene;
 import com.crystalgraphics.harness.scene.test.ReviewScene;
 import com.crystalgraphics.harness.scene.test.ShaderLibTestScene;
@@ -17,6 +21,7 @@ import com.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import com.crystalgraphics.harness.scene.test.CgSceneColorScene;
 import com.crystalgraphics.harness.scene.test.CgMeshDrawsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
+import com.crystalgraphics.harness.scene.test.CgMeshFrameStressScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShowcaseScene;
 import com.crystalgraphics.harness.scene.test.CgVfxTrailsScene;
 import com.crystalgraphics.harness.tool.CapabilityReport;
@@ -234,6 +239,62 @@ public final class SceneRegistry {
         );
 
         reg.register(
+            SceneDescriptor.builder("compute-seam")
+                .description("gpu-compute C1: kernels write a buffer drawn as quads and an image a material samples, beside an indirect draw; the picture from the kernels must match one from CPU-written data on every device")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(900)
+                .defaultHeight(700)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgComputeSeamTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("compute-graph")
+                .description("gpu-compute C3: compute and raster passes in one frame graph built on a worker, a history stepped twice and an image painted through an indirect dispatch, every barrier derived; the picture, and the frame executed again, must match the CPU's")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(160)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgComputeGraphTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("indirect-draw")
+                .description("gpu-compute C4: a kernel writes counts four indirect draws read in the same frame, one per CgIndirect mode and one past its mesh; each must match a direct draw of what its count means, in a graph, executed again, and through the world renderer")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(160)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgIndirectDrawTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("compute-tiers")
+                .description("gpu-compute C5/C6: one kernel per shape, every buffer and image checked against Java's arithmetic; run at each forced tier (-Dcrystalgraphics.compute.tier=G43|G40|G33|CPU), all must agree")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(64)
+                .defaultHeight(64)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgComputeTiersTestScene()
+        );
+
+        reg.register(
             SceneDescriptor.builder("text-threaded")
                 .description("render-graph G2.2a: text recorded on a worker while the render thread draws text in the same faces; a converged text drawn both ways must match")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
@@ -295,6 +356,18 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
                 .build(),
             () -> new CgMeshLodsScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("mesh-frame-stress")
+                .description("64 FRAME meshes rewritten every frame: the frame ring against slabs (-Dcrystalgraphics.mesh.frameRing=false)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
+                .build(),
+            () -> new CgMeshFrameStressScene()
         );
 
         reg.register(
