@@ -4,6 +4,7 @@
 #pragma kernel Place map
 #pragma kernel Colour 64 general
 #pragma kernel Paint 8 8 image
+#pragma compute_only Colour
 
 struct Quad { vec4 rect; uvec4 color; };
 
