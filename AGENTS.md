@@ -48,6 +48,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   level by level in one texture, each level reading the one above through a level view, every texel checked against
   Java. `--mode=readback` is `CgRecording.readback`'s: kernel-written words, a float target, an unaligned byte target
   and a mip level read back every frame, each delivery checked against the frame that recorded it.
+  `--mode=compute-check` is checked mode's (run it with `-Dcrystalgraphics.compute.checked=true`): a write past a
+  buffer, an add past one and a texel past an image each reported once at its `.compute` line, and a kernel inside its
+  buffer never.
   `--mode=async-compute` is `CgComputePass.async()`'s: blurs beside fill-bound drawing, timed alone, in order and
   async, the outputs of both orders compared byte for byte; on `vulkan` the async frame must save a quarter of the
   drawing, elsewhere it runs in order. `--mode=multi-draw` is joined draws': 78 instances of 76 meshes, with indices
