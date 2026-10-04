@@ -54,17 +54,19 @@ import java.util.List;
  * twice. {@code gpu-cull-cpu.png} is {@code CgWorldRenderer} drawing every sphere, each culled and given its level on
  * the CPU; {@code gpu-cull.png} is the world renderer drawing the wall alone and a renderer after it building a depth
  * pyramid from the target, culling the set with {@code CgGpuOps.cull} and drawing each level's kept spheres by one
- * indirect draw, the levels joined into one multi-draw where the executor joins them. The two must be the same
- * picture, byte for byte, and each level's count must lie between what the frustum and the levels keep less every
- * sphere behind the wall, and that less the ones deep behind it.
+ * indirect draw, the levels joined into one multi-draw where the executor joins them; {@code gpu-cull-world.png} is
+ * the same set as one world draw of {@code instances()}, the wall drawn ahead of the world renderer as a host's world
+ * is. All three must be the same picture, byte for byte, and each level's count must lie between what the frustum and
+ * the levels keep less every sphere behind the wall, and that less the ones deep behind it.
  *
- * <p>Both paths draw twice: with multi-draw off ({@code -separate.png}), and on. A joined draw takes the
+ * <p>Every path draws twice: with multi-draw off ({@code -separate.png}), and on. A joined draw takes the
  * {@code CG_MULTI_DRAW} variant, whose rounding differs from the plain one's by a unit at a pixel on some devices, so
  * each picture is compared with the CPU's drawn the same way, and the wall has a material of its own to keep it out
- * of the spheres' run. Where the levels must join, the joined frame must take two calls fewer.</p>
+ * of the spheres' run. Where the levels must join, the joined frame must take fewer calls.</p>
  *
- * <p>Each path is fired {@link #TIMED} times and its median CPU time printed: the draw cost the cull saves. Prints
- * {@code [gpu-cull] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
+ * <p>Each path is fired {@link #TIMED} times and its median CPU time printed: the draw cost the cull saves.
+ * {@code -Dcrystalgraphics.harness.gpuCull.rows=<n>} stacks more rows, most of them off screen, for the cost at a
+ * larger set. Prints {@code [gpu-cull] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
  */
 public class CgGpuCullTestScene implements HarnessSceneLifecycle {
 
@@ -73,7 +75,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     private static final float[] DISTANCES = {6f, 12f, 25f, 50f};
     private static final int[] COLOURS = {0xE04040, 0x40C040, 0x4060E0, 0xE0C040};
     private static final float[] HEIGHTS = {0.35f, 0.18f, 0.09f};
-    private static final int COLUMNS = 25, ROWS = 5;
+    private static final int COLUMNS = 25, ROWS = Integer.getInteger("crystalgraphics.harness.gpuCull.rows", 5);
     private static final int N = DISTANCES.length * COLUMNS * ROWS;
     /** The wall: from x -200 to 0 at z -9, hiding the left half of every row behind it. */
     private static final float WALL_Z = -9f;
@@ -149,6 +151,18 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         long gpu = timed(target);
         target.captureToFile(ctx.getOutputDir(), "gpu-cull.png");
         culling.close();
+
+        world.release();
+        CgRenderStage.Registration walling = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, this::recordWall);
+        world.draw(lods, material).instances(instances, CgGpuCount.of(N)).submit();
+        store.multiDraw(false);
+        long setSeparateCalls = calls(target);
+        target.captureToFile(ctx.getOutputDir(), "gpu-cull-world-separate.png");
+        store.multiDraw(joins);
+        long setJoinedCalls = calls(target);
+        long set = timed(target);
+        target.captureToFile(ctx.getOutputDir(), "gpu-cull-world.png");
+        walling.close();
         world.release();
 
         int[] kept = new int[4];
@@ -160,11 +174,14 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         target.unbind();
         target.delete();
 
-        System.out.printf("[gpu-cull] draw cost, median of %d frames: %.3f ms culled on the CPU, %.3f ms on the GPU%n",
-                TIMED, cpu / 1e6, gpu / 1e6);
-        System.out.println("[gpu-cull] the GPU's frame took " + separateCalls + " draw calls separate, " + joinedCalls
-                + " joined; its levels " + (levelsJoin ? "join" : "do not join") + " here");
-        report(ctx, kept, levelsJoin, separateCalls - joinedCalls, GlErrorChecker.checkAndLog("gpu-cull"));
+        System.out.printf("[gpu-cull] draw cost of %d spheres, median of %d frames: %.3f ms culled on the CPU, %.3f ms "
+                + "on the GPU in a pass of its own, %.3f ms as one world draw of instances%n", N, TIMED, cpu / 1e6,
+                gpu / 1e6, set / 1e6);
+        System.out.println("[gpu-cull] draw calls separate and joined: the GPU's pass " + separateCalls + " and "
+                + joinedCalls + ", the world draw " + setSeparateCalls + " and " + setJoinedCalls + "; its levels "
+                + (levelsJoin ? "join" : "do not join") + " here");
+        report(ctx, kept, levelsJoin, separateCalls - joinedCalls, setSeparateCalls - setJoinedCalls,
+                GlErrorChecker.checkAndLog("gpu-cull"));
     }
 
     /** Whether the executor joins the culled levels: where draws join, and it takes their counts from the GPU. */
@@ -203,6 +220,24 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         }
         draw.add(c.end());
         draw.end();
+    }
+
+    /** The wall in a pass ahead of the world renderer, as a host's world is drawn: what its depth pyramid holds. */
+    private void recordWall(CgStageFrame stage) {
+        CgRecording rec = stage.recording();
+        CgRasterPass pass = stage.pass(stage.constants(), CgOrder.LOOKBACK);
+        CgChunkBuilder c = rec.chunks().begin();
+        c.draw(wallMaterial.pipeline(CgInstanceKind.OBJECT), wallMaterial.captureBindings(rec.bindings()),
+                CgMeshShapes.quad(CgVertexFormat.SPATIAL, 100f, 100f));
+        int at = c.instance();
+        float[] data = c.data();
+        Arrays.fill(data, at, at + 48, 0f);
+        new Matrix4f().translation(-100f, 0f, WALL_Z).get(data, at);
+        new Matrix4f().get(data, at + 16);
+        data[at + 32] = data[at + 33] = data[at + 34] = 0.5f;
+        data[at + 35] = 1f;
+        pass.add(c.end());
+        pass.end();
     }
 
     /** Each sphere's object record: its translation, the identity normal, its row's colour. */
@@ -295,7 +330,8 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         return out;
     }
 
-    private void report(HarnessContext ctx, int[] kept, boolean levelsJoin, long callsSaved, boolean glErrors) {
+    private void report(HarnessContext ctx, int[] kept, boolean levelsJoin, long callsSaved, long setCallsSaved,
+                        boolean glErrors) {
         CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
@@ -328,16 +364,25 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
             System.out.println("[gpu-cull] FAIL on " + on + ": joining saved " + callsSaved + " draw calls, not " + saved);
             return;
         }
-        // Where the levels do not join, the CPU's joined spheres are no reference for them.
-        String separate = differs(ctx, "gpu-cull-cpu-separate.png", "gpu-cull-separate.png");
-        String joined = differs(ctx, levelsJoin ? "gpu-cull-cpu.png" : "gpu-cull-cpu-separate.png", "gpu-cull.png");
-        if (separate != null || joined != null) {
-            System.out.println("[gpu-cull] FAIL on " + on + ": " + (separate != null ? separate : joined));
+        // The world draws the set's levels in each pass that draws it: its prepass too, where the material has one.
+        if (levelsJoin ? setCallsSaved <= 0 || setCallsSaved % saved != 0 : setCallsSaved != 0) {
+            System.out.println("[gpu-cull] FAIL on " + on + ": joining saved the world draw " + setCallsSaved + " draw calls");
             return;
         }
-        System.out.println("[gpu-cull] PASS on " + on + ": the GPU's cull draws the CPU's picture, separate and "
-                + (levelsJoin ? "its levels in one multi-draw" : "with multi-draw on") + ", each level's count within the "
-                + "wall's bounds");
+        // Where the levels do not join, the CPU's joined spheres are no reference for them.
+        String reference = levelsJoin ? "gpu-cull-cpu.png" : "gpu-cull-cpu-separate.png";
+        for (String[] pair : new String[][]{{"gpu-cull-cpu-separate.png", "gpu-cull-separate.png"},
+                {reference, "gpu-cull.png"}, {"gpu-cull-cpu-separate.png", "gpu-cull-world-separate.png"},
+                {reference, "gpu-cull-world.png"}}) {
+            String differs = differs(ctx, pair[0], pair[1]);
+            if (differs != null) {
+                System.out.println("[gpu-cull] FAIL on " + on + ": " + differs);
+                return;
+            }
+        }
+        System.out.println("[gpu-cull] PASS on " + on + ": the GPU's cull draws the CPU's picture, in a pass of its own "
+                + "and as a world draw, separate and " + (levelsJoin ? "its levels in one multi-draw" : "with multi-draw on")
+                + ", each level's count within the wall's bounds");
     }
 
     /** Where the GPU's picture {@code gpu} first differs from the CPU's {@code cpu}; null when they are the same. */
