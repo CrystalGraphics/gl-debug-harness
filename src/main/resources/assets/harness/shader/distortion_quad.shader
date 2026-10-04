@@ -35,6 +35,6 @@ Pass {
     Tags { "LightMode" = "Distortion" }
 
     void fragment(in v2f i, out vec4 offset) {
-        offset = vec4(_Offset.xy / CG_RESOLUTION, _Offset.z, 0.0);
+        offset = CG_DISTORTION(_Offset.xy / CG_RESOLUTION, _Offset.z, cg_LinearEyeDepth(gl_FragCoord.z));
     }
 }

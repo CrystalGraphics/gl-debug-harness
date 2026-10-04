@@ -237,7 +237,8 @@ public final class HUDRenderer {
                 ? String.format("Shake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "Shake [C]: off";
         CgBloom bloom = CgPostStack.get().bloom();
         String bloomLine = bloom.intensity() == 0f ? "Bloom [L]: off" : bloom.linear() ? "Bloom [L]: linear" : "Bloom [L]: blend";
-        String halfLine = "Half-res volumes [H]: " + (CgWorldRenderer.get().halfResolution() ? "on" : "off");
+        String halfLine = "Half-res volumes [H]: " + (CgWorldRenderer.get().halfResolution() ? "on" : "off")
+                + "\nHalf-res distortion [J]: " + (CgWorldRenderer.get().distortionScale() < 1f ? "on" : "off");
         CgVfxSystem.Simulation sim = CgVfxSystem.simulation();
         String simLine = "VFX sim [V]: " + (sim == CgVfxSystem.Simulation.CPU ? "cpu"
                 : sim.built() ? "gpu" : "gpu (not built yet, runs cpu)");
