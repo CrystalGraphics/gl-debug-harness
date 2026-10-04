@@ -68,6 +68,7 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
         material.applyProperties(b -> b.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1));
         kernels = CgCompute.load("harness:shaders/compute_graph.compute");
         giveBodies();
+        for (String kernel : new String[]{"Args", "Seed", "Step", "Paint"}) kernels.kernel(kernel).prepare();
     }
 
     /** The kernels' Java bodies: what the CPU tier runs. */
