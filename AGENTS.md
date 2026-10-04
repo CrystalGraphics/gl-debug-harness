@@ -47,7 +47,11 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   world renderer; it must fail the same way too. `--mode=raster-levels` is raster passes into mip levels: a chain drawn
   level by level in one texture, each level reading the one above through a level view, every texel checked against
   Java. `--mode=readback` is `CgRecording.readback`'s: kernel-written words, a float target, an unaligned byte target
-  and a mip level read back every frame, each delivery checked against the frame that recorded it. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
+  and a mip level read back every frame, each delivery checked against the frame that recorded it.
+  `--mode=async-compute` is `CgComputePass.async()`'s: blurs beside fill-bound drawing, timed alone, in order and
+  async, the outputs of both orders compared byte for byte; on `vulkan` the async frame must save a quarter of the
+  drawing, elsewhere it runs in order. `-Dcrystalgraphics.graph.asyncAll=true` sends every compute pass async in any
+  scene, which the scenes above must pass under synchronization validation. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
   shape, a general one with a lowerable fallback, one with only a Java body, one with neither, every result worked out
   in Java (`CgComputeSelfTest`, the engine's, which a client runs too). All five scenes must pass forced to each tier
   (`-Dcrystalgraphics.compute.tier=G43|G40|G33|CPU`, and G33 with `-Dcrystalgraphics.shaderBuffer.tier=TBO` for a 3.3
