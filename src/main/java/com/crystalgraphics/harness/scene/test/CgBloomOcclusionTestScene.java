@@ -11,6 +11,7 @@ import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.settings.CgGraphicsSettings;
@@ -24,10 +25,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The world bloom's gate: an opaque ball with an Emissive pass, drawn through {@code CgWorldRenderer} once with bloom
- * off and once on. Behind a wall, bloom must change no pixel; in front of it, it must. Each at two target sizes, one
- * odd, and at bloom scales 1 and 0.5, since the Emissive pass reads the scene's depth by its own pixel's share of the
- * screen.
+ * The world bloom's gate: an opaque ball with an Emissive pass, drawn through {@code CgWorldRenderer} and bloomed by
+ * {@code CgPostStack}, once with bloom off and once on. Behind a wall, bloom must change no pixel; in front of it, it must. Each at two target sizes, one
+ * odd, and at emission scales 1 and 0.5, since the Emissive pass reads the scene's depth by its own pixel's share of
+ * the screen.
  *
  * <p>Prints {@code [bloom-occlusion] PASS} or {@code FAIL}; on Vulkan a validation error fails it. Captures land in its
  * output directory as {@code <w>x<h>-<scale>-<hidden|front>-<off|on>.png}.</p>
@@ -51,10 +52,11 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
+        CgPostStack.get().install();
         List<String> failures = new ArrayList<>();
         for (int[] size : SIZES) {
             for (float scale : SCALES) {
-                world.bloomScale(scale);
+                world.emissionScale(scale);
                 for (boolean hidden : new boolean[]{true, false}) {
                     String name = size[0] + "x" + size[1] + "-" + scale + "-" + (hidden ? "hidden" : "front");
                     draw(ctx, world, size[0], size[1], hidden, 0f, name + "-off.png");
@@ -64,8 +66,8 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
                 }
             }
         }
-        world.bloom(1f);
-        world.bloomScale(0.5f);
+        CgPostStack.get().bloom().intensity(1f);
+        world.emissionScale(0.5f);
         report(failures, GlErrorChecker.checkAndLog("bloom-occlusion"));
     }
 
@@ -74,7 +76,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         HarnessFboHelper target = HarnessFboHelper.create(w, h, true);
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
-        world.bloom(bloom);
+        CgPostStack.get().bloom().intensity(bloom);
         CgMesh cube = CgMeshShapes.cube(), ball = CgMeshShapes.sphere(24, 32);
         world.draw(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).submit();
         world.draw(ball, glow).at(0, 0, hidden ? -8 : -3).transform(new Matrix4f().scale(hidden ? 1f : 0.6f)).submit();
@@ -136,7 +138,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
             for (String failure : failures) System.out.println("[bloom-occlusion] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[bloom-occlusion] PASS on " + on + ": a ball behind the wall blooms nowhere and one in "
-                    + "front blooms, at two sizes and bloom scales 1 and 0.5");
+                    + "front blooms, at two sizes and emission scales 1 and 0.5");
         }
     }
 
