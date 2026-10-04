@@ -74,7 +74,12 @@ public record TraceReport(String threadName, List<ScopeEntry> scopes, Map<String
 
     /** One report per thread that recorded a zone, over the committed frames from {@code frameIndex} on. */
     public static Map<String, TraceReport> allThreadsSince(long frameIndex) {
-        List<CgFrameRecord> frames = framesSince(frameIndex);
+        return allThreadsBetween(frameIndex, Long.MAX_VALUE);
+    }
+
+    /** {@link #allThreadsSince}, over the committed frames from {@code from} up to but not including {@code to}. */
+    public static Map<String, TraceReport> allThreadsBetween(long from, long to) {
+        List<CgFrameRecord> frames = framesBetween(from, to);
         Map<String, TraceReport> out = new LinkedHashMap<>();
         if (frames.isEmpty()) return out;
         String self = Thread.currentThread().getName();
@@ -89,9 +94,13 @@ public record TraceReport(String threadName, List<ScopeEntry> scopes, Map<String
     }
 
     private static List<CgFrameRecord> framesSince(long frameIndex) {
+        return framesBetween(frameIndex, Long.MAX_VALUE);
+    }
+
+    private static List<CgFrameRecord> framesBetween(long from, long to) {
         List<CgFrameRecord> out = new ArrayList<>();
         for (CgFrameRecord frame : CgTrace.frames()) {
-            if (frame.index() >= frameIndex) out.add(frame);
+            if (frame.index() >= from && frame.index() < to) out.add(frame);
         }
         return out;
     }

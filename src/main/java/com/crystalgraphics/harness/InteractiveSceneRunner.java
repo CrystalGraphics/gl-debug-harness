@@ -122,6 +122,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private static final int PROFILE_WARMUP_FRAMES = Integer.getInteger("crystalgraphics.harness.profile.warmup", 30);
     /** {@code .profile.keepOpen=true}: write the report and keep the scene running, for a profile someone pilots. */
     private static final boolean PROFILE_KEEP_OPEN = Boolean.getBoolean("crystalgraphics.harness.profile.keepOpen");
+    /**
+     * {@code .profile.splitAt=<marker>}: two more reports beside the profile, {@code -before} and {@code -after} the
+     * frame holding that marker's first appearance: a scene's two phases from one run ({@code vfx.blast}).
+     */
+    private static final String PROFILE_SPLIT_AT = System.getProperty("crystalgraphics.harness.profile.splitAt");
 
     /** The swap blocks when the GPU is behind, and the sync sleeps to hold the rate: waits, not work. */
     private static final int SWAP = CgTrace.waitName("frame.swap");
@@ -318,6 +323,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     File report = TraceDump.profile(new File(ctx.getOutputDir()),
                             "harness-" + profileFrames + "f", profileFrom);
                     LOGGER.info("[InteractiveSceneRunner] profile report=" + report);
+                    if (PROFILE_SPLIT_AT != null) splitProfile(ctx, "harness-" + profileFrames + "f", profileFrom);
                     if (!PROFILE_KEEP_OPEN) break;
                     profileFrames = 0;
                 }
@@ -526,6 +532,19 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 if (!listener.consumeKeyboardEvent(event)) break;
             }
         }
+    }
+
+    /** The profile from {@code from} split at {@link #PROFILE_SPLIT_AT}'s first marker into {@code -before} and {@code -after}. */
+    private static void splitProfile(HarnessContext ctx, String label, long from) {
+        long split = TraceDump.firstMarkerFrame(PROFILE_SPLIT_AT, from);
+        if (split <= from) {
+            LOGGER.warning("[InteractiveSceneRunner] profile.splitAt: no '" + PROFILE_SPLIT_AT
+                    + "' marker after the profile's first frame; nothing split");
+            return;
+        }
+        File before = TraceDump.profile(new File(ctx.getOutputDir()), label + "-before", from, split);
+        File after = TraceDump.profile(new File(ctx.getOutputDir()), label + "-after", split, Long.MAX_VALUE);
+        LOGGER.info("[InteractiveSceneRunner] profile split at frame " + split + ": before=" + before + " after=" + after);
     }
 
     /** The intensity L's off state put aside, given back when the cycle returns to blend. */

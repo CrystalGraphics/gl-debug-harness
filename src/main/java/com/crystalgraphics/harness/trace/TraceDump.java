@@ -68,6 +68,20 @@ public final class TraceDump {
      * @return the report, or null if it could not be written
      */
     public static File profile(File directory, String label, long fromFrame) {
+        return profile(directory, label, fromFrame, Long.MAX_VALUE);
+    }
+
+    /**
+     * {@link #profile(File, String, long)} over frames {@code fromFrame} up to but not including {@code toFrame}: one
+     * phase of a run, as {@link #firstMarkerFrame} finds it.
+     *
+     * <pre>{@code
+     * long split = TraceDump.firstMarkerFrame("vfx.blast", from);
+     * TraceDump.profile(outputDir, "harness-300f-before", from, split);
+     * TraceDump.profile(outputDir, "harness-300f-after", split, Long.MAX_VALUE);
+     * }</pre>
+     */
+    public static File profile(File directory, String label, long fromFrame, long toFrame) {
         File folder = new File(directory, "profile-" + label);
         try {
             rotate(folder, new File(directory, "profile-" + label + ".prev"));
@@ -76,14 +90,14 @@ public final class TraceDump {
             LOGGER.log(Level.WARNING, "[TraceDump] could not prepare " + folder, e);
             return null;
         }
-        CgTraceSnapshot range = since(CgTrace.snapshot(), fromFrame);
+        CgTraceSnapshot range = between(CgTrace.snapshot(), fromFrame, toFrame);
         SourcePaths sources = SourcePaths.forRepository();
         File report = new File(folder, "report.txt");
         File tree = new File(folder, "tree.txt");
         try {
             Files.write(report.toPath(), CgTraceReport.of(range).sources(sources).breakdown()
                     .getBytes(StandardCharsets.UTF_8));
-            Files.write(tree.toPath(), callTree(fromFrame, range.frames().size(), sources)
+            Files.write(tree.toPath(), callTree(fromFrame, toFrame, range.frames().size(), sources)
                     .getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, "[TraceDump] failed to write the profile", e);
@@ -116,8 +130,8 @@ public final class TraceDump {
     }
 
     /** Every thread's call tree over the profiled frames, in ms and calls per frame, with sources. */
-    private static String callTree(long fromFrame, int frames, SourcePaths sources) {
-        Map<String, TraceReport> threads = TraceReport.allThreadsSince(fromFrame);
+    private static String callTree(long fromFrame, long toFrame, int frames, SourcePaths sources) {
+        Map<String, TraceReport> threads = TraceReport.allThreadsBetween(fromFrame, toFrame);
         int per = Math.max(1, frames);
         StringBuilder out = new StringBuilder(16384);
         out.append("CALL TREE  every thread, ").append(frames)
@@ -140,29 +154,51 @@ public final class TraceDump {
         return out.toString();
     }
 
-    /** {@code snapshot} from frame {@code fromFrame} on: its frames, the zones and events inside them. */
-    private static CgTraceSnapshot since(CgTraceSnapshot snapshot, long fromFrame) {
+    /**
+     * The frame holding the first marker named {@code name} at or after frame {@code fromFrame}, or -1 for none: where a
+     * run's phase begins (a blast, a load) when its scene leaves a marker there.
+     */
+    public static long firstMarkerFrame(String name, long fromFrame) {
+        CgTraceSnapshot snapshot = CgTrace.snapshot();
+        long since = Long.MAX_VALUE;
+        for (CgFrameRecord frame : snapshot.frames()) {
+            if (frame.index() >= fromFrame) since = Math.min(since, frame.beginNanos());
+        }
+        long first = Long.MAX_VALUE;
+        for (CgTraceSnapshot.MarkerView marker : snapshot.markers()) {
+            if (marker.name().equals(name) && marker.nanos() >= since) first = Math.min(first, marker.nanos());
+        }
+        if (first == Long.MAX_VALUE) return -1L;
+        for (CgFrameRecord frame : snapshot.frames()) {
+            if (frame.index() >= fromFrame && frame.endNanos() > first) return frame.index();
+        }
+        return -1L;
+    }
+
+    /** {@code snapshot} from frame {@code fromFrame} up to {@code toFrame}: its frames, the zones and events inside them. */
+    private static CgTraceSnapshot between(CgTraceSnapshot snapshot, long fromFrame, long toFrame) {
         List<CgFrameRecord> frames = new ArrayList<>();
         for (CgFrameRecord frame : snapshot.frames()) {
-            if (frame.index() >= fromFrame) frames.add(frame);
+            if (frame.index() >= fromFrame && frame.index() < toFrame) frames.add(frame);
         }
         if (frames.isEmpty()) return snapshot;
         long from = frames.get(0).beginNanos();
+        long to = toFrame == Long.MAX_VALUE ? Long.MAX_VALUE : frames.get(frames.size() - 1).endNanos();
         List<CgTraceSnapshot.ZoneView> zones = new ArrayList<>();
         for (CgTraceSnapshot.ZoneView zone : snapshot.zones()) {
-            if (zone.startNanos() >= from) zones.add(zone);
+            if (zone.startNanos() >= from && zone.startNanos() < to) zones.add(zone);
         }
         List<CgTraceSnapshot.CounterView> counters = new ArrayList<>();
         for (CgTraceSnapshot.CounterView counter : snapshot.counters()) {
-            if (counter.frameIndex() >= fromFrame) counters.add(counter);
+            if (counter.frameIndex() >= fromFrame && counter.frameIndex() < toFrame) counters.add(counter);
         }
         List<CgTraceSnapshot.MarkerView> markers = new ArrayList<>();
         for (CgTraceSnapshot.MarkerView marker : snapshot.markers()) {
-            if (marker.nanos() >= from) markers.add(marker);
+            if (marker.nanos() >= from && marker.nanos() < to) markers.add(marker);
         }
         List<CgTraceSnapshot.SpanView> spans = new ArrayList<>();
         for (CgTraceSnapshot.SpanView span : snapshot.spans()) {
-            if (span.startNanos() >= from) spans.add(span);
+            if (span.startNanos() >= from && span.startNanos() < to) spans.add(span);
         }
         return CgTraceSnapshot.of(frames, zones, counters, markers, spans);
     }
