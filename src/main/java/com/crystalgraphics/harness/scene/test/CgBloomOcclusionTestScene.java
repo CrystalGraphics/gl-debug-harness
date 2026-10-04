@@ -15,6 +15,7 @@ import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.settings.CgGraphicsSettings;
+import com.crystalgraphics.settings.CgQuality;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -26,17 +27,18 @@ import java.util.List;
 
 /**
  * The world bloom's gate: an opaque ball with an Emissive pass, drawn through {@code CgWorldRenderer} and bloomed by
- * {@code CgPostStack}, once with bloom off and once on. Behind a wall, bloom must change no pixel; in front of it, it must. Each at two target sizes, one
- * odd, and at emission scales 1 and 0.5, since the Emissive pass reads the scene's depth by its own pixel's share of
- * the screen.
+ * {@code CgPostStack}, once with bloom off and once on. Behind a wall, bloom must change no pixel; in front of it, it
+ * must. Each at every quality tier (each its own chain), three target sizes, one odd and one tall enough to halve the emission first, and at emission scales 1, 0.5 and the
+ * tier's own (0), since the Emissive pass reads the scene's depth by its own pixel's share of the screen.
  *
  * <p>Prints {@code [bloom-occlusion] PASS} or {@code FAIL}; on Vulkan a validation error fails it. Captures land in its
- * output directory as {@code <w>x<h>-<scale>-<hidden|front>-<off|on>.png}.</p>
+ * output directory as {@code <tier>-<w>x<h>-<scale>-<hidden|front>-<off|on>.png}.</p>
  */
 public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
 
-    private static final int[][] SIZES = {{320, 240}, {321, 241}};
-    private static final float[] SCALES = {1f, 0.5f};
+    /** The tall one makes the chain halve its emission first: twice at scale 1, once at 0.5. */
+    private static final int[][] SIZES = {{320, 240}, {321, 241}, {640, 2100}};
+    private static final float[] SCALES = {0f, 1f, 0.5f};
     /** How many pixels the ball in front must brighten: its halo, past its own silhouette. */
     private static final int FRONT_MIN_CHANGED = 50;
 
@@ -54,20 +56,26 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         world.install();
         CgPostStack.get().install();
         List<String> failures = new ArrayList<>();
-        for (int[] size : SIZES) {
-            for (float scale : SCALES) {
-                world.emissionScale(scale);
-                for (boolean hidden : new boolean[]{true, false}) {
-                    String name = size[0] + "x" + size[1] + "-" + scale + "-" + (hidden ? "hidden" : "front");
-                    draw(ctx, world, size[0], size[1], hidden, 0f, name + "-off.png");
-                    draw(ctx, world, size[0], size[1], hidden, 1f, name + "-on.png");
-                    String failure = compare(ctx, name, hidden);
-                    if (failure != null) failures.add(name + ": " + failure);
+        CgQuality original = CgGraphicsSettings.QUALITY.get();
+        for (CgQuality tier : CgQuality.values()) {
+            CgGraphicsSettings.QUALITY.set(tier);
+            for (int[] size : SIZES) {
+                for (float scale : SCALES) {
+                    world.emissionScale(scale);
+                    for (boolean hidden : new boolean[]{true, false}) {
+                        String name = tier.name().toLowerCase() + "-" + size[0] + "x" + size[1] + "-" + scale + "-"
+                                + (hidden ? "hidden" : "front");
+                        draw(ctx, world, size[0], size[1], hidden, 0f, name + "-off.png");
+                        draw(ctx, world, size[0], size[1], hidden, 1f, name + "-on.png");
+                        String failure = compare(ctx, name, hidden);
+                        if (failure != null) failures.add(name + ": " + failure);
+                    }
                 }
             }
         }
+        CgGraphicsSettings.QUALITY.set(original);
         CgPostStack.get().bloom().intensity(1f);
-        world.emissionScale(0.5f);
+        world.emissionScale(0f);
         report(failures, GlErrorChecker.checkAndLog("bloom-occlusion"));
     }
 
@@ -119,7 +127,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         }
         if (!hidden && changed < FRONT_MIN_CHANGED) {
             return "bloom changed " + changed + " pixels of a ball in front of the wall, where its halo should change at"
-                    + " least " + FRONT_MIN_CHANGED + " (quality " + CgGraphicsSettings.QUALITY.get() + ")";
+                    + " least " + FRONT_MIN_CHANGED;
         }
         return null;
     }
@@ -138,7 +146,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
             for (String failure : failures) System.out.println("[bloom-occlusion] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[bloom-occlusion] PASS on " + on + ": a ball behind the wall blooms nowhere and one in "
-                    + "front blooms, at two sizes and emission scales 1 and 0.5");
+                    + "front blooms, at every tier, three sizes and emission scales 1, 0.5 and the tier's");
         }
     }
 
