@@ -6,6 +6,8 @@ import com.crystalgraphics.harness.config.*;
 import com.crystalgraphics.harness.util.HarnessOutputDir;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.service.CgCursorService;
+import com.crystalgraphics.platform.service.CgHostCamera;
+import com.crystalgraphics.harness.camera.HarnessCameraShake;
 import com.crystalgraphics.lwjgl3.GlfwCursorService;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.harness.runtime.RenderDoc;
@@ -102,6 +104,8 @@ public final class FontDebugHarnessMain {
             // rather than from a copy of our own. CrystalGUI's CursorService turns its keywords into
             // pictures and finds this through the slot; nothing here names either side of that.
             CgPlatform.provide(CgCursorService.SERVICE, new GlfwCursorService(HarnessWindow::handle));
+            // CgCameraShake's offset, applied by HarnessWorld while C has it on.
+            CgPlatform.provide(CgHostCamera.SERVICE, HarnessCameraShake.INSTANCE);
             CgGraphicsLifecycle.initContext(ctx.getScreenWidth(), ctx.getScreenHeight());
             //HarnessDiagnostics.logStartup(ctx);
 

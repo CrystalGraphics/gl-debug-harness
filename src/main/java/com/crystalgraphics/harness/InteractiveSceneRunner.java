@@ -21,6 +21,7 @@ import java.nio.file.StandardCopyOption;
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.camera.FloorRenderer;
 import com.crystalgraphics.harness.camera.HUDRenderer;
+import com.crystalgraphics.harness.camera.HarnessCameraShake;
 import com.crystalgraphics.harness.camera.PauseScreenRenderer;
 import com.crystalgraphics.harness.capture.ArtifactService;
 import com.crystalgraphics.harness.capture.CaptureCallback;
@@ -498,6 +499,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // Ignores auto-repeat, or holding the key re-reads the files once a frame.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_R && isCtrlDown()) {
                 reloadAssets();
+            }
+            // C: camera shake on and off. Only with a 3D camera, since a UI scene's text field types the letter.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_C && !isCtrlDown()
+                    && scene.uses3DCamera()) {
+                HarnessCameraShake.INSTANCE.toggle();
             }
             for (CgSystemInput.Keyboard listener : keyboardListeners) {
                 if (!listener.consumeKeyboardEvent(event)) break;
