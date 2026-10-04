@@ -1,9 +1,22 @@
-// indirect-draw's counts (CgIndirectDrawTestScene): what its four indirect draws read, written on the GPU in the
-// frame that draws them.
+// indirect-draw's counts and object records (CgIndirectDrawTestScene): what its indirect draws read, written on the GPU
+// in the frame that draws them.
 #pragma kernel Count scatter
+#pragma kernel Records map
+
+Properties {
+    _Origin ("The objects band's top left", vec4) = (0, 0, 0, 0)
+    _Color  ("The objects band's colour",   vec4) = (1, 1, 1, 1)
+}
+
+struct ObjectRecord {   // CgInstanceKind.OBJECT's 48 floats
+    vec4 model0; vec4 model1; vec4 model2; vec4 model3;
+    vec4 normal0; vec4 normal1; vec4 normal2; vec4 normal3;
+    vec4 custom0; vec4 custom1; vec4 custom2; vec4 custom3;
+};
 
 Buffers {
-    COUNTS ("Counts", uint, writeonly)
+    COUNTS  ("Counts",         uint,         writeonly)
+    RECORDS ("Object records", ObjectRecord, writeonly)
 }
 
 void Count() {
@@ -11,4 +24,24 @@ void Count() {
     COUNTS_STORE(1, 5u);     // INSTANCES x 2: 10 quads
     COUNTS_STORE(2, 9u);     // VERTICES x 3: 9 triangles
     COUNTS_STORE(3, 100u);   // INDICES x 6 of a 64-quad mesh: held to 64
+    COUNTS_STORE(4, 50u);    // INSTANCES of 40 object records: held to 40
+}
+
+// Record i draws a one-quad mesh's cell 0, moved by its model matrix to cell i of the band.
+void Records() {
+    vec2 at = _Origin.xy + vec2(float(CG_ELEMENT % 8), float(CG_ELEMENT / 8)) * 8.0;
+    ObjectRecord r;
+    r.model0 = vec4(1.0, 0.0, 0.0, 0.0);
+    r.model1 = vec4(0.0, 1.0, 0.0, 0.0);
+    r.model2 = vec4(0.0, 0.0, 1.0, 0.0);
+    r.model3 = vec4(at, 0.0, 1.0);
+    r.normal0 = r.model0;
+    r.normal1 = r.model1;
+    r.normal2 = r.model2;
+    r.normal3 = vec4(0.0, 0.0, 0.0, 1.0);
+    r.custom0 = vec4(0.0);
+    r.custom1 = _Color;
+    r.custom2 = vec4(0.0);
+    r.custom3 = vec4(0.0);
+    RECORDS_WRITE(r);
 }

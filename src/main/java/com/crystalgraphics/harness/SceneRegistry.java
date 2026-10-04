@@ -276,13 +276,13 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("indirect-draw")
-                .description("gpu-compute C4: a kernel writes counts four indirect draws read in the same frame, one per CgIndirect mode and one past its mesh; each must match a direct draw of what its count means, in a graph, executed again, and through the world renderer")
+                .description("gpu-compute C4: a kernel writes counts four indirect draws read in the same frame, one per CgIndirect mode and one past its mesh; each must match a direct draw of what its count means, in a graph, executed again, and through the world renderer. C9b: a draw of object records a kernel wrote, its count held to the records given")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(true)
                 .needsDepthBuffer(false)
                 .defaultWidth(320)
-                .defaultHeight(160)
+                .defaultHeight(240)
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgIndirectDrawTestScene()
