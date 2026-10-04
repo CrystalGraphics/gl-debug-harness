@@ -11,6 +11,7 @@ import com.crystalgraphics.harness.scene.test.CgPostEffectsTestScene;
 import com.crystalgraphics.harness.scene.test.CgAsyncComputeTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuGroupsTestScene;
 import com.crystalgraphics.harness.scene.test.CgOverdrawTestScene;
+import com.crystalgraphics.harness.scene.test.CgDistortionTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeCheckTestScene;
 import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
@@ -518,6 +519,20 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
                 .build(),
             () -> new CgOverdrawTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("distortion")
+                .description("render-distortion D1-D2: quads bending a coordinate backdrop, checked pixel by pixel: adding, hidden by a wall, mirrored, the leak guard, the split, and the after-distortion queue")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .defaultWidth(256)
+                .defaultHeight(192)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgDistortionTestScene()
         );
 
         reg.register(
