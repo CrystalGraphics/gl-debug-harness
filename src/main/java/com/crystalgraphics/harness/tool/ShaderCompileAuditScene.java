@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.tool;
 
+import com.crystalgraphics.api.material.CgRenderPassVariant;
 import com.crystalgraphics.api.shader.CgShaderPreprocessor;
 import com.crystalgraphics.api.shader.CgShaderStages;
 import com.crystalgraphics.api.shader.CgShaderProgram;
@@ -258,26 +259,40 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
 
         for (Set<String> keywords : keywordSets) {
             if (keywords.isEmpty()) continue;   // already covered by the base compile
-            for (CgParsedPass pass : parsed.passes()) {
-                checks++;
-                capture.clear();
-                String label = "  COMPILE %s pass '" + pass.name() + "' keywords=" + keywords;
-                try {
-                    if (asset.getOrCompile(pass.name(), keywords) == null) {
-                        failures++;
-                        body.add(String.format(label, "FAIL"));
-                        appendCaptured(capture, body);
-                    } else {
-                        body.add(String.format(label, "ok  "));
-                        buildPipelines(asset.getOrCompile(pass.name(), keywords),
-                                "pass '" + pass.name() + "' keywords=" + keywords, body);
-                    }
-                } catch (Throwable t) {
-                    failures++;
-                    body.add(String.format(label, "FAIL") + " — threw: " + t);
-                    appendCaptured(capture, body);
+            for (CgParsedPass pass : parsed.passes()) compileVariant(asset, pass.name(), keywords, capture, body);
+        }
+        // What an executor binds for a run of draws joined into one call: every pass's, the generated ones too.
+        if (CgCapabilities.detect().multiDraw()) {
+            Set<String> multi = Set.of(CgMaterialShaderCompiler.MULTI_DRAW);
+            for (CgParsedPass pass : parsed.passes()) compileVariant(asset, pass.name(), multi, capture, body);
+            for (CgRenderPassVariant generated : List.of(CgRenderPassVariant.DEPTH, CgRenderPassVariant.SHADOW)) {
+                String name = generated.lightModeName();
+                if (parsed.getPassByName(name) == null && asset.hasCompiledPass(name)) {
+                    compileVariant(asset, name, multi, capture, body);
                 }
             }
+        }
+    }
+
+    private void compileVariant(CgMaterialShader asset, String pass, Set<String> keywords, LogCapture capture,
+                                List<String> body) {
+        checks++;
+        capture.clear();
+        String label = "  COMPILE %s pass '" + pass + "' keywords=" + keywords;
+        try {
+            CgShader program = asset.getOrCompile(pass, keywords);
+            if (program == null) {
+                failures++;
+                body.add(String.format(label, "FAIL"));
+                appendCaptured(capture, body);
+            } else {
+                body.add(String.format(label, "ok  "));
+                buildPipelines(program, "pass '" + pass + "' keywords=" + keywords, body);
+            }
+        } catch (Throwable t) {
+            failures++;
+            body.add(String.format(label, "FAIL") + " — threw: " + t);
+            appendCaptured(capture, body);
         }
     }
 

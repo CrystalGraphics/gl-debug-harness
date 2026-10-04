@@ -11,6 +11,7 @@ import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
 import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
+import com.crystalgraphics.harness.scene.test.CgMultiDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
@@ -285,6 +286,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgIndirectDrawTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("multi-draw")
+                .description("gpu-compute C9: 64 draws of distinct meshes under one pipeline and bindings, and two on the frame ring, drawn with multi-draw on and off; the pictures must match byte for byte, and joined they must take 2 calls where separate take 67")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(416)
+                .defaultHeight(296)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgMultiDrawTestScene()
         );
 
         reg.register(
