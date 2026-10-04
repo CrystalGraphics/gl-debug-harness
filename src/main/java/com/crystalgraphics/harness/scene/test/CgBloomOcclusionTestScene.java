@@ -42,12 +42,13 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
     /** How many pixels the ball in front must brighten: its halo, past its own silhouette. */
     private static final int FRONT_MIN_CHANGED = 50;
 
-    private CgMaterial wall, glow;
+    private CgMaterial wall, glow, emissionOnly;
 
     @Override
     public void init(HarnessContext ctx) {
         wall = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         glow = CgMaterial.load("assets/harness/shader/bloom_glow.shader");
+        emissionOnly = CgMaterial.newInstance("crystalgraphics:shaders/emission_only.shader");
     }
 
     @Override
@@ -65,8 +66,8 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
                     for (boolean hidden : new boolean[]{true, false}) {
                         String name = tier.name().toLowerCase() + "-" + size[0] + "x" + size[1] + "-" + scale + "-"
                                 + (hidden ? "hidden" : "front");
-                        draw(ctx, world, size[0], size[1], hidden, 0f, name + "-off.png");
-                        draw(ctx, world, size[0], size[1], hidden, 1f, name + "-on.png");
+                        draw(ctx, world, size[0], size[1], glow, hidden, 1f, 0f, name + "-off.png");
+                        draw(ctx, world, size[0], size[1], glow, hidden, 1f, 1f, name + "-on.png");
                         String failure = compare(ctx, name, hidden);
                         if (failure != null) failures.add(name + ": " + failure);
                     }
@@ -74,20 +75,42 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
             }
         }
         CgGraphicsSettings.QUALITY.set(original);
+        world.emissionScale(0f);
+        // .emission(0) takes a ball in front out of the bloom
+        draw(ctx, world, 320, 240, glow, false, 0f, 0f, "emission0-off.png");
+        draw(ctx, world, 320, 240, glow, false, 0f, 1f, "emission0-on.png");
+        String failure = compare(ctx, "emission0", true);
+        if (failure != null) failures.add("emission(0): " + failure);
+        // An emission-only ball draws nothing into the scene, and blooms
+        draw(ctx, world, 320, 240, null, false, 1f, 0f, "emission-only-scene-off.png");
+        draw(ctx, world, 320, 240, emissionOnly, false, 1f, 0f, "emission-only-scene-on.png");
+        failure = compare(ctx, "emission-only-scene", true);
+        if (failure != null) failures.add("emission-only, bloom off: " + failure);
+        draw(ctx, world, 320, 240, emissionOnly, false, 1f, 0f, "emission-only-off.png");
+        draw(ctx, world, 320, 240, emissionOnly, false, 1f, 1f, "emission-only-on.png");
+        failure = compare(ctx, "emission-only", false);
+        if (failure != null) failures.add("emission-only: " + failure);
         CgPostStack.get().bloom().intensity(1f);
         world.emissionScale(0f);
         report(failures, GlErrorChecker.checkAndLog("bloom-occlusion"));
     }
 
-    /** The wall at 5 blocks and the ball at 8 behind it or 3 in front, into a target of its own, captured. */
-    private void draw(HarnessContext ctx, CgWorldRenderer world, int w, int h, boolean hidden, float bloom, String file) {
+    /**
+     * The wall at 5 blocks and {@code ball} (none if null) at 8 behind it or 3 in front, its glow scaled by
+     * {@code emission}, into a target of its own, captured.
+     */
+    private void draw(HarnessContext ctx, CgWorldRenderer world, int w, int h, CgMaterial ball, boolean hidden,
+                      float emission, float bloom, String file) {
         HarnessFboHelper target = HarnessFboHelper.create(w, h, true);
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
         CgPostStack.get().bloom().intensity(bloom);
-        CgMesh cube = CgMeshShapes.cube(), ball = CgMeshShapes.sphere(24, 32);
+        CgMesh cube = CgMeshShapes.cube(), sphere = CgMeshShapes.sphere(24, 32);
         world.draw(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).submit();
-        world.draw(ball, glow).at(0, 0, hidden ? -8 : -3).transform(new Matrix4f().scale(hidden ? 1f : 0.6f)).submit();
+        if (ball != null) {
+            world.draw(sphere, ball).at(0, 0, hidden ? -8 : -3).transform(new Matrix4f().scale(hidden ? 1f : 0.6f))
+                    .emission(emission).submit();
+        }
         Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
         Matrix4f view = new Matrix4f();
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
@@ -146,7 +169,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
             for (String failure : failures) System.out.println("[bloom-occlusion] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[bloom-occlusion] PASS on " + on + ": a ball behind the wall blooms nowhere and one in "
-                    + "front blooms, at every tier, three sizes and emission scales 1, 0.5 and the tier's");
+                    + "front blooms, at every tier, three sizes and emission scales 1, 0.5 and the tier's; emission(0) and an emission-only ball");
         }
     }
 
