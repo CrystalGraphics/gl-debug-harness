@@ -34,6 +34,9 @@
         <Logger name="com.crystalgraphics" level="info" additivity="false">
             <AppenderRef ref="Console"/>
         </Logger>
+        <Logger name="CrystalGraphics" level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
         <Root level="warn">
             <AppenderRef ref="Console"/>
         </Root>
