@@ -52,7 +52,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   async, the outputs of both orders compared byte for byte; on `vulkan` the async frame must save a quarter of the
   drawing, elsewhere it runs in order. `--mode=multi-draw` is joined draws': 78 instances of 76 meshes, with indices
   and without, drawn joined into multi-draws and then a call a draw, the pictures compared byte for byte and the calls
-  counted.
+  counted. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
+  renderer on the CPU and by the cull against a depth pyramid on the GPU, the pictures compared byte for byte and
+  each level's count held between what the wall must and may hide; it prints each path's draw cost.
   `-Dcrystalgraphics.graph.asyncAll=true` sends every compute pass async in any
   scene, which the scenes above must pass under synchronization validation. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
   shape, a general one with a lowerable fallback, one with only a Java body, one with neither, every result worked out

@@ -10,6 +10,7 @@ import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
+import com.crystalgraphics.harness.scene.test.CgGpuCullTestScene;
 import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgMultiDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
@@ -286,6 +287,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgIndirectDrawTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("gpu-cull")
+                .description("gpu-compute C9b: spheres in rows at four distances, half behind a wall, culled by the world renderer on the CPU and by CgGpuOps.cull against a depth pyramid on the GPU; the pictures must match byte for byte and each level's count lie within the wall's bounds; prints each path's draw cost")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(480)
+                .defaultHeight(270)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgGpuCullTestScene()
         );
 
         reg.register(
