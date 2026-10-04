@@ -13,7 +13,9 @@ import com.crystalgraphics.harness.scene.test.CgGpuGroupsTestScene;
 import com.crystalgraphics.harness.scene.test.CgOverdrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgDistortionTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeCheckTestScene;
+import com.crystalgraphics.harness.scene.test.CgGpuBudgetTestScene;
 import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
+import com.crystalgraphics.harness.scene.test.CgVolumeTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
@@ -477,6 +479,34 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgReadbackTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("volumes")
+                .description("gpu-compute E3: 3D textures in the frame graph, filled and spread by 3d image kernels, sampled as sampler3D by a kernel and a material, updated and read back by boxes, every texel checked against Java")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgVolumeTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("gpu-budget")
+                .description("gpu-compute C11: a pass of fills charged to a CgGpuBudget and sized by its scale, held under a budget a third of its full cost")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgGpuBudgetTestScene()
         );
 
         reg.register(

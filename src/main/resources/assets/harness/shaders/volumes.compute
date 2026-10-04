@@ -1,0 +1,50 @@
+// volumes' kernels (CgVolumeTestScene): a volume filled as a 3d image, a second written from the first's neighbours
+// across slices, and the first sampled through a sampler3D property, fetched and filtered between slices.
+#pragma kernel Fill 4 4 4 image
+#pragma kernel Spread 4 4 4 image
+#pragma kernel Sample map
+
+Properties {
+    _Field ("Field", sampler3D) = "black"
+    _Size  ("Size",  vec4)      = (1, 1, 1, 0)
+}
+
+Buffers {
+    TEXELS  ("Texels fetched", float, writeonly)
+    BETWEEN ("Between slices", float, writeonly)
+}
+
+Images {
+    FIELD  ("Field",  r16f, writeonly, 3d)
+    SOURCE ("Source", r16f, readonly,  3d)
+    SPREAD ("Spread", r32f, writeonly, 3d)
+}
+
+// Integers below 1021: exact as half floats, and their weighted sums as floats.
+float code(ivec3 p) {
+    return float((p.x * 7 + p.y * 13 + p.z * 29) % 1021);
+}
+
+void Fill() {
+    FIELD_WRITE(vec4(code(CG_TEXEL.xyz), 0.0, 0.0, 0.0));
+}
+
+// The texel and its six neighbours, clamped at the edges; the slices either side weighted apart, so a slice read
+// from the wrong place cannot match.
+void Spread() {
+    ivec3 p = CG_TEXEL.xyz, last = SOURCE_SIZE() - 1;
+    float sum = SOURCE_LOAD(p).r
+              + SOURCE_LOAD(ivec3(max(p.x - 1, 0), p.yz)).r + SOURCE_LOAD(ivec3(min(p.x + 1, last.x), p.yz)).r
+              + SOURCE_LOAD(ivec3(p.x, max(p.y - 1, 0), p.z)).r + SOURCE_LOAD(ivec3(p.x, min(p.y + 1, last.y), p.z)).r
+              + 2.0 * SOURCE_LOAD(ivec3(p.xy, max(p.z - 1, 0))).r + 4.0 * SOURCE_LOAD(ivec3(p.xy, min(p.z + 1, last.z))).r;
+    SPREAD_WRITE(vec4(sum, 0.0, 0.0, 0.0));
+}
+
+// Element e is texel (x, y, z), x fastest. Halfway between slice z and the next at the texel's centre; past the last
+// slice the clamp reads the last.
+void Sample() {
+    ivec3 size = ivec3(_Size.xyz);
+    ivec3 p = ivec3(CG_ELEMENT % size.x, (CG_ELEMENT / size.x) % size.y, CG_ELEMENT / (size.x * size.y));
+    TEXELS_WRITE(texelFetch(_Field, p, 0).r);
+    BETWEEN_WRITE(textureLod(_Field, (vec3(p) + vec3(0.5, 0.5, 1.0)) / vec3(size), 0.0).r);
+}

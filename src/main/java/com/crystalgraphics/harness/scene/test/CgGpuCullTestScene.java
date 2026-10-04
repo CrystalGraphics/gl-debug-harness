@@ -173,6 +173,18 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         walling.close();
         world.release();
 
+        // The same set as two world draws of ranges of one buffer, split where no level's region is aligned.
+        CgRenderStage.Registration rangeWall = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, this::recordWall);
+        int split = N / 2 + 7;
+        world.draw(lods, material).instances(instances, 0, CgGpuCount.of(split)).submit();
+        world.draw(lods, material).instances(instances, split, CgGpuCount.of(N - split)).submit();
+        store.multiDraw(false);
+        fire(target);
+        target.captureToFile(ctx.getOutputDir(), "gpu-cull-world-ranges.png");
+        store.multiDraw(joins);
+        rangeWall.close();
+        world.release();
+
         int[] kept = new int[4];
         CgBufferReadback.readWords(counts.bufferId(), 0, kept, 0, HEIGHTS.length);
         CgRecording release = new CgRecording();
@@ -381,7 +393,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         String reference = levelsJoin ? "gpu-cull-cpu.png" : "gpu-cull-cpu-separate.png";
         for (String[] pair : new String[][]{{"gpu-cull-cpu-separate.png", "gpu-cull-separate.png"},
                 {reference, "gpu-cull.png"}, {"gpu-cull-cpu-separate.png", "gpu-cull-world-separate.png"},
-                {reference, "gpu-cull-world.png"}}) {
+                {reference, "gpu-cull-world.png"}, {"gpu-cull-cpu-separate.png", "gpu-cull-world-ranges.png"}}) {
             String differs = differs(ctx, pair[0], pair[1]);
             if (differs != null) {
                 System.out.println("[gpu-cull] FAIL on " + on + ": " + differs);
@@ -390,6 +402,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         }
         System.out.println("[gpu-cull] PASS on " + on + ": the GPU's cull draws the CPU's picture, in a pass of its own "
                 + "and as a world draw, separate and " + (levelsJoin ? "its levels in one multi-draw" : "with multi-draw on")
+                + ", and as two world draws of ranges of one buffer"
                 + ", each level's count within the wall's bounds");
     }
 
