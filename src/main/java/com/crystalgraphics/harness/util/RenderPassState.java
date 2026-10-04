@@ -37,14 +37,6 @@ public final class RenderPassState {
 
     private RenderPassState() { }
 
-    // ── Saved GL state for overlay pass restore ──
-    // These thread-locals track the GL state before an overlay pass begins,
-    // so endOverlayPass() can restore the prior state without making assumptions.
-    // ThreadLocal is used for safety, though in practice all harness rendering
-    // happens on the LWJGL render thread.
-    private static final ThreadLocal<Boolean> savedDepthEnabled = new ThreadLocal<Boolean>();
-    private static final ThreadLocal<Boolean> savedBlendEnabled = new ThreadLocal<Boolean>();
-
     /**
      * Sets up GL state for the <b>world pass</b> (floor rendering).
      *
@@ -94,18 +86,11 @@ public final class RenderPassState {
      *       is semi-transparent; HUD text has transparent backgrounds</li>
      * </ul>
      *
-     * <p>Saves the current depth and blend state so {@link #endOverlayPass()} can restore
-     * it. This is important because the capture point (screenshot callback) fires after
-     * overlays and may expect a specific state.</p>
-     *
      * <p>Both PauseScreenRenderer and HUDRenderer should call this at the start of their
      * render methods instead of managing their own save/restore blocks.</p>
      */
     public static void beginOverlayPass() {
-        // Save current state so endOverlayPass() can restore it
-        savedDepthEnabled.set(CgGL.glGetBoolean(CgGL.GL_DEPTH_TEST));
-        savedBlendEnabled.set(CgGL.glGetBoolean(CgGL.GL_BLEND));
-
+        // No glGet to save the state first: it waits for the driver to drain the whole frame queued so far.
         // Overlays render on top of the 3D scene — disable depth test
         CgGL.glDisable(CgGL.GL_DEPTH_TEST);
 
@@ -115,33 +100,12 @@ public final class RenderPassState {
     }
 
     /**
-     * Restores GL state after the <b>overlay pass</b> completes.
-     *
-     * <p>Reverts depth test and blend state to whatever was active before
-     * {@link #beginOverlayPass()} was called. This ensures the capture point
-     * (post-render callback) and any subsequent operations see the expected state.</p>
+     * Ends the <b>overlay pass</b>, leaving the scene pass's baseline (depth test on, blend off) for whatever
+     * follows; every pass after it declares its own state.
      */
     public static void endOverlayPass() {
-        Boolean depthWas = savedDepthEnabled.get();
-        Boolean blendWas = savedBlendEnabled.get();
-
-        // Restore depth test state
-        if (depthWas != null && depthWas) {
-            CgGL.glEnable(CgGL.GL_DEPTH_TEST);
-        } else {
-            CgGL.glDisable(CgGL.GL_DEPTH_TEST);
-        }
-
-        // Restore blend state
-        if (blendWas != null && blendWas) {
-            CgGL.glEnable(CgGL.GL_BLEND);
-        } else {
-            CgGL.glDisable(CgGL.GL_BLEND);
-        }
-
-        // Clear saved state to avoid stale reads on next frame
-        savedDepthEnabled.remove();
-        savedBlendEnabled.remove();
+        CgGL.glEnable(CgGL.GL_DEPTH_TEST);
+        CgGL.glDisable(CgGL.GL_BLEND);
     }
 
     /**

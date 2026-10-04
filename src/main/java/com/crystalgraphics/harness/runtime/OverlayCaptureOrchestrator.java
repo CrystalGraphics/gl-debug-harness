@@ -3,6 +3,8 @@ package com.crystalgraphics.harness.runtime;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.GlStateResetHelper;
 import com.crystalgraphics.harness.util.RenderPassState;
+import com.crystalgraphics.trace.CgTrace;
+import com.crystalgraphics.util.trace.CgChannels;
 
 import java.util.logging.Logger;
 
@@ -79,14 +81,20 @@ public final class OverlayCaptureOrchestrator {
     public void executePostSceneSequence(boolean paused, boolean uses3DCamera) {
         // Post-scene reset: clean up whatever state the scene left dirty
         // (shaders, VAOs, textures, depth/blend flags)
-        GlStateResetHelper.resetAfterScene();
+        try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "overlay.reset")) {
+            GlStateResetHelper.resetAfterScene();
+        }
 
         // Overlay pass: set overlay state (depth OFF, blend ON with alpha)
         // Both pause overlay and HUD share this state boundary.
         boolean hasOverlays = overlayPipeline.hasActiveOverlays(paused, uses3DCamera);
         if (hasOverlays) {
-            RenderPassState.beginOverlayPass();
-            overlayPipeline.renderOverlays(ctx, paused, uses3DCamera);
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "overlay.begin")) {
+                RenderPassState.beginOverlayPass();
+            }
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "overlay.render")) {
+                overlayPipeline.renderOverlays(ctx, paused, uses3DCamera);
+            }
             RenderPassState.endOverlayPass();
         }
 
