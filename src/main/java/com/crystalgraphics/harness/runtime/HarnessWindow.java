@@ -152,6 +152,10 @@ public final class HarnessWindow {
             GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_FORWARD_COMPAT, GLFW.GLFW_TRUE);
             GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
             GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE);
+            // The driver's performance messages (crystalgraphics.gl.debugPerf) come only from a debug context.
+            if (Boolean.getBoolean("crystalgraphics.gl.debugPerf")) {
+                GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_DEBUG_CONTEXT, GLFW.GLFW_TRUE);
+            }
             if (version == CORE_VERSIONS[CORE_VERSIONS.length - 1]) GLFW.glfwSetErrorCallback(print);
             window = GLFW.glfwCreateWindow(width, height, title, 0L, 0L);
             if (window != 0L) break;
