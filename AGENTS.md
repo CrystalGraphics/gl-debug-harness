@@ -41,12 +41,24 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   CPU reference: the gate for `.compute` on each device. `--mode=compute-graph` is the frame graph's: kernels, a
   history and an indirect dispatch recorded and built on a worker; with `-Dcrystalgraphics.graph.barriers=false` it
   must fail under synchronization validation. `--mode=indirect-draw` is the indirect draws': counts a kernel wrote,
-  drawn in every mode and matched against direct draws, in a graph and through the world renderer; it must fail the
-  same way with the barriers off. `--mode=material-buffer` is a material's: a kernel's records compacted on the GPU,
+  drawn in every mode and matched against direct draws, in a graph and through the world renderer, and a draw of object
+  records a kernel wrote (`objects()`); it must fail the same way with the barriers off. `--mode=material-buffer` is a material's: a kernel's records compacted on the GPU,
   each live one placed and coloured by a material's `Buffers { }` through one indirect draw, in a graph and through the
   world renderer; it must fail the same way too. `--mode=raster-levels` is raster passes into mip levels: a chain drawn
   level by level in one texture, each level reading the one above through a level view, every texel checked against
-  Java. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
+  Java. `--mode=readback` is `CgRecording.readback`'s: kernel-written words, a float target, an unaligned byte target
+  and a mip level read back every frame, each delivery checked against the frame that recorded it.
+  `--mode=async-compute` is `CgComputePass.async()`'s: blurs beside fill-bound drawing, timed alone, in order and
+  async, the outputs of both orders compared byte for byte; on `vulkan` the async frame must save a quarter of the
+  drawing, elsewhere it runs in order. `--mode=multi-draw` is joined draws': 78 instances of 76 meshes, with indices
+  and without, drawn joined into multi-draws and then a call a draw, the pictures compared byte for byte and the calls
+  counted. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
+  renderer on the CPU and by the cull against a depth pyramid on the GPU, by hand and as one world draw of
+  `instances()`, the pictures compared byte for byte with multi-draw off and on, the levels one multi-draw where they
+  join, and each level's count held between what the wall must and may hide; it prints each path's draw cost, and
+  `-Dcrystalgraphics.harness.gpuCull.rows=<n>` stacks more rows for the cost at a larger set.
+  `-Dcrystalgraphics.graph.asyncAll=true` sends every compute pass async in any
+  scene, which the scenes above must pass under synchronization validation. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
   shape, a general one with a lowerable fallback, one with only a Java body, one with neither, every result worked out
   in Java (`CgComputeSelfTest`, the engine's, which a client runs too). All five scenes must pass forced to each tier
   (`-Dcrystalgraphics.compute.tier=G43|G40|G33|CPU`, and G33 with `-Dcrystalgraphics.shaderBuffer.tier=TBO` for a 3.3

@@ -8,10 +8,14 @@ import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
 import com.crystalgraphics.harness.scene.test.CgMrtEmissionTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostLooksTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostEffectsTestScene;
+import com.crystalgraphics.harness.scene.test.CgAsyncComputeTestScene;
+import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
+import com.crystalgraphics.harness.scene.test.CgGpuCullTestScene;
 import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
+import com.crystalgraphics.harness.scene.test.CgMultiDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
@@ -276,16 +280,44 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("indirect-draw")
-                .description("gpu-compute C4: a kernel writes counts four indirect draws read in the same frame, one per CgIndirect mode and one past its mesh; each must match a direct draw of what its count means, in a graph, executed again, and through the world renderer")
+                .description("gpu-compute C4: a kernel writes counts four indirect draws read in the same frame, one per CgIndirect mode and one past its mesh; each must match a direct draw of what its count means, in a graph, executed again, and through the world renderer. C9b: a draw of object records a kernel wrote, its count held to the records given")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(true)
                 .needsDepthBuffer(false)
                 .defaultWidth(320)
-                .defaultHeight(160)
+                .defaultHeight(240)
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgIndirectDrawTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("gpu-cull")
+                .description("gpu-compute C9b: spheres in rows at four distances, half behind a wall, culled by the world renderer on the CPU and by CgGpuOps.cull against a depth pyramid on the GPU; the pictures must match byte for byte and each level's count lie within the wall's bounds; prints each path's draw cost")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(480)
+                .defaultHeight(270)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgGpuCullTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("multi-draw")
+                .description("gpu-compute C9: 76 draws of distinct meshes under one pipeline and bindings, indexed and not, in slabs and on the frame ring, drawn with multi-draw on and off; the pictures must match byte for byte, and joined they must take 4 calls where separate take 77")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(416)
+                .defaultHeight(336)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgMultiDrawTestScene()
         );
 
         reg.register(
@@ -412,6 +444,34 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgGpuOpsCostScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("readback")
+                .description("gpu-compute C8: buffer words, float and unaligned byte targets and a mip level read back through the frame graph each frame, every delivery checked against the frame that recorded it")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgReadbackTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("async-compute")
+                .description("gpu-compute C8: blurs in a compute pass beside fill-bound drawing, timed alone, in order and async(); the outputs of both orders compared byte for byte")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(180)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgAsyncComputeTestScene()
         );
 
         reg.register(

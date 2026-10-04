@@ -45,10 +45,11 @@ import java.util.List;
  * gpu-compute C4's gate: a kernel writes four counts, and four indirect draws read them in the frame that wrote them,
  * one per {@link CgIndirect} mode and one whose count is past its mesh. Each is drawn on the left, and on the right a
  * direct draw of what the count means, worked out on the CPU: the halves must match, and each band must hold the cells
- * its count says.
+ * its count says. In the graph a fifth band is C9b's: a draw of {@code objects()} whose records a kernel wrote, each
+ * moving its quad to its own cell, its count past the records it was given.
  *
  * <ul>
- *   <li>{@code indirect-draw.png}: chunk draws in a frame graph, the kernel in a compute pass of the same graph.</li>
+ *   <li>{@code indirect-draw.png}: chunk draws in a frame graph, the kernels in a compute pass of the same graph.</li>
  *   <li>{@code indirect-draw-again.png}: that frame executed again, the commands written again.</li>
  *   <li>{@code indirect-draw-world.png}: {@code CgWorldRenderer} draws, the kernel recorded into the opaque world
  *       stage's frame by a renderer ahead of the world renderer's.</li>
@@ -78,6 +79,11 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
                     CgMesh.vertices(192, CgMeshTopology.TRIANGLES), 27, 9),
             new Band(88, 88, 0, 0xFFE030, CgMesh.quads(64), CgIndirect.INDICES, 6, 3, CgMesh.quads(64), 64 * 6, 64));
 
+    /** Records the kernel writes, the draw's first and how many it is given, and the band: a count of 50, held to 40. */
+    private static final int RECORDS = 64, FIRST = 8, GIVEN = 40;
+    private static final Band OBJECTS = new Band(8, 168, 0, 0xFF30FF, CgMesh.quads(1), CgIndirect.INSTANCES, 1, 4,
+            CgMesh.quads(64), GIVEN * 6, GIVEN);
+
     private CgMaterial material;
     private CgCompute kernels;
 
@@ -91,22 +97,38 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
             counts.setInt(1, 5);
             counts.setInt(2, 9);
             counts.setInt(3, 100);
+            counts.setInt(4, 50);
+        });
+        kernels.kernel("Records").cpu(d -> {
+            CgCpuBuffer records = d.buffer("RECORDS");
+            for (int e = d.first(); e < d.end(); e++) {
+                for (int word = 0; word < 48; word++) records.setFloat(e, word, 0f);
+                for (int axis = 0; axis < 4; axis++) {
+                    records.setFloat(e, axis * 5, 1f);        // the model matrix
+                    records.setFloat(e, 16 + axis * 5, 1f);   // the normal matrix
+                }
+                records.setFloat(e, 12, d.property("_Origin", 0) + e % 8 * 8);
+                records.setFloat(e, 13, d.property("_Origin", 1) + e / 8 * 8);
+                for (int c = 0; c < 4; c++) records.setFloat(e, 36 + c, d.property("_Color", c));
+            }
         });
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
-        CgBufferDesc desc = CgBufferDesc.of(16, CgBufferUsage.STORAGE);
+        CgBufferDesc desc = CgBufferDesc.of(32, CgBufferUsage.STORAGE);
         CgGraphBuffer counts = CgGraphBuffer.persistent("counts", desc);
         CgGraphBuffer worldCounts = CgGraphBuffer.persistent("world-counts", desc);
+        CgGraphBuffer records = CgGraphBuffer.persistent("records",
+                CgBufferDesc.elements(RECORDS, CgInstanceKind.OBJECT.floats() * 4, CgBufferUsage.STORAGE));
         Matrix4f projection = new Matrix4f().setOrtho(0, w, h, 0, -1, 1);
 
         HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
         target.bind();
         target.clear(BACKGROUND_R / 255f, BACKGROUND_G / 255f, BACKGROUND_B / 255f, 1f);
         CgFrameBuilder builder = new CgFrameBuilder();
-        CgFrame built = builder.build(new CgFrameGraph().add(record(counts, w, h, projection).seal()));
+        CgFrame built = builder.build(new CgFrameGraph().add(record(counts, records, w, h, projection).seal()));
         CgExecutor.execute(built);
         target.captureToFile(ctx.getOutputDir(), "indirect-draw.png");
         target.clear(BACKGROUND_R / 255f, BACKGROUND_G / 255f, BACKGROUND_B / 255f, 1f);
@@ -121,6 +143,7 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         CgRecording release = new CgRecording();
         release.release(counts);
         release.release(worldCounts);
+        release.release(records);
         CgImmediate.execute(release);
         target.unbind();
         target.delete();
@@ -128,11 +151,15 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         compare(ctx, GlErrorChecker.checkAndLog("indirect-draw"));
     }
 
-    /** The counts written, then every band's indirect draw on the left and its direct twin on the right. */
-    private CgRecording record(CgGraphBuffer counts, int w, int h, Matrix4f projection) {
+    /** The counts and records written, then every band's indirect draw on the left and its direct twin on the right. */
+    private CgRecording record(CgGraphBuffer counts, CgGraphBuffer records, int w, int h, Matrix4f projection) {
         CgRecording rec = new CgRecording();
         CgComputePass count = rec.compute("counts");
         count.dispatch(kernels.kernel("Count"), 1).bind("COUNTS", counts);
+        count.dispatch(kernels.kernel("Records"), RECORDS).bind("RECORDS", records)
+                .set("_Origin", OBJECTS.x(), OBJECTS.y(), 0f, 0f)
+                .set("_Color", (OBJECTS.rgb() >> 16 & 0xFF) / 255f, (OBJECTS.rgb() >> 8 & 0xFF) / 255f,
+                        (OBJECTS.rgb() & 0xFF) / 255f, 1f);
         count.end();
 
         CgPassConstants constants = new CgPassConstants().resolution(w, h);
@@ -147,6 +174,10 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
             c.draw(pipeline, bindings, band.reference()).range(0, 0, band.referenceCount());
             record(c, band, HALF, band.referenceBy());
         }
+        c.draw(pipeline, bindings, OBJECTS.mesh()).objects(records, FIRST, GIVEN)
+                .indirect(counts, OBJECTS.uint() * 4L, OBJECTS.mode(), OBJECTS.factor());
+        c.draw(pipeline, bindings, OBJECTS.reference()).range(0, FIRST * 6, OBJECTS.referenceCount());
+        record(c, OBJECTS, HALF, OBJECTS.referenceBy());
         pass.add(c.end());
         pass.end();
         return rec;
@@ -209,7 +240,7 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         boolean pass = true;
         for (String capture : List.of("indirect-draw.png", "indirect-draw-again.png", "indirect-draw-world.png")) {
             try {
-                String failure = check(ImageIO.read(new File(ctx.getOutputDir(), capture)));
+                String failure = check(ImageIO.read(new File(ctx.getOutputDir(), capture)), !capture.endsWith("world.png"));
                 if (failure != null) {
                     pass = false;
                     System.out.println("[indirect-draw] FAIL on " + on + ": " + capture + " " + failure);
@@ -221,12 +252,12 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         }
         if (pass) {
             System.out.println("[indirect-draw] PASS on " + on + ": every indirect draw matches its direct twin, "
-                    + "in a graph, executed again, and in the world");
+                    + "in a graph, executed again, and in the world, and the kernel's object records draw in the graph");
         }
     }
 
-    /** Null when the left half is the right one and each band holds its cells; else what is wrong. */
-    private static String check(BufferedImage image) {
+    /** Null when the left half is the right one and each band holds its cells, the objects band too; else what is wrong. */
+    private static String check(BufferedImage image, boolean objects) {
         for (int y = 0; y < image.getHeight(); y++) {
             for (int x = 0; x < HALF; x++) {
                 if (image.getRGB(x, y) != image.getRGB(x + HALF, y)) {
@@ -236,7 +267,7 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
                 }
             }
         }
-        for (Band band : BANDS) {
+        for (Band band : objects ? List.of(BANDS.get(0), BANDS.get(1), BANDS.get(2), BANDS.get(3), OBJECTS) : BANDS) {
             int filled = 0;
             for (int cell = 0; cell < 64; cell++) {
                 int x = (int) band.x() + (cell % 8) * 8 + 2, y = (int) band.y() + (cell / 8) * 8 + 2;

@@ -169,6 +169,12 @@ public final class PlatformServiceHarness implements CgPlatformService {
         @Override public boolean multiDrawIndirect() { return host.multiDrawIndirect(); }
         @Override public boolean indirectCount() { return host.indirectCount(); }
         @Override public boolean indirectFirstInstance() { return host.indirectFirstInstance(); }
+        @Override public boolean drawParameters() { return host.drawParameters(); }
+        @Override public boolean asyncCompute() { return host.asyncCompute(); }
+        @Override public int asyncFamily() { return host.asyncFamily(); }
+        @Override public void beginAsync() { host.beginAsync(); }
+        @Override public long endAsync() { return host.endAsync(); }
+        @Override public void waitAsync(long point) { host.waitAsync(point); }
 
         @Override
         public void endFrame(CgVulkanImage output) {
