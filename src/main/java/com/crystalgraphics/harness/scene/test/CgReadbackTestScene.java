@@ -39,13 +39,17 @@ import java.util.function.IntUnaryOperator;
  * {@code CgBufferInspector} too: armed after a frame, served after the next frame's iota, decoded as its {@code uint}s.
  * A history and a persistent buffer written in frame 1 are resized larger in frame 2 ({@code CgRecording.resize}): both
  * of the history's versions, and the persistent buffer's words beside a tail written after, must read back as written.
+ * Rows read with their count ({@code CgGpuOps.readRows}): eight rows and a count of {@code n % 12} each frame, so
+ * the rows stop at the count, a count past eight is delivered as written over eight rows, and frame 1 reads a fixed
+ * count too.
  *
  * <p>The iota runs as the tier's form, so a lowered tier's held output must land before the copy. Prints
  * {@code [readback] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
  */
 public class CgReadbackTestScene implements InteractiveSceneLifecycle {
 
-    private static final int FRAMES = 40, DRAIN = 30, WORDS = 4096, FIRST_WORD = 100, READ_WORDS = 16, POOL = 64;
+    private static final int FRAMES = 40, DRAIN = 30, WORDS = 4096, FIRST_WORD = 100, READ_WORDS = 16, POOL = 64,
+            ROWS = 8, ROW_BYTES = 16;
     private static final CgBufferDesc POOL_DESC = CgBufferDesc.elements(POOL, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY);
     private static final CgBufferDesc GROWN_DESC = CgBufferDesc.elements(2 * POOL, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY);
     private static final CgFrameBufferFormat F32 = CgFrameBufferFormat.builder("readback-f32")
@@ -61,10 +65,14 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
     private final CgGraphTexture bytes = CgGraphTexture.transientTexture("readback.r8", new CgTextureDesc(3, 5, R8));
     private final CgGraphTexture chain = CgGraphTexture.transientTexture("readback.chain",
             new CgTextureDesc(16, 8, RGBA8).withMips());
+    private final CgGraphBuffer rows = CgGraphBuffer.transientBuffer("readback.rows",
+            CgBufferDesc.elements(ROWS, ROW_BYTES, CgBufferUsage.STORAGE, CgBufferUsage.COPY));
+    private final CgGraphBuffer rowCounts = CgGraphBuffer.transientBuffer("readback.rowCounts",
+            CgBufferDesc.elements(4, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY));
     private CgGraphBuffer history = CgGraphBuffer.history("readback.history", POOL_DESC);
     private CgGraphBuffer kept = CgGraphBuffer.persistent("readback.kept", POOL_DESC);
     private final List<CgRequest> requests = new ArrayList<>();
-    private final int[] landed = new int[5];
+    private final int[] landed = new int[6];
     private int inspectsArmed, inspected, inspectsFailed;
     private int frame, minLatency = Integer.MAX_VALUE, maxLatency;
     private String failure;
@@ -129,10 +137,11 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             for (int i = 0; i < 32; i++) expect(data.get(i) & 0xFF, want[i % 4], "level 2 byte " + i, n);
             landed(3, n);
         }));
+        readRows(rec, n);
         if (n == 1) {
-            rec.update(history, 0, words(i -> 7 * i + 1));       // the version that becomes previous
-            rec.update(history, 0, words(i -> 5 * i + 2));       // the newest
-            rec.update(kept, 0, words(i -> 3 * i + 5));
+            rec.update(history, 0, words(POOL, i -> 7 * i + 1));       // the version that becomes previous
+            rec.update(history, 0, words(POOL, i -> 5 * i + 2));       // the newest
+            rec.update(kept, 0, words(POOL, i -> 3 * i + 5));
         } else if (n == 2) {
             resize(rec, n);
         } else if (n == 3) {
@@ -147,7 +156,7 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
     private void resize(CgRecording rec, int n) {
         history = rec.resize(history, GROWN_DESC);
         kept = rec.resize(kept, GROWN_DESC);
-        rec.update(kept, POOL * 4L, words(i -> 1000 + i));
+        rec.update(kept, POOL * 4L, words(POOL, i -> 1000 + i));
         requests.add(rec.readback(history, 0, POOL * 4L, data -> {
             for (int i = 0; i < POOL; i++) expect(data.getInt(i * 4), 5 * i + 2, "resized history's newest word " + i, n);
             landed(4, n);
@@ -163,9 +172,34 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
         }));
     }
 
-    private static ByteBuffer words(IntUnaryOperator word) {
-        ByteBuffer bytes = ByteBuffer.allocateDirect(POOL * 4).order(ByteOrder.nativeOrder());
-        for (int i = 0; i < POOL; i++) bytes.putInt(word.applyAsInt(i));
+    /** Eight rows of frame n's words, a count of {@code n % 12} beside them, and both read back as rows. */
+    private void readRows(CgRecording rec, int n) {
+        int written = n % 12;
+        rec.update(rows, 0, words(ROWS * ROW_BYTES / 4, i -> n * 100 + i));
+        rec.update(rowCounts, 0, words(4, i -> i == 1 ? written : 0xBAD));
+        requests.add(CgGpuOps.readRows(rec, rows, 0, ROW_BYTES, CgGpuCount.at(rowCounts, 1, ROWS),
+                (count, data) -> checkRows(count, data, written, n)));
+        if (n == 1) {
+            requests.add(CgGpuOps.readRows(rec, rows, ROW_BYTES, ROW_BYTES, CgGpuCount.of(3), (count, data) -> {
+                expect(count, 3, "fixed count", n);
+                expect(data.limit(), 3 * ROW_BYTES, "fixed count's bytes", n);
+                for (int i = 0; i < 3 * ROW_BYTES / 4; i++) expect(data.getInt(i * 4), n * 100 + 4 + i, "fixed row word " + i, n);
+                landed(5, n);
+            }));
+        }
+    }
+
+    private void checkRows(int count, ByteBuffer data, int written, int n) {
+        expect(count, written, "rows' count", n);
+        expect(data.limit(), Math.min(written, ROWS) * ROW_BYTES, "rows' bytes", n);
+        for (int i = 0; i < data.limit() / 4; i++) expect(data.getInt(i * 4), n * 100 + i, "row word " + i, n);
+        landed(5, n);
+    }
+
+
+    private static ByteBuffer words(int count, IntUnaryOperator word) {
+        ByteBuffer bytes = ByteBuffer.allocateDirect(count * 4).order(ByteOrder.nativeOrder());
+        for (int i = 0; i < count; i++) bytes.putInt(word.applyAsInt(i));
         bytes.flip();
         return bytes;
     }
@@ -247,8 +281,8 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             System.out.println("[readback] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[readback] PASS on " + on + ": " + landed[0] + " buffer, " + landed[1] + " RGBA32F, "
-                    + landed[2] + " unaligned R8, " + landed[3] + " mip-level and " + landed[4]
-                    + " resized-buffer readbacks landed as recorded, "
+                    + landed[2] + " unaligned R8, " + landed[3] + " mip-level, " + landed[4] + " resized-buffer and "
+                    + landed[5] + " counted-row readbacks landed as recorded, "
                     + minLatency + "-" + maxLatency + " frames later; " + inspected + " inspector reads decoded");
         }
     }
