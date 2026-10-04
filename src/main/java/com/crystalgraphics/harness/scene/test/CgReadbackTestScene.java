@@ -3,6 +3,7 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.compute.ops.CgGpuCount;
+import com.crystalgraphics.compute.source.CgElementField;
 import com.crystalgraphics.compute.ops.CgGpuOps;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -14,6 +15,7 @@ import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgOrder;
 import com.crystalgraphics.render.draw.CgPassConstants;
 import com.crystalgraphics.render.graph.CgBufferDesc;
+import com.crystalgraphics.render.graph.CgBufferInspector;
 import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
 import com.crystalgraphics.render.graph.CgGraphBuffer;
@@ -31,7 +33,8 @@ import java.util.List;
  * The gate for {@code CgRecording.readback} (gpu-compute C8): each frame, words {@code CgGpuOps.iota} wrote into a
  * transient buffer, a region of an RGBA32F target, a whole R8 target whose rows are 3 bytes, and level 2 of an RGBA8
  * chain are read back, each written with values of that frame. Every delivery is checked against the frame that
- * recorded it, and every request must be done once the readbacks drain.
+ * recorded it, and every request must be done once the readbacks drain. The words are read through
+ * {@code CgBufferInspector} too: armed after a frame, served after the next frame's iota, decoded as its {@code uint}s.
  *
  * <p>The iota runs as the tier's form, so a lowered tier's held output must land before the copy. Prints
  * {@code [readback] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -54,12 +57,14 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             new CgTextureDesc(16, 8, RGBA8).withMips());
     private final List<CgRequest> requests = new ArrayList<>();
     private final int[] landed = new int[4];
+    private int inspectsArmed, inspected, inspectsFailed;
     private int frame, minLatency = Integer.MAX_VALUE, maxLatency;
     private String failure;
     private boolean running = true;
 
     @Override
     public void init(HarnessContext ctx) {
+        CgBufferInspector.watch(true);
     }
 
     @Override
@@ -69,7 +74,7 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             record(frame);
             return;
         }
-        boolean answered = true;
+        boolean answered = inspected + inspectsFailed == inspectsArmed;
         for (CgRequest r : requests) answered &= r.status() != CgRequest.Status.PENDING;
         if (answered || frame > FRAMES + DRAIN) {
             report();
@@ -117,6 +122,39 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             landed(3, n);
         }));
         CgImmediate.execute(rec);
+        if (n < FRAMES) inspect(n + 1);
+    }
+
+    /** The words as the inspector shows them after frame {@code n}'s iota. */
+    private void inspect(int n) {
+        for (CgBufferInspector.Site site : CgBufferInspector.sites()) {
+            if (!site.buffer().equals("readback.words") || !site.pass().equals("readback.iota")) continue;
+            inspectsArmed++;
+            CgBufferInspector.read(site, FIRST_WORD, READ_WORDS, new CgBufferInspector.Sink() {
+                @Override
+                public void accept(CgBufferInspector.Read read) {
+                    CgElementField word = read.site().decl().fields().get(0);
+                    if (!read.site().decl().element().equals("uint") || read.site().elements() != WORDS) {
+                        fail("inspector site " + read.site(), n);
+                    }
+                    expect(read.first(), FIRST_WORD, "inspected first element", n);
+                    expect(read.count(), READ_WORDS, "inspected element count", n);
+                    for (int i = 0; i < read.count(); i++) {
+                        expect(Integer.parseInt(read.value(i, word)), n * 1000 + 3 * (FIRST_WORD + i),
+                                "inspected word " + (FIRST_WORD + i), n);
+                    }
+                    inspected++;
+                }
+
+                @Override
+                public void failed(String reason) {
+                    inspectsFailed++;
+                    fail("inspector read failed: " + reason, n);
+                }
+            });
+            return;
+        }
+        if (n > 2) fail("no inspector site for readback.words after readback.iota", n);
     }
 
     private static void clear(CgRecording rec, CgGraphTexture texture, int level, CgLoad load) {
@@ -156,6 +194,8 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             System.out.println("[readback] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
         } else if (unanswered != null) {
             System.out.println("[readback] FAIL on " + on + ": " + done + " of " + requests.size() + " answered; " + unanswered);
+        } else if (inspected + inspectsFailed != inspectsArmed || inspectsArmed == 0) {
+            System.out.println("[readback] FAIL on " + on + ": " + inspected + " of " + inspectsArmed + " inspector reads answered");
         } else if ("recording".equals(on)) {
             System.out.println("[readback] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (failure != null) {
@@ -163,12 +203,13 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
         } else {
             System.out.println("[readback] PASS on " + on + ": " + landed[0] + " buffer, " + landed[1] + " RGBA32F, "
                     + landed[2] + " unaligned R8 and " + landed[3] + " mip-level readbacks landed as recorded, "
-                    + minLatency + "-" + maxLatency + " frames later");
+                    + minLatency + "-" + maxLatency + " frames later; " + inspected + " inspector reads decoded");
         }
     }
 
     @Override
     public void dispose() {
+        CgBufferInspector.watch(false);
     }
 
     @Override public boolean isRunning() { return running; }

@@ -15,3 +15,6 @@
 
 # The local crystalgui root directory for workspaces and cache
 /crystalgui/
+
+# CrystalGraphics' compiled shaders and pipeline caches
+/crystalgraphics/

@@ -82,6 +82,8 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
 
     private CgMaterial material, wallMaterial;
     private CgMeshLods lods;
+    private CgMesh wallMesh;
+    private final Matrix4f wallPlace = new Matrix4f().translation(-100f, 0f, WALL_Z), identity = new Matrix4f();
     private final float[] positions = new float[N * 3];
     private final Matrix4f view = new Matrix4f();
     private final Matrix4f projection = new Matrix4f().setPerspective((float) Math.toRadians(60), (float) W / H, 0.1f, 200f);
@@ -95,6 +97,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
                 .level(CgMeshShapes.sphere(CgVertexFormat.SPATIAL, 12, 24), HEIGHTS[1])
                 .level(CgMeshShapes.sphere(CgVertexFormat.SPATIAL, 6, 12), HEIGHTS[2])
                 .build();
+        wallMesh = CgMeshShapes.quad(CgVertexFormat.SPATIAL, 100f, 100f);
         int i = 0;
         for (float d : DISTANCES) {
             float spacing = Math.max(2.5f, 0.2f * d);
@@ -227,13 +230,12 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         CgRecording rec = stage.recording();
         CgRasterPass pass = stage.pass(stage.constants(), CgOrder.LOOKBACK);
         CgChunkBuilder c = rec.chunks().begin();
-        c.draw(wallMaterial.pipeline(CgInstanceKind.OBJECT), wallMaterial.captureBindings(rec.bindings()),
-                CgMeshShapes.quad(CgVertexFormat.SPATIAL, 100f, 100f));
+        c.draw(wallMaterial.pipeline(CgInstanceKind.OBJECT), wallMaterial.captureBindings(rec.bindings()), wallMesh);
         int at = c.instance();
         float[] data = c.data();
         Arrays.fill(data, at, at + 48, 0f);
-        new Matrix4f().translation(-100f, 0f, WALL_Z).get(data, at);
-        new Matrix4f().get(data, at + 16);
+        wallPlace.get(data, at);
+        identity.get(data, at + 16);
         data[at + 32] = data[at + 33] = data[at + 34] = 0.5f;
         data[at + 35] = 1f;
         pass.add(c.end());
@@ -265,7 +267,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     }
 
     private void wall(CgWorldRenderer world) {
-        world.draw(CgMeshShapes.quad(CgVertexFormat.SPATIAL, 100f, 100f), wallMaterial).at(-100.0, 0.0, WALL_Z)
+        world.draw(wallMesh, wallMaterial).at(-100.0, 0.0, WALL_Z)
                 .custom(0, 0.5f, 0.5f, 0.5f, 1f).submit();
     }
 

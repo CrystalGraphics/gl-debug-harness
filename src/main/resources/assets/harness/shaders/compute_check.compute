@@ -1,0 +1,34 @@
+// compute-check's kernels (CgComputeCheckTestScene): three dispatched past what they may reach, one inside it, so
+// checked mode must name the first three, each at its line here, and never the fourth.
+#pragma kernel Overrun map
+#pragma kernel Bin scatter
+#pragma kernel Paint 8 8 image
+#pragma kernel Inside map
+
+Buffers {
+    OUT  ("Out",  uint, writeonly)
+    BINS ("Bins", uint, readwrite)
+}
+
+Images {
+    HEAT ("Heat", r32f, writeonly)
+}
+
+// Dispatched over 70 elements of a 64-element buffer.
+void Overrun() {
+    OUT_WRITE(uint(CG_ELEMENT));
+}
+
+// Each element adds to the bin after its own: the last adds one past the end.
+void Bin() {
+    BINS_ADD(CG_ELEMENT + 1, 1u);
+}
+
+// Dispatched 40 wide over a 32x32 image.
+void Paint() {
+    HEAT_WRITE(vec4(1.0));
+}
+
+void Inside() {
+    OUT_WRITE(7u);
+}
