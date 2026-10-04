@@ -142,6 +142,7 @@ Three more unattended switches, for what a single picture cannot show:
 | `-Dcrystalgraphics.harness.frameTimes=<n>` | after 60 frames, times `n` frame to frame, logs `[frame-times]` median, mean and p95, and stops. Pair with `.fps=0`, or the pacing is what gets timed; live input is ignored |
 | `-Dcrystalgraphics.harness.reloadAt=<frame>` | Ctrl+R's reload at that frame; with `.reloadStage=<dir>`, that directory's files are first copied over the first `crystalgraphics.resourceOverrideDirs` root — an edit saved mid-run |
 | `-Dcrystalgraphics.harness.resizeAt=<frame>:<w>x<h>` | resizes the window at that frame |
+| `-Dcrystalgraphics.harness.keepShadow=false` | stage entries read GL state back with `glGet` as on Minecraft, instead of trusting the shadow (every harness draw goes through `CgGL`); for measuring that cost or ruling the shadow out |
 | `-Dcrystalgraphics.harness.keyAt=<frame>:<key>[,...]` | presses that key (`CgKeyCodes` name less `KEY_`: `H`, `F7`) at that frame, as the window would; with `profile.splitAt`-style ranges, a binding profiled either side |
 
 On `--device=vulkan`, `[Harness] vulkan after teardown: validationErrors=N` is printed after the device has
