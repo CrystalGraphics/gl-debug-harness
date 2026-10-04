@@ -2,6 +2,7 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
+import com.crystalgraphics.api.mesh.CgMeshTopology;
 import com.crystalgraphics.api.mesh.CgMeshWriter;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.FrameInfo;
@@ -33,23 +34,26 @@ import java.io.IOException;
 /**
  * gpu-compute C9's gate for multi-draw: one pass of 64 draws of distinct meshes under one pipeline and bindings -- a
  * mesh of two submeshes, a draw of three instances and a draw of a range among them -- then two {@code FRAME} meshes on
- * the frame ring. Drawn with {@link CgMeshStore#multiDraw(boolean)} on, then off: the pictures must be byte-identical,
- * every instance must cover its cell, and the pass must take 2 calls on against 67 off.
+ * the frame ring, then the same twice over for triangle strips with no indices (8 in a slab, 2 on the ring). Drawn with
+ * {@link CgMeshStore#multiDraw(boolean)} on, then off: the pictures must be byte-identical, every instance must cover
+ * its cell, and the pass must take 4 calls on against 77 off.
  *
  * <p>Prints {@code [multi-draw] PASS} or {@code FAIL}. Where {@code CgCapabilities.multiDraw()} is false both pictures
  * are drawn a call a draw, and the count checked is that.</p>
  */
 public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
 
-    private static final int STRIPS = 64, TWO_PARTS = 20, INSTANCED = 40, RANGED = 50;
+    private static final int STRIPS = 64, TWO_PARTS = 20, INSTANCED = 40, RANGED = 50, ARRAYS = 8;
     private static final int COLUMNS = 10, CELL = 40, SIZE = 32, MARGIN = 8;
     private static final int BACKGROUND_R = 20, BACKGROUND_G = 20, BACKGROUND_B = 26;
-    /** One call a run when joined; one a submesh drawn, and the ring's two, when not. */
-    private static final int JOINED_CALLS = 2, SEPARATE_CALLS = STRIPS + 1 + 2;
+    /** One call a run when joined (indexed and array meshes, in slabs and on the ring); one a submesh when not. */
+    private static final int JOINED_CALLS = 4, SEPARATE_CALLS = STRIPS + 1 + 2 + ARRAYS + 2;
 
     private CgMaterial material;
     private final CgMesh[] strips = new CgMesh[STRIPS];
     private final CgMesh[] frameMeshes = new CgMesh[2];
+    /** Triangle strips with no indices, in a slab and on the ring. */
+    private final CgMesh[] arrayStrips = new CgMesh[ARRAYS], frameArrayStrips = new CgMesh[2];
     private int cells;
 
     @Override
@@ -70,6 +74,24 @@ public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
         for (int i = 0; i < frameMeshes.length; i++) {
             int segments = 2 + i;
             frameMeshes[i] = CgMesh.build(CgVertexFormat.SPATIAL, CgMesh.Usage.FRAME, m -> strip(m, segments, 0f, 1f));
+        }
+        for (int i = 0; i < ARRAYS; i++) {
+            int segments = 1 + i % 3;
+            arrayStrips[i] = CgMesh.build(CgVertexFormat.SPATIAL, m -> arrayStrip(m, segments));
+        }
+        for (int i = 0; i < frameArrayStrips.length; i++) {
+            int segments = 3 + i;
+            frameArrayStrips[i] = CgMesh.build(CgVertexFormat.SPATIAL, CgMesh.Usage.FRAME, m -> arrayStrip(m, segments));
+        }
+    }
+
+    /** The same strip as a triangle strip of vertices alone. */
+    private static void arrayStrip(CgMeshWriter m, int segments) {
+        m.topology(CgMeshTopology.TRIANGLE_STRIP);
+        for (int s = 0; s <= segments; s++) {
+            float x = s / (float) segments;
+            m.vertex().position(x, 0f, 0f).normal(0f, 0f, 1f).uv(x, 0f).end();
+            m.vertex().position(x, 1f, 0f).normal(0f, 0f, 1f).uv(x, 1f).end();
         }
     }
 
@@ -125,9 +147,11 @@ public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
             if (i == RANGED) c.range(0, 6, 6);   // the middle quad of three
             for (int k = i == INSTANCED ? 3 : 1; k > 0; k--) record(c);
         }
-        for (CgMesh mesh : frameMeshes) {
-            c.draw(pipeline, bindings, mesh);
-            record(c);
+        for (CgMesh[] group : new CgMesh[][]{frameMeshes, arrayStrips, frameArrayStrips}) {
+            for (CgMesh mesh : group) {
+                c.draw(pipeline, bindings, mesh);
+                record(c);
+            }
         }
         pass.add(c.end());
         pass.end();
@@ -210,5 +234,6 @@ public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
     @Override
     public void dispose() {
         for (CgMesh strip : strips) strip.release();
+        for (CgMesh strip : arrayStrips) strip.release();
     }
 }

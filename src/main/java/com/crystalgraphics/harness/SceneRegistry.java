@@ -290,13 +290,13 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("multi-draw")
-                .description("gpu-compute C9: 64 draws of distinct meshes under one pipeline and bindings, and two on the frame ring, drawn with multi-draw on and off; the pictures must match byte for byte, and joined they must take 2 calls where separate take 67")
+                .description("gpu-compute C9: 76 draws of distinct meshes under one pipeline and bindings, indexed and not, in slabs and on the frame ring, drawn with multi-draw on and off; the pictures must match byte for byte, and joined they must take 4 calls where separate take 77")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(true)
                 .needsDepthBuffer(false)
                 .defaultWidth(416)
-                .defaultHeight(296)
+                .defaultHeight(336)
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgMultiDrawTestScene()

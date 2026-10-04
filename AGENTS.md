@@ -50,8 +50,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   and a mip level read back every frame, each delivery checked against the frame that recorded it.
   `--mode=async-compute` is `CgComputePass.async()`'s: blurs beside fill-bound drawing, timed alone, in order and
   async, the outputs of both orders compared byte for byte; on `vulkan` the async frame must save a quarter of the
-  drawing, elsewhere it runs in order. `--mode=multi-draw` is joined draws': 68 instances of 66 meshes drawn joined
-  into multi-draws and then a call a draw, the pictures compared byte for byte and the calls counted.
+  drawing, elsewhere it runs in order. `--mode=multi-draw` is joined draws': 78 instances of 76 meshes, with indices
+  and without, drawn joined into multi-draws and then a call a draw, the pictures compared byte for byte and the calls
+  counted.
   `-Dcrystalgraphics.graph.asyncAll=true` sends every compute pass async in any
   scene, which the scenes above must pass under synchronization validation. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
   shape, a general one with a lowerable fallback, one with only a Java body, one with neither, every result worked out
