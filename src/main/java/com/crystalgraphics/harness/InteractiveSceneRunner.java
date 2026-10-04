@@ -128,8 +128,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * frame holding that marker's first appearance: a scene's two phases from one run ({@code vfx.blast}).
      */
     private static final String PROFILE_SPLIT_AT = System.getProperty("crystalgraphics.harness.profile.splitAt");
-    /** What K leaves out: the beams' halo volumes, which stand in for bloom. */
-    private static final String[] HALOS = {"body_glow", "orb_glow"};
 
     /** The swap blocks when the GPU is behind, and the sync sleeps to hold the rate: waits, not work. */
     private static final int SWAP = CgTrace.waitName("frame.swap");
@@ -546,11 +544,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_P && !isCtrlDown()
                     && scene.uses3DCamera()) {
                 CgVfxSystem.particleStep(CgVfxSystem.particleStep() == 1 ? 2 : 1);
-            }
-            // K: the beams' halo volumes (body_glow, orb_glow), drawn or left to bloom alone.
-            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_K && !isCtrlDown()
-                    && scene.uses3DCamera()) {
-                CgVfxSystem.skip(CgVfxSystem.skipped().length == 0 ? HALOS : new String[0]);
             }
             for (CgSystemInput.Keyboard listener : keyboardListeners) {
                 if (!listener.consumeKeyboardEvent(event)) break;

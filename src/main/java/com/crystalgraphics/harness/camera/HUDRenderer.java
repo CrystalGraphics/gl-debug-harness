@@ -243,8 +243,7 @@ public final class HUDRenderer {
         String simLine = "VFX sim [V]: " + (sim == CgVfxSystem.Simulation.CPU ? "cpu"
                 : sim.built() ? "gpu" : "gpu (not built yet, runs cpu)");
         int step = CgVfxSystem.particleStep();
-        String stepLine = "  Particle step [P]: " + (step == 1 ? "120 Hz (old)" : step == 2 ? "60 Hz (new)" : (120 / step) + " Hz")
-                + "\nBeam halos [K]: " + (CgVfxSystem.skipped().length == 0 ? "on" : "off");
+        String stepLine = "  Particle step [P]: " + (step == 1 ? "120 Hz (old)" : step == 2 ? "60 Hz (new)" : (120 / step) + " Hz");
         String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine + "\n" + bloomLine + "\n" + halfLine
                 + "\n" + simLine + "\n" + stepLine;
 

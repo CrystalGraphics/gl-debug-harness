@@ -521,7 +521,6 @@ The interactive runner sequences these steps every frame:
 | H | Half-resolution draws on or off (`CgWorldRenderer.halfResolution`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
 | V | The VFX simulation on the CPU or the GPU (`CgVfxSystem.simulation`; `-Dcrystalgraphics.vfx.sim=cpu\|gpu` at launch). Until the GPU path lands (plan `vfx-gpu` X1) the HUD shows `gpu (not built yet, runs cpu)` |
 | J | The distortion target at half size or full size (`CgWorldRenderer.distortionScale`): the hazes' bend at a quarter of the pixels, or a pixel per texel to compare |
-| K | The beams' halo volumes (`body_glow`, `orb_glow`) on or off (`CgVfxSystem.skip`): with and without the stand-ins for bloom |
 | P | Particles stepped at 60 Hz (new) or every 120 Hz tick (old) (`CgVfxSystem.particleStep`; `-Dcrystalgraphics.vfx.particleStep=1\|2` at launch). `vfx-particles` shows particles alone for comparing them |
 
 ### HUD Display
