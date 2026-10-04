@@ -16,6 +16,8 @@ import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.gl.CgCapabilities;
+import com.crystalgraphics.platform.gl.CgCapabilities.ComputeTier;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgIndirect;
@@ -52,11 +54,14 @@ import java.util.List;
  * twice. {@code gpu-cull-cpu.png} is {@code CgWorldRenderer} drawing every sphere, each culled and given its level on
  * the CPU; {@code gpu-cull.png} is the world renderer drawing the wall alone and a renderer after it building a depth
  * pyramid from the target, culling the set with {@code CgGpuOps.cull} and drawing each level's kept spheres by one
- * indirect draw. The two must be the same picture, byte for byte, and each level's count must lie between what the
- * frustum and the levels keep less every sphere behind the wall, and that less the ones deep behind it.
+ * indirect draw, the levels joined into one multi-draw where the executor joins them. The two must be the same
+ * picture, byte for byte, and each level's count must lie between what the frustum and the levels keep less every
+ * sphere behind the wall, and that less the ones deep behind it.
  *
- * <p>The CPU's path draws with multi-draw off: its joined draws take the {@code CG_MULTI_DRAW} variant, whose rounding
- * differs from the plain one's by a unit at a pixel on some devices, and the culled levels draw the plain way.</p>
+ * <p>Both paths draw twice: with multi-draw off ({@code -separate.png}), and on. A joined draw takes the
+ * {@code CG_MULTI_DRAW} variant, whose rounding differs from the plain one's by a unit at a pixel on some devices, so
+ * each picture is compared with the CPU's drawn the same way, and the wall has a material of its own to keep it out
+ * of the spheres' run. Where the levels must join, the joined frame must take two calls fewer.</p>
  *
  * <p>Each path is fired {@link #TIMED} times and its median CPU time printed: the draw cost the cull saves. Prints
  * {@code [gpu-cull] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -73,7 +78,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     /** The wall: from x -200 to 0 at z -9, hiding the left half of every row behind it. */
     private static final float WALL_Z = -9f;
 
-    private CgMaterial material;
+    private CgMaterial material, wallMaterial;
     private CgMeshLods lods;
     private final float[] positions = new float[N * 3];
     private final Matrix4f view = new Matrix4f();
@@ -82,6 +87,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         material = CgMaterial.load("assets/harness/shader/gpu_cull_test.shader");
+        wallMaterial = CgMaterial.newInstance("assets/harness/shader/gpu_cull_test.shader");
         lods = CgMeshLods.builder()
                 .level(CgMeshShapes.sphere(CgVertexFormat.SPATIAL, 24, 48), HEIGHTS[0])
                 .level(CgMeshShapes.sphere(CgVertexFormat.SPATIAL, 12, 24), HEIGHTS[1])
@@ -107,6 +113,10 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
 
+        CgMeshStore store = CgMeshStore.get();
+        boolean joins = store.multiDraw();
+        boolean levelsJoin = levelsJoin();
+
         world.release();
         wall(world);
         for (int i = 0; i < N; i++) {
@@ -114,11 +124,11 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
             world.draw(lods, material).at(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2])
                     .custom(0, rgb[0], rgb[1], rgb[2], 1f).submit();
         }
-        CgMeshStore store = CgMeshStore.get();
-        boolean joined = store.multiDraw();
         store.multiDraw(false);
+        fire(target);
+        target.captureToFile(ctx.getOutputDir(), "gpu-cull-cpu-separate.png");
+        store.multiDraw(joins);
         long cpu = timed(target);
-        store.multiDraw(joined);
         target.captureToFile(ctx.getOutputDir(), "gpu-cull-cpu.png");
 
         CgGraphBuffer instances = CgGraphBuffer.persistent("gpu-cull.instances",
@@ -131,6 +141,11 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         wall(world);
         CgRenderStage.Registration culling = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER + 1,
                 stage -> recordCull(stage, cull, instances, counts, uploaded));
+        store.multiDraw(false);
+        long separateCalls = calls(target);
+        target.captureToFile(ctx.getOutputDir(), "gpu-cull-separate.png");
+        store.multiDraw(joins);
+        long joinedCalls = calls(target);
         long gpu = timed(target);
         target.captureToFile(ctx.getOutputDir(), "gpu-cull.png");
         culling.close();
@@ -147,7 +162,17 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
 
         System.out.printf("[gpu-cull] draw cost, median of %d frames: %.3f ms culled on the CPU, %.3f ms on the GPU%n",
                 TIMED, cpu / 1e6, gpu / 1e6);
-        report(ctx, kept, GlErrorChecker.checkAndLog("gpu-cull"));
+        System.out.println("[gpu-cull] the GPU's frame took " + separateCalls + " draw calls separate, " + joinedCalls
+                + " joined; its levels " + (levelsJoin ? "join" : "do not join") + " here");
+        report(ctx, kept, levelsJoin, separateCalls - joinedCalls, GlErrorChecker.checkAndLog("gpu-cull"));
+    }
+
+    /** Whether the executor joins the culled levels: where draws join, and it takes their counts from the GPU. */
+    private static boolean levelsJoin() {
+        CgCapabilities caps = CgCapabilities.detect();
+        ComputeTier tier = caps.computeTier();
+        boolean gpuCounts = tier == ComputeTier.V || tier == ComputeTier.G43 || tier == ComputeTier.G40 && caps.drawIndirect();
+        return gpuCounts && caps.multiDraw() && CgMeshStore.get().multiDraw();
     }
 
     /** The pyramid from what the world renderer drew, the set culled against it, and each level drawn by its count. */
@@ -205,7 +230,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     }
 
     private void wall(CgWorldRenderer world) {
-        world.draw(CgMeshShapes.quad(CgVertexFormat.SPATIAL, 100f, 100f), material).at(-100.0, 0.0, WALL_Z)
+        world.draw(CgMeshShapes.quad(CgVertexFormat.SPATIAL, 100f, 100f), wallMaterial).at(-100.0, 0.0, WALL_Z)
                 .custom(0, 0.5f, 0.5f, 0.5f, 1f).submit();
     }
 
@@ -218,16 +243,27 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     private long timed(HarnessFboHelper target) {
         long[] times = new long[TIMED];
         for (int t = 0; t < TIMED; t++) {
-            target.clear(0.08f, 0.08f, 0.1f, 1f);
             long start = System.nanoTime();
-            for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-                stage.host().set(0f, W, H, target.getFboId()).view().set(0, 0, 0, view, projection);
-                stage.fire();
-            }
+            fire(target);
             times[t] = System.nanoTime() - start;
         }
         Arrays.sort(times);
         return times[TIMED / 2];
+    }
+
+    /** Fires both world stages once onto a cleared target, answering the draw calls the mesh store made. */
+    private long calls(HarnessFboHelper target) {
+        long before = CgMeshStore.get().drawCalls();
+        fire(target);
+        return CgMeshStore.get().drawCalls() - before;
+    }
+
+    private void fire(HarnessFboHelper target) {
+        target.clear(0.08f, 0.08f, 0.1f, 1f);
+        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
+            stage.host().set(0f, W, H, target.getFboId()).view().set(0, 0, 0, view, projection);
+            stage.fire();
+        }
     }
 
     /**
@@ -259,7 +295,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         return out;
     }
 
-    private void report(HarnessContext ctx, int[] kept, boolean glErrors) {
+    private void report(HarnessContext ctx, int[] kept, boolean levelsJoin, long callsSaved, boolean glErrors) {
         CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
@@ -287,25 +323,41 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
                 return;
             }
         }
+        long saved = levelsJoin ? HEIGHTS.length - 1 : 0;
+        if (callsSaved != saved) {
+            System.out.println("[gpu-cull] FAIL on " + on + ": joining saved " + callsSaved + " draw calls, not " + saved);
+            return;
+        }
+        // Where the levels do not join, the CPU's joined spheres are no reference for them.
+        String separate = differs(ctx, "gpu-cull-cpu-separate.png", "gpu-cull-separate.png");
+        String joined = differs(ctx, levelsJoin ? "gpu-cull-cpu.png" : "gpu-cull-cpu-separate.png", "gpu-cull.png");
+        if (separate != null || joined != null) {
+            System.out.println("[gpu-cull] FAIL on " + on + ": " + (separate != null ? separate : joined));
+            return;
+        }
+        System.out.println("[gpu-cull] PASS on " + on + ": the GPU's cull draws the CPU's picture, separate and "
+                + (levelsJoin ? "its levels in one multi-draw" : "with multi-draw on") + ", each level's count within the "
+                + "wall's bounds");
+    }
+
+    /** Where the GPU's picture {@code gpu} first differs from the CPU's {@code cpu}; null when they are the same. */
+    private static String differs(HarnessContext ctx, String cpu, String gpu) {
         try {
-            BufferedImage a = ImageIO.read(new File(ctx.getOutputDir(), "gpu-cull-cpu.png"));
-            BufferedImage b = ImageIO.read(new File(ctx.getOutputDir(), "gpu-cull.png"));
+            BufferedImage a = ImageIO.read(new File(ctx.getOutputDir(), cpu));
+            BufferedImage b = ImageIO.read(new File(ctx.getOutputDir(), gpu));
             for (int y = 0; y < H; y++) {
                 for (int x = 0; x < W; x++) {
                     if (a.getRGB(x, y) != b.getRGB(x, y)) {
-                        System.out.println("[gpu-cull] FAIL on " + on + ": the GPU's cull differs from the CPU's first at ("
-                                + x + ", " + y + "): 0x" + Integer.toHexString(b.getRGB(x, y)) + " where the CPU's has 0x"
-                                + Integer.toHexString(a.getRGB(x, y)));
-                        return;
+                        return gpu + " differs from " + cpu + " first at (" + x + ", " + y + "): 0x"
+                                + Integer.toHexString(b.getRGB(x, y)) + " where the CPU's has 0x"
+                                + Integer.toHexString(a.getRGB(x, y));
                     }
                 }
             }
+            return null;
         } catch (IOException e) {
-            System.out.println("[gpu-cull] FAIL: a capture could not be read: " + e);
-            return;
+            return "a capture could not be read: " + e;
         }
-        System.out.println("[gpu-cull] PASS on " + on + ": the GPU's cull draws the CPU's picture, each level's count "
-                + "within the wall's bounds");
     }
 
     @Override
