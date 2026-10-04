@@ -112,7 +112,8 @@ public final class PlatformServiceHarness implements CgPlatformService {
             p.device = p.vulkanDevice;
         }
         if (p.device != null) {
-            p.tracked = new CgTrackedGLBackend(p.device, new ShadercGlslCompiler(CgCacheDirectory.of("spirv")), true);
+            p.tracked = new CgTrackedGLBackend(p.device, new ShadercGlslCompiler(CgCacheDirectory.of("spirv")), true)
+                    .compileInBackground();
         }
         CgPlatform.register(p);
         // Scenes use CgGL from the start, before any host section would install it.
