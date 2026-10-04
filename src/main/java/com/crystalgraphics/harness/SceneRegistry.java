@@ -10,6 +10,7 @@ import com.crystalgraphics.harness.scene.test.CgPostLooksTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostEffectsTestScene;
 import com.crystalgraphics.harness.scene.test.CgAsyncComputeTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuGroupsTestScene;
+import com.crystalgraphics.harness.scene.test.CgOverdrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeCheckTestScene;
 import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
@@ -503,6 +504,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgGpuGroupsTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("overdraw-count")
+                .description("render-distortion T3: transparent planes in front of and behind a wall, one discarding half, counted by the overdraw view and read back exactly")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
+                .build(),
+            () -> new CgOverdrawTestScene()
         );
 
         reg.register(
