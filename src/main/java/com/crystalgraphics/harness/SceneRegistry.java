@@ -5,6 +5,7 @@ import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.ImageScene;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
+import com.crystalgraphics.harness.scene.test.CgMrtEmissionTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
@@ -325,6 +326,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgRasterLevelsTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("mrt-emission")
+                .description("MRT emission's proof: colour and emission drawn in one pass into two attachments under one blend, against each drawn alone; smoke must dim the glow, a wall hide it")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(64)
+                .defaultHeight(64)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgMrtEmissionTestScene()
         );
 
         reg.register(
