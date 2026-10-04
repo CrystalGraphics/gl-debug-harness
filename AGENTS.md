@@ -195,6 +195,11 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 # The world's bloom: a glowing ball behind a wall changes no pixel, one in front does; PASS/FAIL, run on gl and vulkan
 ./gradlew :gl-debug-harness:runHarness --args="--mode=bloom-occlusion --seconds=20"
 
+# The post stack: each look through a volume; a mod effect at each point; colour and emission in one MRT pass
+./gradlew :gl-debug-harness:runHarness --args="--mode=post-looks --seconds=30"
+./gradlew :gl-debug-harness:runHarness --args="--mode=post-effects --seconds=30"
+./gradlew :gl-debug-harness:runHarness --args="--mode=mrt-emission --seconds=20"
+
 # Text recorded on a worker beside render-thread text; prints PASS/FAIL lines
 ./gradlew :gl-debug-harness:runHarness --args="--mode=text-threaded"
 

@@ -7,6 +7,7 @@ import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
 import com.crystalgraphics.harness.scene.test.CgMrtEmissionTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostLooksTestScene;
+import com.crystalgraphics.harness.scene.test.CgPostEffectsTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
@@ -355,6 +356,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgPostLooksTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("post-effects")
+                .description("The post stack's mod SPI: an effect at each point, checked to run in order round the composite, by order within a point, and to leave nothing once closed")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgPostEffectsTestScene()
         );
 
         reg.register(
