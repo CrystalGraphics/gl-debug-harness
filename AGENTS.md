@@ -53,7 +53,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   buffer never.
   `--mode=async-compute` is `CgComputePass.async()`'s: blurs beside fill-bound drawing, timed alone, in order and
   async, the outputs of both orders compared byte for byte; on `vulkan` the async frame must save a quarter of the
-  drawing, elsewhere it runs in order. `--mode=multi-draw` is joined draws': 78 instances of 76 meshes, with indices
+  drawing, elsewhere it runs in order. `--mode=gpu-groups` is GPU groups': one timed pass of three materials costing
+  1 : 2 : 4, split by `crystalgraphics.gpu.groups`, the groups summing to the pass within 5%, then the pass with the
+  channel off. `--mode=multi-draw` is joined draws': 78 instances of 76 meshes, with indices
   and without, drawn joined into multi-draws and then a call a draw, the pictures compared byte for byte and the calls
   counted. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
   renderer on the CPU and by the cull against a depth pyramid on the GPU, by hand and as one world draw of

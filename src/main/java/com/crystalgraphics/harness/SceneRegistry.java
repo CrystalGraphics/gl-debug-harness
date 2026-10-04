@@ -9,6 +9,7 @@ import com.crystalgraphics.harness.scene.test.CgMrtEmissionTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostLooksTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostEffectsTestScene;
 import com.crystalgraphics.harness.scene.test.CgAsyncComputeTestScene;
+import com.crystalgraphics.harness.scene.test.CgGpuGroupsTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeCheckTestScene;
 import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
@@ -488,6 +489,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgAsyncComputeTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("gpu-groups")
+                .description("render-distortion T1: a timed pass of three materials costing 1 : 2 : 4, split by crystalgraphics.gpu.groups, the groups summing to the pass; then the channel off")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(180)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgGpuGroupsTestScene()
         );
 
         reg.register(
