@@ -20,6 +20,8 @@ import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
 import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.render.graph.CgBufferDesc;
+import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
 import com.crystalgraphics.render.graph.CgExecutor;
 import com.crystalgraphics.render.graph.CgFrame;
@@ -36,6 +38,7 @@ import com.crystalgraphics.trace.CgTrace;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -43,8 +46,9 @@ import java.util.Map;
  * The gate for async compute (gpu-compute C8): a frame of blurs in a compute pass, a fill-bound raster pass that
  * touches none of it, and a pass reading the blur. Timed five ways, back to back in every frame for 100 frames: the
  * compute alone, the drawing alone, both in order, both with the compute pass {@code async()}, and async with the
- * drawing recorded after the pass reading the blur, which the builder must move ahead of it. Then one frame in order
- * and both async ones, every output read back and compared byte for byte.
+ * drawing recorded after the pass reading the blur, which the builder must move ahead of it. Then across executions, as
+ * stages are: a sort of a persistent buffer in one, the drawing in the next, a reader of the sorted keys in a third,
+ * timed alone, in order and async. Then one frame of each in order and async, every output read back and compared.
  *
  * <pre>
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=async-compute --device=vulkan" -Dcrystalgraphics.vulkan.syncValidation=true
@@ -55,31 +59,34 @@ import java.util.Map;
  * <ul>
  *   <li>PASS needs identical outputs everywhere, and where the device has a compute queue, each async frame faster than
  *       the in-order one by a quarter of the shorter half at least: the drawing ran beside the compute.</li>
- *   <li>{@code -Dcrystalgraphics.harness.async.blurs} and {@code .quads} size the two halves (8 and 48).</li>
+ *   <li>{@code -Dcrystalgraphics.harness.async.blurs} and {@code .quads} size the two halves (8 and 48), and
+ *       {@code .sortKeys} the sort (4M).</li>
  * </ul>
  */
 public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
 
     private static final int WARMUP = 10, MEASURED = 100, DRAIN = 30;
     private static final int W = 1920, H = 1080;
+    /** Knuth's multiplicative hash: odd, so index times it is a permutation of the 32-bit words. */
+    private static final int SCRAMBLE = 0x9E3779B1;
+    /** How many of the sorted keys the third execution reads. */
+    private static final int FIRST = 1024;
 
     /** What a timed frame holds, and its zone. */
     private enum Mode {
-        COMPUTE("compute alone", true, false, false, false),
-        DRAW("drawing alone", false, true, false, false),
-        IN_ORDER("in order", true, true, false, false),
-        ASYNC("async", true, true, true, false),
-        ASYNC_DRAWN_LAST("async, drawn last", true, true, true, true);
+        COMPUTE("compute alone"),
+        DRAW("drawing alone"),
+        IN_ORDER("in order"),
+        ASYNC("async"),
+        ASYNC_DRAWN_LAST("async, drawn last"),
+        SORT("sort alone"),
+        ACROSS_IN_ORDER("across, in order"),
+        ACROSS_ASYNC("across, async");
 
         final String zone;
-        final boolean compute, draw, async, drawnLast;
 
-        Mode(String zone, boolean compute, boolean draw, boolean async, boolean drawnLast) {
+        Mode(String zone) {
             this.zone = zone;
-            this.compute = compute;
-            this.draw = draw;
-            this.async = async;
-            this.drawnLast = drawnLast;
         }
     }
 
@@ -93,8 +100,8 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     private final List<CgFrameBuffer> owned = new ArrayList<>();
     private CgMaterial pattern, down;
     private CgGraphTexture source, blurred, canvas, result;
-    private CgGraphBuffer word;
-    private int blurs, quads, frame, wordId;
+    private CgGraphBuffer word, keys, first;
+    private int blurs, quads, sortKeys, frame, wordId, firstId;
     private boolean wasTracingGpu, running = true;
     private String mismatch;
 
@@ -114,6 +121,14 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
         CgGL.glBufferData(CgGL.GL_COPY_WRITE_BUFFER, 4L, CgGL.GL_DYNAMIC_DRAW);
         CgGL.glBindBuffer(CgGL.GL_COPY_WRITE_BUFFER, 0);
         word = CgGraphBuffer.imported("word", wordId, 4);
+        sortKeys = Integer.getInteger("crystalgraphics.harness.async.sortKeys", 1 << 22);
+        keys = CgGraphBuffer.persistent("async-compute keys",
+                CgBufferDesc.elements(sortKeys, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY));
+        firstId = CgGL.glGenBuffers();
+        CgGL.glBindBuffer(CgGL.GL_COPY_WRITE_BUFFER, firstId);
+        CgGL.glBufferData(CgGL.GL_COPY_WRITE_BUFFER, FIRST * 4L, CgGL.GL_DYNAMIC_DRAW);
+        CgGL.glBindBuffer(CgGL.GL_COPY_WRITE_BUFFER, 0);
+        first = CgGraphBuffer.imported("first keys", firstId, FIRST * 4L);
 
         wasTracingGpu = CgTrace.isEnabled(CgGpuTrace.GPU);
         CgTrace.setEnabled(CgGpuTrace.GPU, true);
@@ -129,15 +144,22 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
             // Back to back, so the GPU never idles between them, in an order turning each frame.
             for (int k = 0; k < MODES.length; k++) {
                 Mode mode = MODES[(frame + k) % MODES.length];
-                execute(frame >= WARMUP ? mode.zone : null, mode, mode.compute && mode.draw);
+                time(frame >= WARMUP ? mode.zone : null, mode);
             }
         } else if (frame == timed) {
-            execute(null, Mode.IN_ORDER, true);
+            time(null, Mode.IN_ORDER);
             List<ByteBuffer> inOrder = readAll();
-            execute(null, Mode.ASYNC, true);
+            time(null, Mode.ASYNC);
             mismatch = compare(inOrder, readAll(), Mode.ASYNC);
-            execute(null, Mode.ASYNC_DRAWN_LAST, true);
+            time(null, Mode.ASYNC_DRAWN_LAST);
             if (mismatch == null) mismatch = compare(inOrder, readAll(), Mode.ASYNC_DRAWN_LAST);
+            int[] expected = expectedFirst();
+            for (Mode mode : new Mode[] {Mode.ACROSS_IN_ORDER, Mode.ACROSS_ASYNC}) {
+                time(null, mode);
+                if (mismatch == null && !Arrays.equals(readFirst(), expected)) {
+                    mismatch = "'" + mode.zone + "' read sorted keys other than Java's";
+                }
+            }
         } else if (frame >= timed + DRAIN || everyQueryLanded()) {
             report();
             running = false;
@@ -145,46 +167,101 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
         frame++;
     }
 
-    /** One graph: the blurs, the drawing and the pass reading the blur, as {@code mode} has them; timed in {@code zone} when given. */
-    private void execute(String zone, Mode mode, boolean consume) {
-        recording.reset();
-        if (mode.compute) {
-            CgComputePass blur = recording.compute("async-compute blurs");
-            if (mode.async) blur.async();
-            for (int i = 0; i < blurs; i++) CgGpuOps.blur(blur, source, 0, blurred, 0, 6f);
-            blur.end();
+    /** {@code mode}'s graphs, each executed as recorded; timed together in {@code zone} when given. */
+    private void time(String zone, Mode mode) {
+        if (zone != null) CgGpuTrace.begin(zone);
+        switch (mode) {
+            case COMPUTE -> blur(false);
+            case DRAW -> draw();
+            case IN_ORDER, ASYNC -> {
+                blur(mode == Mode.ASYNC);
+                draw();
+                reader();
+            }
+            case ASYNC_DRAWN_LAST -> {
+                blur(true);
+                reader();
+                draw();
+            }
+            case SORT -> sort(false);
+            case ACROSS_IN_ORDER, ACROSS_ASYNC -> {
+                sort(mode == Mode.ACROSS_ASYNC);
+                run();   // as a stage would: the stages between, then the one reading what the sort made
+                draw();
+                run();
+                CgComputePass read = recording.compute("async-compute first keys");
+                CgGpuOps.copy(read, keys, first, CgGpuCount.of(FIRST));
+                read.end();
+            }
         }
-        if (mode.draw && !mode.drawnLast) draw();
-        if (consume) {
-            CgRasterPass pass = recording.raster(result, CgLoad.clear(0, 0, 0, 0),
-                    new CgPassConstants().resolution(W / 2, H / 2), null, CgOrder.LOOKBACK);
-            int bindings = recording.bindings().withTexture(down.captureBindings(recording.bindings()), 0, blurred);
-            CgChunkBuilder c = recording.chunks().begin();
-            c.draw(down.pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));
-            c.instance();
-            pass.add(c.end());
-            pass.end();
-        }
-        if (mode.draw && mode.drawnLast) draw();
-        run(zone);
+        run();
+        if (zone != null) CgGpuTrace.end();
     }
 
     /** A graph of one tiny kernel. */
     private void open() {
-        recording.reset();
         CgComputePass opener = recording.compute("async-compute opener");
         CgGpuOps.fill(opener, word, 0, CgGpuCount.of(1));
         opener.end();
-        run(null);
+        run();
     }
 
-    private void run(String zone) {
+    /** Builds and executes what is recorded, and opens the recording again. */
+    private void run() {
         CgFrame built = builder.build(graph.add(recording.seal()));
         graph.clear();
-        if (zone != null) CgGpuTrace.begin(zone);
         CgExecutor.execute(built, true);
-        if (zone != null) CgGpuTrace.end();
         builder.recycle(built);
+        recording.reset();
+    }
+
+    private void blur(boolean async) {
+        CgComputePass blur = recording.compute("async-compute blurs");
+        if (async) blur.async();
+        for (int i = 0; i < blurs; i++) CgGpuOps.blur(blur, source, 0, blurred, 0, 6f);
+        blur.end();
+    }
+
+    /** The pass reading the blur. */
+    private void reader() {
+        CgRasterPass pass = recording.raster(result, CgLoad.clear(0, 0, 0, 0),
+                new CgPassConstants().resolution(W / 2, H / 2), null, CgOrder.LOOKBACK);
+        int bindings = recording.bindings().withTexture(down.captureBindings(recording.bindings()), 0, blurred);
+        CgChunkBuilder c = recording.chunks().begin();
+        c.draw(down.pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));
+        c.instance();
+        pass.add(c.end());
+        pass.end();
+    }
+
+    /** Keys a scramble of their index, sorted: a permutation, so the order is known. */
+    private void sort(boolean async) {
+        CgComputePass sort = recording.compute("async-compute sort");
+        if (async) sort.async();
+        CgGpuCount n = CgGpuCount.of(sortKeys);
+        CgGpuOps.iota(sort, keys, 0, SCRAMBLE, n);
+        CgGpuOps.sort(sort, CgGpuOps.Element.UINT, CgGpuOps.Order.ASCENDING, keys, null, n);
+        sort.end();
+    }
+
+    private int[] readFirst() {
+        CgGL.glBindBuffer(CgGL.GL_COPY_READ_BUFFER, firstId);
+        ByteBuffer mapped = CgGL.glMapBufferRange(CgGL.GL_COPY_READ_BUFFER, 0, FIRST * 4L, CgGL.GL_MAP_READ_BIT, null);
+        int[] words = new int[FIRST];
+        mapped.order(ByteOrder.nativeOrder()).asIntBuffer().get(words);
+        CgGL.glUnmapBuffer(CgGL.GL_COPY_READ_BUFFER);
+        CgGL.glBindBuffer(CgGL.GL_COPY_READ_BUFFER, 0);
+        return words;
+    }
+
+    /** The first {@link #FIRST} keys once sorted, worked out in Java. */
+    private int[] expectedFirst() {
+        long[] all = new long[sortKeys];
+        for (int i = 0; i < sortKeys; i++) all[i] = i * (long) SCRAMBLE & 0xFFFFFFFFL;
+        Arrays.sort(all);
+        int[] out = new int[FIRST];
+        for (int i = 0; i < FIRST; i++) out[i] = (int) all[i];
+        return out;
     }
 
     /** The fill-bound drawing, touching nothing the blurs do. */
@@ -240,11 +317,17 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
             ms[i] = t == null || t[1] == 0 ? Double.NaN : t[0] / 1e6 / t[1];
             System.out.printf("[async-compute]   %-17s gpu %7.3f ms%n", MODES[i].zone, ms[i]);
         }
-        double shorter = Math.min(ms[0], ms[1]), saved = ms[2] - ms[3], savedDrawnLast = ms[2] - ms[4];
+        double shorter = Math.min(ms[Mode.COMPUTE.ordinal()], ms[Mode.DRAW.ordinal()]);
+        double saved = ms[Mode.IN_ORDER.ordinal()] - ms[Mode.ASYNC.ordinal()];
+        double savedDrawnLast = ms[Mode.IN_ORDER.ordinal()] - ms[Mode.ASYNC_DRAWN_LAST.ordinal()];
+        double shorterAcross = Math.min(ms[Mode.SORT.ordinal()], ms[Mode.DRAW.ordinal()]);
+        double savedAcross = ms[Mode.ACROSS_IN_ORDER.ordinal()] - ms[Mode.ACROSS_ASYNC.ordinal()];
         System.out.printf("[async-compute]   async saves %.3f ms of the %.3f ms the shorter half takes (%.0f%%)%n",
                 saved, shorter, 100 * saved / shorter);
         System.out.printf("[async-compute]   drawn last, async saves %.3f ms (%.0f%%)%n",
                 savedDrawnLast, 100 * savedDrawnLast / shorter);
+        System.out.printf("[async-compute]   across executions, async saves %.3f ms of the %.3f ms the shorter half takes (%.0f%%)%n",
+                savedAcross, shorterAcross, 100 * savedAcross / shorterAcross);
         int validation = PlatformServiceHarness.validationErrors();
         if (GlErrorChecker.checkAndLog("async-compute")) {
             System.out.println("[async-compute] FAIL on " + on + ": GL errors, logged above");
@@ -258,6 +341,8 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
             System.out.println("[async-compute] FAIL on " + on + ": the async frame did not overlap the drawing");
         } else if (Double.isNaN(savedDrawnLast) || savedDrawnLast < shorter / 4) {
             System.out.println("[async-compute] FAIL on " + on + ": drawn last, the drawing was not moved beside the compute");
+        } else if (Double.isNaN(savedAcross) || savedAcross < shorterAcross / 4) {
+            System.out.println("[async-compute] FAIL on " + on + ": across executions, the drawing did not run beside the sort");
         } else {
             System.out.println("[async-compute] PASS on " + on + ": the drawing ran beside the compute, the same output");
         }
@@ -285,6 +370,7 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     public void dispose() {
         CgTrace.setEnabled(CgGpuTrace.GPU, wasTracingGpu);
         CgGL.glDeleteBuffers(wordId);
+        CgGL.glDeleteBuffers(firstId);
         for (CgFrameBuffer fb : owned) fb.delete();
     }
 }
