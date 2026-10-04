@@ -26,8 +26,10 @@ import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.graph.CgTextureDesc;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntUnaryOperator;
 
 /**
  * The gate for {@code CgRecording.readback} (gpu-compute C8): each frame, words {@code CgGpuOps.iota} wrote into a
@@ -35,13 +37,17 @@ import java.util.List;
  * chain are read back, each written with values of that frame. Every delivery is checked against the frame that
  * recorded it, and every request must be done once the readbacks drain. The words are read through
  * {@code CgBufferInspector} too: armed after a frame, served after the next frame's iota, decoded as its {@code uint}s.
+ * A history and a persistent buffer written in frame 1 are resized larger in frame 2 ({@code CgRecording.resize}): both
+ * of the history's versions, and the persistent buffer's words beside a tail written after, must read back as written.
  *
  * <p>The iota runs as the tier's form, so a lowered tier's held output must land before the copy. Prints
  * {@code [readback] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
  */
 public class CgReadbackTestScene implements InteractiveSceneLifecycle {
 
-    private static final int FRAMES = 40, DRAIN = 30, WORDS = 4096, FIRST_WORD = 100, READ_WORDS = 16;
+    private static final int FRAMES = 40, DRAIN = 30, WORDS = 4096, FIRST_WORD = 100, READ_WORDS = 16, POOL = 64;
+    private static final CgBufferDesc POOL_DESC = CgBufferDesc.elements(POOL, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY);
+    private static final CgBufferDesc GROWN_DESC = CgBufferDesc.elements(2 * POOL, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY);
     private static final CgFrameBufferFormat F32 = CgFrameBufferFormat.builder("readback-f32")
             .color(0, CgTextureType.RGBA32F).build();
     private static final CgFrameBufferFormat R8 = CgFrameBufferFormat.builder("readback-r8")
@@ -55,8 +61,10 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
     private final CgGraphTexture bytes = CgGraphTexture.transientTexture("readback.r8", new CgTextureDesc(3, 5, R8));
     private final CgGraphTexture chain = CgGraphTexture.transientTexture("readback.chain",
             new CgTextureDesc(16, 8, RGBA8).withMips());
+    private CgGraphBuffer history = CgGraphBuffer.history("readback.history", POOL_DESC);
+    private CgGraphBuffer kept = CgGraphBuffer.persistent("readback.kept", POOL_DESC);
     private final List<CgRequest> requests = new ArrayList<>();
-    private final int[] landed = new int[4];
+    private final int[] landed = new int[5];
     private int inspectsArmed, inspected, inspectsFailed;
     private int frame, minLatency = Integer.MAX_VALUE, maxLatency;
     private String failure;
@@ -121,8 +129,45 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             for (int i = 0; i < 32; i++) expect(data.get(i) & 0xFF, want[i % 4], "level 2 byte " + i, n);
             landed(3, n);
         }));
+        if (n == 1) {
+            rec.update(history, 0, words(i -> 7 * i + 1));       // the version that becomes previous
+            rec.update(history, 0, words(i -> 5 * i + 2));       // the newest
+            rec.update(kept, 0, words(i -> 3 * i + 5));
+        } else if (n == 2) {
+            resize(rec, n);
+        } else if (n == 3) {
+            rec.release(history);
+            rec.release(kept);
+        }
         CgImmediate.execute(rec);
         if (n < FRAMES) inspect(n + 1);
+    }
+
+    /** Both buffers grown to twice their words: what each version held must survive, beside a tail written after. */
+    private void resize(CgRecording rec, int n) {
+        history = rec.resize(history, GROWN_DESC);
+        kept = rec.resize(kept, GROWN_DESC);
+        rec.update(kept, POOL * 4L, words(i -> 1000 + i));
+        requests.add(rec.readback(history, 0, POOL * 4L, data -> {
+            for (int i = 0; i < POOL; i++) expect(data.getInt(i * 4), 5 * i + 2, "resized history's newest word " + i, n);
+            landed(4, n);
+        }));
+        requests.add(rec.readback(history.previous(), 0, POOL * 4L, data -> {
+            for (int i = 0; i < POOL; i++) expect(data.getInt(i * 4), 7 * i + 1, "resized history's previous word " + i, n);
+            landed(4, n);
+        }));
+        requests.add(rec.readback(kept, 0, 2 * POOL * 4L, data -> {
+            for (int i = 0; i < POOL; i++) expect(data.getInt(i * 4), 3 * i + 5, "resized buffer's word " + i, n);
+            for (int i = 0; i < POOL; i++) expect(data.getInt((POOL + i) * 4), 1000 + i, "resized buffer's tail word " + i, n);
+            landed(4, n);
+        }));
+    }
+
+    private static ByteBuffer words(IntUnaryOperator word) {
+        ByteBuffer bytes = ByteBuffer.allocateDirect(POOL * 4).order(ByteOrder.nativeOrder());
+        for (int i = 0; i < POOL; i++) bytes.putInt(word.applyAsInt(i));
+        bytes.flip();
+        return bytes;
     }
 
     /** The words as the inspector shows them after frame {@code n}'s iota. */
@@ -202,7 +247,8 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             System.out.println("[readback] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[readback] PASS on " + on + ": " + landed[0] + " buffer, " + landed[1] + " RGBA32F, "
-                    + landed[2] + " unaligned R8 and " + landed[3] + " mip-level readbacks landed as recorded, "
+                    + landed[2] + " unaligned R8, " + landed[3] + " mip-level and " + landed[4]
+                    + " resized-buffer readbacks landed as recorded, "
                     + minLatency + "-" + maxLatency + " frames later; " + inspected + " inspector reads decoded");
         }
     }
