@@ -41,7 +41,8 @@ import java.util.function.IntUnaryOperator;
  * of the history's versions, and the persistent buffer's words beside a tail written after, must read back as written.
  * Rows read with their count ({@code CgGpuOps.readRows}): eight rows and a count of {@code n % 12} each frame, so
  * the rows stop at the count, a count past eight is delivered as written over eight rows, and frame 1 reads a fixed
- * count too.
+ * count too. A region of two levels of an R8 texture is written with {@code CgRecording.update} each frame, rows of
+ * three bytes, and both levels read back whole: the region as written, the rest as cleared.
  *
  * <p>The iota runs as the tier's form, so a lowered tier's held output must land before the copy. Prints
  * {@code [readback] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -65,6 +66,7 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
     private final CgGraphTexture bytes = CgGraphTexture.transientTexture("readback.r8", new CgTextureDesc(3, 5, R8));
     private final CgGraphTexture chain = CgGraphTexture.transientTexture("readback.chain",
             new CgTextureDesc(16, 8, RGBA8).withMips());
+    private final CgGraphTexture patch = CgGraphTexture.transientTexture("readback.patch", new CgTextureDesc(5, 4, R8, 2));
     private final CgGraphBuffer rows = CgGraphBuffer.transientBuffer("readback.rows",
             CgBufferDesc.elements(ROWS, ROW_BYTES, CgBufferUsage.STORAGE, CgBufferUsage.COPY));
     private final CgGraphBuffer rowCounts = CgGraphBuffer.transientBuffer("readback.rowCounts",
@@ -72,7 +74,7 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
     private CgGraphBuffer history = CgGraphBuffer.history("readback.history", POOL_DESC);
     private CgGraphBuffer kept = CgGraphBuffer.persistent("readback.kept", POOL_DESC);
     private final List<CgRequest> requests = new ArrayList<>();
-    private final int[] landed = new int[6];
+    private final int[] landed = new int[7];
     private int inspectsArmed, inspected, inspectsFailed;
     private int frame, minLatency = Integer.MAX_VALUE, maxLatency;
     private String failure;
@@ -138,6 +140,7 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             landed(3, n);
         }));
         readRows(rec, n);
+        patch(rec, n);
         if (n == 1) {
             rec.update(history, 0, words(POOL, i -> 7 * i + 1));       // the version that becomes previous
             rec.update(history, 0, words(POOL, i -> 5 * i + 2));       // the newest
@@ -187,6 +190,36 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
                 landed(5, n);
             }));
         }
+    }
+
+    /** Level 0's 3x2 region at (1, 1) and level 1's 1x2 at (1, 0) written over a cleared texture, both levels read whole. */
+    private void patch(CgRecording rec, int n) {
+        clear(rec, patch, 0, CgLoad.clear(0f, 0f, 0f, 0f));
+        clear(rec, patch, 1, CgLoad.clear(0f, 0f, 0f, 0f));
+        requests.add(rec.update(patch, 0, 1, 1, 3, 2, texels(6, i -> n * 7 + i + 1)));
+        requests.add(rec.update(patch, 1, 1, 0, 1, 2, texels(2, i -> n * 11 + i + 1)));
+        requests.add(rec.readback(patch, 0, 0, 0, 5, 4, data -> {
+            for (int y = 0; y < 4; y++) {
+                for (int x = 0; x < 5; x++) {
+                    boolean in = x >= 1 && x < 4 && y >= 1 && y < 3;
+                    int want = in ? (n * 7 + (y - 1) * 3 + (x - 1) + 1) & 0xFF : 0;
+                    expect(data.get(y * 5 + x) & 0xFF, want, "updated level 0 texel " + x + "," + y, n);
+                }
+            }
+            landed(6, n);
+        }));
+        requests.add(rec.readback(patch, 1, 0, 0, 2, 2, data -> {
+            int[] want = {0, (n * 11 + 1) & 0xFF, 0, (n * 11 + 2) & 0xFF};
+            for (int i = 0; i < 4; i++) expect(data.get(i) & 0xFF, want[i], "updated level 1 texel " + i, n);
+            landed(6, n);
+        }));
+    }
+
+    private static ByteBuffer texels(int count, IntUnaryOperator texel) {
+        ByteBuffer bytes = ByteBuffer.allocateDirect(count);
+        for (int i = 0; i < count; i++) bytes.put((byte) texel.applyAsInt(i));
+        bytes.flip();
+        return bytes;
     }
 
     private void checkRows(int count, ByteBuffer data, int written, int n) {
@@ -281,8 +314,8 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             System.out.println("[readback] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[readback] PASS on " + on + ": " + landed[0] + " buffer, " + landed[1] + " RGBA32F, "
-                    + landed[2] + " unaligned R8, " + landed[3] + " mip-level, " + landed[4] + " resized-buffer and "
-                    + landed[5] + " counted-row readbacks landed as recorded, "
+                    + landed[2] + " unaligned R8, " + landed[3] + " mip-level, " + landed[4] + " resized-buffer, "
+                    + landed[5] + " counted-row and " + landed[6] + " updated-region readbacks landed as recorded, "
                     + minLatency + "-" + maxLatency + " frames later; " + inspected + " inspector reads decoded");
         }
     }
