@@ -127,9 +127,9 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
         double sum = 0;
         boolean offGroups = false;
         for (Map.Entry<String, long[]> e : totals.entrySet()) {
-            if (e.getKey().startsWith(OFF + ".")) offGroups = true;
+            if (e.getKey().startsWith(OFF + CgGpuTrace.GROUP)) offGroups = true;
             for (int i = 0; i < SHADERS.length; i++) {
-                if (e.getKey().startsWith(ON + ".") && e.getKey().endsWith(SHADERS[i] + ".shader")) {
+                if (e.getKey().startsWith(ON + CgGpuTrace.GROUP) && e.getKey().endsWith(SHADERS[i] + ".shader")) {
                     group[i] = mean(e.getValue());
                     fewest = Math.min(fewest, e.getValue()[1]);
                 }
