@@ -11,6 +11,8 @@ import com.crystalgraphics.api.text.CgTextLayout;
 
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.vfx.camera.CgCameraShake;
+import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.bloom.CgBloom;
 
 import java.util.logging.Logger;
 
@@ -227,7 +229,9 @@ public final class HUDRenderer {
         String fpsLine = String.format("FPS: %.1f", displayedFps);
         String shakeLine = HarnessCameraShake.INSTANCE.on()
                 ? String.format("Shake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "Shake [C]: off";
-        String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine;
+        CgBloom bloom = CgPostStack.get().bloom();
+        String bloomLine = bloom.intensity() == 0f ? "Bloom [L]: off" : bloom.linear() ? "Bloom [L]: linear" : "Bloom [L]: blend";
+        String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine + "\n" + bloomLine;
 
         // Build text layout for the current frame's text.
         // maxWidth=0 means unbounded (no line wrapping beyond our explicit newline).

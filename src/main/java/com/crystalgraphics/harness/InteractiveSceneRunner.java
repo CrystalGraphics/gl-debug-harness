@@ -22,6 +22,8 @@ import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.camera.FloorRenderer;
 import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.camera.HarnessCameraShake;
+import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.bloom.CgBloom;
 import com.crystalgraphics.harness.camera.PauseScreenRenderer;
 import com.crystalgraphics.harness.capture.ArtifactService;
 import com.crystalgraphics.harness.capture.CaptureCallback;
@@ -505,9 +507,30 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     && scene.uses3DCamera()) {
                 HarnessCameraShake.INSTANCE.toggle();
             }
+            // L: bloom in the target's encoding, then in linear light, then off, to compare the three.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_L && !isCtrlDown()
+                    && scene.uses3DCamera()) {
+                cycleBloom();
+            }
             for (CgSystemInput.Keyboard listener : keyboardListeners) {
                 if (!listener.consumeKeyboardEvent(event)) break;
             }
+        }
+    }
+
+    /** The intensity L's off state put aside, given back when the cycle returns to blend. */
+    private static float bloomIntensity = 1f;
+
+    /** Blend, then linear, then off (intensity 0, its value kept), then blend again. */
+    private static void cycleBloom() {
+        CgBloom bloom = CgPostStack.get().bloom();
+        if (bloom.intensity() == 0f) {
+            bloom.intensity(bloomIntensity).linear(false);
+        } else if (bloom.linear()) {
+            bloomIntensity = bloom.intensity();
+            bloom.intensity(0f);
+        } else {
+            bloom.linear(true);
         }
     }
 

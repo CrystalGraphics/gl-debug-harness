@@ -480,6 +480,8 @@ The interactive runner sequences these steps every frame:
 | SHIFT | Move down |
 | Mouse | Look around (yaw/pitch) |
 | ESCAPE or T | Toggle pause (releases mouse cursor) |
+| C | Camera shake on and off (the HUD says which) |
+| L | Bloom in the target's encoding, then in linear light, then off (the HUD says which) |
 
 ### HUD Display
 
