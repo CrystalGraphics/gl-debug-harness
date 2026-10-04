@@ -13,6 +13,7 @@ import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.vfx.camera.CgCameraShake;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.bloom.CgBloom;
+import com.crystalgraphics.vfx.CgVfxSystem;
 
 import java.util.logging.Logger;
 
@@ -35,6 +36,8 @@ import java.util.logging.Logger;
  * Rot: yaw° pitch°
  * FPS: n
  * Shake [C]: on, trauma t
+ * Bloom [L]: off | linear | blend
+ * VFX sim [V]: cpu | gpu
  * </pre>
  */
 public final class HUDRenderer {
@@ -231,7 +234,10 @@ public final class HUDRenderer {
                 ? String.format("Shake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "Shake [C]: off";
         CgBloom bloom = CgPostStack.get().bloom();
         String bloomLine = bloom.intensity() == 0f ? "Bloom [L]: off" : bloom.linear() ? "Bloom [L]: linear" : "Bloom [L]: blend";
-        String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine + "\n" + bloomLine;
+        CgVfxSystem.Simulation sim = CgVfxSystem.simulation();
+        String simLine = "VFX sim [V]: " + (sim == CgVfxSystem.Simulation.CPU ? "cpu"
+                : sim.built() ? "gpu" : "gpu (not built yet, runs cpu)");
+        String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine + "\n" + bloomLine + "\n" + simLine;
 
         // Build text layout for the current frame's text.
         // maxWidth=0 means unbounded (no line wrapping beyond our explicit newline).

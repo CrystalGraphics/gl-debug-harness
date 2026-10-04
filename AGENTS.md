@@ -200,6 +200,8 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 
 # The VFX showcase: sixteen effect spheres (CgVfxShowcase)
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres"
+# The same with 30 beams holding at once: the baseline for a frame full of effects, slow on purpose
+./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress"
 
 # Frame graph: three paths, identical PNGs
 ./gradlew :gl-debug-harness:runHarness --args="--mode=graph-executor-test"
@@ -494,6 +496,7 @@ The interactive runner sequences these steps every frame:
 | ESCAPE or T | Toggle pause (releases mouse cursor) |
 | C | Camera shake on and off (the HUD says which) |
 | L | Bloom in the target's encoding, then in linear light, then off (the HUD says which) |
+| V | The VFX simulation on the CPU or the GPU (`CgVfxSystem.simulation`; `-Dcrystalgraphics.vfx.sim=cpu\|gpu` at launch). Until the GPU path lands (plan `vfx-gpu` X1) the HUD shows `gpu (not built yet, runs cpu)` |
 
 ### HUD Display
 

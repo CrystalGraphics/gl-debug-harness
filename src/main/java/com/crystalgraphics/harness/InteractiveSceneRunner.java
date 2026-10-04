@@ -44,6 +44,7 @@ import com.crystalgraphics.harness.util.HarnessProjectionUtil;
 import com.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.input.CgKeyCodes;
+import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.harness.runtime.FrameBench;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 
@@ -119,6 +120,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * startup cost rather than its frame cost. {@code .profile.warmup=<frames>} for a scene that keeps
      * loading longer -- the desktop generates glyphs and starts the language stack for seconds. */
     private static final int PROFILE_WARMUP_FRAMES = Integer.getInteger("crystalgraphics.harness.profile.warmup", 30);
+    /** {@code .profile.keepOpen=true}: write the report and keep the scene running, for a profile someone pilots. */
+    private static final boolean PROFILE_KEEP_OPEN = Boolean.getBoolean("crystalgraphics.harness.profile.keepOpen");
 
     /** The swap blocks when the GPU is behind, and the sync sleeps to hold the rate: waits, not work. */
     private static final int SWAP = CgTrace.waitName("frame.swap");
@@ -315,7 +318,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     File report = TraceDump.profile(new File(ctx.getOutputDir()),
                             "harness-" + profileFrames + "f", profileFrom);
                     LOGGER.info("[InteractiveSceneRunner] profile report=" + report);
-                    break;
+                    if (!PROFILE_KEEP_OPEN) break;
+                    profileFrames = 0;
                 }
             }
 
@@ -511,6 +515,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_L && !isCtrlDown()
                     && scene.uses3DCamera()) {
                 cycleBloom();
+            }
+            // V: the VFX simulation on the CPU or the GPU, the before and after of the same scene.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_V && !isCtrlDown()
+                    && scene.uses3DCamera()) {
+                CgVfxSystem.simulation(CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU
+                        ? CgVfxSystem.Simulation.GPU : CgVfxSystem.Simulation.CPU);
             }
             for (CgSystemInput.Keyboard listener : keyboardListeners) {
                 if (!listener.consumeKeyboardEvent(event)) break;
