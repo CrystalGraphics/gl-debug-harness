@@ -58,8 +58,15 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   counted. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
   renderer on the CPU and by the cull against a depth pyramid on the GPU, by hand and as one world draw of
   `instances()`, the pictures compared byte for byte with multi-draw off and on, the levels one multi-draw where they
-  join, and each level's count held between what the wall must and may hide; it prints each path's draw cost, and
-  `-Dcrystalgraphics.harness.gpuCull.rows=<n>` stacks more rows for the cost at a larger set.
+  join, and each level's count held between what the wall must and may hide; it prints each path's draw cost, the
+  median of `-Dcrystalgraphics.harness.gpuCull.timed=<n>` fires (30) after `.gpuCull.warmup=<n>` untimed ones (0;
+  600 for a warm figure, which a comparison with `vulkan` needs), and `.gpuCull.rows=<n>` stacks more rows for the
+  cost at a larger set (5000 is half a million spheres). `--mode=gpu-ops` is `CgGpuOps`'s: every op at counts 0 to
+  70,000, fixed and read from the GPU, checked bit for bit against Java; it must pass at each forced tier.
+  `--mode=gpu-ops-cost` prints each op's GPU and CPU time at a million elements (`.opsCost.count=<n>`) and a
+  1920x1080 chain, then exits; `.opsCost.ops=sort,scan` keeps the ops whose names start with those, and
+  `.opsCost.warmup=<n>` the frames before measuring (10; 600 for a CPU column compared across devices, since the
+  tracked backend's Java is not compiled sooner).
   `-Dcrystalgraphics.graph.asyncAll=true` sends every compute pass async in any
   scene, which the scenes above must pass under synchronization validation. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
   shape, a general one with a lowerable fallback, one with only a Java body, one with neither, every result worked out

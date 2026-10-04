@@ -66,11 +66,16 @@ import java.util.List;
  *
  * <p>Each path is fired {@link #TIMED} times and its median CPU time printed: the draw cost the cull saves.
  * {@code -Dcrystalgraphics.harness.gpuCull.rows=<n>} stacks more rows, most of them off screen, for the cost at a
- * larger set. Prints {@code [gpu-cull] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
+ * larger set; {@code .timed=<n>} (30) and {@code .warmup=<n>} (0 untimed fires first) make it a warm figure, which a
+ * comparison with Vulkan needs ({@code .warmup=600}). Prints {@code [gpu-cull] PASS} or {@code FAIL}; on Vulkan a
+ * validation error fails it.</p>
  */
 public class CgGpuCullTestScene implements HarnessSceneLifecycle {
 
-    private static final int W = 480, H = 270, TIMED = 30;
+    private static final int W = 480, H = 270;
+    /** Fires timed per path, after untimed ones: the tracked backend's Java wants hundreds before C2 has it. */
+    private static final int TIMED = Integer.getInteger("crystalgraphics.harness.gpuCull.timed", 30),
+            WARMUP = Integer.getInteger("crystalgraphics.harness.gpuCull.warmup", 0);
     /** The rows' distances, their colours, and each level's screen height: every row well inside one level's band. */
     private static final float[] DISTANCES = {6f, 12f, 25f, 50f};
     private static final int[] COLOURS = {0xE04040, 0x40C040, 0x4060E0, 0xE0C040};
@@ -278,6 +283,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
 
     /** Fires both world stages {@link #TIMED} times onto a cleared target, answering the median CPU nanoseconds. */
     private long timed(HarnessFboHelper target) {
+        for (int t = 0; t < WARMUP; t++) fire(target);
         long[] times = new long[TIMED];
         for (int t = 0; t < TIMED; t++) {
             long start = System.nanoTime();

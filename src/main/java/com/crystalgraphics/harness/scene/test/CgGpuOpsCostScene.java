@@ -51,8 +51,10 @@ import java.util.function.Consumer;
  * </pre>
  *
  * <ul>
- *   <li>{@code -Dcrystalgraphics.harness.opsCost.count} sets the element count (1048576), and
- *       {@code .ops=sort,scan} keeps the ops whose names start with one of those.</li>
+ *   <li>{@code -Dcrystalgraphics.harness.opsCost.count} sets the element count (1048576),
+ *       {@code .ops=sort,scan} keeps the ops whose names start with one of those, and {@code .warmup} the frames run
+ *       before measuring (10). A CPU column compared across devices wants {@code .warmup=600}: under ten thousand
+ *       calls, the tracked backend's methods are not yet compiled.</li>
  *   <li>A sort's keys are copied back before each run, outside its zone, so every frame sorts the same unsorted keys.</li>
  *   <li>The CPU column is {@code CgExecutor.execute}'s wall time: the graph is built before the zone opens. At the CPU
  *       tier it is the op itself.</li>
@@ -60,7 +62,9 @@ import java.util.function.Consumer;
  */
 public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
 
-    private static final int WARMUP = 10, MEASURED = 60, DRAIN = 30;
+    private static final int MEASURED = 60, DRAIN = 30;
+    /** Frames run before measuring: the tracked backend's Java needs hundreds before the JIT has compiled it. */
+    private static final int WARMUP = Integer.getInteger("crystalgraphics.harness.opsCost.warmup", 10);
     private static final int WIDTH = 1920, HEIGHT = 1080;
 
     private record Op(String name, Consumer<CgRecording> setup, Consumer<CgComputePass> body) {}
