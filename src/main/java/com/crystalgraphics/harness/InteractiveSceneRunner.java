@@ -144,6 +144,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * {@code .reloadStage=<dir>}, that directory's files are first copied over the first override root
      * ({@code crystalgraphics.resourceOverrideDirs}): an edit saved, then reloaded. */
     private static final int RELOAD_AT = Integer.getInteger("crystalgraphics.harness.reloadAt", 0);
+    /**
+     * {@code -Dcrystalgraphics.harness.keyAt=<frame>:<key>[,<frame>:<key>...]}: presses that key ({@code CgKeyCodes}'s
+     * name less {@code KEY_}) at that frame, as the window would: a binding tried unattended, or profiled either side.
+     */
+    private static final String KEY_AT = System.getProperty("crystalgraphics.harness.keyAt");
     /** {@code -Dcrystalgraphics.harness.resizeAt=<frame>:<width>x<height>}: resizes the window at that frame. */
     private static final String RESIZE_AT = System.getProperty("crystalgraphics.harness.resizeAt");
     /** {@code -Dcrystalgraphics.harness.frameTimes=<frames>}: after {@value #FRAME_TIME_WARMUP} frames, times that
@@ -501,7 +506,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
         // Every scene's keyboard events pass the global binding below, whether or not the scene listens:
         // it has to work in every scene or it is a binding nobody can rely on.
-        for (CgSystemInput.Keyboard.Event event : HarnessWindow.drainKeyboard()) {
+        for (CgSystemInput.Keyboard.Event event : withScriptedKeys(HarnessWindow.drainKeyboard())) {
             // Ctrl+R: re-read every asset from disk -- textures, shaders, materials, and whatever the
             // extensions and reload listeners keep.
             //
@@ -552,6 +557,28 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     }
 
     /** The profile from {@code from} split at {@link #PROFILE_SPLIT_AT}'s first marker into {@code -before} and {@code -after}. */
+    /** {@code drained}, and the {@link #KEY_AT} presses due this frame after it. */
+    private List<CgSystemInput.Keyboard.Event> withScriptedKeys(List<CgSystemInput.Keyboard.Event> drained) {
+        if (KEY_AT == null) return drained;
+        List<CgSystemInput.Keyboard.Event> out = null;
+        for (String press : KEY_AT.split(",")) {
+            int colon = press.indexOf(':');
+            if (Long.parseLong(press.substring(0, colon).trim()) != frameClock.getFrameNumber()) continue;
+            String name = press.substring(colon + 1).trim().toUpperCase();
+            int key;
+            try {
+                key = CgKeyCodes.class.getField("KEY_" + name).getInt(null);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalArgumentException("crystalgraphics.harness.keyAt: no key " + name, e);
+            }
+            if (out == null) out = new ArrayList<>(drained);
+            out.add(new CgSystemInput.Keyboard.Event(name.length() == 1 ? Character.toLowerCase(name.charAt(0)) : 0,
+                    key, true, false, System.currentTimeMillis()));
+            LOGGER.info("[InteractiveSceneRunner] keyAt: " + name + " at frame " + frameClock.getFrameNumber());
+        }
+        return out == null ? drained : out;
+    }
+
     private static void splitProfile(HarnessContext ctx, String label, long from) {
         long split = TraceDump.firstMarkerFrame(PROFILE_SPLIT_AT, from);
         if (split <= from) {
