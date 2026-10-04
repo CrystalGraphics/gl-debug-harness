@@ -218,7 +218,7 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
         data.flip();
         int buffer = CgGL.glGenBuffers();
         CgGL.glBindBuffer(CgGL.GL_COPY_WRITE_BUFFER, buffer);
-        CgGL.glBufferData(CgGL.GL_COPY_WRITE_BUFFER, data, CgGL.GL_DYNAMIC_DRAW);
+        CgGL.glBufferData(CgGL.GL_COPY_WRITE_BUFFER, data, CgGL.GL_STATIC_DRAW);   // device-local on a device
         CgGL.glBindBuffer(CgGL.GL_COPY_WRITE_BUFFER, 0);
         buffers.add(buffer);
         return CgGraphBuffer.imported(name, buffer, words.length * 4L);
