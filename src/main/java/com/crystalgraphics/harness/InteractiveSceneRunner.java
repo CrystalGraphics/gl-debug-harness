@@ -24,6 +24,7 @@ import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.camera.HarnessCameraShake;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.bloom.CgBloom;
+import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.harness.camera.PauseScreenRenderer;
 import com.crystalgraphics.harness.capture.ArtifactService;
 import com.crystalgraphics.harness.capture.CaptureCallback;
@@ -527,6 +528,16 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     && scene.uses3DCamera()) {
                 CgVfxSystem.simulation(CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU
                         ? CgVfxSystem.Simulation.GPU : CgVfxSystem.Simulation.CPU);
+            }
+            // H: half-resolution draws (the beams' glow and light volumes) at half size, or at full size to compare.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_H && !isCtrlDown()
+                    && scene.uses3DCamera()) {
+                CgWorldRenderer.get().halfResolution(!CgWorldRenderer.get().halfResolution());
+            }
+            // P: particles stepped at 60 Hz (the CPU path now) or every 120 Hz tick (as it was), to compare the two.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_P && !isCtrlDown()
+                    && scene.uses3DCamera()) {
+                CgVfxSystem.particleStep(CgVfxSystem.particleStep() == 1 ? 2 : 1);
             }
             for (CgSystemInput.Keyboard listener : keyboardListeners) {
                 if (!listener.consumeKeyboardEvent(event)) break;

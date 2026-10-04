@@ -35,6 +35,7 @@ import com.crystalgraphics.harness.scene.test.CgSceneColorScene;
 import com.crystalgraphics.harness.scene.test.CgMeshDrawsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshFrameStressScene;
+import com.crystalgraphics.harness.scene.test.CgVfxParticlesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShowcaseScene;
 import com.crystalgraphics.harness.scene.test.CgVfxTrailsScene;
 import com.crystalgraphics.harness.tool.CapabilityReport;
@@ -599,6 +600,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             CgVfxShowcaseScene::stress
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-particles")
+                .description("Particles alone: the explosion kit bursting on the showcase floor; P switches 60 Hz and 120 Hz steps")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxParticlesScene()
         );
 
         reg.register(

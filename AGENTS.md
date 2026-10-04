@@ -205,6 +205,8 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres"
 # The same with 30 beams holding at once: the baseline for a frame full of effects, slow on purpose
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress"
+# Particles alone, the explosion kit bursting every 2.5 s: P switches 60 Hz (new) and 120 Hz (old) steps
+./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-particles"
 # Its two phases profiled from one run: profile-harness-300f-before/ (beams) and -after/ (blasts)
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress" -Dcrystalgraphics.harness.profile=300 \
     -Dcrystalgraphics.harness.profile.warmup=270 -Dcrystalgraphics.harness.profile.splitAt=vfx.blast \
@@ -503,7 +505,9 @@ The interactive runner sequences these steps every frame:
 | ESCAPE or T | Toggle pause (releases mouse cursor) |
 | C | Camera shake on and off (the HUD says which) |
 | L | Bloom in the target's encoding, then in linear light, then off (the HUD says which) |
+| H | Half-resolution draws on or off (`CgWorldRenderer.halfResolution`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
 | V | The VFX simulation on the CPU or the GPU (`CgVfxSystem.simulation`; `-Dcrystalgraphics.vfx.sim=cpu\|gpu` at launch). Until the GPU path lands (plan `vfx-gpu` X1) the HUD shows `gpu (not built yet, runs cpu)` |
+| P | Particles stepped at 60 Hz (new) or every 120 Hz tick (old) (`CgVfxSystem.particleStep`; `-Dcrystalgraphics.vfx.particleStep=1\|2` at launch). `vfx-particles` shows particles alone for comparing them |
 
 ### HUD Display
 
