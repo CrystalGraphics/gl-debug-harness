@@ -41,9 +41,10 @@ import java.util.Map;
 
 /**
  * The gate for async compute (gpu-compute C8): a frame of blurs in a compute pass, a fill-bound raster pass that
- * touches none of it, and a pass reading the blur. Timed four ways, back to back in every frame for 100 frames: the
- * compute alone, the drawing alone, both in order, and both with the compute pass {@code async()}. Then one frame in
- * order and one async, every output read back and compared byte for byte.
+ * touches none of it, and a pass reading the blur. Timed five ways, back to back in every frame for 100 frames: the
+ * compute alone, the drawing alone, both in order, both with the compute pass {@code async()}, and async with the
+ * drawing recorded after the pass reading the blur, which the builder must move ahead of it. Then one frame in order
+ * and both async ones, every output read back and compared byte for byte.
  *
  * <pre>
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=async-compute --device=vulkan" -Dcrystalgraphics.vulkan.syncValidation=true
@@ -52,7 +53,7 @@ import java.util.Map;
  * </pre>
  *
  * <ul>
- *   <li>PASS needs identical outputs everywhere, and where the device has a compute queue, the async frame faster than
+ *   <li>PASS needs identical outputs everywhere, and where the device has a compute queue, each async frame faster than
  *       the in-order one by a quarter of the shorter half at least: the drawing ran beside the compute.</li>
  *   <li>{@code -Dcrystalgraphics.harness.async.blurs} and {@code .quads} size the two halves (8 and 48).</li>
  * </ul>
@@ -64,19 +65,21 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
 
     /** What a timed frame holds, and its zone. */
     private enum Mode {
-        COMPUTE("compute alone", true, false, false),
-        DRAW("drawing alone", false, true, false),
-        IN_ORDER("in order", true, true, false),
-        ASYNC("async", true, true, true);
+        COMPUTE("compute alone", true, false, false, false),
+        DRAW("drawing alone", false, true, false, false),
+        IN_ORDER("in order", true, true, false, false),
+        ASYNC("async", true, true, true, false),
+        ASYNC_DRAWN_LAST("async, drawn last", true, true, true, true);
 
         final String zone;
-        final boolean compute, draw, async;
+        final boolean compute, draw, async, drawnLast;
 
-        Mode(String zone, boolean compute, boolean draw, boolean async) {
+        Mode(String zone, boolean compute, boolean draw, boolean async, boolean drawnLast) {
             this.zone = zone;
             this.compute = compute;
             this.draw = draw;
             this.async = async;
+            this.drawnLast = drawnLast;
         }
     }
 
@@ -122,18 +125,19 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
         CgGpuTrace.collect();
         int timed = WARMUP + MEASURED;
         if (frame < timed) {
-            execute(null, false, false, false, false);   // untimed: an earlier frame's wait lands here
+            open();   // untimed: an earlier frame's wait lands here
             // Back to back, so the GPU never idles between them, in an order turning each frame.
             for (int k = 0; k < MODES.length; k++) {
                 Mode mode = MODES[(frame + k) % MODES.length];
-                execute(frame >= WARMUP ? mode.zone : null, mode.compute, mode.draw, mode.compute && mode.draw,
-                        mode.async);
+                execute(frame >= WARMUP ? mode.zone : null, mode, mode.compute && mode.draw);
             }
         } else if (frame == timed) {
-            execute(null, true, true, true, false);
+            execute(null, Mode.IN_ORDER, true);
             List<ByteBuffer> inOrder = readAll();
-            execute(null, true, true, true, true);
-            mismatch = compare(inOrder, readAll());
+            execute(null, Mode.ASYNC, true);
+            mismatch = compare(inOrder, readAll(), Mode.ASYNC);
+            execute(null, Mode.ASYNC_DRAWN_LAST, true);
+            if (mismatch == null) mismatch = compare(inOrder, readAll(), Mode.ASYNC_DRAWN_LAST);
         } else if (frame >= timed + DRAIN || everyQueryLanded()) {
             report();
             running = false;
@@ -141,24 +145,16 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
         frame++;
     }
 
-    /** One graph: the blurs, the drawing and the pass reading the blur, as asked; timed in {@code zone} when given. */
-    private void execute(String zone, boolean compute, boolean draw, boolean consume, boolean async) {
+    /** One graph: the blurs, the drawing and the pass reading the blur, as {@code mode} has them; timed in {@code zone} when given. */
+    private void execute(String zone, Mode mode, boolean consume) {
         recording.reset();
-        if (compute) {
+        if (mode.compute) {
             CgComputePass blur = recording.compute("async-compute blurs");
-            if (async) blur.async();
+            if (mode.async) blur.async();
             for (int i = 0; i < blurs; i++) CgGpuOps.blur(blur, source, 0, blurred, 0, 6f);
             blur.end();
         }
-        if (draw) {
-            CgRasterPass pass = recording.raster(canvas, CgLoad.clear(0, 0, 0, 0), new CgPassConstants().resolution(W, H),
-                    null, CgOrder.LOOKBACK);
-            CgChunkBuilder c = recording.chunks().begin();
-            c.draw(pattern.pipeline(CgInstanceKind.OBJECT), pattern.captureBindings(recording.bindings()), CgMesh.quads(1));
-            for (int q = 0; q < quads; q++) c.instance();
-            pass.add(c.end());
-            pass.end();
-        }
+        if (mode.draw && !mode.drawnLast) draw();
         if (consume) {
             CgRasterPass pass = recording.raster(result, CgLoad.clear(0, 0, 0, 0),
                     new CgPassConstants().resolution(W / 2, H / 2), null, CgOrder.LOOKBACK);
@@ -169,17 +165,37 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
             pass.add(c.end());
             pass.end();
         }
-        if (!compute && !draw) {
-            CgComputePass opener = recording.compute("async-compute opener");
-            CgGpuOps.fill(opener, word, 0, CgGpuCount.of(1));
-            opener.end();
-        }
+        if (mode.draw && mode.drawnLast) draw();
+        run(zone);
+    }
+
+    /** A graph of one tiny kernel. */
+    private void open() {
+        recording.reset();
+        CgComputePass opener = recording.compute("async-compute opener");
+        CgGpuOps.fill(opener, word, 0, CgGpuCount.of(1));
+        opener.end();
+        run(null);
+    }
+
+    private void run(String zone) {
         CgFrame built = builder.build(graph.add(recording.seal()));
         graph.clear();
         if (zone != null) CgGpuTrace.begin(zone);
         CgExecutor.execute(built, true);
         if (zone != null) CgGpuTrace.end();
         builder.recycle(built);
+    }
+
+    /** The fill-bound drawing, touching nothing the blurs do. */
+    private void draw() {
+        CgRasterPass pass = recording.raster(canvas, CgLoad.clear(0, 0, 0, 0), new CgPassConstants().resolution(W, H),
+                null, CgOrder.LOOKBACK);
+        CgChunkBuilder c = recording.chunks().begin();
+        c.draw(pattern.pipeline(CgInstanceKind.OBJECT), pattern.captureBindings(recording.bindings()), CgMesh.quads(1));
+        for (int q = 0; q < quads; q++) c.instance();
+        pass.add(c.end());
+        pass.end();
     }
 
     private List<ByteBuffer> readAll() {
@@ -195,11 +211,11 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
         return out;
     }
 
-    private static String compare(List<ByteBuffer> inOrder, List<ByteBuffer> async) {
+    private static String compare(List<ByteBuffer> inOrder, List<ByteBuffer> async, Mode mode) {
         String[] names = {"blurred", "canvas", "result"};
         for (int i = 0; i < names.length; i++) {
             int at = inOrder.get(i).mismatch(async.get(i));
-            if (at >= 0) return names[i] + " differs at byte " + at + " between the in-order and the async frame";
+            if (at >= 0) return names[i] + " differs at byte " + at + " between the in-order frame and '" + mode.zone + "'";
         }
         return null;
     }
@@ -222,11 +238,13 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
         for (int i = 0; i < MODES.length; i++) {
             long[] t = totals.get(MODES[i].zone);
             ms[i] = t == null || t[1] == 0 ? Double.NaN : t[0] / 1e6 / t[1];
-            System.out.printf("[async-compute]   %-14s gpu %7.3f ms%n", MODES[i].zone, ms[i]);
+            System.out.printf("[async-compute]   %-17s gpu %7.3f ms%n", MODES[i].zone, ms[i]);
         }
-        double shorter = Math.min(ms[0], ms[1]), saved = ms[2] - ms[3];
+        double shorter = Math.min(ms[0], ms[1]), saved = ms[2] - ms[3], savedDrawnLast = ms[2] - ms[4];
         System.out.printf("[async-compute]   async saves %.3f ms of the %.3f ms the shorter half takes (%.0f%%)%n",
                 saved, shorter, 100 * saved / shorter);
+        System.out.printf("[async-compute]   drawn last, async saves %.3f ms (%.0f%%)%n",
+                savedDrawnLast, 100 * savedDrawnLast / shorter);
         int validation = PlatformServiceHarness.validationErrors();
         if (GlErrorChecker.checkAndLog("async-compute")) {
             System.out.println("[async-compute] FAIL on " + on + ": GL errors, logged above");
@@ -238,6 +256,8 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
             System.out.println("[async-compute] PASS on " + on + ": no compute queue, async ran in order with the same output");
         } else if (Double.isNaN(saved) || saved < shorter / 4) {
             System.out.println("[async-compute] FAIL on " + on + ": the async frame did not overlap the drawing");
+        } else if (Double.isNaN(savedDrawnLast) || savedDrawnLast < shorter / 4) {
+            System.out.println("[async-compute] FAIL on " + on + ": drawn last, the drawing was not moved beside the compute");
         } else {
             System.out.println("[async-compute] PASS on " + on + ": the drawing ran beside the compute, the same output");
         }

@@ -51,9 +51,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   `--mode=compute-check` is checked mode's (run it with `-Dcrystalgraphics.compute.checked=true`): a write past a
   buffer, an add past one and a texel past an image each reported once at its `.compute` line, and a kernel inside its
   buffer never.
-  `--mode=async-compute` is `CgComputePass.async()`'s: blurs beside fill-bound drawing, timed alone, in order and
-  async, the outputs of both orders compared byte for byte; on `vulkan` the async frame must save a quarter of the
-  drawing, elsewhere it runs in order. `--mode=gpu-groups` is GPU groups': one timed pass of three materials costing
+  `--mode=async-compute` is `CgComputePass.async()`'s: blurs beside fill-bound drawing, timed alone, in order, async,
+  and async with the drawing recorded after the blur's reader (the builder must move it ahead), every output compared
+  byte for byte; on `vulkan` each async frame must save a quarter of the drawing, elsewhere it runs in order. `--mode=gpu-groups` is GPU groups': one timed pass of three materials costing
   1 : 2 : 4, split by `crystalgraphics.gpu.groups`, the groups summing to the pass within 5%, then the pass with the
   channel off. `--mode=overdraw-count` is the overdraw view's: planes in front of and behind a wall, one discarding
   half, each quadrant's count read back and checked exactly. `--mode=distortion` is the distortion pass's: quads
