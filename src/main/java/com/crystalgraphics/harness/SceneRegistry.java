@@ -5,6 +5,7 @@ import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.ImageScene;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
+import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
@@ -367,6 +368,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgGpuOpsCostScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("readback")
+                .description("gpu-compute C8: buffer words, float and unaligned byte targets and a mip level read back through the frame graph each frame, every delivery checked against the frame that recorded it")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgReadbackTestScene()
         );
 
         reg.register(
