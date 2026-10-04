@@ -575,6 +575,18 @@ public final class SceneRegistry {
         );
 
         reg.register(
+            SceneDescriptor.builder("vfx-spheres-stress")
+                .description("vfx-spheres with 30 beams firing at once: the baseline for a frame full of effects")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            CgVfxShowcaseScene::stress
+        );
+
+        reg.register(
             SceneDescriptor.builder("vfx-trails")
                 .description("Trails rewritten every frame: the per-frame mesh path (CgMesh.Usage.FRAME)")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
