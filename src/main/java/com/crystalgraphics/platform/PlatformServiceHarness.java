@@ -16,6 +16,7 @@ import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLContext;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedStateProvider;
+import com.crystalgraphics.platform.service.CgCacheDirectory;
 import com.crystalgraphics.platform.service.CgInputService;
 import com.crystalgraphics.platform.service.CgLifecycleService;
 import com.crystalgraphics.platform.service.CgReloadService;
@@ -107,10 +108,12 @@ public final class PlatformServiceHarness implements CgPlatformService {
             // -Dcrystalgraphics.harness.vulkanValidation=false for a timing run: the layer checks every command.
             boolean validate = !"false".equals(System.getProperty("crystalgraphics.harness.vulkanValidation"));
             p.vulkanHost = new OwnedVulkanHost(HarnessWindow.handle(), validate);
-            p.vulkanDevice = new CgVulkanDevice(new PresentTimed(p.vulkanHost), width, height);
+            p.vulkanDevice = new CgVulkanDevice(new PresentTimed(p.vulkanHost), width, height, CgCacheDirectory.of("vulkan"));
             p.device = p.vulkanDevice;
         }
-        if (p.device != null) p.tracked = new CgTrackedGLBackend(p.device, new ShadercGlslCompiler(), true);
+        if (p.device != null) {
+            p.tracked = new CgTrackedGLBackend(p.device, new ShadercGlslCompiler(CgCacheDirectory.of("spirv")), true);
+        }
         CgPlatform.register(p);
         // Scenes use CgGL from the start, before any host section would install it.
         CgGL.init(p.gl());
