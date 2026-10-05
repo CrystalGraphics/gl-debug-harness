@@ -1,0 +1,27 @@
+// vfx-sim-equivalence's own kernels (CgVfxSimEquivalenceScene): the particle simulation's GLSL libraries run over
+// inputs the scene chose, for their answers to be checked against the Java the CPU path runs.
+#pragma kernel Rand map
+#pragma kernel Curl map
+
+#include "crystalgraphics:shaders/lib/vfx/fx_rand.glsl"
+#include "crystalgraphics:shaders/lib/vfx/fx_curl.glsl"
+
+// Where one curl sample is, split per octave as the CPU splits an instance's origin.
+struct CurlAt { ivec4 cell0; vec4 frac0; ivec4 cell1; vec4 frac1; };
+
+Buffers {
+    RAND_IN  ("Seed, spawn index, draw", uvec4,  readonly)
+    RAND_OUT ("Draws",                   float,  writeonly)
+    CURL_IN  ("Sample points",           CurlAt, readonly)
+    CURL_OUT ("Curl",                    vec4,   writeonly)
+}
+
+void Rand() {
+    uvec4 at = RAND_IN(CG_ELEMENT);
+    RAND_OUT_WRITE(fx_rand(at.x, at.y, at.z));
+}
+
+void Curl() {
+    CurlAt at = CURL_IN(CG_ELEMENT);
+    CURL_OUT_WRITE(vec4(fx_curl(at.cell0.xyz, at.frac0.xyz, at.cell1.xyz, at.frac1.xyz), 0.0));
+}

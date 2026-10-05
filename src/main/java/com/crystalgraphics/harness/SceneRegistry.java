@@ -17,6 +17,7 @@ import com.crystalgraphics.harness.scene.test.CgDistortionTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeCheckTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuBudgetTestScene;
 import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
+import com.crystalgraphics.harness.scene.test.CgVfxSimEquivalenceScene;
 import com.crystalgraphics.harness.scene.test.CgVolumeTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
@@ -509,6 +510,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVolumeTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-sim-equivalence")
+                .description("vfx-gpu §13.9: the GPU particle simulation against the CPU path; first its GLSL libraries, fx_rand bit for bit and fx_curl within rounding of the Java")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgVfxSimEquivalenceScene()
         );
 
         reg.register(
