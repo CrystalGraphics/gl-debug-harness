@@ -27,6 +27,7 @@ import java.util.Set;
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.look=-0.5,0.7,0.5 // look at the sky
  * // every moment of one wave's life (or every wave's, with true), each framed and photographed on the frame it happens:
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres" -Dcrystalgraphics.harness.vfx.moments=kamehameha -Dcrystalgraphics.harness.fixedDelta=0.0166667
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress" -Dcrystalgraphics.harness.vfx.beams=60   // twice the load
  * }</pre>
  *
  * <p>Back row to front: gold, copper, mercury, colour-shift paint; soap bubble, crystal ball, hologram, ice; plasma,
@@ -65,8 +66,8 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
     /** Where a moment's camera stands from what it frames, and how far for each block of the frame's radius. */
     private static final float[] MOMENT_VIEW = normalized(0.35f, 0.62f, 0.7f);
     private static final float MOMENT_DISTANCE = 1.55f;
-    /** The stress scene's beams. */
-    public static final int STRESS_BEAMS = 30;
+    /** {@code -Dcrystalgraphics.harness.vfx.beams=<n>}: the stress scene's beams, 30 by default. */
+    public static final int STRESS_BEAMS = Integer.getInteger("crystalgraphics.harness.vfx.beams", 30);
 
     private final CgVfxShowcase showcase;
     private final String id;

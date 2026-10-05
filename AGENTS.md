@@ -231,6 +231,8 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres"
 # The same with 30 beams holding at once: the baseline for a frame full of effects, slow on purpose
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress"
+# 120 beams: the stress since the CPU path was tuned (vfx-gpu baseline 2)
+./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress" -Dcrystalgraphics.harness.vfx.beams=120
 # Particles alone, the explosion kit bursting every 2.5 s: P switches 60 Hz (new) and 120 Hz (old) steps
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-particles"
 # Its two phases profiled from one run: profile-harness-300f-before/ (beams) and -after/ (blasts)
