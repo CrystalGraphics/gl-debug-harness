@@ -21,13 +21,21 @@ import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
 import com.crystalgraphics.vfx.particle.CgVfxModule;
 import com.crystalgraphics.vfx.particle.CgVfxParticleSet;
+import com.crystalgraphics.vfx.element.CgVfxExplosion;
+import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxWords;
+import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
+import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * The gate for the GPU particle simulation against the CPU path (plan vfx-gpu §13.9). Today its first part: the
@@ -61,6 +69,7 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
             new ModuleCheck(new CgVfxModule.Wind(1.2f)), new ModuleCheck(new CgVfxModule.Turbulence(8f, 0.12f, 0.6f)),
             new ModuleCheck(new CgVfxModule.Buoyancy(16f, 0.9f)), new ModuleCheck(new CgVfxModule.Updraft(30f, 3f, 8f, 2.5f)),
             new ModuleCheck(new CgVfxModule.Ground(0.3f, 0.5f, 0.6f)), new ModuleCheck(new CgVfxModule.Spin(0.8f))};
+    private final List<PoolCheck> pools = new ArrayList<>();
     private final int[] seeds = new int[RANDS], spawns = new int[RANDS], draws = new int[RANDS];
     private final float[][] points = new float[CURLS][3];
     private final List<CgRequest> requests = new ArrayList<>();
@@ -84,12 +93,24 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
             for (int a = 0; a < 3; a++) p[a] = (random.nextFloat() - 0.5f) * 100f;
         }
         for (int k = 0; k < modules.length; k++) modules[k].prepare(k, random);
+        CgVfxEmitter everyKind = CgVfxEmitter.builder("every-kind").capacity(2000).burst(0f, 600).shape(0.5f)
+                .launch(-0.2f, 1f, 0.7f).speed(2f, 9f).life(1f, 3f).size(0.1f, 0.4f, 2f).spin(1f, 4f).heat(1f)
+                .module(new CgVfxModule.Gravity(9.8f)).module(new CgVfxModule.Drag(1.5f, 0.05f))
+                .module(new CgVfxModule.Wind(1f)).module(new CgVfxModule.Turbulence(8f, 0.12f, 0.6f))
+                .module(new CgVfxModule.Buoyancy(16f, 0.9f)).module(new CgVfxModule.Updraft(20f, 3f, 8f, 2.5f))
+                .module(new CgVfxModule.Ground(0.3f, 0.5f, 0.6f)).module(new CgVfxModule.Spin(0.8f)).build();
+        CgVfxEmitter[] definitions = {CgVfxExplosion.SPARKLES, CgVfxExplosion.SPECKS, CgVfxExplosion.BILLOWS,
+                CgVfxExplosion.INK, CgVfxExplosion.RAYS, CgVfxExplosion.RINGS, everyKind};
+        for (CgVfxEmitter definition : definitions) {
+            pools.add(new PoolCheck(definition, -1));     // the spawn check: its first spawns, after their first step
+            pools.add(new PoolCheck(definition, 40));     // the one-step check: a live set stepped once more
+        }
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo info) {
         frame++;
-        if (frame <= FRAMES) {
+        if (frame <= Math.max(FRAMES, pools.size())) {
             record(frame);
             return;
         }
@@ -103,6 +124,12 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
 
     private void record(int n) {
         CgRecording rec = new CgRecording();
+        // One pool check a frame: a pool's records are replaced by each seed, and pools are shared by shape.
+        if (n <= pools.size()) pools.get(n - 1).record(rec, n);
+        if (n > FRAMES) {
+            CgImmediate.execute(rec);
+            return;
+        }
         rec.update(randIn, 0, randInputs());
         rec.update(curlIn, 0, curlInputs());
         CgComputePass pass = rec.compute("vfx-sim.libraries");
@@ -274,6 +301,136 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
         }
     }
 
+    /**
+     * One definition through its pool's Step kernel against the CPU path (vfx-gpu §13.9): an instance ticked
+     * {@code warm} steps on the CPU, its particles packed into the pool, the next step queued as the CPU takes it
+     * (instance row, the spawns a scheduled twin finds), recorded, and read back; the CPU then takes that step. Every
+     * record is matched by id with the CPU's particle, newborns included. With {@code warm} -1 it is the spawn check:
+     * the steps before its first spawn, so nothing is alive and the step spawns.
+     */
+    private final class PoolCheck {
+        private static final float DT = 1f / 60f;
+        private static final double OX = 100.25, OY = 64.5, OZ = -37.75;
+        /** Words compared a particle: position, age, previous, life, velocity, size, seed, spin, rate, heat. */
+        private static final int COMPARED = 16;
+
+        final CgVfxEmitter definition;
+        private int warm;
+        private final Map<Integer, float[]> expected = new HashMap<>();
+        private int gpuLive = -1, matched;
+        private ByteBuffer gpuRecords;
+        float worst;
+
+        PoolCheck(CgVfxEmitter definition, int warm) {
+            this.definition = definition;
+            this.warm = warm;
+            this.spawnCheck = warm < 0;
+        }
+
+        private final boolean spawnCheck;
+
+        String label() {
+            return definition.name() + (spawnCheck ? " spawn" : " step");
+        }
+
+        void record(CgRecording rec, int n) {
+            if (spawnCheck) {
+                CgVfxEmitterInstance probe = new CgVfxEmitterInstance(definition, 0.53f);
+                probe.start(0f, 0f, 0f);
+                for (warm = 0; warm < 600; warm++) {
+                    probe.schedule(DT, OX, OY, OZ);
+                    if (probe.stepCandidates() > 0) break;
+                }
+            }
+            CgVfxEmitterInstance cpu = new CgVfxEmitterInstance(definition, 0.53f);
+            CgVfxEmitterInstance twin = new CgVfxEmitterInstance(definition, 0.53f);
+            cpu.start(0.4f, 0.3f, -0.2f);
+            twin.start(0.4f, 0.3f, -0.2f);
+            cpu.ground(-1f);
+            twin.ground(-1f);
+            CgVfxAir air = new CgVfxAir().wind(1.5f, 0.2f, 0.5f).gusts(0.6f, 0.25f);
+            for (int s = 0; s < warm; s++) {
+                air.tick(s * DT);
+                cpu.tick(DT, air, OX, OY, OZ);
+                twin.schedule(DT, OX, OY, OZ);
+            }
+            air.tick(warm * DT);
+
+            CgVfxParticlePool pool = CgVfxParticlePool.of(definition);
+            int slot = pool.open(definition, definition.peakAlive());
+            CgVfxParticleSet p = cpu.particles();
+            if (spawnCheck && p.count() != 0) fail(label() + ": " + p.count() + " alive before its first spawn", n);
+            ByteBuffer packed = ByteBuffer.allocateDirect(Math.max(1, p.count()) * CgVfxRecord.BYTES)
+                    .order(ByteOrder.nativeOrder());
+            for (int i = 0; i < p.count(); i++) CgVfxRecord.pack(packed, i, p, i, slot, 0);
+            pool.seed(rec, packed, p.count());
+
+            float time = cpu.time();
+            CgVfxInstanceView view = new CgVfxInstanceView() {
+                public double originX() { return OX; }
+                public double originY() { return OY; }
+                public double originZ() { return OZ; }
+                public float time() { return time; }
+                public float sourceX() { return cpu.sourceX(); }
+                public float sourceY() { return cpu.sourceY(); }
+                public float sourceZ() { return cpu.sourceZ(); }
+            };
+            twin.schedule(DT, OX, OY, OZ);
+            pool.beginStep(DT, air.windX(), air.windY(), air.windZ());
+            pool.instance(slot, cpu.seedBits(), cpu.share(), cpu.groundY(), view);
+            pool.spawn(slot, twin.stepFirstSpawn(), twin.stepCandidates());
+            pool.endStep();
+            pool.record(rec);
+            CgGraphBuffer records = pool.records(), live = pool.live();
+            int storage = pool.storage();
+
+            cpu.tick(DT, air, OX, OY, OZ);
+            for (int i = 0; i < p.count(); i++) {
+                expected.put(p.id[i], new float[]{p.x[i], p.y[i], p.z[i], p.age[i], p.px[i], p.py[i], p.pz[i],
+                        p.life[i], p.vx[i], p.vy[i], p.vz[i], p.size[i], p.seed[i], p.spin[i], p.spinRate[i], p.heat[i],
+                        p.resting[i]});
+            }
+            requests.add(rec.readback(live, 0, 4, data -> {
+                gpuLive = data.getInt(0);
+                if (gpuRecords != null) compare(n);
+            }));
+            requests.add(rec.readback(records, 0, (long) storage * CgVfxRecord.BYTES, data -> {
+                gpuRecords = ByteBuffer.allocate(data.remaining()).order(ByteOrder.nativeOrder());
+                gpuRecords.put(data.duplicate()).flip();
+                if (gpuLive >= 0) compare(n);
+            }));
+            pool.close(slot);
+        }
+
+        private void compare(int n) {
+            String what = label();
+            if (gpuLive != expected.size()) {
+                fail(what + ": the GPU has " + gpuLive + " particles, the CPU " + expected.size(), n);
+                return;
+            }
+            boolean turbulent = false;
+            for (CgVfxModule m : definition.modules()) turbulent |= m instanceof CgVfxModule.Turbulence;
+            float tolerance = turbulent ? 2e-3f : 1e-4f;
+            Set<Integer> seen = new HashSet<>();
+            for (int r = 0; r < gpuLive; r++) {
+                int id = CgVfxRecord.i(gpuRecords, r, CgVfxRecord.ID);
+                float[] want = expected.get(id);
+                if (want == null || !seen.add(id)) {
+                    fail(what + ": record " + r + " has id " + id + ", which the CPU " + (want == null ? "lacks" : "has once"), n);
+                    return;
+                }
+                for (int w = 0; w < COMPARED; w++) {
+                    float got = CgVfxRecord.f(gpuRecords, r, w), off = Math.abs(got - want[w]) / (tolerance * (1f + Math.abs(want[w])));
+                    worst = Math.max(worst, off);
+                    if (!(off <= 1f)) fail(what + ": particle " + id + " word " + w + " is " + got + ", not " + want[w], n);
+                }
+                boolean resting = (CgVfxRecord.i(gpuRecords, r, CgVfxRecord.FLAGS) & CgVfxRecord.RESTING) != 0;
+                if (resting != (want[COMPARED] != 0f)) fail(what + ": particle " + id + " resting is " + resting, n);
+                matched++;
+            }
+        }
+    }
+
     private static float spread(Random random, float half) {
         return (random.nextFloat() * 2f - 1f) * half;
     }
@@ -319,6 +476,9 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
         CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
         String on = (device == null ? "gl" : device.name()) + " at " + CgCapabilities.detect().computeTier();
         int validation = PlatformServiceHarness.validationErrors();
+        for (PoolCheck c : pools) {
+            if (c.matched == 0 && failure == null) failure = c.label() + " matched no particle: it checked nothing";
+        }
         int done = 0;
         String unanswered = null;
         for (CgRequest r : requests) {
@@ -340,6 +500,13 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
             for (ModuleCheck m : modules) {
                 kinds.append(kinds.length() == 0 ? "" : ", ").append(m.module.gpuKind()).append(' ').append(m.worst);
             }
+            StringBuilder steps = new StringBuilder();
+            for (PoolCheck c : pools) {
+                steps.append(steps.length() == 0 ? "" : ", ").append(c.label()).append(' ').append(c.matched)
+                        .append(" at ").append(c.worst);
+            }
+            System.out.println("[vfx-sim] PASS on " + on + ": Step kernels against tick, particles matched by id and "
+                    + "worst share of the tolerance: " + steps);
             System.out.println("[vfx-sim] PASS on " + on + ": " + randsChecked + " fx_rand draws bit for bit, "
                     + curlsChecked + " fx_curl samples within " + CURL_TOLERANCE + " (worst " + worstCurl + "), "
                     + MODULE_PARTICLES + " particles through each module kind as its apply moves them (worst share of the "
