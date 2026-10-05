@@ -9,6 +9,7 @@ import com.crystalgraphics.harness.scene.test.CgMrtEmissionTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostLooksTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostEffectsTestScene;
 import com.crystalgraphics.harness.scene.test.CgAsyncComputeTestScene;
+import com.crystalgraphics.harness.scene.test.CgUploadStressScene;
 import com.crystalgraphics.harness.scene.test.CgGpuGroupsTestScene;
 import com.crystalgraphics.harness.scene.test.CgOverdrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgDistortionTestScene;
@@ -521,6 +522,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgAsyncComputeTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("upload-stress")
+                .description("render-async-uploads U0: bursts of textures and a volume uploaded from workers and from the render thread, for what an upload costs each thread and the GPU")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(640)
+                .defaultHeight(360)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgUploadStressScene()
         );
 
         reg.register(
