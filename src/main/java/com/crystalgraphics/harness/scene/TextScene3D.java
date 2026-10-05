@@ -431,7 +431,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
             // packing comparisons non-reproducible).
             // dumpAtlases();
             CgTrace.disable("crystalgraphics"); // one mask test per call site from here on
-            running = false;
+            //running = false;
         }
     }
 
