@@ -78,7 +78,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   through upload leases and from the render thread, drawn from the frame after; each burst prints its bytes, the frames
   and milliseconds from asking to landed, and on `vulkan` its copies on the transfer queue. `.upload.load=<n>` draws n
   full-window quads a frame for the copies to overlap; `.upload.shared=true` (gl) makes the worker bursts in a second
-  context sharing the window's, the experiment `render-async-uploads` §4f declined.
+  context sharing the window's, the experiment `render-async-uploads` §4f declined. `.upload.rewrite=true` is the
+  rename path's check: one drawn texture rewritten whole each frame, every tenth read back, PASS or FAIL; on `vulkan`
+  each goes into a new image on the transfer queue, and the run fails if none did.
   `-Dcrystalgraphics.graph.asyncAll=true` sends every compute pass async in any
   scene, which the scenes above must pass under synchronization validation. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
   shape, a general one with a lowerable fallback, one with only a Java body, one with neither, every result worked out
