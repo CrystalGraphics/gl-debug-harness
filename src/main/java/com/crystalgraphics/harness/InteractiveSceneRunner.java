@@ -151,6 +151,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private static final String KEY_AT = System.getProperty("crystalgraphics.harness.keyAt");
     /** {@code -Dcrystalgraphics.harness.resizeAt=<frame>:<width>x<height>}: resizes the window at that frame. */
     private static final String RESIZE_AT = System.getProperty("crystalgraphics.harness.resizeAt");
+    /** {@code -Dcrystalgraphics.harness.camera=<x>,<y>,<z>,<yaw>,<pitch>}: the camera after the scene placed it, as the
+     * HUD's Pos and Rot read: a capture from where a human was looking. */
+    private static final String CAMERA = System.getProperty("crystalgraphics.harness.camera");
     /** {@code -Dcrystalgraphics.harness.frameTimes=<frames>}: after {@value #FRAME_TIME_WARMUP} frames, times that
      * many frame to frame, logs the median, mean and 95th percentile, and stops. Pair with {@code .fps=0}, or the
      * pacing is what gets measured. Live input is ignored, as under {@code captureAt}: a turned camera is a
@@ -708,6 +711,13 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     public void init() {
         scene.init(ctx);
+        if (CAMERA != null) {
+            String[] v = CAMERA.split(",");
+            Camera3D camera = ctx.getCamera3D();
+            camera.moveCamera(Float.parseFloat(v[0].trim()), Float.parseFloat(v[1].trim()), Float.parseFloat(v[2].trim()));
+            camera.setYaw(Float.parseFloat(v[3].trim()));
+            camera.setPitch(Float.parseFloat(v[4].trim()));
+        }
         overlayPipeline.init(ctx);
         worldPassCoordinator.init();
     }
