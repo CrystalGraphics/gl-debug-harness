@@ -1,19 +1,41 @@
-// vfx-sim-equivalence's own kernels (CgVfxSimEquivalenceScene): the particle simulation's GLSL libraries run over
-// inputs the scene chose, for their answers to be checked against the Java the CPU path runs.
+// vfx-sim-equivalence's own kernels (CgVfxSimEquivalenceScene): the particle simulation's GLSL libraries and each
+// module kind alone, run over inputs the scene chose, for their answers to be checked against the Java the CPU path runs.
 #pragma kernel Rand map
 #pragma kernel Curl map
+#pragma kernel Module map
 
 #include "crystalgraphics:shaders/lib/vfx/fx_rand.glsl"
 #include "crystalgraphics:shaders/lib/vfx/fx_curl.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_gravity.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_drag.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_wind.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_turbulence.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_buoyancy.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_updraft.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_ground.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_spin.glsl"
+
+Properties {
+    _Kind ("Module kind, in the scene's order", int)  = 0
+    _Step ("dt, then the wind",                 vec4) = (0.0166667, 0, 0, 0)
+}
 
 // Where one curl sample is, split per octave as the CPU splits an instance's origin.
 struct CurlAt { ivec4 cell0; vec4 frac0; ivec4 cell1; vec4 frac1; };
+// A particle as the CPU path holds it; flags: resting, id, slot.
+struct Particle { vec4 positionAge; vec4 previousLife; vec4 velocitySize; vec4 seedSpinRateHeat; uvec4 flags; };
+// The particle after one module, and the forces it added.
+struct Moved { vec4 positionAge; vec4 previousLife; vec4 velocitySize; vec4 seedSpinRateHeat; uvec4 flags;
+               vec4 accelDrag; vec4 dragQuad; };
 
 Buffers {
-    RAND_IN  ("Seed, spawn index, draw", uvec4,  readonly)
-    RAND_OUT ("Draws",                   float,  writeonly)
-    CURL_IN  ("Sample points",           CurlAt, readonly)
-    CURL_OUT ("Curl",                    vec4,   writeonly)
+    RAND_IN   ("Seed, spawn index, draw",         uvec4,    readonly)
+    RAND_OUT  ("Draws",                           float,    writeonly)
+    CURL_IN   ("Sample points",                   CurlAt,   readonly)
+    CURL_OUT  ("Curl",                            vec4,     writeonly)
+    PARTICLES ("Particles",                       Particle, readonly)
+    WORDS     ("Numbers, four lanes, the floor",  uvec4,    readonly)
+    MOVED     ("After the module",                Moved,    writeonly)
 }
 
 void Rand() {
@@ -24,4 +46,46 @@ void Rand() {
 void Curl() {
     CurlAt at = CURL_IN(CG_ELEMENT);
     CURL_OUT_WRITE(vec4(fx_curl(at.cell0.xyz, at.frac0.xyz, at.cell1.xyz, at.frac1.xyz), 0.0));
+}
+
+// One module kind over one particle, its numbers in WORDS(0), its lanes from WORDS(1), the floor in WORDS(5).x.
+void Module() {
+    Particle in_ = PARTICLES(CG_ELEMENT);
+    FxParticle p;
+    p.position = in_.positionAge.xyz;
+    p.age = in_.positionAge.w;
+    p.previous = in_.previousLife.xyz;
+    p.life = in_.previousLife.w;
+    p.velocity = in_.velocitySize.xyz;
+    p.size = in_.velocitySize.w;
+    p.seed = in_.seedSpinRateHeat.x;
+    p.spin = in_.seedSpinRateHeat.y;
+    p.spinRate = in_.seedSpinRateHeat.z;
+    p.heat = in_.seedSpinRateHeat.w;
+    p.resting = in_.flags.x != 0u;
+    p.id = in_.flags.y;
+    p.slot = in_.flags.z;
+    FxForces f = FxForces(vec3(0.0), 0.0, 0.0);
+    FxStep s = FxStep(_Step.x, _Step.yzw);
+    vec4 m = uintBitsToFloat(WORDS(0));
+    switch (_Kind) {
+        case 0: fx_gravity(p, f, s, m); break;
+        case 1: fx_drag(p, f, s, m); break;
+        case 2: fx_wind(p, f, s, m); break;
+        case 3: fx_turbulence(p, f, s, m, ivec4(WORDS(1)), uintBitsToFloat(WORDS(2)), ivec4(WORDS(3)),
+                              uintBitsToFloat(WORDS(4))); break;
+        case 4: fx_buoyancy(p, f, s, m); break;
+        case 5: fx_updraft(p, f, s, m, uintBitsToFloat(WORDS(1))); break;
+        case 6: fx_ground(p, s, m, uintBitsToFloat(WORDS(5).x)); break;
+        default: fx_spin(p, f, s, m); break;
+    }
+    Moved after;
+    after.positionAge = vec4(p.position, p.age);
+    after.previousLife = vec4(p.previous, p.life);
+    after.velocitySize = vec4(p.velocity, p.size);
+    after.seedSpinRateHeat = vec4(p.seed, p.spin, p.spinRate, p.heat);
+    after.flags = uvec4(p.resting ? 1u : 0u, p.id, p.slot, 0u);
+    after.accelDrag = vec4(f.accel, f.drag);
+    after.dragQuad = vec4(f.dragQuad, 0.0, 0.0, 0.0);
+    MOVED_WRITE(after);
 }
