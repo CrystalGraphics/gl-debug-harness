@@ -12,6 +12,7 @@ import com.crystalgraphics.platform.device.recording.CgRecordingDevice;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
+import com.crystalgraphics.platform.gl.state.CgGlGetProvider;
 import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLContext;
@@ -119,6 +120,11 @@ public final class PlatformServiceHarness implements CgPlatformService {
         // Scenes use CgGL from the start, before any host section would install it.
         CgGL.init(p.gl());
         if (p.tracked != null) CgGlState.setProvider(new CgTrackedStateProvider(p.tracked));
+        // Every draw here is CgGL's, the raw host scene's inside hostForeign: a stage entry reads nothing.
+        // -Dcrystalgraphics.harness.keepShadow=false measures or rules that out.
+        else if (!"false".equals(System.getProperty("crystalgraphics.harness.keepShadow"))) {
+            CgGlState.setProvider(new KeptShadow());
+        }
         // NATIVE CONTENT IS NOT DECLARED HERE, and it used to be.
         //
         // `com.crystalgui.ui.elements.slot` lives only on core's `native-content-slots` branch, which
@@ -127,6 +133,14 @@ public final class PlatformServiceHarness implements CgPlatformService {
         // the moment that branch lands: a native-content slot refuses to paint on a platform that
         // never said whether it renders items, and the harness is genuinely such a platform, so
         // saying so out loud is what separates it from a loader that forgot.
+    }
+
+    /** {@code glGet} where the shadow does not know, and a host that never draws behind it. */
+    private static final class KeptShadow extends CgGlGetProvider {
+        @Override
+        public boolean hostKeepsShadow() {
+            return true;
+        }
     }
 
     /** The tracked backend under {@code --device=tracked}, else null. */
