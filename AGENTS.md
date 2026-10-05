@@ -73,6 +73,12 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   1920x1080 chain, then exits; `.opsCost.ops=sort,scan` keeps the ops whose names start with those, and
   `.opsCost.warmup=<n>` the frames before measuring (10; 600 for a CPU column compared across devices, since the
   tracked backend's Java is not compiled sooner).
+  `--mode=upload-stress` is uploading's cost: every `.upload.every=<n>` frames (120), a burst of `.upload.textures`
+  (16) RGBA8 textures of `.upload.size`² (1024) and a volume of `.upload.volume`³ (128), alternately from workers
+  through upload leases and from the render thread, drawn from the frame after; each burst prints its bytes, the frames
+  and milliseconds from asking to landed, and on `vulkan` its copies on the transfer queue. `.upload.load=<n>` draws n
+  full-window quads a frame for the copies to overlap; `.upload.shared=true` (gl) makes the worker bursts in a second
+  context sharing the window's, the experiment `render-async-uploads` §4f declined.
   `-Dcrystalgraphics.graph.asyncAll=true` sends every compute pass async in any
   scene, which the scenes above must pass under synchronization validation. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
   shape, a general one with a lowerable fallback, one with only a Java body, one with neither, every result worked out
