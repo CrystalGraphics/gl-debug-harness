@@ -233,7 +233,9 @@ public final class PlatformServiceHarness implements CgPlatformService {
                 : INSTANCE.vulkanDevice.info().name() + " barriers=" + INSTANCE.vulkanDevice.barriers()
                         + " validationErrors=" + INSTANCE.vulkanDevice.validationErrors()
                         + " transferCopies=" + INSTANCE.vulkanDevice.transferCopies
-                        + " transferBufferCopies=" + INSTANCE.vulkanDevice.transferBufferCopies;
+                        + " transferBufferCopies=" + INSTANCE.vulkanDevice.transferBufferCopies
+                        + " frameCopies=" + INSTANCE.vulkanDevice.frameCopies
+                        + " frameCopyCalls=" + INSTANCE.vulkanDevice.frameCopyCalls;
         return "frames=" + INSTANCE.device.frameIndex() + " " + device + " " + INSTANCE.tracked.stats();
     }
 }
