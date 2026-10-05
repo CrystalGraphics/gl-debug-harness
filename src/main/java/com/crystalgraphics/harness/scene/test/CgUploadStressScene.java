@@ -9,6 +9,7 @@ import com.crystalgraphics.gl.texture.CgTexture3D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgPassConstants;
 import com.crystalgraphics.trace.CgGpuTrace;
@@ -38,21 +39,30 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>Per frame, the profile has the zones {@code upload.texture}, {@code upload.texture-unpack} and
  *       {@code deferral.apply}, the workers' {@code upload.lease-copy}, the counters {@code upload.textures},
  *       {@code upload.texture-bytes}, {@code upload.lease-misses}, {@code tracked.texture-write-bytes} and
- *       {@code tracked.upload-breaks}, and the GPU zones {@code upload.deferred} and {@code upload-stress.render-thread}.</li>
+ *       {@code tracked.upload-breaks}, and the GPU zones {@code upload.deferred}, {@code upload-stress.render-thread} and
+ *       {@code upload-stress.draw}, the last holding any wait for copies on another queue.</li>
  *   <li>Landed means applied to the device: a worker burst lands at the first frame executed after its last worker
  *       finished.</li>
+ *   <li>On {@code vulkan}, each burst also prints how many of its copies ran on the transfer queue;
+ *       {@code -Dcrystalgraphics.vulkan.transfer=false} keeps them all on the frame's queue, to compare.
+ *       {@code .load=<n>} draws n full-window quads a frame first, which gives the frame's queue work for those copies
+ *       to overlap: without it the GPU idles, and the frame's queue can only wait for them.</li>
  * </ul>
  */
 public class CgUploadStressScene implements InteractiveSceneLifecycle {
 
     private static final int GL_RGBA = 0x1908, GL_UNSIGNED_BYTE = 0x1401;
     private static final int RENDER_THREAD_GPU = CgGpuTrace.name("upload-stress.render-thread");
+    /** The frame's drawing, and any wait on the frame's queue for copies elsewhere, which comes before its first pass. */
+    private static final int DRAW_GPU = CgGpuTrace.name("upload-stress.draw");
 
     private final int textures = Integer.getInteger("crystalgraphics.harness.upload.textures", 16);
     private final int size = Integer.getInteger("crystalgraphics.harness.upload.size", 1024);
     private final int volumeSize = Integer.getInteger("crystalgraphics.harness.upload.volume", 128);
     private final int every = Integer.getInteger("crystalgraphics.harness.upload.every", 120);
     private final int bursts = Integer.getInteger("crystalgraphics.harness.upload.bursts", 6);
+    /** Full-window quads drawn under the grid each frame, so the GPU has work a copy elsewhere can overlap. */
+    private final int load = Integer.getInteger("crystalgraphics.harness.upload.load", 0);
 
     private final ExecutorService workers = Executors.newFixedThreadPool(2, r -> {
         Thread t = new Thread(r, "upload-stress worker");
@@ -66,7 +76,7 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
     private CgTexture3D volume;
     private CgQuadRenderer renderer;
     private CgMaterial material;
-    private int frame, burst, burstFrame;
+    private int frame, burst, burstFrame, copiesAtStart;
     private long burstStart;
     private boolean landing, wasTracingGpu, running = true;
 
@@ -94,10 +104,14 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
             start(burst++ % 2 == 0);
         }
         long start = System.nanoTime();
+        boolean gpu = CgGpuTrace.isMeasuring();
+        if (gpu) CgGpuTrace.begin(DRAW_GPU);
         draw(ctx.getViewport().getWidth(), ctx.getViewport().getHeight());
+        if (gpu) CgGpuTrace.end();
         if (landsNow) {
-            System.out.printf("[upload-stress] burst %d landing frame: %.2f ms drawing, its deferred work included%n",
-                    burst, (System.nanoTime() - start) / 1e6);
+            System.out.printf("[upload-stress] burst %d landing frame: %.2f ms drawing, its deferred work included; "
+                    + "%d copies on the transfer queue%n", burst, (System.nanoTime() - start) / 1e6,
+                    PlatformServiceHarness.transferCopies() - copiesAtStart);
         }
         frame++;
     }
@@ -109,6 +123,7 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
         if (volume != null) volume.delete();
         burstStart = System.nanoTime();
         burstFrame = frame;
+        copiesAtStart = PlatformServiceHarness.transferCopies();
         if (fromWorkers) {
             outstanding.set(textures + 1);
             synchronized (made) {
@@ -137,8 +152,8 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
         volume = makeVolume();
         if (gpu) CgGpuTrace.end();
         double ms = (System.nanoTime() - burstStart) / 1e6;
-        System.out.printf("[upload-stress] burst %d from the render thread: %s, %.2f ms on the render thread%n",
-                burst, bytes(), ms);
+        System.out.printf("[upload-stress] burst %d from the render thread: %s, %.2f ms on the render thread; "
+                + "%d copies on the transfer queue%n", burst, bytes(), ms, PlatformServiceHarness.transferCopies() - copiesAtStart);
     }
 
     private void landed() {
@@ -172,6 +187,11 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
         constants.resolution(w, h).cameraFromView();
         renderer.begin();
         renderer.useMaterial(material);
+        if (load > 0) {
+            renderer.bindTexture(0, CgFallbackTextures.WHITE_1x1);
+            for (int i = 0; i < load; i++) renderer.quad().at(0, 0).size(w, h).color(0x08FFFFFF).submit();
+            renderer.flush();
+        }
         int columns = 8;
         float cell = Math.min(w, h) / (float) columns;
         for (int i = 0; i < shown.size(); i++) {

@@ -179,6 +179,11 @@ public final class PlatformServiceHarness implements CgPlatformService {
         @Override public void beginAsync() { host.beginAsync(); }
         @Override public long endAsync() { return host.endAsync(); }
         @Override public void waitAsync(long point) { host.waitAsync(point); }
+        @Override public boolean asyncTransfer() { return host.asyncTransfer(); }
+        @Override public int transferFamily() { return host.transferFamily(); }
+        @Override public VkCommandBuffer transferCommandBuffer() { return host.transferCommandBuffer(); }
+        @Override public long submitTransfers() { return host.submitTransfers(); }
+        @Override public void waitTransfers(long point) { host.waitTransfers(point); }
 
         @Override
         public void endFrame(CgVulkanImage output) {
@@ -191,6 +196,11 @@ public final class PlatformServiceHarness implements CgPlatformService {
     /** Validation errors the Vulkan device has seen so far; 0 on any other device. */
     public static int validationErrors() {
         return INSTANCE == null || INSTANCE.vulkanDevice == null ? 0 : INSTANCE.vulkanDevice.validationErrors();
+    }
+
+    /** Copies the Vulkan device has recorded on its transfer queue so far; 0 on any other device or without one. */
+    public static int transferCopies() {
+        return INSTANCE == null || INSTANCE.vulkanDevice == null ? 0 : INSTANCE.vulkanDevice.transferCopies;
     }
 
     /** The device's surface follows the window's framebuffer. Nothing on GL. */
