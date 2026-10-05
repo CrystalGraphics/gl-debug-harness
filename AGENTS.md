@@ -46,7 +46,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   each live one placed and coloured by a material's `Buffers { }` through one indirect draw, in a graph and through the
   world renderer; it must fail the same way too. `--mode=raster-levels` is raster passes into mip levels: a chain drawn
   level by level in one texture, each level reading the one above through a level view, every texel checked against
-  Java. `--mode=readback` is `CgRecording.readback`'s: kernel-written words, a float target, an unaligned byte target
+  Java. `--mode=raster-layers` is raster passes into array layers: 2 to 5 layers of one array drawn each frame and
+  summed through a `sampler2DArray`, every layer and the sum checked, the array on one storage throughout.
+  `--mode=readback` is `CgRecording.readback`'s: kernel-written words, a float target, an unaligned byte target
   and a mip level read back every frame, each delivery checked against the frame that recorded it.
   `--mode=compute-check` is checked mode's (run it with `-Dcrystalgraphics.compute.checked=true`): a write past a
   buffer, an add past one and a texel past an image each reported once at its `.compute` line, and a kernel inside its

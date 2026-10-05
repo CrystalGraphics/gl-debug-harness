@@ -6,6 +6,7 @@ import com.crystalgraphics.harness.scene.test.ImageScene;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
 import com.crystalgraphics.harness.scene.test.CgMrtEmissionTestScene;
+import com.crystalgraphics.harness.scene.test.CgRasterLayersTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostLooksTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostEffectsTestScene;
 import com.crystalgraphics.harness.scene.test.CgAsyncComputeTestScene;
@@ -368,6 +369,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgRasterLevelsTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("raster-layers")
+                .description("Raster passes into array layers: 2 to 5 layers of one array drawn each frame and summed through a sampler2DArray; every layer and the sum must match Java's, on one storage throughout")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(64)
+                .defaultHeight(64)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgRasterLayersTestScene()
         );
 
         reg.register(
