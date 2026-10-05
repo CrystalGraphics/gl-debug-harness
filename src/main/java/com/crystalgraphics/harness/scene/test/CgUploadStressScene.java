@@ -35,9 +35,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * </pre>
  *
  * <ul>
- *   <li>Per frame, the profile has the zones {@code upload.texture} and {@code deferral.apply}, the counters
- *       {@code upload.textures}, {@code upload.texture-bytes}, {@code deferral.copies}, {@code tracked.texture-write-bytes}
- *       and {@code tracked.upload-breaks}, and the GPU zones {@code upload.deferred} and {@code upload-stress.render-thread}.</li>
+ *   <li>Per frame, the profile has the zones {@code upload.texture}, {@code upload.texture-unpack} and
+ *       {@code deferral.apply}, the workers' {@code upload.lease-copy}, the counters {@code upload.textures},
+ *       {@code upload.texture-bytes}, {@code upload.lease-misses}, {@code tracked.texture-write-bytes} and
+ *       {@code tracked.upload-breaks}, and the GPU zones {@code upload.deferred} and {@code upload-stress.render-thread}.</li>
  *   <li>Landed means applied to the device: a worker burst lands at the first frame executed after its last worker
  *       finished.</li>
  * </ul>
@@ -83,9 +84,8 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo info) {
-        if (landing && outstanding.get() == 0) {   // every worker done: this frame's execution applies what they asked
-            landed();
-        }
+        boolean landsNow = landing && outstanding.get() == 0;   // every worker done: this frame's execution applies their work
+        if (landsNow) landed();
         if (frame >= every && frame % every == 0 && !landing) {
             if (burst == bursts) {
                 running = false;
@@ -93,7 +93,12 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
             }
             start(burst++ % 2 == 0);
         }
+        long start = System.nanoTime();
         draw(ctx.getViewport().getWidth(), ctx.getViewport().getHeight());
+        if (landsNow) {
+            System.out.printf("[upload-stress] burst %d landing frame: %.2f ms drawing, its deferred work included%n",
+                    burst, (System.nanoTime() - start) / 1e6);
+        }
         frame++;
     }
 
