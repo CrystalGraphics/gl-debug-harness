@@ -15,7 +15,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
@@ -90,7 +89,7 @@ public final class TraceDump {
             LOGGER.log(Level.WARNING, "[TraceDump] could not prepare " + folder, e);
             return null;
         }
-        CgTraceSnapshot range = between(CgTrace.snapshot(), fromFrame, toFrame);
+        CgTraceSnapshot range = CgTrace.snapshot().between(fromFrame, toFrame);
         SourcePaths sources = SourcePaths.forRepository();
         File report = new File(folder, "report.txt");
         File tree = new File(folder, "tree.txt");
@@ -173,34 +172,6 @@ public final class TraceDump {
             if (frame.index() >= fromFrame && frame.endNanos() > first) return frame.index();
         }
         return -1L;
-    }
-
-    /** {@code snapshot} from frame {@code fromFrame} up to {@code toFrame}: its frames, the zones and events inside them. */
-    private static CgTraceSnapshot between(CgTraceSnapshot snapshot, long fromFrame, long toFrame) {
-        List<CgFrameRecord> frames = new ArrayList<>();
-        for (CgFrameRecord frame : snapshot.frames()) {
-            if (frame.index() >= fromFrame && frame.index() < toFrame) frames.add(frame);
-        }
-        if (frames.isEmpty()) return snapshot;
-        long from = frames.get(0).beginNanos();
-        long to = toFrame == Long.MAX_VALUE ? Long.MAX_VALUE : frames.get(frames.size() - 1).endNanos();
-        List<CgTraceSnapshot.ZoneView> zones = new ArrayList<>();
-        for (CgTraceSnapshot.ZoneView zone : snapshot.zones()) {
-            if (zone.startNanos() >= from && zone.startNanos() < to) zones.add(zone);
-        }
-        List<CgTraceSnapshot.CounterView> counters = new ArrayList<>();
-        for (CgTraceSnapshot.CounterView counter : snapshot.counters()) {
-            if (counter.frameIndex() >= fromFrame && counter.frameIndex() < toFrame) counters.add(counter);
-        }
-        List<CgTraceSnapshot.MarkerView> markers = new ArrayList<>();
-        for (CgTraceSnapshot.MarkerView marker : snapshot.markers()) {
-            if (marker.nanos() >= from && marker.nanos() < to) markers.add(marker);
-        }
-        List<CgTraceSnapshot.SpanView> spans = new ArrayList<>();
-        for (CgTraceSnapshot.SpanView span : snapshot.spans()) {
-            if (span.startNanos() >= from && span.startNanos() < to) spans.add(span);
-        }
-        return CgTraceSnapshot.of(frames, zones, counters, markers, spans);
     }
 
     private static File write(File directory, String label, Map<String, TraceReport> reports) {
