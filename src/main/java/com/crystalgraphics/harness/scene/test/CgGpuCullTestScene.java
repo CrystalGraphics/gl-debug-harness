@@ -84,6 +84,9 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     private static final int N = DISTANCES.length * COLUMNS * ROWS;
     /** The wall: from x -200 to 0 at z -9, hiding the left half of every row behind it. */
     private static final float WALL_Z = -9f;
+    /** The stamped comparison's scale and colour. */
+    private static final float STAMP_SCALE = 0.6f;
+    private static final float[] STAMP = {0.9f, 0.3f, 0.8f};
 
     private CgMaterial material, wallMaterial;
     private CgMeshLods lods;
@@ -183,6 +186,28 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         target.captureToFile(ctx.getOutputDir(), "gpu-cull-world-ranges.png");
         store.multiDraw(joins);
         rangeWall.close();
+        world.release();
+
+        // Stamped: every sphere at STAMP_SCALE its size in one colour, by the CPU's transform and custom, and as the
+        // set's instance scale and a custom its cull stamps over each record's own.
+        world.release();
+        wall(world);
+        Matrix4f smaller = new Matrix4f().scaling(STAMP_SCALE);
+        for (int i = 0; i < N; i++) {
+            world.draw(lods, material).at(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]).transform(smaller)
+                    .custom(0, STAMP[0], STAMP[1], STAMP[2], 1f).submit();
+        }
+        store.multiDraw(false);
+        fire(target);
+        target.captureToFile(ctx.getOutputDir(), "gpu-cull-cpu-stamped.png");
+        world.release();
+        CgRenderStage.Registration stampWall = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, this::recordWall);
+        world.draw(lods, material).instances(instances, CgGpuCount.of(N)).instanceScale(STAMP_SCALE)
+                .custom(0, STAMP[0], STAMP[1], STAMP[2], 1f).submit();
+        fire(target);
+        target.captureToFile(ctx.getOutputDir(), "gpu-cull-world-stamped.png");
+        store.multiDraw(joins);
+        stampWall.close();
         world.release();
 
         int[] kept = new int[4];
@@ -393,7 +418,8 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         String reference = levelsJoin ? "gpu-cull-cpu.png" : "gpu-cull-cpu-separate.png";
         for (String[] pair : new String[][]{{"gpu-cull-cpu-separate.png", "gpu-cull-separate.png"},
                 {reference, "gpu-cull.png"}, {"gpu-cull-cpu-separate.png", "gpu-cull-world-separate.png"},
-                {reference, "gpu-cull-world.png"}, {"gpu-cull-cpu-separate.png", "gpu-cull-world-ranges.png"}}) {
+                {reference, "gpu-cull-world.png"}, {"gpu-cull-cpu-separate.png", "gpu-cull-world-ranges.png"},
+                {"gpu-cull-cpu-stamped.png", "gpu-cull-world-stamped.png"}}) {
             String differs = differs(ctx, pair[0], pair[1]);
             if (differs != null) {
                 System.out.println("[gpu-cull] FAIL on " + on + ": " + differs);
@@ -402,7 +428,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         }
         System.out.println("[gpu-cull] PASS on " + on + ": the GPU's cull draws the CPU's picture, in a pass of its own "
                 + "and as a world draw, separate and " + (levelsJoin ? "its levels in one multi-draw" : "with multi-draw on")
-                + ", and as two world draws of ranges of one buffer"
+                + ", as two world draws of ranges of one buffer, and with a scale and a custom stamped"
                 + ", each level's count within the wall's bounds");
     }
 
