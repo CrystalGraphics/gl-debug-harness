@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.font.CgFont;
+import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
@@ -13,6 +15,7 @@ import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxEffect;
@@ -93,6 +96,7 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle {
     private CgMesh sphere, cube;
     private CgMaterial mercury, copper;
     private CgWorldRenderer world;
+    private CgFont font;
 
     /** A station playing: its emitters ticked until the period ends and they have all finished. */
     private static final class Play extends CgVfxEffect {
@@ -130,6 +134,7 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().moveCamera(0f, 9f, 34f);
         ctx.getCamera3D().setPitch(-14f);
         ctx.getCamera3D().setMoveSpeed(8f);
+        font = CgFont.load(HarnessFontUtil.LATIN_FONT, CgFontStyle.REGULAR, 48);
         sphere = CgMeshShapes.sphere(40, 80);
         cube = CgMeshShapes.cube();
         mercury = CgMaterial.load("crystalgraphics:shaders/demo/vfx_mercury.shader");
@@ -291,7 +296,7 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle {
         CgVfxEmitter dragged = damped.toBuilder().name("drag").clearModules().module(new CgVfxModule.Drag(2.5f, 0f)).build();
         CgVfxLook look = CgVfxLook.builder(SCHEMA).emitter(damped).emitter(dragged)
                 .layer(sparkLayer(damped, GOLD, WHITE)).layer(sparkLayer(dragged, CYAN, WHITE)).build();
-        stations.add(new Station("damping (gold) beside drag (cyan)", x, z, look, List.of(damped, dragged),
+        stations.add(new Station("damping: Damping (gold) beside Drag (cyan)", x, z, look, List.of(damped, dragged),
                 new float[][]{{-3.5f, 1f, 0f}, {3.5f, 1f, 0f}}, null));
     }
 
@@ -498,6 +503,13 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle {
         vfx.update(seconds);
         vfx.submit(world);
         for (Station s : stations) {
+            // Its name over it, and what it shows under that.
+            int split = s.name().indexOf(": ");
+            String title = split < 0 ? s.name() : s.name().substring(0, split);
+            world.text(title, font).at(s.x(), 10.2, s.z()).height(1.1f).color(0xFFFFFFFF).submit();
+            if (split >= 0) {
+                world.text(s.name().substring(split + 2), font).at(s.x(), 9.1, s.z()).height(0.6f).color(0xFFB8D8FF).submit();
+            }
             if (s.props() == null) continue;
             currentX = s.x();
             currentZ = s.z();
@@ -512,6 +524,7 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle {
     public void dispose() {
         vfx.delete();
         stage.delete();
+        if (font != null) font.dispose();
     }
 
     @Override public boolean isRunning() { return true; }
