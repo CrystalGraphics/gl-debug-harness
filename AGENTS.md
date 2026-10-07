@@ -50,6 +50,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   summed through a `sampler2DArray`, every layer and the sum checked, the array on one storage throughout.
   `--mode=vfx-sim-equivalence` is the GPU particle simulation's against the CPU path (plan `vfx-gpu` §13.9): today
   `fx_rand` bit for bit and `fx_curl` within rounding of the Java, PASS at every forced tier and on `vulkan`.
+  `--mode=vfx-world` is the world on the GPU's (X4): a world of its own behind `CgWorldQuery` in the voxel window,
+  debris stepped onto its stairs and overhang resting on the half-block floor below each, a blast at a cave's mouth lit
+  from the window by Range, and after part of the roof breaks the distance field, flooded again around it, matching a
+  brute-force distance to solid; it prints the flood's GPU time. PASS at G43, G40, G33 and on `vulkan`.
   `--mode=readback` is `CgRecording.readback`'s: kernel-written words, a float target, an unaligned byte target
   and a mip level read back every frame, each delivery checked against the frame that recorded it.
   `--mode=compute-check` is checked mode's (run it with `-Dcrystalgraphics.compute.checked=true`): a write past a

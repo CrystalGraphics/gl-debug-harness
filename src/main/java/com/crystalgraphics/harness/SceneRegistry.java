@@ -18,6 +18,7 @@ import com.crystalgraphics.harness.scene.test.CgComputeCheckTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuBudgetTestScene;
 import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
 import com.crystalgraphics.harness.scene.test.CgVfxRangeScene;
+import com.crystalgraphics.harness.scene.test.CgVfxWorldScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSimEquivalenceScene;
 import com.crystalgraphics.harness.scene.test.CgVolumeTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
@@ -539,6 +540,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVfxRangeScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-world")
+                .description("vfx-gpu X4: a world of its own in the voxel window; GPU debris rests on its stairs and overhang, and Range lights a blast at a cave's mouth from it")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgVfxWorldScene()
         );
 
         reg.register(
