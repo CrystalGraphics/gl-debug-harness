@@ -210,11 +210,57 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         stampWall.close();
         world.release();
 
+        // Ordered: as a world draw, the same picture; by hand, each level's records read back in the set's order.
+        CgRenderStage.Registration orderWall = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, this::recordWall);
+        world.draw(lods, material).instances(instances, CgGpuCount.of(N)).ordered().submit();
+        store.multiDraw(false);
+        fire(target);
+        target.captureToFile(ctx.getOutputDir(), "gpu-cull-world-ordered.png");
+        store.multiDraw(joins);
+        orderWall.close();
+        world.release();
+        CgGraphBuffer ordered = CgGraphBuffer.persistent("gpu-cull.ordered", CgBufferDesc.elements(
+                CgGpuOps.cullRecords(cull, N), CgGpuOps.cullRecordBytes(), CgBufferUsage.STORAGE, CgBufferUsage.COPY));
+        CgGraphBuffer orderedCounts = CgGraphBuffer.persistent("gpu-cull.ordered-counts",
+                CgBufferDesc.of(16, CgBufferUsage.STORAGE, CgBufferUsage.INDIRECT));
+        CgRenderStage.Registration orderedCull = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, stage -> {
+            recordWall(stage);
+            CgComputePass pass = stage.recording().compute("gpu-cull.ordered");
+            CgGpuOps.cull(pass, cull.view(view, projection).place(new Matrix4f()).pyramid(stage.depthPyramid()).ordered(true),
+                    instances, CgGpuCount.of(N), ordered, orderedCounts, 0);
+            pass.end();
+        });
+        fire(target);
+        orderedCull.close();
+        cull.ordered(false);
+        int[] orderedKept = new int[4];
+        CgBufferReadback.readWords(orderedCounts.bufferId(), 0, orderedKept, 0, HEIGHTS.length);
+        String disorder = null;
+        for (int l = 0; l < HEIGHTS.length && disorder == null; l++) {
+            int[] record = new int[48];
+            float last = -1f;
+            for (int k = 0; k < Math.min(orderedKept[l], N); k++) {
+                long at = (long) (CgGpuOps.cullFirst(l, N) + k) * CgGpuOps.cullRecordBytes();
+                CgBufferReadback.readWords(ordered.bufferId(), at, record, 0, 48);
+                float id = Float.intBitsToFloat(record[36]);
+                if (id <= last) {
+                    disorder = "level " + l + " keeps instance " + id + " after " + last + ": an ordered cull out of order";
+                    break;
+                }
+                last = id;
+            }
+        }
+
         int[] kept = new int[4];
         CgBufferReadback.readWords(counts.bufferId(), 0, kept, 0, HEIGHTS.length);
+        if (disorder == null && !Arrays.equals(kept, orderedKept)) {
+            disorder = "the ordered cull kept " + Arrays.toString(orderedKept) + ", the cull " + Arrays.toString(kept);
+        }
         CgRecording release = new CgRecording();
         release.release(instances);
         release.release(counts);
+        release.release(ordered);
+        release.release(orderedCounts);
         CgImmediate.execute(release);
         target.unbind();
         target.delete();
@@ -226,7 +272,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
                 + joinedCalls + ", the world draw " + setSeparateCalls + " and " + setJoinedCalls + "; its levels "
                 + (levelsJoin ? "join" : "do not join") + " here");
         report(ctx, kept, levelsJoin, separateCalls - joinedCalls, setSeparateCalls - setJoinedCalls,
-                GlErrorChecker.checkAndLog("gpu-cull"));
+                GlErrorChecker.checkAndLog("gpu-cull"), disorder);
     }
 
     /** Whether the executor joins the culled levels: where draws join, and it takes their counts from the GPU. */
@@ -302,6 +348,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
             r[33] = rgb[1];
             r[34] = rgb[2];
             r[35] = 1f;
+            r[36] = i;   // custom1.x: the ordered cull's check
             for (float f : r) data.putFloat(f);
         }
         data.flip();
@@ -376,7 +423,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     }
 
     private void report(HarnessContext ctx, int[] kept, boolean levelsJoin, long callsSaved, long setCallsSaved,
-                        boolean glErrors) {
+                        boolean glErrors, String disorder) {
         CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
@@ -394,6 +441,10 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         }
         if ("recording".equals(on)) {
             System.out.println("[gpu-cull] PASS on recording: every command validated; a recording device draws nothing to compare");
+            return;
+        }
+        if (disorder != null) {
+            System.out.println("[gpu-cull] FAIL on " + on + ": " + disorder);
             return;
         }
         for (int l = 0; l < HEIGHTS.length; l++) {
@@ -419,7 +470,8 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         for (String[] pair : new String[][]{{"gpu-cull-cpu-separate.png", "gpu-cull-separate.png"},
                 {reference, "gpu-cull.png"}, {"gpu-cull-cpu-separate.png", "gpu-cull-world-separate.png"},
                 {reference, "gpu-cull-world.png"}, {"gpu-cull-cpu-separate.png", "gpu-cull-world-ranges.png"},
-                {"gpu-cull-cpu-stamped.png", "gpu-cull-world-stamped.png"}}) {
+                {"gpu-cull-cpu-stamped.png", "gpu-cull-world-stamped.png"},
+                {"gpu-cull-cpu-separate.png", "gpu-cull-world-ordered.png"}}) {
             String differs = differs(ctx, pair[0], pair[1]);
             if (differs != null) {
                 System.out.println("[gpu-cull] FAIL on " + on + ": " + differs);
@@ -428,7 +480,8 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         }
         System.out.println("[gpu-cull] PASS on " + on + ": the GPU's cull draws the CPU's picture, in a pass of its own "
                 + "and as a world draw, separate and " + (levelsJoin ? "its levels in one multi-draw" : "with multi-draw on")
-                + ", as two world draws of ranges of one buffer, and with a scale and a custom stamped"
+                + ", as two world draws of ranges of one buffer, with a scale and a custom stamped, and ordered (each"
+                + " level's records in the set's order)"
                 + ", each level's count within the wall's bounds");
     }
 
