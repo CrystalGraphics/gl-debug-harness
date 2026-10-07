@@ -8,7 +8,10 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.compute.ops.CgGpuOps;
+import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgRecording;
+import com.crystalgraphics.render.graph.CgTextureDesc;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.stage.CgHostView;
 import com.crystalgraphics.trace.CgGpuTrace;
@@ -34,7 +37,8 @@ import java.util.Random;
 /**
  * The gate for Range (plan vfx-gpu §13.4): a pool's particles culled against a view, grouped by slot and written as the
  * records a look reads, checked against the same cull and {@code CgVfxSystem.writeRecords}' maths in Java; and as the
- * object records a mesh per particle reads, against {@code CgVfxFrame.particleMeshes}' transform. Four slots,
+ * object records a mesh per particle reads, against {@code CgVfxFrame.particleMeshes}' transform. A depth pyramid
+ * holds a wall over the left half of the view, so what hides behind it is culled too, and slot 0 sorts far to near. Four slots,
  * one closed between them; one in front of the camera, one across the frustum's edge, one behind it. The pool steps once,
  * so the records Range reads are the Step kernel's; the reference is worked from those records, read back.
  *
@@ -65,11 +69,18 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private static final int DRAWN_FLOATS = 16, OBJECT_FLOATS = 48;
     /** Within this share of a plane's reach, a particle may fall either side: float rounding, not a wrong cull. */
     private static final float BORDER = 1e-4f;
+    /** The pyramid: its size (a power of two, so each texel folds a square of the one below), and the wall's depth. */
+    private static final int PYRAMID = 64;
+    private static final float WALL = 25f, FAR = 1e9f;
+    /** The slot that sorts far to near. */
+    private static final int SORTED = 0;
 
     private final CgVfxEmitter emitter = CgVfxExplosion.SPARKLES;
     private final CgHostView view = new CgHostView();
     private final Matrix4f viewProjection = new Matrix4f();
     private final float[][] planes = new float[6][4];
+    private final float[][] pyramidLevels = new float[7][];
+    private final Matrix4f projection = new Matrix4f();
     private final float[] curves = new float[2 * CgVfxGpuEmitter.CURVE_TEXELS];
     private final List<CgRequest> requests = new ArrayList<>();
     private CgVfxParticlePool pool;
@@ -79,7 +90,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private float[] radius;
     private ByteBuffer records, visible, drawn, objects;
     private final Matrix4f model = new Matrix4f(), turned = new Matrix4f(), normal = new Matrix4f();
-    private int frame, checkedDrawn, culled, timedFrom = -1;
+    private int frame, checkedDrawn, culled, occluded, timedFrom = -1;
     private float worst, worstRow, worstObject;
     private String failure;
     private boolean compared, running = true;
@@ -87,7 +98,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, -0.2f, -0.1f, -1f, 0f, 1f, 0f);
-        Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), 16f / 9f, 0.05f, 300f);
+        projection.perspective((float) Math.toRadians(70), 16f / 9f, 0.05f, 300f);
         view.set(CAMERA_X, CAMERA_Y, CAMERA_Z, look, projection);
         viewProjection.set(projection).mul(look);
         Vector4f plane = new Vector4f();
@@ -99,6 +110,13 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             planes[p][3] = plane.w;
         }
         emitter.writeCurves(curves, 0, CgVfxGpuEmitter.CURVE_TEXELS);
+        // The wall over the left half of level 0; each level above the farthest of the square it folds.
+        for (int l = 0, size = PYRAMID; l < pyramidLevels.length; l++, size >>= 1) {
+            float[] level = pyramidLevels[l] = new float[size * size];
+            for (int y = 0; y < size; y++) {
+                for (int x = 0; x < size; x++) level[y * size + x] = ((x + 1) << l) <= PYRAMID / 2 ? WALL : FAR;
+            }
+        }
     }
 
     @Override
@@ -139,7 +157,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         }
         if (frame < timedFrom + TIMED) {
             CgRecording rec = new CgRecording();
-            range.record(rec, view);
+            range.record(rec, view, null);
             CgImmediate.execute(rec);
         }
     }
@@ -174,9 +192,16 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         pool.endStep();
         pool.record(rec);
 
-        range = CgVfxRange.of(pool).frame(ALPHA, AHEAD);
+        CgGraphTexture pyramid = CgGraphTexture.transientTexture("vfx-range.pyramid",
+                new CgTextureDesc(PYRAMID, PYRAMID, CgGpuOps.PYRAMID_FORMAT).withMips());
+        for (int l = 0, size = PYRAMID; l < pyramidLevels.length; l++, size >>= 1) {
+            ByteBuffer level = ByteBuffer.allocateDirect(size * size * 4).order(ByteOrder.nativeOrder());
+            for (float depth : pyramidLevels[l]) level.putFloat(depth);
+            rec.update(pyramid, l, 0, 0, size, size, level.flip());
+        }
+        range = CgVfxRange.of(pool).frame(ALPHA, AHEAD).sorted(SORTED);
         range.objects();
-        range.record(rec, view);
+        range.record(rec, view, pyramid);
         bases = new int[slotCount];
         radius = new float[slotCount];
         for (int s = 0; s < slotCount; s++) {
@@ -252,7 +277,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             if (count < inside[s] || count > inside[s] + border[s]) {
                 fail("slot " + s + " has " + count + " visible, not " + inside[s] + " to " + (inside[s] + border[s]));
             }
-            int capacity = pool.capacity(s);
+            int capacity = pool.capacity(s), lastDepth = Integer.MAX_VALUE;
             for (int k = 0; k < capacity; k++) {
                 int d = bases[s] + k;
                 if (k >= count) {
@@ -269,6 +294,12 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
                 drawnOnce[r] = true;
                 checkPlaced(d, r);
                 checkObject(d, r);
+                if (s == SORTED) {
+                    int depth = depthKey(r, s);
+                    if (k > 0 && depth > lastDepth + 1) fail("slot " + s + " draws particle " + r + " at depth " + depth
+                            + " after one at " + lastDepth + ": not far to near");
+                    lastDepth = depth;
+                }
                 checkedDrawn++;
             }
         }
@@ -293,7 +324,65 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             if (margin < -edge) return -1;
             if (margin < edge) result = 0;
         }
+        // Behind the wall: either way within rounding of its depth or of a texel's edge.
+        float grown = reach * (1f + BORDER) + BORDER, shrunk = reach * (1f - BORDER) - BORDER;
+        boolean hidden = occluded(cx, cy, cz, grown), hiddenSmaller = occluded(cx, cy, cz, Math.max(shrunk, 0f));
+        if (hidden && hiddenSmaller) {
+            occluded++;
+            return -1;
+        }
+        if (hidden != hiddenSmaller) result = 0;
         return result;
+    }
+
+    /** {@code lib/occlusion.glsl}'s cg_occluded over this scene's pyramid, for a cube of half-size {@code reach}. */
+    private boolean occluded(float cx, float cy, float cz, float reach) {
+        float x0 = Float.MAX_VALUE, y0 = Float.MAX_VALUE, x1 = -Float.MAX_VALUE, y1 = -Float.MAX_VALUE, nearest = Float.MAX_VALUE;
+        Matrix4f vp = viewProjection;
+        for (int c = 0; c < 8; c++) {
+            float px = (c & 1) == 0 ? cx - reach : cx + reach, py = (c & 2) == 0 ? cy - reach : cy + reach;
+            float pz = (c & 4) == 0 ? cz - reach : cz + reach;
+            float w = vp.m03() * px + vp.m13() * py + vp.m23() * pz + vp.m33();
+            if (w < 0.01f) return false;
+            float nx = (vp.m00() * px + vp.m10() * py + vp.m20() * pz + vp.m30()) / w;
+            float ny = (vp.m01() * px + vp.m11() * py + vp.m21() * pz + vp.m31()) / w;
+            float nz = (vp.m02() * px + vp.m12() * py + vp.m22() * pz + vp.m32()) / w;
+            x0 = Math.min(x0, nx);
+            x1 = Math.max(x1, nx);
+            y0 = Math.min(y0, ny);
+            y1 = Math.max(y1, ny);
+            nearest = Math.min(nearest, eyeDepth(nz));
+        }
+        int tx0 = texel(x0), tx1 = texel(x1), ty0 = texel(y0), ty1 = texel(y1), level = 0;
+        while (level < pyramidLevels.length - 1 && ((tx1 >> level) - (tx0 >> level) > 1 || (ty1 >> level) - (ty0 >> level) > 1)) level++;
+        int size = PYRAMID >> level, last = size - 1;
+        int ax = Math.min(tx0 >> level, last), bx = Math.min(tx1 >> level, last);
+        int ay = Math.min(ty0 >> level, last), by = Math.min(ty1 >> level, last);
+        float[] l = pyramidLevels[level];
+        float farthest = Math.max(Math.max(l[ay * size + ax], l[ay * size + bx]), Math.max(l[by * size + ax], l[by * size + bx]));
+        return nearest > farthest;
+    }
+
+    private float eyeDepth(float ndc) {
+        float e0 = projection.m22(), e1 = projection.m23(), e2 = projection.m32(), e3 = projection.m33();
+        if (e1 == 0f) return (e2 - ndc) / e0;
+        float p22 = -e0 / e1, p32 = e2 + p22 * e3;
+        return p32 / (ndc + p22);
+    }
+
+    private static int texel(float ndc) {
+        return (int) Math.max(0f, Math.min((float) Math.floor((ndc * 0.5f + 0.5f) * PYRAMID), PYRAMID - 1));
+    }
+
+    /** Range's view depth key: 16 bits, logarithmic from 1/64 to 1024 blocks. */
+    private int depthKey(int r, int slot) {
+        float cx = ORIGIN[slot][0] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION);
+        float cy = ORIGIN[slot][1] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 1);
+        float cz = ORIGIN[slot][2] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 2);
+        Matrix4f vp = viewProjection;
+        float w = Math.max(vp.m03() * cx + vp.m13() * cy + vp.m23() * cz + vp.m33(), 1f / 64f);
+        float log = (float) (Math.log(w) / Math.log(2));
+        return (int) (Math.max(0f, Math.min((log + 6f) / 16f, 1f)) * 65535f);
     }
 
     /** Drawn record {@code d} against particle {@code r} as {@code CgVfxSystem.writeRecords} writes it. */
@@ -409,6 +498,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         }
         if (failure == null && compared && checkedDrawn == 0) failure = "no particle was drawn: it checked nothing";
         if (failure == null && compared && culled == 0) failure = "no particle was culled: the cull went unchecked";
+        if (failure == null && compared && occluded == 0) failure = "no particle hid behind the wall: occlusion went unchecked";
         if (GlErrorChecker.checkAndLog("vfx-range")) {
             System.out.println("[vfx-range] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
@@ -421,7 +511,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             System.out.println("[vfx-range] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[vfx-range] PASS on " + on + ": " + live + " alive in " + slotCount + " slots, " + checkedDrawn
-                    + " drawn and checked, " + culled + " culled; worst share of the tolerance " + worst
+                    + " drawn and checked, " + culled + " culled (" + occluded + " behind the wall), slot " + SORTED
+                    + " far to near; worst share of the tolerance " + worst
                     + ", objects " + worstObject + "; the curve row strays from the curves by at most " + worstRow);
         }
     }
