@@ -506,9 +506,10 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle {
             // Its name over it, and what it shows under that.
             int split = s.name().indexOf(": ");
             String title = split < 0 ? s.name() : s.name().substring(0, split);
-            world.text(title, font).at(s.x(), 10.2, s.z()).height(1.1f).color(0xFFFFFFFF).submit();
+            world.text(s.x(), 10.2, s.z()).height(1.1f).text(title).font(font).stroke(0.08f, 0xFF000000).submit();
             if (split >= 0) {
-                world.text(s.name().substring(split + 2), font).at(s.x(), 9.1, s.z()).height(0.6f).color(0xFFB8D8FF).submit();
+                world.text(s.x(), 9.1, s.z()).height(0.6f).text(s.name().substring(split + 2)).font(font)
+                        .color(0xFFB8D8FF).stroke(0.08f, 0xFF000000).submit();
             }
             if (s.props() == null) continue;
             currentX = s.x();
