@@ -18,8 +18,11 @@ import com.crystalgraphics.trace.CgGpuTrace;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.vfx.element.CgVfxExplosion;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
+import com.crystalgraphics.vfx.particle.gpu.CgVfxCurveDomain;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxGpuEmitter;
+import com.crystalgraphics.vfx.particle.gpu.CgVfxGpuModule;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
+import com.crystalgraphics.vfx.particle.gpu.CgVfxWords;
 import com.crystalgraphics.vfx.particle.gpu.draw.CgVfxRange;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
@@ -41,7 +44,8 @@ import java.util.Random;
  * holds a wall over the left half of the view, so what hides behind it is culled too, and slot 0 sorts far to near. Four slots,
  * one closed between them; one in front of the camera, one across the frustum's edge, one behind it. The pool steps once,
  * so the records Range reads are the Step kernel's; the reference is worked from those records, read back. A pool of
- * another shape ranges ahead of it, so its slots, keys and records sit past that pool's in the shared buffers.
+ * another shape ranges ahead of it, so its slots, keys and records sit past that pool's in the shared buffers. Slot 0's
+ * definition samples its curves by speed, the others' over life, so one pool holds rows of both domains.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-range"
@@ -81,8 +85,12 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     /** The pool ranged ahead: another shape, a capacity no multiple of Range's alignment, and its particles seeded. */
     private static final CgVfxEmitter LEAD = CgVfxExplosion.INK;
     private static final int LEAD_CAPACITY = 901, LEAD_SEEDED = 700;
+    /** The slot whose curves go by speed, and its domain: about the middle of the seeded speeds. */
+    private static final int BY_SPEED = 0;
+    private static final CgVfxCurveDomain SPEEDS = CgVfxCurveDomain.speed(1.5f, 4f);
 
     private final CgVfxEmitter emitter = CgVfxExplosion.SPARKLES;
+    private final CgVfxGpuEmitter bySpeed = new BySpeed(emitter);
     private final CgHostView view = new CgHostView();
     private final Matrix4f viewProjection = new Matrix4f();
     private final float[][] planes = new float[6][4];
@@ -97,7 +105,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private float[] radius;
     private ByteBuffer records, visible, drawn, objects;
     private final Matrix4f model = new Matrix4f(), turned = new Matrix4f(), normal = new Matrix4f();
-    private int frame, checkedDrawn, culled, occluded, sourceKept, timedFrom = -1;
+    private int frame, checkedDrawn, culled, occluded, sourceKept, timedFrom = -1, slowest, between, fastest;
     private float worst, worstRow, worstObject;
     private String failure;
     private boolean compared, running = true;
@@ -177,6 +185,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
 
     private void record() {
         CgVfxParticlePool.prepare(emitter);
+        CgVfxParticlePool.prepare(bySpeed);
         CgVfxParticlePool.prepare(LEAD);
         CgVfxRange.prepare();
         CgRecording rec = new CgRecording();
@@ -195,7 +204,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         pool = CgVfxParticlePool.of(this, emitter);
         if (pool == lead) fail("the lead pool is the checked one: give it another shape");
         int[] slots = new int[CAPACITY.length];
-        for (int s = 0; s < CAPACITY.length; s++) slots[s] = pool.open(emitter, CAPACITY[s] * SCALE);
+        for (int s = 0; s < CAPACITY.length; s++) slots[s] = pool.open(s == BY_SPEED ? bySpeed : emitter, CAPACITY[s] * SCALE);
         pool.close(slots[1]);
         pool.cullAbout(slots[SOURCE], SOURCE_REACH);
         slotCount = pool.slotCount();
@@ -334,6 +343,12 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
                 if (!mayDraw[r]) fail("slot " + s + " draws particle " + r + ", which is outside the view");
                 drawnOnce[r] = true;
                 checkPlaced(d, r);
+                if (s == BY_SPEED) {
+                    float u = curveAt(r, 0f);
+                    if (u == 0f) slowest++;
+                    else if (u == 1f) fastest++;
+                    else between++;
+                }
                 checkObject(d, r);
                 if (s == SORTED) {
                     int depth = depthKey(r, s);
@@ -442,9 +457,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     /** Drawn record {@code d} against particle {@code r} as {@code CgVfxSystem.writeRecords} writes it. */
     private void checkPlaced(int d, int r) {
         float age = CgVfxRecord.f(records, r, CgVfxRecord.AGE), life = CgVfxRecord.f(records, r, CgVfxRecord.LIFE);
-        float t = Math.min(age / life, 1f);
-        float size = curve(t, 0), opacity = curve(t, 1);
-        worstRow = Math.max(worstRow, Math.max(Math.abs(size - emitter.sizeAt(t)), Math.abs(opacity - emitter.opacityAt(t))));
+        float t = Math.min(age / life, 1f), u = curveAt(r, t);
+        float size = curve(u, 0), opacity = curve(u, 1);
+        worstRow = Math.max(worstRow, Math.max(Math.abs(size - emitter.sizeAt(u)), Math.abs(opacity - emitter.opacityAt(u))));
         float[] want = new float[DRAWN_FLOATS];
         for (int a = 0; a < 3; a++) {
             float now = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + a), was = CgVfxRecord.f(records, r, CgVfxRecord.PREVIOUS + a);
@@ -476,7 +491,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             float now = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + a), was = CgVfxRecord.f(records, r, CgVfxRecord.PREVIOUS + a);
             at[a] = was + (now - was) * ALPHA;
         }
-        float size = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * curve(t, 0);
+        float u = curveAt(r, t), size = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * curve(u, 0);
         turned.rotationXYZ(turn * 1.7f, turn * 2.3f, turn).scale(size);
         model.translation(at[0], at[1], at[2]).mul(turned).normal(normal);
         float[] want = new float[OBJECT_FLOATS];
@@ -488,7 +503,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         want[31] = 1f;
         want[36] = t;
         want[37] = seed;
-        want[38] = curve(t, 1);
+        want[38] = curve(u, 1);
         want[39] = CgVfxRecord.f(records, r, CgVfxRecord.HEAT);
         for (int w = 0; w < OBJECT_FLOATS; w++) {
             float got = objects.getFloat(d * OBJECT_FLOATS * 4 + w * 4), off;
@@ -515,6 +530,13 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
                 return;
             }
         }
+    }
+
+    /** Where particle {@code r} samples its curves: by speed in slot {@link #BY_SPEED}, else its life progress {@code t}. */
+    private float curveAt(int r, float t) {
+        if (CgVfxRecord.i(records, r, CgVfxRecord.SLOT) != BY_SPEED) return t;
+        return SPEEDS.at(0f, 1f, CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY),
+                CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + 1), CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + 2));
     }
 
     /** The curve row at progress {@code t}, between its two nearest samples, as Place reads it. */
@@ -552,6 +574,10 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         }
         if (failure == null && compared && checkedDrawn == 0) failure = "no particle was drawn: it checked nothing";
         if (failure == null && compared && culled == 0) failure = "no particle was culled: the cull went unchecked";
+        if (failure == null && compared && (slowest == 0 || between == 0 || fastest == 0)) {
+            failure = "slot " + BY_SPEED + " drew " + slowest + " below its speeds, " + between + " between and " + fastest
+                    + " above: each is the test";
+        }
         if (failure == null && compared && occluded == 0) failure = "no particle hid behind the wall: occlusion went unchecked";
         if (failure == null && compared && sourceKept == 0) {
             failure = "no particle of slot " + SOURCE + " lies outside the view: its source's cull went unchecked";
@@ -572,7 +598,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
                     + " drawn and checked, " + culled + " culled (" + occluded + " behind the wall), slot " + SORTED
                     + " far to near, slot " + SOURCE + " culled about its source (" + sourceKept + " outside the view kept)"
                     + "; worst share of the tolerance " + worst
-                    + ", objects " + worstObject + "; the curve row strays from the curves by at most " + worstRow);
+                    + ", objects " + worstObject + "; the curve row strays from the curves by at most " + worstRow
+                    + "; slot " + BY_SPEED + "'s curves by speed (" + slowest + " below, " + between + " between, " + fastest + " above)");
         }
     }
 
@@ -585,4 +612,14 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     @Override public boolean uses3DCamera() { return false; }
 
     @Override public boolean shouldShutdownOnComplete() { return true; }
+
+    /** The checked emitter with its curves by speed: another row of the same pool. */
+    private record BySpeed(CgVfxEmitter of) implements CgVfxGpuEmitter {
+        public String name() { return of.name() + "-by-speed"; }
+        public CgVfxEmitter.Renderer renderer() { return of.renderer(); }
+        public List<? extends CgVfxGpuModule> modules() { return of.modules(); }
+        public void writeSpawn(CgVfxWords out) { of.writeSpawn(out); }
+        public void writeCurves(float[] out, int at, int texels) { of.writeCurves(out, at, texels); }
+        public CgVfxCurveDomain curveDomain() { return SPEEDS; }
+    }
 }
