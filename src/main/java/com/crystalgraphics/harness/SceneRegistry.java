@@ -49,6 +49,7 @@ import com.crystalgraphics.harness.scene.test.CgMeshDrawsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshFrameStressScene;
 import com.crystalgraphics.harness.scene.test.CgVfxModulesScene;
+import com.crystalgraphics.harness.scene.test.CgWorldLabelsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxParticlesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShowcaseScene;
 import com.crystalgraphics.harness.scene.test.CgVfxTrailsScene;
@@ -820,6 +821,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxModulesScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("world-labels")
+                .description("CgWorldRenderer.text under load: a grid of outlined, shadowed labels (-Dcrystalgraphics.harness.labels=<n>)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgWorldLabelsScene()
         );
 
         reg.register(
