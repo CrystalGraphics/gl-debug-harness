@@ -356,7 +356,7 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
             }
             air.tick(warm * DT);
 
-            CgVfxParticlePool pool = CgVfxParticlePool.of(definition);
+            CgVfxParticlePool pool = CgVfxParticlePool.of(CgVfxSimEquivalenceScene.this, definition);
             int slot = pool.open(definition, definition.peakAlive());
             CgVfxParticleSet p = cpu.particles();
             if (spawnCheck && p.count() != 0) fail(label() + ": " + p.count() + " alive before its first spawn", n);
