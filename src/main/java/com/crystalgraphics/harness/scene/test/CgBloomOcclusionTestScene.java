@@ -11,6 +11,8 @@ import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.render.draw.CgInstanceKind;
+import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
@@ -42,13 +44,15 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
     /** How many pixels the ball in front must brighten: its halo, past its own silhouette. */
     private static final int FRONT_MIN_CHANGED = 50;
 
-    private CgMaterial wall, glow, emissionOnly;
+    private CgMaterial wall, glow, emissionOnly, glowAlpha, glowPremultiplied;
 
     @Override
     public void init(HarnessContext ctx) {
         wall = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         glow = CgMaterial.load("assets/harness/shader/bloom_glow.shader");
         emissionOnly = CgMaterial.newInstance("crystalgraphics:shaders/emission_only.shader");
+        glowAlpha = CgMaterial.load("assets/harness/shader/bloom_glow_alpha.shader");
+        glowPremultiplied = CgMaterial.load("assets/harness/shader/bloom_glow_premul.shader");
     }
 
     @Override
@@ -90,6 +94,8 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         draw(ctx, world, 320, 240, emissionOnly, false, 1f, 1f, "emission-only-on.png");
         failure = compare(ctx, "emission-only", false);
         if (failure != null) failures.add("emission-only: " + failure);
+        merged(ctx, world, failures);
+        fallback(ctx, world, failures);   // last: a refusal holds for the framebuffer's name, which the next target reuses
         CgPostStack.get().bloom().intensity(1f);
         world.emissionScale(0f);
         report(failures, GlErrorChecker.checkAndLog("bloom-occlusion"));
@@ -102,6 +108,14 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
     private void draw(HarnessContext ctx, CgWorldRenderer world, int w, int h, CgMaterial ball, boolean hidden,
                       float emission, float bloom, String file) {
         HarnessFboHelper target = HarnessFboHelper.create(w, h, true);
+        drawInto(ctx, world, target, w, h, ball, hidden, emission, bloom, file);
+        target.unbind();
+        target.delete();
+    }
+
+    /** As {@link #draw}, into {@code target}, the stages told the host's size is {@code w} x {@code h}. */
+    private void drawInto(HarnessContext ctx, CgWorldRenderer world, HarnessFboHelper target, int w, int h, CgMaterial ball,
+                          boolean hidden, float emission, float bloom, String file) {
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
         CgPostStack.get().bloom().intensity(bloom);
@@ -119,8 +133,78 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         }
         CgFrameRing.endFrame();   // a draw lives one frame: the next capture starts empty
         target.captureToFile(ctx.getOutputDir(), file);
+    }
+
+    /**
+     * A transparent glow whose Emissive pass folds into its Forward draw, one blended by alpha and one premultiplied
+     * with an adding Emissive pass: drawn with merging off and on at emission scale 1, the pictures must be the same
+     * byte for byte, and the merged one in front must still bloom. The opaque ball's authored Emissive pass never merges.
+     */
+    private void merged(HarnessContext ctx, CgWorldRenderer world, List<String> failures) {
+        if (glow.pipeline(CgInstanceKind.OBJECT).emissionTarget() != null) failures.add("merge: an authored Emissive pass merged");
+        world.emissionScale(1f);
+        for (CgMaterial ball : List.of(glowAlpha, glowPremultiplied)) {
+            String kind = ball == glowAlpha ? "alpha" : "premultiplied";
+            if (ball.pipeline(CgInstanceKind.OBJECT).emissionTarget() == null) {
+                failures.add("merge-" + kind + ": its Emissive pass does not merge");
+                continue;
+            }
+            for (boolean hidden : new boolean[]{true, false}) {
+                String name = "merge-" + kind + "-" + (hidden ? "hidden" : "front");
+                world.mergeEmission(false);
+                draw(ctx, world, 321, 241, ball, hidden, 1f, 1f, name + "-apart.png");
+                world.mergeEmission(true);
+                draw(ctx, world, 321, 241, ball, hidden, 1f, 1f, name + "-on.png");
+                if (world.mergedDraws() == 0) failures.add(name + ": nothing was merged, so the comparison proves nothing");
+                draw(ctx, world, 321, 241, ball, hidden, 1f, 0f, name + "-off.png");
+                String failure = same(ctx, name + "-apart.png", name + "-on.png");
+                if (failure == null) failure = compare(ctx, name, hidden);
+                if (failure != null) failures.add(name + ": " + failure);
+            }
+        }
+        world.mergeEmission(true);
+    }
+
+    /**
+     * A host target that takes no second attachment (here its stated size is not the viewport's) is drawn without one,
+     * refused for good, and from then on drawn the old way: the same picture as with merging off.
+     */
+    private void fallback(HarnessContext ctx, CgWorldRenderer world, List<String> failures) {
+        HarnessFboHelper target = HarnessFboHelper.create(321, 241, true);
+        world.mergeEmission(false);
+        drawInto(ctx, world, target, 323, 241, glowAlpha, false, 1f, 1f, "fallback-apart.png");
+        world.mergeEmission(true);
+        drawInto(ctx, world, target, 323, 241, glowAlpha, false, 1f, 1f, "fallback-refused.png");
+        if (!CgRasterPass.refusesAttachment(target.getFboId())) failures.add("fallback: a target of another size was not refused");
+        drawInto(ctx, world, target, 323, 241, glowAlpha, false, 1f, 1f, "fallback-on.png");
+        if (world.mergedDraws() != 0) failures.add("fallback: a refused target merged again");
+        String failure = same(ctx, "fallback-apart.png", "fallback-on.png");
+        if (failure != null) failures.add("fallback: " + failure);
         target.unbind();
         target.delete();
+    }
+
+    /** Null when two captures are the same byte for byte; else the first pixel that differs. */
+    private static String same(HarnessContext ctx, String a, String b) {
+        BufferedImage first, second;
+        try {
+            first = ImageIO.read(new File(ctx.getOutputDir(), a));
+            second = ImageIO.read(new File(ctx.getOutputDir(), b));
+        } catch (IOException e) {
+            return "a capture could not be read: " + e;
+        }
+        int differ = 0, firstX = -1, firstY = -1;
+        for (int y = 0; y < first.getHeight(); y++) {
+            for (int x = 0; x < first.getWidth(); x++) {
+                if (first.getRGB(x, y) != second.getRGB(x, y) && differ++ == 0) {
+                    firstX = x;
+                    firstY = y;
+                }
+            }
+        }
+        if (differ == 0) return null;
+        return "merged and apart differ at " + differ + " pixels, first at (" + firstX + ", " + firstY + "): 0x"
+                + Integer.toHexString(first.getRGB(firstX, firstY)) + " apart, 0x" + Integer.toHexString(second.getRGB(firstX, firstY)) + " merged";
     }
 
     /** Null when bloom left a hidden ball's picture alone or brightened a ball in front; else what went wrong. */
@@ -169,7 +253,8 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
             for (String failure : failures) System.out.println("[bloom-occlusion] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[bloom-occlusion] PASS on " + on + ": a ball behind the wall blooms nowhere and one in "
-                    + "front blooms, at every tier, three sizes and emission scales 1, 0.5 and the tier's; emission(0) and an emission-only ball");
+                    + "front blooms, at every tier, three sizes and emission scales 1, 0.5 and the tier's; emission(0), an emission-only ball, "
+                    + "two transparent glows the same merged into one draw as apart, and a target that takes no second attachment drawn the old way");
         }
     }
 

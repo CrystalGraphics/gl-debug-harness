@@ -257,11 +257,17 @@ public final class HarnessContext {
      */
     public int getScreenHeight() { return viewport.getHeight(); }
 
+    private int targetFramebuffer;
+
     /**
-     * The framebuffer every scene draws into — the window's own, 0 — as a Minecraft host names its main target to
-     * the render stages. Stated here, never read back from GL.
+     * The framebuffer every scene draws into, as a Minecraft host names its main target to the render stages: the
+     * window's own, 0, or the runner's main target under {@code -Dcrystalgraphics.harness.mainTarget=true}. Stated
+     * here, never read back from GL.
      */
-    public int getTargetFramebuffer() { return 0; }
+    public int getTargetFramebuffer() { return targetFramebuffer; }
+
+    /** Set by the interactive runner each frame it draws into its main target. */
+    public void setTargetFramebuffer(int framebuffer) { targetFramebuffer = framebuffer; }
 
     /**
      * Updates the stored screen dimensions. Called by the InteractiveSceneRunner

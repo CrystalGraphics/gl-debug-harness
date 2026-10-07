@@ -188,6 +188,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
         @Override public boolean indirectCount() { return host.indirectCount(); }
         @Override public boolean indirectFirstInstance() { return host.indirectFirstInstance(); }
         @Override public boolean drawParameters() { return host.drawParameters(); }
+        @Override public boolean independentBlend() { return host.independentBlend(); }
         @Override public boolean asyncCompute() { return host.asyncCompute(); }
         @Override public int asyncFamily() { return host.asyncFamily(); }
         @Override public void beginAsync() { host.beginAsync(); }
