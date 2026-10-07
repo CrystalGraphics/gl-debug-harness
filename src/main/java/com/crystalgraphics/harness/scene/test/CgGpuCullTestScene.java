@@ -6,6 +6,7 @@ import com.crystalgraphics.api.mesh.CgMeshLods;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.compute.ops.CgCull;
+import com.crystalgraphics.compute.ops.CgCullSets;
 import com.crystalgraphics.compute.ops.CgGpuCount;
 import com.crystalgraphics.compute.ops.CgGpuOps;
 import com.crystalgraphics.gl.buffer.CgBufferReadback;
@@ -212,7 +213,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
 
         // Ordered: as a world draw, the same picture; by hand, each level's records read back in the set's order.
         CgRenderStage.Registration orderWall = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, this::recordWall);
-        world.draw(lods, material).instances(instances, CgGpuCount.of(N)).ordered().submit();
+        world.draw(lods, material).instances(instances, CgGpuCount.of(N)).submit();
         store.multiDraw(false);
         fire(target);
         target.captureToFile(ctx.getOutputDir(), "gpu-cull-world-ordered.png");
@@ -251,6 +252,8 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
             }
         }
 
+        if (disorder == null) disorder = batched(target, cull, instances);
+
         int[] kept = new int[4];
         CgBufferReadback.readWords(counts.bufferId(), 0, kept, 0, HEIGHTS.length);
         if (disorder == null && !Arrays.equals(kept, orderedKept)) {
@@ -273,6 +276,76 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
                 + (levelsJoin ? "join" : "do not join") + " here");
         report(ctx, kept, levelsJoin, separateCalls - joinedCalls, setSeparateCalls - setJoinedCalls,
                 GlErrorChecker.checkAndLog("gpu-cull"), disorder);
+    }
+
+    /**
+     * Two sets of the instances culled together ({@link CgCullSets}), one counted on the CPU and one by a word on the
+     * GPU five short of its capacity, so two groups: each set's counts and records, word for word, against the same
+     * set culled alone in order. Null when they agree.
+     */
+    private String batched(HarnessFboHelper target, CgCull cull, CgGraphBuffer instances) {
+        int split = N / 2 + 7, rest = N - split;
+        int recordsA = CgGpuOps.cullRecords(cull, split), recordsB = CgGpuOps.cullRecords(cull, rest);
+        CgGraphBuffer gpuCount = CgGraphBuffer.persistent("gpu-cull.count",
+                CgBufferDesc.of(16, CgBufferUsage.STORAGE, CgBufferUsage.COPY));
+        CgGraphBuffer alone = CgGraphBuffer.persistent("gpu-cull.alone", CgBufferDesc.elements(recordsA + recordsB,
+                CgGpuOps.cullRecordBytes(), CgBufferUsage.STORAGE, CgBufferUsage.COPY));
+        CgGraphBuffer aloneCounts = CgGraphBuffer.persistent("gpu-cull.alone-counts",
+                CgBufferDesc.of(2 * CgCull.MAX_LEVELS * 4, CgBufferUsage.STORAGE, CgBufferUsage.INDIRECT));
+        CgGraphBuffer batch = CgGraphBuffer.persistent("gpu-cull.batch", CgBufferDesc.elements(recordsA + recordsB,
+                CgGpuOps.cullRecordBytes(), CgBufferUsage.STORAGE, CgBufferUsage.COPY));
+        CgGraphBuffer batchCounts = CgGraphBuffer.persistent("gpu-cull.batch-counts",
+                CgBufferDesc.of((2 * CgCull.MAX_LEVELS + 1) * 4, CgBufferUsage.STORAGE, CgBufferUsage.INDIRECT));
+        CgCullSets sets = new CgCullSets();
+        int[] handles = new int[2];
+        ByteBuffer short5 = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder()).putInt(0, rest - 5);
+        CgRenderStage.Registration culling = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, stage -> {
+            recordWall(stage);
+            CgRecording rec = stage.recording();
+            rec.update(gpuCount, 0, short5.duplicate());
+            CgComputePass pass = rec.compute("gpu-cull.batched");
+            cull.view(view, projection).place(new Matrix4f()).pyramid(stage.depthPyramid()).ordered(true);
+            CgGpuCount counted = CgGpuCount.at(gpuCount, 0, rest);
+            CgGpuOps.cull(pass, cull, instances, 0, CgGpuCount.of(split), alone, 0, aloneCounts, 0);
+            CgGpuOps.cull(pass, cull, instances, split, counted, alone, recordsA, aloneCounts, CgCull.MAX_LEVELS);
+            sets.clear();
+            handles[0] = sets.add(cull, instances, 0, CgGpuCount.of(split));
+            handles[1] = sets.add(cull, instances, split, counted);
+            CgGpuOps.cull(pass, cull, sets, batch, batchCounts);
+            pass.end();
+        });
+        fire(target);
+        culling.close();
+        cull.ordered(false);
+        String mismatch = null;
+        int keptAll = 0;
+        int[] want = new int[48], got = new int[48], wantCount = new int[1], gotCount = new int[1];
+        for (int h = 0; h < 2 && mismatch == null; h++) {
+            int capacity = h == 0 ? split : rest, aloneFirst = h == 0 ? 0 : recordsA;
+            for (int l = 0; l < HEIGHTS.length && mismatch == null; l++) {
+                CgBufferReadback.readWords(aloneCounts.bufferId(), (h * CgCull.MAX_LEVELS + l) * 4L, wantCount, 0, 1);
+                CgBufferReadback.readWords(batchCounts.bufferId(), (sets.word(handles[h]) + l) * 4L, gotCount, 0, 1);
+                if (wantCount[0] != gotCount[0]) {
+                    mismatch = "set " + h + " level " + l + ": the batch kept " + gotCount[0] + ", alone " + wantCount[0];
+                    break;
+                }
+                keptAll += gotCount[0];
+                for (int k = 0; k < Math.min(gotCount[0], capacity); k++) {
+                    int level = CgGpuOps.cullFirst(l, capacity) + k;
+                    CgBufferReadback.readWords(alone.bufferId(), (long) (aloneFirst + level) * CgGpuOps.cullRecordBytes(), want, 0, 48);
+                    CgBufferReadback.readWords(batch.bufferId(), (long) (sets.first(handles[h]) + level) * CgGpuOps.cullRecordBytes(), got, 0, 48);
+                    if (!Arrays.equals(want, got)) {
+                        mismatch = "set " + h + " level " + l + " record " + k + ": the batch's differs from the set's alone";
+                        break;
+                    }
+                }
+            }
+        }
+        if (mismatch == null && keptAll == 0) mismatch = "the batch kept nothing: it checked nothing";
+        CgRecording release = new CgRecording();
+        for (CgGraphBuffer b : new CgGraphBuffer[]{gpuCount, alone, aloneCounts, batch, batchCounts}) release.release(b);
+        CgImmediate.execute(release);
+        return mismatch;
     }
 
     /** Whether the executor joins the culled levels: where draws join, and it takes their counts from the GPU. */
@@ -481,7 +554,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         System.out.println("[gpu-cull] PASS on " + on + ": the GPU's cull draws the CPU's picture, in a pass of its own "
                 + "and as a world draw, separate and " + (levelsJoin ? "its levels in one multi-draw" : "with multi-draw on")
                 + ", as two world draws of ranges of one buffer, with a scale and a custom stamped, and ordered (each"
-                + " level's records in the set's order)"
+                + " level's records in the set's order), two sets culled at once as each alone, word for word"
                 + ", each level's count within the wall's bounds");
     }
 
