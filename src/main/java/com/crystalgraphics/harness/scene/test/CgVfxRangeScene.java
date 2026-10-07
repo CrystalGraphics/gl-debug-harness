@@ -33,7 +33,8 @@ import java.util.Random;
 
 /**
  * The gate for Range (plan vfx-gpu §13.4): a pool's particles culled against a view, grouped by slot and written as the
- * records a look reads, checked against the same cull and {@code CgVfxSystem.writeRecords}' maths in Java. Four slots,
+ * records a look reads, checked against the same cull and {@code CgVfxSystem.writeRecords}' maths in Java; and as the
+ * object records a mesh per particle reads, against {@code CgVfxFrame.particleMeshes}' transform. Four slots,
  * one closed between them; one in front of the camera, one across the frustum's edge, one behind it. The pool steps once,
  * so the records Range reads are the Step kernel's; the reference is worked from those records, read back.
  *
@@ -61,7 +62,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private static final float[][] ORIGIN = {{0f, 0f, -20f}, {0f, 0f, -5f}, {0f, 0f, 15f}, {-16f, 2f, -15f}};
     private static final float[] SPREAD = {12f, 1f, 5f, 7f};
     /** Words of a drawn record: place, motion, state, light. */
-    private static final int DRAWN_FLOATS = 16;
+    private static final int DRAWN_FLOATS = 16, OBJECT_FLOATS = 48;
     /** Within this share of a plane's reach, a particle may fall either side: float rounding, not a wrong cull. */
     private static final float BORDER = 1e-4f;
 
@@ -76,9 +77,10 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private int slotCount, live = -1;
     private int[] bases;
     private float[] radius;
-    private ByteBuffer records, visible, drawn;
+    private ByteBuffer records, visible, drawn, objects;
+    private final Matrix4f model = new Matrix4f(), turned = new Matrix4f(), normal = new Matrix4f();
     private int frame, checkedDrawn, culled, timedFrom = -1;
-    private float worst, worstRow;
+    private float worst, worstRow, worstObject;
     private String failure;
     private boolean compared, running = true;
 
@@ -106,7 +108,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             record();
             return;
         }
-        if (!compared && records != null && visible != null && drawn != null && live >= 0) {
+        if (!compared && records != null && visible != null && drawn != null && objects != null && live >= 0) {
             compare();
             compared = true;
         }
@@ -173,6 +175,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         pool.record(rec);
 
         range = CgVfxRange.of(pool).frame(ALPHA, AHEAD);
+        range.objects();
         range.record(rec, view);
         bases = new int[slotCount];
         radius = new float[slotCount];
@@ -186,6 +189,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         requests.add(rec.readback(pool.records(), 0, (long) storage * CgVfxRecord.BYTES, data -> records = copy(data)));
         requests.add(rec.readback(range.visible(), 0, (slotCount + 1) * 4L, data -> visible = copy(data)));
         requests.add(rec.readback(range.drawn(), 0, (long) capacity * DRAWN_FLOATS * 4, data -> drawn = copy(data)));
+        requests.add(rec.readback(range.objects(), 0, (long) capacity * OBJECT_FLOATS * 4, data -> objects = copy(data)));
         CgImmediate.execute(rec);
     }
 
@@ -264,6 +268,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
                 if (!mayDraw[r]) fail("slot " + s + " draws particle " + r + ", which is outside the view");
                 drawnOnce[r] = true;
                 checkPlaced(d, r);
+                checkObject(d, r);
                 checkedDrawn++;
             }
         }
@@ -315,6 +320,46 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             float got = drawn.getFloat(d * 64 + w * 4), off = Math.abs(got - want[w]) / (1e-5f * (1f + Math.abs(want[w])));
             worst = Math.max(worst, off);
             if (!(off <= 1f)) fail("particle " + r + " drawn word " + w + " is " + got + ", not " + want[w]);
+        }
+    }
+
+    /** Object record {@code d} against particle {@code r} as {@code CgVfxFrame.particleMeshes} places its mesh. */
+    private void checkObject(int d, int r) {
+        float age = CgVfxRecord.f(records, r, CgVfxRecord.AGE), life = CgVfxRecord.f(records, r, CgVfxRecord.LIFE);
+        float t = Math.min(age / life, 1f), seed = CgVfxRecord.f(records, r, CgVfxRecord.SEED);
+        float turn = seed * 6.2831853f + CgVfxRecord.f(records, r, CgVfxRecord.SPIN);
+        float[] at = new float[3];
+        for (int a = 0; a < 3; a++) {
+            float now = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + a), was = CgVfxRecord.f(records, r, CgVfxRecord.PREVIOUS + a);
+            at[a] = was + (now - was) * ALPHA;
+        }
+        float size = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * curve(t, 0);
+        turned.rotationXYZ(turn * 1.7f, turn * 2.3f, turn).scale(size);
+        model.translation(at[0], at[1], at[2]).mul(turned).normal(normal);
+        float[] want = new float[OBJECT_FLOATS];
+        model.get(want, 0);
+        normal.get(want, 16);
+        want[28] = 15f;
+        want[29] = 15f;
+        want[30] = 0f;
+        want[31] = 1f;
+        want[36] = t;
+        want[37] = seed;
+        want[38] = curve(t, 1);
+        want[39] = CgVfxRecord.f(records, r, CgVfxRecord.HEAT);
+        for (int w = 0; w < OBJECT_FLOATS; w++) {
+            float got = objects.getFloat(d * OBJECT_FLOATS * 4 + w * 4), off;
+            boolean rotation = w % 4 != 3 && (w < 12 || (w >= 16 && w < 28));
+            if (rotation) {
+                // The rotation alone: JOML takes each cosine as sqrt(1 - sin^2) in float, about 1e-3 off near a
+                // quarter turn, where the GPU's cos is exact to rounding.
+                float unit = w < 12 ? 1f / size : size;
+                off = Math.abs(got - want[w]) * unit / 2e-3f;
+            } else {
+                off = Math.abs(got - want[w]) / (1e-5f * (1f + Math.abs(want[w])));
+            }
+            worstObject = Math.max(worstObject, off);
+            if (!(off <= 1f)) fail("particle " + r + " object word " + w + " is " + got + ", not " + want[w]);
         }
     }
 
@@ -377,7 +422,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         } else {
             System.out.println("[vfx-range] PASS on " + on + ": " + live + " alive in " + slotCount + " slots, " + checkedDrawn
                     + " drawn and checked, " + culled + " culled; worst share of the tolerance " + worst
-                    + "; the curve row strays from the curves by at most " + worstRow);
+                    + ", objects " + worstObject + "; the curve row strays from the curves by at most " + worstRow);
         }
     }
 
