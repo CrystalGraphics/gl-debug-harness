@@ -147,13 +147,14 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle {
         gather(COLUMNS[0], ROWS[0]);
         tornado(COLUMNS[1], ROWS[0], smokeSheet);
         field(COLUMNS[2], ROWS[0]);
-        shield(COLUMNS[3], ROWS[0], dot);
+        // The uncapped fountain in limit sprays far: it stands in a corner.
+        limit(COLUMNS[3], ROWS[0]);
         boulder(COLUMNS[0], ROWS[1]);
         cage(COLUMNS[1], ROWS[1]);
         slope(COLUMNS[2], ROWS[1]);
         block(COLUMNS[3], ROWS[1]);
         dampingAndDrag(COLUMNS[0], ROWS[2]);
-        limit(COLUMNS[1], ROWS[2]);
+        shield(COLUMNS[1], ROWS[2], dot);
         flipbooks(COLUMNS[2], ROWS[2], smokeSheet, fireSheet);
         facings(COLUMNS[3], ROWS[2], arrow);
         for (Station s : stations) LOG.info("[vfx-modules] {} at x {}, z {}", s.name(), s.x(), s.z());
@@ -222,21 +223,33 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle {
                         b -> b.sampler("_Sheet", 0, dot).vec4("_Frames", 1f, 1f, 1f, 1f)), null);
     }
 
-    /** Godot's sphere collider and rigid response; each bounce a collision event spawning a flash. */
+    /**
+     * Godot's sphere collider and rigid response; each bounce a collision event: a flash at the contact, popping and gone
+     * within a tenth of a second, and a few hot chips glancing off the surface about its normal.
+     */
     private void boulder(float x, float z) {
         CgVfxEmitter flash = CgVfxEmitter.builder("boulderFlash").renderer(CgVfxEmitter.Renderer.QUADS).capacity(64)
-                .speed(0.5f, 1.5f).life(0.15f, 0.3f).size(0.15f, 0.3f, 1f).heat(1f).build();
+                .speed(0f, 0f).life(0.05f, 0.09f).size(0.3f, 0.5f, 1f).heat(1f)
+                .size(CgKeyframes.start(0f, 0.4f).to(0.2f, 1f, CgEasings.OUT_QUAD).to(1f, 0.8f, CgEasings.LINEAR).build())
+                .opacity(CgKeyframes.start(0f, 1f).to(1f, 0f, CgEasings.OUT_QUAD).build()).build();
+        CgVfxEmitter chips = CgVfxEmitter.builder("boulderChips").renderer(CgVfxEmitter.Renderer.QUADS).capacity(256)
+                .launch(0.15f, 0.9f, 1f).speed(2.5f, 6f).life(0.15f, 0.4f).size(0.025f, 0.05f, 1.5f).heat(1f)
+                .module(new CgVfxModule.Gravity(9.8f))
+                .module(new CgVfxModule.Drag(1.2f, 0f))
+                .opacity(CgKeyframes.start(0f, 1f).to(1f, 0f, CgEasings.IN_QUAD).build()).build();
         CgVfxEmitter sparks = CgVfxEmitter.builder("boulder").renderer(CgVfxEmitter.Renderer.QUADS).capacity(1200)
                 .rate(120f, 0f, PERIOD - 3f).shape(1.2f).launch(-1f, -0.7f, 1f).speed(0.5f, 2f).life(2.5f, 3f)
                 .size(0.08f, 0.14f, 1f).heat(1f)
                 .module(new CgVfxModule.Gravity(9.8f))
                 .module(new CgVfxModule.Collide(Volume.sphere(1.8f).at(0f, -5.2f, 0f), 0.6f, 0.05f, 0.3f))
                 .module(new CgVfxModule.Collide(Volume.plane(0f, 1f, 0f).at(0f, -7f, 0f), 0.35f, 0.4f, 0.4f))
-                .event(CgVfxEvent.onCollision().spawn(flash, 2))
+                .event(CgVfxEvent.onCollision().spawn(flash, 1))
+                .event(CgVfxEvent.onCollision().spawn(chips, 4))
                 .opacity(FADE).build();
-        CgVfxLook look = CgVfxLook.builder(SCHEMA).emitter(sparks).emitter(flash)
-                .layer(sparkLayer(sparks, EMBER, FLAME)).layer(sparkLayer(flash, WHITE, WHITE)).build();
-        stations.add(new Station("boulder: Collide sphere, onCollision spawns a flash", x, z, look, List.of(sparks),
+        CgVfxLook look = CgVfxLook.builder(SCHEMA).emitter(sparks).emitter(flash).emitter(chips)
+                .layer(sparkLayer(sparks, EMBER, FLAME)).layer(sparkLayer(flash, WHITE, FLAME))
+                .layer(sparkLayer(chips, FLAME, EMBER)).build();
+        stations.add(new Station("boulder: Collide sphere, onCollision spawns a flash and chips", x, z, look, List.of(sparks),
                 new float[][]{{0f, 7f, 0f}}, p -> p.sphere(0f, 1.8f, 0f, 1.75f)));
     }
 
@@ -252,22 +265,28 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle {
                 layer("spark", balls, CYAN, WHITE, 1f, null), null);
     }
 
-    /** A plane collider tilted into a slope: debris lands, slides off and is killed past a box. */
+    /** A plane collider tilted into a ramp down to the floor: debris lands, slides off onto the floor, killed past a box. */
     private void slope(float x, float z) {
-        float nx = 0.35f, ny = 1f, length = (float) Math.sqrt(nx * nx + ny * ny);
+        // The plane stands top blocks over the floor at the station's centre; ramp is its length, end to end, from as
+        // high again down to the floor.
+        float nx = 0.35f, ny = 1f, length = (float) Math.sqrt(nx * nx + ny * ny), top = 1.5f, source = 6.5f;
+        float ramp = 2f * top * length / nx;
         CgVfxEmitter debris = CgVfxEmitter.builder("slope").renderer(CgVfxEmitter.Renderer.QUADS).capacity(1200)
                 .rate(150f, 0f, PERIOD - 3f).shape(2.5f).launch(-1f, -0.8f, 1f).speed(0.5f, 1.5f).life(3f, 4f)
                 .size(0.12f, 0.25f, 1.5f).spin(1f, 5f)
                 .module(new CgVfxModule.Gravity(9.8f))
-                .module(new CgVfxModule.Collide(Volume.plane(nx, ny, 0f).at(0f, -4.5f, 0f), 0.3f, 0.02f, 0f))
-                .module(new CgVfxModule.Kill(Volume.box(4.5f, 8f, 4.5f), false))
+                .module(new CgVfxModule.Collide(Volume.plane(nx, ny, 0f).at(0f, top - source, 0f), 0.3f, 0.02f, 0f))
+                // Friction takes its share of the sliding speed every step: 0.05 skids a piece off the ramp a block or two.
+                .module(new CgVfxModule.Collide(Volume.plane(0f, 1f, 0f).at(0f, -source, 0f), 0.3f, 0.05f, 0.1f))
+                .module(new CgVfxModule.Kill(Volume.box(6.5f, 8f, 6.5f), false))
                 .opacity(FADE).build();
-        add("slope: Collide plane + Kill outside a box", x, z, List.of(debris), new float[][]{{0f, 6.5f, 0f}},
+        add("slope: Collide plane + Kill outside a box", x, z, List.of(debris), new float[][]{{0f, source, 0f}},
                 layer("speck", debris, DEBRIS, DEBRIS, 1f, null), p -> {
-                    // the plane's surface through (0, 2, 0), drawn as a thin slab just under it
-                    float angle = (float) Math.atan2(nx, ny);
-                    transform.identity().rotateZ(angle).translate(0f, -0.05f, 0f).scale(8f, 0.1f, 8f);
-                    p.box(0f, 2f, 0f, transform);
+                    // the plane's surface as a thin slab just under it, from its high end to the floor; rotateZ turns +y
+                    // toward -x, so the normal's lean toward +x is a negative angle
+                    float angle = -(float) Math.atan2(nx, ny);
+                    transform.identity().rotateZ(angle).translate(0f, -0.05f, 0f).scale(ramp, 0.1f, 8f);
+                    p.box(0f, top, 0f, transform);
                 });
     }
 
@@ -278,7 +297,7 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle {
                 .size(0.12f, 0.25f, 1.5f).spin(1f, 5f)
                 .module(new CgVfxModule.Gravity(9.8f))
                 .module(new CgVfxModule.Collide(Volume.box(1.5f, 1f, 1.5f).at(0f, -5f, 0f), 0.4f, 0.15f, 0.5f))
-                .module(new CgVfxModule.Collide(Volume.plane(0f, 1f, 0f).at(0f, -6f, 0f), 0.3f, 0.4f, 0.5f))
+                .module(new CgVfxModule.Collide(Volume.plane(0f, 1f, 0f).at(0f, -6f, 0f), 0.3f, 0.05f, 0.1f))
                 .opacity(FADE).build();
         add("block: Collide box", x, z, List.of(debris), new float[][]{{0f, 6f, 0f}},
                 layer("speck", debris, DEBRIS, DEBRIS, 1f, null), p -> {
