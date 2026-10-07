@@ -72,8 +72,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     /** The pyramid: its size (a power of two, so each texel folds a square of the one below), and the wall's depth. */
     private static final int PYRAMID = 64;
     private static final float WALL = 25f, FAR = 1e9f;
-    /** The slot that sorts far to near. */
-    private static final int SORTED = 0;
+    /** The slot that sorts far to near; the slot culled as one sphere about its source, and that sphere's radius. */
+    private static final int SORTED = 0, SOURCE = 3;
+    private static final float SOURCE_REACH = 3f;
 
     private final CgVfxEmitter emitter = CgVfxExplosion.SPARKLES;
     private final CgHostView view = new CgHostView();
@@ -90,7 +91,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private float[] radius;
     private ByteBuffer records, visible, drawn, objects;
     private final Matrix4f model = new Matrix4f(), turned = new Matrix4f(), normal = new Matrix4f();
-    private int frame, checkedDrawn, culled, occluded, timedFrom = -1;
+    private int frame, checkedDrawn, culled, occluded, sourceKept, timedFrom = -1;
     private float worst, worstRow, worstObject;
     private String failure;
     private boolean compared, running = true;
@@ -168,10 +169,13 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     }
 
     private void record() {
+        CgVfxParticlePool.prepare(emitter);
+        CgVfxRange.prepare();
         pool = CgVfxParticlePool.of(this, emitter);
         int[] slots = new int[CAPACITY.length];
         for (int s = 0; s < CAPACITY.length; s++) slots[s] = pool.open(emitter, CAPACITY[s] * SCALE);
         pool.close(slots[1]);
+        pool.cullAbout(slots[SOURCE], SOURCE_REACH);
         slotCount = pool.slotCount();
         CgRecording rec = new CgRecording();
 
@@ -274,6 +278,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
                 if (count != 0) fail("closed slot " + s + " has " + count + " visible");
                 continue;
             }
+            if (s == SOURCE && count != 0 && count != bySeed.get(s).size()) {
+                fail("slot " + s + ", culled about its source, has " + count + " of " + bySeed.get(s).size() + " visible");
+            }
             if (count < inside[s] || count > inside[s] + border[s]) {
                 fail("slot " + s + " has " + count + " visible, not " + inside[s] + " to " + (inside[s] + border[s]));
             }
@@ -317,6 +324,19 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         float dy = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 1) - CgVfxRecord.f(records, r, CgVfxRecord.PREVIOUS + 1);
         float dz = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 2) - CgVfxRecord.f(records, r, CgVfxRecord.PREVIOUS + 2);
         float reach = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * radius[slot] + (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (slot == SOURCE) {
+            // Kept by its source though outside the view itself: what tells the source's cull from each particle's.
+            for (float[] p : planes) {
+                if (p[0] * cx + p[1] * cy + p[2] * cz + p[3] + reach < -BORDER * 100f) {
+                    sourceKept++;
+                    break;
+                }
+            }
+            cx = ORIGIN[slot][0];
+            cy = ORIGIN[slot][1];
+            cz = ORIGIN[slot][2];
+            reach = SOURCE_REACH;
+        }
         int result = 1;
         for (float[] p : planes) {
             float margin = p[0] * cx + p[1] * cy + p[2] * cz + p[3] + reach;
@@ -499,6 +519,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         if (failure == null && compared && checkedDrawn == 0) failure = "no particle was drawn: it checked nothing";
         if (failure == null && compared && culled == 0) failure = "no particle was culled: the cull went unchecked";
         if (failure == null && compared && occluded == 0) failure = "no particle hid behind the wall: occlusion went unchecked";
+        if (failure == null && compared && sourceKept == 0) {
+            failure = "no particle of slot " + SOURCE + " lies outside the view: its source's cull went unchecked";
+        }
         if (GlErrorChecker.checkAndLog("vfx-range")) {
             System.out.println("[vfx-range] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
@@ -512,7 +535,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         } else {
             System.out.println("[vfx-range] PASS on " + on + ": " + live + " alive in " + slotCount + " slots, " + checkedDrawn
                     + " drawn and checked, " + culled + " culled (" + occluded + " behind the wall), slot " + SORTED
-                    + " far to near; worst share of the tolerance " + worst
+                    + " far to near, slot " + SOURCE + " culled about its source (" + sourceKept + " outside the view kept)"
+                    + "; worst share of the tolerance " + worst
                     + ", objects " + worstObject + "; the curve row strays from the curves by at most " + worstRow);
         }
     }
