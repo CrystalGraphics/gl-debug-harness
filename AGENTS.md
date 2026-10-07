@@ -57,6 +57,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   `--mode=vfx-events` is particle events' (X5): debris that report landing, an age and death, landing and the age each
   spawning dust in a second pool fed by two slots, every row heard once and every child where Java puts it from its
   row. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
+  `--mode=vfx-collide` is collisions' and repeating events' (X6): debris bounced off a ground and a wall by a kind given
+  as GLSL text over the window's distance field, each fast impact a collision spawning dust under its firing's key, a
+  rate reporting each debris every period, the fourth collision killing it; every firing heard once and numbered, every
+  child where Java puts it, nothing inside the solid. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
   `--mode=readback` is `CgRecording.readback`'s: kernel-written words, a float target, an unaligned byte target
   and a mip level read back every frame, each delivery checked against the frame that recorded it.
   `--mode=compute-check` is checked mode's (run it with `-Dcrystalgraphics.compute.checked=true`): a write past a

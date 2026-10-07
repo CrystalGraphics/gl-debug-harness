@@ -17,6 +17,7 @@ import com.crystalgraphics.harness.scene.test.CgDistortionTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeCheckTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuBudgetTestScene;
 import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
+import com.crystalgraphics.harness.scene.test.CgVfxCollideScene;
 import com.crystalgraphics.harness.scene.test.CgVfxEventsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxRangeScene;
 import com.crystalgraphics.harness.scene.test.CgVfxWorldScene;
@@ -569,6 +570,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVfxEventsScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-collide")
+                .description("vfx-gpu X6: debris bounced off a ground and a wall by a GLSL kind given as text over the window's distance field; its collisions and a rate as repeating events, every row and child checked against Java")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgVfxCollideScene()
         );
 
         reg.register(
