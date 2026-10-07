@@ -239,9 +239,8 @@ public final class HUDRenderer {
         String bloomLine = bloom.intensity() == 0f ? "Bloom [L]: off" : bloom.linear() ? "Bloom [L]: linear" : "Bloom [L]: blend";
         String halfLine = "Half-res volumes [H]: " + (CgWorldRenderer.get().halfResolution() ? "on" : "off")
                 + "\nHalf-res distortion [J]: " + (CgWorldRenderer.get().distortionScale() < 1f ? "on" : "off");
-        CgVfxSystem.Simulation sim = CgVfxSystem.simulation();
-        String simLine = "VFX sim [V]: " + (sim == CgVfxSystem.Simulation.CPU ? "cpu"
-                : sim.built() ? "gpu" : "gpu (not built yet, runs cpu)");
+        String simLine = "VFX sim [V]: " + (CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU ? "cpu"
+                : "gpu (billows cpu)");
         int step = CgVfxSystem.particleStep();
         String stepLine = "  Particle step [P]: " + (step == 1 ? "120 Hz (old)" : step == 2 ? "60 Hz (new)" : (120 / step) + " Hz");
         String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine + "\n" + bloomLine + "\n" + halfLine
