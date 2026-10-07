@@ -40,7 +40,8 @@ import java.util.Random;
  * object records a mesh per particle reads, against {@code CgVfxFrame.particleMeshes}' transform. A depth pyramid
  * holds a wall over the left half of the view, so what hides behind it is culled too, and slot 0 sorts far to near. Four slots,
  * one closed between them; one in front of the camera, one across the frustum's edge, one behind it. The pool steps once,
- * so the records Range reads are the Step kernel's; the reference is worked from those records, read back.
+ * so the records Range reads are the Step kernel's; the reference is worked from those records, read back. A pool of
+ * another shape ranges ahead of it, so its slots, keys and records sit past that pool's in the shared buffers.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-range"
@@ -77,6 +78,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     /** The slot that sorts far to near; the slot culled as one sphere about its source, and that sphere's radius. */
     private static final int SORTED = 0, SOURCE = 3;
     private static final float SOURCE_REACH = 3f;
+    /** The pool ranged ahead: another shape, a capacity no multiple of Range's alignment, and its particles seeded. */
+    private static final CgVfxEmitter LEAD = CgVfxExplosion.INK;
+    private static final int LEAD_CAPACITY = 901, LEAD_SEEDED = 700;
 
     private final CgVfxEmitter emitter = CgVfxExplosion.SPARKLES;
     private final CgHostView view = new CgHostView();
@@ -86,9 +90,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private final Matrix4f projection = new Matrix4f();
     private final float[] curves = new float[2 * CgVfxGpuEmitter.CURVE_TEXELS];
     private final List<CgRequest> requests = new ArrayList<>();
-    private CgVfxParticlePool pool;
+    private CgVfxParticlePool pool, lead;
     private CgVfxRange range;
-    private int slotCount, live = -1;
+    private int slotCount, slotFirst, allSlots, live = -1, leadLive = -1;
     private int[] bases;
     private float[] radius;
     private ByteBuffer records, visible, drawn, objects;
@@ -129,7 +133,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             record();
             return;
         }
-        if (!compared && records != null && visible != null && drawn != null && objects != null && live >= 0) {
+        if (!compared && records != null && visible != null && drawn != null && objects != null && live >= 0 && leadLive >= 0) {
             compare();
             compared = true;
         }
@@ -161,7 +165,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         if (frame < timedFrom + TIMED) {
             CgRecording rec = new CgRecording();
             if (TIMED_WITH.contains("sort")) range.sorted(SORTED);
-            range.record(rec, view, TIMED_WITH.contains("pyramid") ? pyramid(rec) : null);
+            CgVfxRange.record(rec, view, TIMED_WITH.contains("pyramid") ? pyramid(rec) : null);
             CgImmediate.execute(rec);
         }
     }
@@ -173,16 +177,29 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
 
     private void record() {
         CgVfxParticlePool.prepare(emitter);
+        CgVfxParticlePool.prepare(LEAD);
         CgVfxRange.prepare();
+        CgRecording rec = new CgRecording();
+        Random random = new Random(1201);
+        lead = CgVfxParticlePool.of(this, LEAD);
+        int leadSlot = lead.open(LEAD, LEAD_CAPACITY * SCALE), leadTotal = LEAD_SEEDED * SCALE;
+        ByteBuffer leadPacked = ByteBuffer.allocateDirect(leadTotal * CgVfxRecord.BYTES).order(ByteOrder.nativeOrder());
+        for (int r = 0; r < leadTotal; r++) seedOne(leadPacked, r, leadTotal, leadSlot, random);
+        lead.seed(rec, leadPacked, leadTotal);
+        lead.beginStep(DT, 0.4f, 0f, 0.2f);
+        lead.instance(leadSlot, 0x1EAD, 1f, Float.NaN, origin(ORIGIN[0]));
+        lead.endStep();
+        lead.record(rec);
+        CgVfxRange.of(lead).frame(ALPHA, AHEAD);
+
         pool = CgVfxParticlePool.of(this, emitter);
+        if (pool == lead) fail("the lead pool is the checked one: give it another shape");
         int[] slots = new int[CAPACITY.length];
         for (int s = 0; s < CAPACITY.length; s++) slots[s] = pool.open(emitter, CAPACITY[s] * SCALE);
         pool.close(slots[1]);
         pool.cullAbout(slots[SOURCE], SOURCE_REACH);
         slotCount = pool.slotCount();
-        CgRecording rec = new CgRecording();
 
-        Random random = new Random(1201);
         int total = 0;
         for (int n : SEEDED) total += n * SCALE;
         ByteBuffer packed = ByteBuffer.allocateDirect(total * CgVfxRecord.BYTES).order(ByteOrder.nativeOrder());
@@ -202,7 +219,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         CgGraphTexture pyramid = pyramid(rec);
         range = CgVfxRange.of(pool).frame(ALPHA, AHEAD).sorted(SORTED);
         range.objects();
-        range.record(rec, view, pyramid);
+        CgVfxRange.record(rec, view, pyramid);
+        slotFirst = range.visibleWord(0);
+        allSlots = lead.slotCount() + slotCount;
         bases = new int[slotCount];
         radius = new float[slotCount];
         for (int s = 0; s < slotCount; s++) {
@@ -210,12 +229,14 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             bases[s] = range.base(s);
             radius[s] = pool.cullRadius(s);
         }
-        int storage = pool.storage(), capacity = pool.capacity();
+        // Slot 0 is open and first in its pool's list: its base is where the pool's records start.
+        int storage = pool.storage(), end = range.base(0) + pool.capacity();
         requests.add(rec.readback(pool.live(), 0, 4, data -> live = data.getInt(0)));
+        requests.add(rec.readback(lead.live(), 0, 4, data -> leadLive = data.getInt(0)));
         requests.add(rec.readback(pool.records(), 0, (long) storage * CgVfxRecord.BYTES, data -> records = copy(data)));
-        requests.add(rec.readback(range.visible(), 0, (slotCount + 1) * 4L, data -> visible = copy(data)));
-        requests.add(rec.readback(range.drawn(), 0, (long) capacity * DRAWN_FLOATS * 4, data -> drawn = copy(data)));
-        requests.add(rec.readback(range.objects(), 0, (long) capacity * OBJECT_FLOATS * 4, data -> objects = copy(data)));
+        requests.add(rec.readback(range.visible(), 0, (allSlots + 1) * 4L, data -> visible = copy(data)));
+        requests.add(rec.readback(range.drawn(), 0, (long) end * DRAWN_FLOATS * 4, data -> drawn = copy(data)));
+        requests.add(rec.readback(range.objects(), 0, (long) end * OBJECT_FLOATS * 4, data -> objects = copy(data)));
         CgImmediate.execute(rec);
     }
 
@@ -277,12 +298,16 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             if (cull > 0) inside[slot]++;
             else if (cull == 0) border[slot]++;
         }
-        int sum = 0;
-        for (int s = 0; s <= slotCount; s++) sum += visible.getInt(s * 4);
-        if (sum != live) fail("the visible counts sum to " + sum + ", not the " + live + " alive");
-        culled = visible.getInt(slotCount * 4);
+        // The last word counts dead records too: every pool's storage is keyed, and no draw reads that word.
+        int leadSum = 0, sum = 0;
+        for (int s = 0; s < slotFirst; s++) leadSum += visible.getInt(s * 4);
+        for (int s = 0; s < slotCount; s++) sum += visible.getInt((slotFirst + s) * 4);
+        if (leadSum > leadLive) fail("the lead pool has " + leadSum + " visible of " + leadLive + " alive");
+        if (sum > live) fail("the visible counts sum to " + sum + ", past the " + live + " alive");
+        if (slotFirst != lead.slotCount()) fail("the checked pool's slots start at " + slotFirst + ", not " + lead.slotCount());
+        culled = live - sum;
         for (int s = 0; s < slotCount; s++) {
-            int count = visible.getInt(s * 4);
+            int count = visible.getInt((slotFirst + s) * 4);
             if (!pool.isOpen(s)) {
                 if (count != 0) fail("closed slot " + s + " has " + count + " visible");
                 continue;
@@ -542,7 +567,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         } else if (failure != null) {
             System.out.println("[vfx-range] FAIL on " + on + ": " + failure);
         } else {
-            System.out.println("[vfx-range] PASS on " + on + ": " + live + " alive in " + slotCount + " slots, " + checkedDrawn
+            System.out.println("[vfx-range] PASS on " + on + ": " + live + " alive in " + slotCount + " slots after "
+                    + leadLive + " in another pool's, from slot " + slotFirst + " and record " + bases[0] + ", " + checkedDrawn
                     + " drawn and checked, " + culled + " culled (" + occluded + " behind the wall), slot " + SORTED
                     + " far to near, slot " + SOURCE + " culled about its source (" + sourceKept + " outside the view kept)"
                     + "; worst share of the tolerance " + worst
