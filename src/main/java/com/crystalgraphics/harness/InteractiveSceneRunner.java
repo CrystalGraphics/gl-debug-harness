@@ -36,6 +36,7 @@ import com.crystalgraphics.harness.config.WorldSettings;
 import com.crystalgraphics.harness.debug.HarnessDebugTools;
 import com.crystalgraphics.harness.runtime.FrameClock;
 import com.crystalgraphics.harness.runtime.InputPauseHandler;
+import com.crystalgraphics.harness.runtime.MainTarget;
 import com.crystalgraphics.harness.runtime.OverlayCaptureOrchestrator;
 import com.crystalgraphics.harness.runtime.OverlayPipeline;
 import com.crystalgraphics.harness.runtime.ResizeHandler;
@@ -174,6 +175,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      */
     private final InteractiveSceneLifecycle scene;
     private final HarnessContext ctx;
+    private final MainTarget mainTarget = new MainTarget();
 
     // ── Core subsystems (domain objects, not runtime lifecycle concerns) ──
     private Camera3D camera;
@@ -391,6 +393,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // paint host brackets the UI's whole frame. The lifecycle's own brackets nest inside.
             CgGL.fromHost();
             try {
+                if (MainTarget.ON) ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
                 // 6. Pre-render: set world pass state (depth ON, blend OFF, depth writes ON)
                 RenderPassState.beginWorldPass();
 
@@ -422,6 +425,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     artifactService.requestCapture("frame" + CAPTURE_AT);
                 }
 
+                if (MainTarget.ON) mainTarget.end();
                 // 10-13. Post-scene sequence: GL reset → pause overlay → HUD → capture callback
                 //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.overlay")) {
