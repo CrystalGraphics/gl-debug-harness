@@ -13,9 +13,9 @@ import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.vfx.camera.CgCameraShake;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.bloom.CgBloom;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxSystem;
 
+import java.util.Arrays;
 import java.util.logging.Logger;
 
 /**
@@ -38,9 +38,8 @@ import java.util.logging.Logger;
  * FPS: n
  * Shake [C]: on, trauma t
  * Bloom [L]: off | linear | blend
- * Half-res volumes [H]: on | off
  * VFX sim [V]: cpu | gpu
- *   Particle step [P]: 60 Hz (new) | 120 Hz (old)
+ * Particles: n  (the median drawn a frame over the last 0.5 s)
  * </pre>
  */
 public final class HUDRenderer {
@@ -68,6 +67,12 @@ public final class HUDRenderer {
     private long fpsWindowStartNanos = -1;
     private int fpsWindowFrameCount = 0;
     private double displayedFps = 0.0;
+
+    // Particles drawn: each frame's count, the median shown once a window elapses.
+    private int[] particleSamples = new int[256];
+    private int particleSampleCount;
+    private long particleWindowStartNanos = -1;
+    private int displayedParticles;
 
     // CgTextRenderer resources (created in init, destroyed in delete)
     private CgCapabilities caps;
@@ -150,6 +155,27 @@ public final class HUDRenderer {
         }
     }
 
+    /**
+     * Samples {@link CgVfxSystem#particlesDrawn()} each frame and shows the median of each
+     * {@link #FPS_SAMPLE_WINDOW_NANOS} window: a blast's spike or a gap between plays moves it less than a mean.
+     */
+    private void updateParticleSample() {
+        long now = System.nanoTime();
+        if (particleWindowStartNanos < 0) {
+            particleWindowStartNanos = now;
+        }
+        if (particleSampleCount == particleSamples.length) {
+            particleSamples = Arrays.copyOf(particleSamples, particleSamples.length * 2);
+        }
+        particleSamples[particleSampleCount++] = CgVfxSystem.particlesDrawn();
+        if (now - particleWindowStartNanos >= FPS_SAMPLE_WINDOW_NANOS) {
+            Arrays.sort(particleSamples, 0, particleSampleCount);
+            displayedParticles = particleSamples[particleSampleCount / 2];
+            particleSampleCount = 0;
+            particleWindowStartNanos = now;
+        }
+    }
+
     private void reloadFont() {
         String fontPath = HarnessFontUtil.resolveFontPath(null);
 
@@ -225,6 +251,7 @@ public final class HUDRenderer {
 
         updateScaleIfNeeded(screenWidth, screenHeight);
         updateFpsSample();
+        updateParticleSample();
 
         // Format camera state into HUD text (three lines separated by newlines)
         String posLine = String.format("Pos: %.2f %.2f %.2f",
@@ -237,13 +264,10 @@ public final class HUDRenderer {
                 ? String.format("Shake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "Shake [C]: off";
         CgBloom bloom = CgPostStack.get().bloom();
         String bloomLine = bloom.intensity() == 0f ? "Bloom [L]: off" : bloom.linear() ? "Bloom [L]: linear" : "Bloom [L]: blend";
-        String halfLine = "Half-res volumes [H]: " + (CgWorldRenderer.get().halfResolution() ? "on" : "off")
-                + "\nHalf-res distortion [J]: " + (CgWorldRenderer.get().distortionScale() < 1f ? "on" : "off");
         String simLine = "VFX sim [V]: " + (CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU ? "cpu" : "gpu");
-        int step = CgVfxSystem.particleStep();
-        String stepLine = "  Particle step [P]: " + (step == 1 ? "120 Hz (old)" : step == 2 ? "60 Hz (new)" : (120 / step) + " Hz");
-        String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine + "\n" + bloomLine + "\n" + halfLine
-                + "\n" + simLine + "\n" + stepLine;
+        String particleLine = String.format("Particles: %,d", displayedParticles);
+        String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine + "\n" + bloomLine + "\n" + simLine
+                + "\n" + particleLine;
 
         // Build text layout for the current frame's text.
         // maxWidth=0 means unbounded (no line wrapping beyond our explicit newline).
