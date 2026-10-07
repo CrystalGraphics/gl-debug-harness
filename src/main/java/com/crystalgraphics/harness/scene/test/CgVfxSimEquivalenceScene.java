@@ -12,6 +12,7 @@ import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
+import com.crystalgraphics.render.graph.CgDispatch;
 import com.crystalgraphics.render.graph.CgGraphBuffer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
@@ -19,7 +20,9 @@ import com.crystalgraphics.vfx.particle.CgVfxAir;
 import com.crystalgraphics.vfx.particle.CgVfxCurlNoise;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
+import com.crystalgraphics.vfx.particle.CgVfxField;
 import com.crystalgraphics.vfx.particle.CgVfxModule;
+import com.crystalgraphics.vfx.particle.CgVfxModule.Volume;
 import com.crystalgraphics.vfx.particle.CgVfxParticleSet;
 import com.crystalgraphics.vfx.element.CgVfxExplosion;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
@@ -59,6 +62,17 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
     private static final float[] OCTAVE_OFFSET = {5.2f, 1.3f, 7.9f};
     /** Far more than rounding (an ulp or two of fused multiply-adds), far less than a wrong corner or gradient. */
     private static final float CURL_TOLERANCE = 1e-4f;
+    /** The VectorField checks' fields: one closed, one tiling, neither a power of two. */
+    private static final CgVfxField FIELD = CgVfxField.of(6, 5, 4, false, (x, y, z, out) -> {
+        out[0] = (float) Math.sin(x * 1.3 + z);
+        out[1] = y * 0.4f - 0.8f;
+        out[2] = (float) Math.cos(y * 0.9 - x * 0.5);
+    });
+    private static final CgVfxField TILING = CgVfxField.of(3, 7, 5, true, (x, y, z, out) -> {
+        out[0] = (x - 1) * 0.7f;
+        out[1] = (float) Math.sin(z * 2.1);
+        out[2] = y % 3 - 1f;
+    });
 
     private final CgGraphBuffer randIn = CgGraphBuffer.transientBuffer("vfx-sim.rand.in", buffer(RANDS, 16));
     private final CgGraphBuffer randOut = CgGraphBuffer.transientBuffer("vfx-sim.rand.out", buffer(RANDS, 4));
@@ -68,7 +82,27 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
             new ModuleCheck(new CgVfxModule.Gravity(9.8f)), new ModuleCheck(new CgVfxModule.Drag(4f, 0.3f)),
             new ModuleCheck(new CgVfxModule.Wind(1.2f)), new ModuleCheck(new CgVfxModule.Turbulence(8f, 0.12f, 0.6f)),
             new ModuleCheck(new CgVfxModule.Buoyancy(16f, 0.9f)), new ModuleCheck(new CgVfxModule.Updraft(30f, 3f, 8f, 2.5f)),
-            new ModuleCheck(new CgVfxModule.Ground(0.3f, 0.5f, 0.6f)), new ModuleCheck(new CgVfxModule.Spin(0.8f))};
+            new ModuleCheck(new CgVfxModule.Ground(0.3f, 0.5f, 0.6f)), new ModuleCheck(new CgVfxModule.Spin(0.8f)),
+            // X6's catalogue, each in the kernel's order from 8
+            new ModuleCheck(new CgVfxModule.Attract(Volume.sphere(4f).at(0f, 1f, 0f), 20f).attenuation(1.5f)
+                    .directed(0.3f, 1f, 0f, 0f)),
+            new ModuleCheck(new CgVfxModule.Orbit(0.7f, 0.2f, 1f, 0.1f, 0f, 1f, 0f)),
+            new ModuleCheck(new CgVfxModule.Vortex(0.1f, 1f, 0f, 12f, -4f, 0f, 1f, 0f)),
+            new ModuleCheck(new CgVfxModule.Force(1f, -2f, 0.5f)),
+            new ModuleCheck(new CgVfxModule.VectorField(FIELD, Volume.box(3f, 2.5f, 3f).at(0f, 1f, 0f), 4f, 1.3f)),
+            new ModuleCheck(new CgVfxModule.Damping(240f)),
+            new ModuleCheck(new CgVfxModule.LimitSpeed(4f)),
+            new ModuleCheck(new CgVfxModule.Conform(Volume.sphere(2.5f).at(0f, 1.5f, 0f), 1.5f, 40f, 6f)),
+            new ModuleCheck(new CgVfxModule.Collide(Volume.sphere(2f).at(0f, 1f, 0f), 0.6f, 0.2f, 0.5f)),
+            new ModuleCheck(new CgVfxModule.Kill(Volume.box(3f, 2f, 3f).at(0f, 1f, 0f), false)),
+            // more of each, through the case of its kind
+            new ModuleCheck(new CgVfxModule.Collide(Volume.box(1.5f, 1f, 1.5f).at(0f, 1f, 0f), 0.8f, 0.1f, 0.3f), 16),
+            new ModuleCheck(new CgVfxModule.Collide(Volume.box(3f, 2f, 3f).at(0f, 1.5f, 0f), 0.5f, 0f, 0f).container(), 16),
+            new ModuleCheck(new CgVfxModule.Collide(Volume.sphere(3f).at(0f, 1f, 0f), 0.7f, 0.3f, 0.2f).container(), 16),
+            new ModuleCheck(new CgVfxModule.Collide(Volume.plane(0.2f, 1f, 0f), 0f, 0f, 0f).killing(), 16),
+            new ModuleCheck(new CgVfxModule.Kill(Volume.sphere(2f), true), 17),
+            new ModuleCheck(new CgVfxModule.Attract(Volume.box(3f, 2f, 3f), -8f), 8),
+            new ModuleCheck(new CgVfxModule.VectorField(TILING, Volume.box(1.5f, 1f, 2f), -3f, 0f), 12)};
     private final List<PoolCheck> pools = new ArrayList<>();
     private final int[] seeds = new int[RANDS], spawns = new int[RANDS], draws = new int[RANDS];
     private final float[][] points = new float[CURLS][3];
@@ -99,8 +133,21 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
                 .module(new CgVfxModule.Wind(1f)).module(new CgVfxModule.Turbulence(8f, 0.12f, 0.6f))
                 .module(new CgVfxModule.Buoyancy(16f, 0.9f)).module(new CgVfxModule.Updraft(20f, 3f, 8f, 2.5f))
                 .module(new CgVfxModule.Ground(0.3f, 0.5f, 0.6f)).module(new CgVfxModule.Spin(0.8f)).build();
+        CgVfxEmitter catalogue = CgVfxEmitter.builder("catalogue").capacity(2000).burst(0f, 600).shape(0.5f)
+                .launch(0.3f, 1f, -0.2f).speed(2f, 9f).life(1f, 3f).size(0.1f, 0.4f, 2f).spin(1f, 4f)
+                .module(new CgVfxModule.Gravity(9.8f))
+                .module(new CgVfxModule.Attract(Volume.sphere(5f).at(0f, 2f, 0f), 18f).attenuation(0.5f))
+                .module(new CgVfxModule.Vortex(0f, 1f, 0f, 9f, -2f, 0f, 0f, 0f))
+                .module(new CgVfxModule.VectorField(FIELD, Volume.box(3f, 2.5f, 3f).at(0f, 1f, 0f), 4f, 1f))
+                .module(new CgVfxModule.Conform(Volume.sphere(2f).at(1f, 2f, 0f), 1f, 30f, 5f))
+                .module(new CgVfxModule.Damping(1.5f))
+                .module(new CgVfxModule.LimitSpeed(7f))
+                .module(new CgVfxModule.Orbit(0.4f, 0f, 1f, 0f, 0f, 0f, 0f))
+                .module(new CgVfxModule.Collide(Volume.sphere(1f).at(0.5f, 3f, 0f), 0.6f, 0.2f, 0.3f))
+                .module(new CgVfxModule.Collide(Volume.plane(0f, 1f, 0f).at(0f, -0.5f, 0f), 0.4f, 0.3f, 0.5f))
+                .module(new CgVfxModule.Kill(Volume.box(6f, 6f, 6f).at(0f, 3f, 0f), false)).build();
         CgVfxEmitter[] definitions = {CgVfxExplosion.SPARKLES, CgVfxExplosion.SPECKS, CgVfxExplosion.BILLOWS,
-                CgVfxExplosion.INK, CgVfxExplosion.RAYS, CgVfxExplosion.RINGS, everyKind};
+                CgVfxExplosion.INK, CgVfxExplosion.RAYS, CgVfxExplosion.RINGS, everyKind, catalogue};
         for (CgVfxEmitter definition : definitions) {
             pools.add(new PoolCheck(definition, -1));     // the spawn check: its first spawns, after their first step
             pools.add(new PoolCheck(definition, 40));     // the one-step check: a live set stepped once more
@@ -171,29 +218,43 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
      * it added are compared.
      */
     private final class ModuleCheck {
-        /** Floats compared a particle: position, velocity, heat, spin rate, resting, acceleration, drag, quadratic drag. */
-        private static final int COMPARED = 13;
+        /**
+         * Floats compared a particle: position, velocity, heat, spin rate, resting, acceleration, drag and quadratic drag,
+         * life, collisions, hit.
+         */
+        private static final int COMPARED = 16;
+        /** Bytes a moved particle: the kernel's Moved. */
+        private static final int MOVED = 128;
 
         final CgVfxModule module;
-        private final int[] words = new int[6 * 4];
+        /** Its case in the kernel's switch; -1 for its place in the list. */
+        private final int kernelKind;
+        private final int[] words = new int[8 * 4];
         private float[] input, expected;
         private int[] ids;
         private float dt, windX, windY, windZ;
         private CgGraphBuffer particles, wordBuffer, moved;
         /** The largest difference seen, as a share of its tolerance. */
         float worst;
+        /** Particles the CPU's apply struck or killed: what shows a check reached its case. */
+        int hits, kills;
 
         ModuleCheck(CgVfxModule module) {
+            this(module, -1);
+        }
+
+        ModuleCheck(CgVfxModule module, int kernelKind) {
             this.module = module;
+            this.kernelKind = kernelKind;
         }
 
         void prepare(int k, Random random) {
             String kind = module.gpuKind();
-            particles = CgGraphBuffer.transientBuffer("vfx-sim.module." + kind, buffer(MODULE_PARTICLES, 80));
-            wordBuffer = CgGraphBuffer.transientBuffer("vfx-sim.module." + kind + ".words", buffer(6, 16));
-            moved = CgGraphBuffer.transientBuffer("vfx-sim.module." + kind + ".moved", buffer(MODULE_PARTICLES, 112));
+            particles = CgGraphBuffer.transientBuffer("vfx-sim.module." + kind + k, buffer(MODULE_PARTICLES, 80));
+            wordBuffer = CgGraphBuffer.transientBuffer("vfx-sim.module." + kind + k + ".words", buffer(8, 16));
+            moved = CgGraphBuffer.transientBuffer("vfx-sim.module." + kind + k + ".moved", buffer(MODULE_PARTICLES, MOVED));
 
-            CgVfxEmitter definition = CgVfxEmitter.builder("check-" + kind).capacity(MODULE_PARTICLES).module(module).build();
+            CgVfxEmitter definition = CgVfxEmitter.builder("check-" + kind + k).capacity(MODULE_PARTICLES).module(module).build();
             CgVfxEmitterInstance instance = new CgVfxEmitterInstance(definition, 0.37f);
             instance.start(0.5f, 0.2f, -0.3f);
             instance.ground(-1f);
@@ -240,17 +301,21 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
             module.writeParams(out);
             out.finish("its numbers");
             if (module.instanceLanes().length > 0) {
-                out = CgVfxWords.into(words, 4, module.instanceLanes().length, kind);
+                out = CgVfxWords.into(words, 12, module.instanceLanes().length, kind);
                 module.writeInstance(instance, out);
                 out.finish("its lanes");
             }
-            words[20] = Float.floatToRawIntBits(instance.groundY());
+            words[28] = Float.floatToRawIntBits(instance.groundY());
 
             module.apply(instance, dt);
+            for (int i = 0; i < MODULE_PARTICLES; i++) {
+                if (p.hit[i] != 0f) hits++;
+                if (p.life[i] == p.age[i]) kills++;
+            }
             expected = new float[MODULE_PARTICLES * COMPARED];
             for (int i = 0; i < MODULE_PARTICLES; i++) {
                 float[] r = {p.x[i], p.y[i], p.z[i], p.vx[i], p.vy[i], p.vz[i], p.heat[i], p.spinRate[i], p.resting[i],
-                        p.ax[i], p.ay[i], p.az[i], p.drag[i] + 1000f * p.dragQuad[i]};
+                        p.ax[i], p.ay[i], p.az[i], p.drag[i] + 1000f * p.dragQuad[i], p.life[i], p.collisions[i], p.hit[i]};
                 System.arraycopy(r, 0, expected, i * COMPARED, COMPARED);
             }
         }
@@ -265,16 +330,18 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
             for (int word : words) w.putInt(word);
             rec.update(particles, 0, in.flip());
             rec.update(wordBuffer, 0, w.flip());
-            pass.dispatch(kernels.kernel("Module"), MODULE_PARTICLES).bind("PARTICLES", particles)
-                    .bind("WORDS", wordBuffer).bind("MOVED", moved).set("_Kind", k).set("_Step", dt, windX, windY, windZ);
-            requests.add(rec.readback(moved, 0, MODULE_PARTICLES * 112L, data -> compare(data, n)));
+            CgDispatch d = pass.dispatch(kernels.kernel("Module"), MODULE_PARTICLES).bind("PARTICLES", particles)
+                    .bind("WORDS", wordBuffer).bind("MOVED", moved).set("_Kind", kernelKind >= 0 ? kernelKind : k)
+                    .set("_Step", dt, windX, windY, windZ);
+            if (module.textures().length > 0) d.texture("_Field", module.textures()[0]);
+            requests.add(rec.readback(moved, 0, MODULE_PARTICLES * (long) MOVED, data -> compare(data, n)));
         }
 
         private void compare(ByteBuffer data, int n) {
             float tolerance = module instanceof CgVfxModule.Turbulence ? 1e-3f : 2e-5f;
             float[] got = new float[COMPARED];
             for (int i = 0; i < MODULE_PARTICLES; i++) {
-                int at = i * 112;
+                int at = i * MOVED;
                 got[0] = data.getFloat(at);
                 got[1] = data.getFloat(at + 4);
                 got[2] = data.getFloat(at + 8);
@@ -288,6 +355,9 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
                 got[10] = data.getFloat(at + 84);
                 got[11] = data.getFloat(at + 88);
                 got[12] = data.getFloat(at + 92) + 1000f * data.getFloat(at + 96);
+                got[13] = data.getFloat(at + 28);
+                got[14] = data.getInt(at + 76);
+                got[15] = data.getFloat(at + 124);
                 if (data.getInt(at + 68) != ids[i]) fail(module.gpuKind() + " lost particle " + i + "'s id", n);
                 for (int c = 0; c < COMPARED; c++) {
                     float want = expected[i * COMPARED + c];
@@ -499,6 +569,8 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
             StringBuilder kinds = new StringBuilder();
             for (ModuleCheck m : modules) {
                 kinds.append(kinds.length() == 0 ? "" : ", ").append(m.module.gpuKind()).append(' ').append(m.worst);
+                if (m.hits > 0) kinds.append(" (").append(m.hits).append(" hit)");
+                if (m.kills > 0) kinds.append(" (").append(m.kills).append(" killed)");
             }
             StringBuilder steps = new StringBuilder();
             for (PoolCheck c : pools) {
