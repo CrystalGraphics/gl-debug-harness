@@ -61,6 +61,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   as GLSL text over the window's distance field, each fast impact a collision spawning dust under its firing's key, a
   rate reporting each debris every period, the fourth collision killing it; every firing heard once and numbered, every
   child where Java puts it, nothing inside the solid. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
+  `--mode=vfx-inputs` is what a kind samples besides the window (X6): a 3D vector field setting velocity, a 2D
+  heightfield stopping a fall, and a depth pyramid of a wall and a floor under a turned camera that particles strike,
+  once each, along the reconstructed normal; each against Java, the depth test replayed per pixel. PASS at G43, G40,
+  G33 (TBO too) and on `vulkan`.
   `--mode=readback` is `CgRecording.readback`'s: kernel-written words, a float target, an unaligned byte target
   and a mip level read back every frame, each delivery checked against the frame that recorded it.
   `--mode=compute-check` is checked mode's (run it with `-Dcrystalgraphics.compute.checked=true`): a write past a
