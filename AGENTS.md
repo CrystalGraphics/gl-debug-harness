@@ -253,10 +253,12 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress" -Dcrystalgraphics.harness.vfx.beams=120
 # Particles alone, the explosion kit bursting every 2.5 s: P switches 60 Hz (new) and 120 Hz (old) steps
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-particles"
-# Its two phases profiled from one run: profile-harness-300f-before/ (beams) and -after/ (blasts)
+# vfx-spheres-stress's two phases profiled from one run: profile-harness-300f-before/ (beams) and -after/ (blasts)
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress" -Dcrystalgraphics.harness.profile=300 \
     -Dcrystalgraphics.harness.profile.warmup=270 -Dcrystalgraphics.harness.profile.splitAt=vfx.blast \
     -Dcrystalgraphics.trace.channels=crystalgraphics,gpu
+# Blasts as particles alone (CgVfxBlasts: specks, sparkles, ink, rays): 120, about 360k particles (.vfx.blasts=<n>)
+./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blasts"
 
 # Frame graph: three paths, identical PNGs
 ./gradlew :gl-debug-harness:runHarness --args="--mode=graph-executor-test"

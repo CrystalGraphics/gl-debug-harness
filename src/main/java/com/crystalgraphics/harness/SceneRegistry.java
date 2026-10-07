@@ -50,6 +50,7 @@ import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshFrameStressScene;
 import com.crystalgraphics.harness.scene.test.CgVfxModulesScene;
 import com.crystalgraphics.harness.scene.test.CgWorldLabelsScene;
+import com.crystalgraphics.harness.scene.test.CgVfxBlastsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxParticlesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShowcaseScene;
 import com.crystalgraphics.harness.scene.test.CgVfxTrailsScene;
@@ -797,6 +798,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             CgVfxShowcaseScene::stress
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-blasts")
+                .description("Blasts as particles alone (CgVfxBlasts), no billows or rings: about 360k particles (-Dcrystalgraphics.harness.vfx.blasts=<n>)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxBlastsScene()
         );
 
         reg.register(
