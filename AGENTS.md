@@ -54,6 +54,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   debris stepped onto its stairs and overhang resting on the half-block floor below each, a blast at a cave's mouth lit
   from the window by Range, and after part of the roof breaks the distance field, flooded again around it, matching a
   brute-force distance to solid; it prints the flood's GPU time. PASS at G43, G40, G33 and on `vulkan`.
+  `--mode=vfx-events` is particle events' (X5): debris that report landing, an age and death, landing and the age each
+  spawning dust in a second pool fed by two slots, every row heard once and every child where Java puts it from its
+  row. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
   `--mode=readback` is `CgRecording.readback`'s: kernel-written words, a float target, an unaligned byte target
   and a mip level read back every frame, each delivery checked against the frame that recorded it.
   `--mode=compute-check` is checked mode's (run it with `-Dcrystalgraphics.compute.checked=true`): a write past a
