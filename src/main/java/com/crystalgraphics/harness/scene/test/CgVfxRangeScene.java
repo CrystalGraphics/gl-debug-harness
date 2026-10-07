@@ -58,6 +58,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private static final int DRAIN = 30;
     private static final int TIMED = Integer.getInteger("crystalgraphics.harness.vfxRange.timed", 0);
     private static final int SCALE = Integer.getInteger("crystalgraphics.harness.vfxRange.scale", 1);
+    /** What the timed frames take on besides the frustum: {@code sort} (slot 0's view depth), {@code pyramid}. */
+    private static final String TIMED_WITH = System.getProperty("crystalgraphics.harness.vfxRange.timedWith", "");
     private static final String RANGE_ZONE = "vfx.pool.range";
     private static final float DT = 1f / 60f, ALPHA = 0.37f, AHEAD = ALPHA * DT;
     private static final double CAMERA_X = 105.5, CAMERA_Y = 64.25, CAMERA_Z = -30.75;
@@ -158,7 +160,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         }
         if (frame < timedFrom + TIMED) {
             CgRecording rec = new CgRecording();
-            range.record(rec, view, null);
+            if (TIMED_WITH.contains("sort")) range.sorted(SORTED);
+            range.record(rec, view, TIMED_WITH.contains("pyramid") ? pyramid(rec) : null);
             CgImmediate.execute(rec);
         }
     }
@@ -196,13 +199,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         pool.endStep();
         pool.record(rec);
 
-        CgGraphTexture pyramid = CgGraphTexture.transientTexture("vfx-range.pyramid",
-                new CgTextureDesc(PYRAMID, PYRAMID, CgGpuOps.PYRAMID_FORMAT).withMips());
-        for (int l = 0, size = PYRAMID; l < pyramidLevels.length; l++, size >>= 1) {
-            ByteBuffer level = ByteBuffer.allocateDirect(size * size * 4).order(ByteOrder.nativeOrder());
-            for (float depth : pyramidLevels[l]) level.putFloat(depth);
-            rec.update(pyramid, l, 0, 0, size, size, level.flip());
-        }
+        CgGraphTexture pyramid = pyramid(rec);
         range = CgVfxRange.of(pool).frame(ALPHA, AHEAD).sorted(SORTED);
         range.objects();
         range.record(rec, view, pyramid);
@@ -235,6 +232,18 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         out.putFloat(at + 48, (r + 0.5f) / total).putFloat(at + 52, random.nextFloat() * 6.28f)
                 .putFloat(at + 56, spread(random, 4f)).putFloat(at + 60, random.nextFloat());
         out.putInt(at + 64, r).putInt(at + 68, slot).putInt(at + 72, 0).putInt(at + 76, 0);
+    }
+
+    /** The wall's pyramid, uploaded into {@code rec}. */
+    private CgGraphTexture pyramid(CgRecording rec) {
+        CgGraphTexture pyramid = CgGraphTexture.transientTexture("vfx-range.pyramid",
+                new CgTextureDesc(PYRAMID, PYRAMID, CgGpuOps.PYRAMID_FORMAT).withMips());
+        for (int l = 0, size = PYRAMID; l < pyramidLevels.length; l++, size >>= 1) {
+            ByteBuffer level = ByteBuffer.allocateDirect(size * size * 4).order(ByteOrder.nativeOrder());
+            for (float depth : pyramidLevels[l]) level.putFloat(depth);
+            rec.update(pyramid, l, 0, 0, size, size, level.flip());
+        }
+        return pyramid;
     }
 
     private CgVfxInstanceView origin(float[] offset) {
