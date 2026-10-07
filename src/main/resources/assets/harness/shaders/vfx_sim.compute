@@ -14,10 +14,21 @@
 #include "crystalgraphics:shaders/lib/vfx/sim/fx_updraft.glsl"
 #include "crystalgraphics:shaders/lib/vfx/sim/fx_ground.glsl"
 #include "crystalgraphics:shaders/lib/vfx/sim/fx_spin.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_attract.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_orbit.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_vortex.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_force.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_vector_field.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_damping.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_limit_speed.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_conform.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_collide.glsl"
+#include "crystalgraphics:shaders/lib/vfx/sim/fx_kill.glsl"
 
 Properties {
     _Kind ("Module kind, in the scene's order", int)  = 0
     _Step ("dt, then the wind",                 vec4) = (0.0166667, 0, 0, 0)
+    _Field ("A vector field kind's field",      sampler3D) = "black"
 }
 
 // Where one curl sample is, split per octave as the CPU splits an instance's origin.
@@ -26,7 +37,7 @@ struct CurlAt { ivec4 cell0; vec4 frac0; ivec4 cell1; vec4 frac1; };
 struct Particle { vec4 positionAge; vec4 previousLife; vec4 velocitySize; vec4 seedSpinRateHeat; uvec4 flags; };
 // The particle after one module, and the forces it added.
 struct Moved { vec4 positionAge; vec4 previousLife; vec4 velocitySize; vec4 seedSpinRateHeat; uvec4 flags;
-               vec4 accelDrag; vec4 dragQuad; };
+               vec4 accelDrag; vec4 dragQuad; vec4 hit; };
 
 Buffers {
     RAND_IN   ("Seed, spawn index, draw",         uvec4,    readonly)
@@ -34,7 +45,7 @@ Buffers {
     CURL_IN   ("Sample points",                   CurlAt,   readonly)
     CURL_OUT  ("Curl",                            vec4,     writeonly)
     PARTICLES ("Particles",                       Particle, readonly)
-    WORDS     ("Numbers, four lanes, the floor",  uvec4,    readonly)
+    WORDS     ("Numbers, lanes, the floor",       uvec4,    readonly)
     MOVED     ("After the module",                Moved,    writeonly)
 }
 
@@ -48,7 +59,8 @@ void Curl() {
     CURL_OUT_WRITE(vec4(fx_curl(at.cell0.xyz, at.frac0.xyz, at.cell1.xyz, at.frac1.xyz), 0.0));
 }
 
-// One module kind over one particle, its numbers in WORDS(0), its lanes from WORDS(1), the floor in WORDS(5).x.
+// One module kind over one particle, its numbers in WORDS(0) to WORDS(2), its lanes from WORDS(3), the floor in
+// WORDS(7).x.
 void Module() {
     Particle in_ = PARTICLES(CG_ELEMENT);
     FxParticle p;
@@ -65,27 +77,41 @@ void Module() {
     p.resting = in_.flags.x != 0u;
     p.id = in_.flags.y;
     p.slot = in_.flags.z;
+    p.collisions = 0u;
+    p.hit = vec4(0.0);
     FxForces f = FxForces(vec3(0.0), 0.0, 0.0);
     FxStep s = FxStep(_Step.x, _Step.yzw);
-    vec4 m = uintBitsToFloat(WORDS(0));
+    vec4 m = uintBitsToFloat(WORDS(0)), m1 = uintBitsToFloat(WORDS(1)), m2 = uintBitsToFloat(WORDS(2));
+    vec4 lane = uintBitsToFloat(WORDS(3));
     switch (_Kind) {
         case 0: fx_gravity(p, f, s, m); break;
         case 1: fx_drag(p, f, s, m); break;
         case 2: fx_wind(p, f, s, m); break;
-        case 3: fx_turbulence(p, f, s, m, ivec4(WORDS(1)), uintBitsToFloat(WORDS(2)), ivec4(WORDS(3)),
-                              uintBitsToFloat(WORDS(4))); break;
+        case 3: fx_turbulence(p, f, s, m, ivec4(WORDS(3)), uintBitsToFloat(WORDS(4)), ivec4(WORDS(5)),
+                              uintBitsToFloat(WORDS(6))); break;
         case 4: fx_buoyancy(p, f, s, m); break;
-        case 5: fx_updraft(p, f, s, m, uintBitsToFloat(WORDS(1))); break;
-        case 6: fx_ground(p, s, m, uintBitsToFloat(WORDS(5).x)); break;
-        default: fx_spin(p, f, s, m); break;
+        case 5: fx_updraft(p, f, s, m, lane); break;
+        case 6: fx_ground(p, s, m, uintBitsToFloat(WORDS(7).x)); break;
+        case 7: fx_spin(p, f, s, m); break;
+        case 8: fx_attract(p, f, s, m, m1, m2, lane); break;
+        case 9: fx_orbit(p, s, m, lane); break;
+        case 10: fx_vortex(p, f, s, m, m1, lane); break;
+        case 11: fx_force(p, f, s, m); break;
+        case 12: fx_vector_field(p, f, s, m, m1, lane, _Field); break;
+        case 13: fx_damping(p, f, s, m); break;
+        case 14: fx_limit_speed(p, s, m); break;
+        case 15: fx_conform(p, f, s, m, m1, lane); break;
+        case 16: fx_collide(p, s, m, m1, m2, lane); break;
+        default: fx_kill(p, s, m, m1, lane); break;
     }
     Moved after;
     after.positionAge = vec4(p.position, p.age);
     after.previousLife = vec4(p.previous, p.life);
     after.velocitySize = vec4(p.velocity, p.size);
     after.seedSpinRateHeat = vec4(p.seed, p.spin, p.spinRate, p.heat);
-    after.flags = uvec4(p.resting ? 1u : 0u, p.id, p.slot, 0u);
+    after.flags = uvec4(p.resting ? 1u : 0u, p.id, p.slot, p.collisions);
     after.accelDrag = vec4(f.accel, f.drag);
     after.dragQuad = vec4(f.dragQuad, 0.0, 0.0, 0.0);
+    after.hit = p.hit;
     MOVED_WRITE(after);
 }
