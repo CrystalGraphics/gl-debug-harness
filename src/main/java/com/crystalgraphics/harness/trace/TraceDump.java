@@ -59,6 +59,7 @@ public final class TraceDump {
      * TraceDump.profile(outputDir, "harness-300f", mark);
      * //   profile-<label>/report.txt   read this first: the breakdown, and the slowest, idlest and a
      * //                                typical frame in detail
+     * //   profile-<label>/report-full.txt   every zone and counter, for a zone-by-zone comparison
      * //   profile-<label>/tree.txt     every thread's call tree, ms and calls per frame
      * //   profile-<label>/trace.json   for ui.perfetto.dev -- only with -Dcrystalgraphics.harness.profile.json=true
      * //   profile-<label>.prev/        the run before, for a diff
@@ -94,8 +95,10 @@ public final class TraceDump {
         File report = new File(folder, "report.txt");
         File tree = new File(folder, "tree.txt");
         try {
-            Files.write(report.toPath(), CgTraceReport.of(range).sources(sources).breakdown()
-                    .getBytes(StandardCharsets.UTF_8));
+            CgTraceReport full = CgTraceReport.of(range).sources(sources);
+            Files.write(report.toPath(), full.breakdown().getBytes(StandardCharsets.UTF_8));
+            Files.write(new File(folder, "report-full.txt").toPath(),
+                    full.render(CgTraceReport.Tier.FULL).getBytes(StandardCharsets.UTF_8));
             Files.write(tree.toPath(), callTree(fromFrame, toFrame, range.frames().size(), sources)
                     .getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
