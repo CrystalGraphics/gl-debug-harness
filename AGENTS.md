@@ -253,6 +253,8 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress" -Dcrystalgraphics.harness.vfx.beams=120
 # Particles alone, the explosion kit bursting every 2.5 s: P switches 60 Hz (new) and 120 Hz (old) steps
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-particles"
+# The energy wave's blast every second, for its flash: F double/single/off, I impact frame, T slow motion, , . period
+./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blast-flash"
 # vfx-spheres-stress's two phases profiled from one run: profile-harness-300f-before/ (beams) and -after/ (blasts)
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress" -Dcrystalgraphics.harness.profile=300 \
     -Dcrystalgraphics.harness.profile.warmup=270 -Dcrystalgraphics.harness.profile.splitAt=vfx.blast \
@@ -376,8 +378,12 @@ public interface InteractiveSceneLifecycle extends HarnessSceneLifecycle {
     boolean isRunning();              // Return false to exit the render loop
     boolean uses3DCamera();           // True enables camera, floor, HUD
     boolean shouldShutdownOnComplete(); // True exits the program when done
+    default String hudLine() { return null; } // The scene's switches, shown under the HUD's own lines
 }
 ```
+
+A scene that also implements `CgSystemInput.Keyboard` gets every key event after the runner's own bindings (so pick
+keys they do not use); return true so the pause handler still sees it. `CgVfxBlastFlashScene` has both.
 
 `FrameInfo` is an immutable snapshot of per-frame timing: delta time, elapsed time, and frame number. For managed scenes, the runtime passes `FrameInfo.SINGLE_FRAME` (zero timing, frame 1).
 

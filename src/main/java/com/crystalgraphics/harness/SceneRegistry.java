@@ -53,6 +53,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxModulesScene;
 import com.crystalgraphics.harness.scene.test.CgWorldLabelsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBlastsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxParticlesScene;
+import com.crystalgraphics.harness.scene.test.CgVfxBlastFlashScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShowcaseScene;
 import com.crystalgraphics.harness.scene.test.CgVfxTrailsScene;
 import com.crystalgraphics.harness.tool.CapabilityReport;
@@ -837,6 +838,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxParticlesScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-blast-flash")
+                .description("The energy wave's blast every second, for judging its flash: F double/single/off, I impact frame, T slow motion, , . period")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxBlastFlashScene()
         );
 
         reg.register(

@@ -250,6 +250,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // ── Create core subsystems ──
         camera = new Camera3D();
         HUDRenderer hudRenderer = new HUDRenderer();
+        hudRenderer.sceneLines(scene::hudLine);
         PauseScreenRenderer pauseRenderer = new PauseScreenRenderer();
         overlayPipeline = new OverlayPipeline(hudRenderer, pauseRenderer);
         scheduler = new TaskScheduler();
