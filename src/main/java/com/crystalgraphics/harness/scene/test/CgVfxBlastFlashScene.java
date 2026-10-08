@@ -25,7 +25,7 @@ import java.util.Locale;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blast-flash"
- * // F: the flash double (now), single (before) or off     I: the impact frame on or off
+ * // F: the flash double (now), single (before) or off     I: the impact frame and its hitstop on or off
  * // T: time at 1x, 0.25x or 0.1x                          , .: a blast more or less often
  * }</pre>
  *
@@ -45,7 +45,7 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
             .build();
     private static final CgKeyframes NONE = CgKeyframes.start(0f, 0f).to(1f, 0f, CgEasings.LINEAR).build();
     private static final float[] SPEEDS = {1f, 0.25f, 0.1f};
-    private static final float IMPACT_SECONDS = 0.06f, MIN_PERIOD = 0.5f, MAX_PERIOD = 5f;
+    private static final float MIN_PERIOD = 0.5f, MAX_PERIOD = 5f;
     /** Where the wave fires from and where it bursts, in front of the showcase's grid. */
     private static final double MUZZLE_X = -9.0, MUZZLE_Y = 2.5, TARGET_X = 3.0, Z = 12.0;
 
@@ -54,7 +54,7 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
     /** Waves fired and not yet stopped: each stops as it hits. */
     private final List<CgEnergyWave> flying = new ArrayList<>();
     private Flash flash = Flash.DOUBLE;
-    private boolean impact;
+    private boolean impact = true;
     private int speed;
     /** The scene's own clock, slowed by T, and when the next wave fires on it. */
     private float period = 1f, clock, nextFire;
@@ -93,7 +93,7 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         wave.aim(1f, -0.2f, 0f).target(TARGET_X, 0.0, Z).fire();
         wave.ground(0.0);
         if (flash != Flash.DOUBLE) wave.set(CgEnergyWave.BLAST_FLASH, flash == Flash.SINGLE ? SINGLE : NONE);
-        wave.set(CgEnergyWave.BLAST_IMPACT_SECONDS, impact ? IMPACT_SECONDS : 0f);
+        wave.set(CgEnergyWave.BLAST_IMPACT, impact ? 1f : 0f);
         flying.add(vfx.play(wave));
     }
 
