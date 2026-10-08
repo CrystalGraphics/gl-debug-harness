@@ -9,6 +9,7 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.vfx.CgVfxEffect;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.effect.beam.CgEnergyWave;
 import org.apache.logging.log4j.LogManager;
@@ -27,6 +28,11 @@ import java.util.Locale;
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blast-flash"
  * // F: the flash double (now), single (before) or off     I: the impact frame and its hitstop on or off
  * // T: time at 1x, 0.25x or 0.1x                          , .: a blast more or less often
+ *
+ * // Each frame of the first blast's impact frame photographed, then it exits:
+ * //   harness-output/vfx-blast-flash/vfx-blast-flash-NN-impact-frame-<k>.png
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blast-flash" \
+ *     -Dcrystalgraphics.harness.vfx.moments=true -Dcrystalgraphics.harness.fixedDelta=0.0166667
  * }</pre>
  *
  * Each switch applies from the next wave fired.
@@ -58,6 +64,11 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
     private int speed;
     /** The scene's own clock, slowed by T, and when the next wave fires on it. */
     private float period = 1f, clock, nextFire;
+    /** The impact frame's frame announced this tick, photographed this frame; the blast photographed; captures taken. */
+    private String moment;
+    private CgVfxEffect photographed;
+    private int captures;
+    private boolean running = true;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -65,6 +76,11 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         ctx.getCamera3D().setPitch(-10f);
         ctx.getCamera3D().setMoveSpeed(6f);
         LOG.info("[vfx-blast-flash] a blast every {}s; F flash, I impact frame, T slow motion, , . period", period);
+        if (Boolean.getBoolean("crystalgraphics.harness.vfx.moments")) vfx.onMoment((effect, name, x, y, z, radius) -> {
+            if (!name.startsWith(CgEnergyWave.MOMENT_IMPACT_FRAME)) return;
+            if (photographed == null) photographed = effect;
+            if (photographed == effect) moment = name;
+        });
     }
 
     @Override
@@ -82,6 +98,11 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         }
         CgWorldRenderer world = CgWorldRenderer.get();
         vfx.update(clock);
+        if (moment != null) {
+            ctx.getArtifactService().requestCapture(String.format(Locale.ROOT, "%02d-%s", ++captures, moment));
+            if (moment.equals(CgEnergyWave.MOMENT_IMPACT_FRAME + CgEnergyWave.BLAST_BEATS.frames())) running = false;
+            moment = null;
+        }
         vfx.submit(world);
         stage.submitStage(world, 0.0, 0.0, 0.0, ctx.getCamera3D().getPosX(), ctx.getCamera3D().getPosY(),
                 ctx.getCamera3D().getPosZ());
@@ -123,7 +144,7 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         stage.delete();
     }
 
-    @Override public boolean isRunning() { return true; }
+    @Override public boolean isRunning() { return running; }
     @Override public boolean uses3DCamera() { return true; }
     @Override public boolean shouldShutdownOnComplete() { return false; }
 }
