@@ -33,7 +33,7 @@ import java.util.List;
  * must. Each at every quality tier (each its own chain), three target sizes, one odd and one tall enough to halve the emission first, and at emission scales 1, 0.5 and the
  * tier's own (0), since the Emissive pass reads the scene's depth by its own pixel's share of the screen.
  *
- * <p>Under the HDR scene ({@code -Dcrystalgraphics.world.hdrScene=true}) a glow is light in the scene and bloom takes
+ * <p>Under the HDR scene (on by default; {@code -Dcrystalgraphics.world.hdrScene=false} for the old path) a glow is light in the scene and bloom takes
  * what passes white, so the emission's scales and merging mean nothing: it checks instead that a pane in front covers
  * a glow as it covers the colour ({@link #covered}).</p>
  *

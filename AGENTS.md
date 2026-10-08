@@ -560,7 +560,7 @@ The interactive runner sequences these steps every frame:
 | ESCAPE or T | Toggle pause (releases mouse cursor) |
 | C | Camera shake on and off (the HUD says which) |
 | L | Bloom in the target's encoding, then in linear light, then off (the HUD says which) |
-| G | The HDR scene on or off (`CgWorldRenderer.hdrScene`; `-Dcrystalgraphics.world.hdrScene=true` at launch): the transparent stage drawn into a linear RGBA16F scene and composited back, or straight into the target as before. Takes effect the next frame |
+| G | The HDR scene on or off for the run (`CgWorldRenderer.hdrScene`, overriding the `CgGraphicsSettings.HDR` setting, on by default, unsaved; `-Dcrystalgraphics.world.hdrScene=false` at launch): the transparent stage drawn into a linear RGBA16F scene and composited back, or straight into the target as before. Takes effect the next frame |
 | H | Half-resolution draws on or off (`CgWorldRenderer.halfResolution`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
 | V | The VFX simulation on the CPU or the GPU (`CgVfxSystem.simulation`; `-Dcrystalgraphics.vfx.sim=cpu\|gpu` at launch). It reaches emitters that start after the press |
 | J | The distortion target at half size or full size (`CgWorldRenderer.distortionScale`): the hazes' bend at a quarter of the pixels, or a pixel per texel to compare |
