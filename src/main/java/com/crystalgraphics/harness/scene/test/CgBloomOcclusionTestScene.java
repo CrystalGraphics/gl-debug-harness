@@ -55,6 +55,8 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         wall = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         glow = CgMaterial.load("assets/harness/shader/bloom_glow.shader");
         emissionOnly = CgMaterial.newInstance("crystalgraphics:shaders/emission_only.shader");
+        // Its javadoc's glow: past white under the HDR scene's glow gain, as a glow meant to bloom is.
+        emissionOnly.applyProperties(b -> b.set1f("_EmissionStrength", 3f));
         glowAlpha = CgMaterial.load("assets/harness/shader/bloom_glow_alpha.shader");
         glowPremultiplied = CgMaterial.load("assets/harness/shader/bloom_glow_premul.shader");
         pane = CgMaterial.newInstance("assets/harness/shader/bloom_cover.shader");
@@ -206,8 +208,8 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
     /**
      * Under the HDR scene a glow is light in the scene, so a pane in front covers it as it covers the colour: behind an
      * opaque pane, an opaque ball's glow (added before the transparent pass) and a transparent ball's (added after its
-     * own draw) leave the picture the pane alone makes, bloom on, byte for byte. Behind a translucent pane bloom still
-     * brightens the halo beside the ball, less than bare.
+     * own draw) leave the picture the pane alone makes, bloom on, byte for byte. Behind a translucent pane the halo
+     * beside the ball blooms less than bare, or not at all once the pane takes the glow under white.
      */
     private void covered(HarnessContext ctx, CgWorldRenderer world, List<String> failures) {
         draw(ctx, world, 321, 241, null, false, 1f, 1f, pane, "cover-pane.png");
@@ -224,9 +226,9 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         }
         // Beside the ball's silhouette (about 42 px across at 3 blocks), inside the pane's (about 104)
         int x = 321 / 2 + 60, y = 241 / 2, bare = brightening(ctx, "cover-bare", x, y), dimmed = brightening(ctx, "cover-translucent", x, y);
-        if (dimmed <= 0 || dimmed >= bare) {
+        if (bare <= 0 || dimmed >= bare) {
             failures.add("cover-translucent: bloom brightened (" + x + ", " + y + ") by " + dimmed + " behind a translucent pane and "
-                    + bare + " bare, where it should be less but some");
+                    + bare + " bare, where it should bloom bare and less behind");
         }
     }
 

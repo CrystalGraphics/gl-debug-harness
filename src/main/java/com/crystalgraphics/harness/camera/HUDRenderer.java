@@ -267,7 +267,8 @@ public final class HUDRenderer {
         CgBloom bloom = CgPostStack.get().bloom();
         String bloomLine = bloom.intensity() == 0f ? "Bloom [L]: off" : bloom.linear() ? "Bloom [L]: linear" : "Bloom [L]: blend";
         String simLine = "VFX sim [V]: " + (CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU ? "cpu" : "gpu");
-        String sceneLine = "HDR scene [G]: " + (CgWorldRenderer.get().hdrScene() ? "on" : "off");
+        String sceneLine = "HDR scene [G]: " + (CgWorldRenderer.get().hdrScene() ? "on" : "off")
+                + String.format("   glow [ ]: %.2f   bloom - =: %.2f", CgWorldRenderer.get().sceneEmission(), bloom.intensity());
         String particleLine = String.format("Particles: %,d", displayedParticles);
         String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine + "\n" + bloomLine + "\n" + simLine
                 + "\n" + sceneLine + "\n" + particleLine;
