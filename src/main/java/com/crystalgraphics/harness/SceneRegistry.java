@@ -5,6 +5,7 @@ import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.ImageScene;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
+import com.crystalgraphics.harness.scene.test.CgHdrSceneTestScene;
 import com.crystalgraphics.harness.scene.test.CgMrtEmissionTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLayersTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostLooksTestScene;
@@ -406,6 +407,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgMrtEmissionTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("hdr-scene")
+                .description("render-hdr-scene H0: an 8-bit host decoded into a linear scene and encoded back, timed on the GPU at 1080p and 4K, RGBA16F and R11G11B10F; the RGBA16F round trip must be byte-identical; prints a table and exits")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(180)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgHdrSceneTestScene()
         );
 
         reg.register(
