@@ -14,6 +14,7 @@ import com.crystalgraphics.vfx.camera.CgCameraShake;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.bloom.CgBloom;
 import com.crystalgraphics.vfx.CgVfxSystem;
+import com.crystalgraphics.render.world.CgWorldRenderer;
 
 import java.util.Arrays;
 import java.util.logging.Logger;
@@ -39,6 +40,7 @@ import java.util.logging.Logger;
  * Shake [C]: on, trauma t
  * Bloom [L]: off | linear | blend
  * VFX sim [V]: cpu | gpu
+ * HDR scene [G]: on | off
  * Particles: n  (the median drawn a frame over the last 0.5 s)
  * </pre>
  */
@@ -265,9 +267,10 @@ public final class HUDRenderer {
         CgBloom bloom = CgPostStack.get().bloom();
         String bloomLine = bloom.intensity() == 0f ? "Bloom [L]: off" : bloom.linear() ? "Bloom [L]: linear" : "Bloom [L]: blend";
         String simLine = "VFX sim [V]: " + (CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU ? "cpu" : "gpu");
+        String sceneLine = "HDR scene [G]: " + (CgWorldRenderer.get().hdrScene() ? "on" : "off");
         String particleLine = String.format("Particles: %,d", displayedParticles);
         String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine + "\n" + bloomLine + "\n" + simLine
-                + "\n" + particleLine;
+                + "\n" + sceneLine + "\n" + particleLine;
 
         // Build text layout for the current frame's text.
         // maxWidth=0 means unbounded (no line wrapping beyond our explicit newline).

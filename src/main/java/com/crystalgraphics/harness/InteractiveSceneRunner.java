@@ -541,6 +541,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 CgVfxSystem.simulation(CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU
                         ? CgVfxSystem.Simulation.GPU : CgVfxSystem.Simulation.CPU);
             }
+            // G: the transparent stage into a linear HDR scene, or straight into the target as before, to compare.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_G && !isCtrlDown()
+                    && scene.uses3DCamera()) {
+                CgWorldRenderer.get().hdrScene(!CgWorldRenderer.get().hdrScene());
+            }
             // H: half-resolution draws (the beams' glow and light volumes) at half size, or at full size to compare.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_H && !isCtrlDown()
                     && scene.uses3DCamera()) {
