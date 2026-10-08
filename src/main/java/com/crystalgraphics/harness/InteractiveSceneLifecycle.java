@@ -87,4 +87,15 @@ public interface InteractiveSceneLifecycle extends HarnessSceneLifecycle {
      */
     default void onFrameEnd(HarnessContext ctx, FrameInfo frame) {
     }
+
+    /**
+     * Lines the HUD shows under its own, asked each frame: a scene's switches and their state. Null for none.
+     *
+     * <pre>{@code
+     * @Override public String hudLine() { return "Flash [F]: " + flash; }
+     * }</pre>
+     */
+    default String hudLine() {
+        return null;
+    }
 }

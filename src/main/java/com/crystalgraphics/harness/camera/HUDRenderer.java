@@ -17,6 +17,7 @@ import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 
 import java.util.Arrays;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
@@ -92,9 +93,16 @@ public final class HUDRenderer {
     private static final float DEMO_TEXT_ROW_GAP = 12.0f;
     private static final int DEMO_FONT_SIZE_PX = 24;
 
+    /** The scene's own lines, under the HUD's ({@code InteractiveSceneLifecycle.hudLine}). */
+    private Supplier<String> sceneLines = () -> null;
+
     public HUDRenderer() {
         currentFontSizePx = BASE_FONT_SIZE_PX;
         currentQuadOffset = BASE_QUAD_OFFSET;
+    }
+
+    public void sceneLines(Supplier<String> lines) {
+        sceneLines = lines;
     }
 
     /**
@@ -267,10 +275,13 @@ public final class HUDRenderer {
         CgBloom bloom = CgPostStack.get().bloom();
         String bloomLine = bloom.intensity() == 0f ? "Bloom [L]: off" : bloom.linear() ? "Bloom [L]: linear" : "Bloom [L]: blend";
         String simLine = "VFX sim [V]: " + (CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU ? "cpu" : "gpu");
-        String sceneLine = "HDR scene [G]: " + (CgWorldRenderer.get().hdrScene() ? "on" : "off");
+        String sceneLine = "HDR scene [G]: " + (CgWorldRenderer.get().hdrScene() ? "on" : "off")
+                + String.format("   glow [ ]: %.2f   bloom - =: %.2f", CgWorldRenderer.get().sceneEmission(), bloom.intensity());
         String particleLine = String.format("Particles: %,d", displayedParticles);
         String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine + "\n" + bloomLine + "\n" + simLine
                 + "\n" + sceneLine + "\n" + particleLine;
+        String own = sceneLines.get();
+        if (own != null) hudText += "\n" + own;
 
         // Build text layout for the current frame's text.
         // maxWidth=0 means unbounded (no line wrapping beyond our explicit newline).

@@ -12,6 +12,9 @@ import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.platform.gl.CgGL;
+import com.crystalgraphics.platform.gl.state.CgGlScope;
+import com.crystalgraphics.platform.gl.state.CgGlSlot;
+import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
@@ -24,8 +27,12 @@ import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.graph.CgRecording;
+import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.stage.CgRenderStage;
+import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.trace.CgGpuTrace;
 import com.crystalgraphics.trace.CgTrace;
+import org.joml.Matrix4f;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -48,6 +55,8 @@ import java.util.Map;
  * </pre>
  *
  * <ul>
+ *   <li>Then the engine's own scene in and composite: both world stages fired over the pattern with the HDR scene on
+ *       and nothing drawn must leave it byte for byte, with {@code GL_FRAMEBUFFER_SRGB} off on GL.</li>
  *   <li>PASS needs the RGBA16F round trip byte-identical at every size; R11G11B10F's changed codes are reported, not
  *       failed (its blue channel has a 5-bit mantissa).</li>
  *   <li>The go/no-go bar is the pair under 0.5 ms at 1080p: the scene reports it, a person judges it per device.</li>
@@ -186,6 +195,10 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
                 failure = c.name() + " changed " + changed + " channel values of the host";
             }
         }
+        String engine = engineRoundTrip(device == null);
+        System.out.println("[hdr-scene]   engine scene in and composite, both world stages fired: "
+                + (engine == null ? "exact" : engine));
+        if (engine != null && failure == null) failure = "the engine's round trip: " + engine;
         int validation = PlatformServiceHarness.validationErrors();
         if (GlErrorChecker.checkAndLog("hdr-scene")) {
             System.out.println("[hdr-scene] FAIL on " + on + ": GL errors, logged above");
@@ -202,17 +215,55 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         return t == null || t[1] == 0 ? Double.NaN : t[0] / 1e6 / t[1];
     }
 
+    /**
+     * The engine's own scene in and composite, as a host fires them: the pattern in a host target, both world stages
+     * fired over it with the HDR scene on and nothing drawn. Null when every code comes back; else what went wrong. On
+     * GL, the host's {@code GL_FRAMEBUFFER_SRGB} must be off too, or the scene's encode would be applied twice.
+     */
+    private String engineRoundTrip(boolean gl) {
+        int w = 640, h = 480;
+        CgFrameBuffer host = CgFrameBuffer.createOwned("hdr-scene engine host", w, h, HOST);
+        owned.add(host);
+        upload(host, pattern(w, h), w, h);
+        CgWorldRenderer world = CgWorldRenderer.get();
+        world.install();
+        CgPostStack.get().install();
+        boolean was = world.hdrScene();
+        world.hdrScene(true);
+        // A host draws its world with its target bound at its own size: the stages take both from GL.
+        try (CgGlScope ignored = CgGlState.save(CgGlSlot.FBO, CgGlSlot.VIEWPORT)) {
+            host.bind();
+            CgGL.glViewport(0, 0, w, h);
+            Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
+            for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
+                stage.host().set(0f, w, h, host.getId()).view().set(0, 0, 0, new Matrix4f(), projection);
+                stage.fire();
+            }
+        } finally {
+            world.hdrScene(was);
+        }
+        if (gl && CgGL.glGetBoolean(GL_FRAMEBUFFER_SRGB)) return "GL_FRAMEBUFFER_SRGB is on";
+        int changed = changed(host.getColorTexture(0).getId(), w, h, true);
+        return changed == 0 ? null : changed + " channel values changed";
+    }
+
+    private static final int GL_FRAMEBUFFER_SRGB = 0x8DB9;
+
     /** Channel values of {@code c}'s out unlike the pattern: RGB only where the scene has no alpha. */
     private static int changed(Config c) {
-        int w = c.width(), h = c.height();
+        return changed(c.out().framebuffer().getColorTexture(0).getId(), c.width(), c.height(), c.exact());
+    }
+
+    /** Channel values of {@code texture} unlike the pattern; without {@code alpha}, RGB only. */
+    private static int changed(int texture, int w, int h, boolean alpha) {
         ByteBuffer made = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder());
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, c.out().framebuffer().getColorTexture(0).getId());
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, texture);
         CgGL.glGetTexImage(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, made);
         CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
         ByteBuffer want = pattern(w, h);
         int changed = 0;
         for (int i = 0; i < w * h * 4; i++) {
-            if (!c.exact() && i % 4 == 3) continue;
+            if (!alpha && i % 4 == 3) continue;
             if (made.get(i) != want.get(i)) changed++;
         }
         return changed;

@@ -250,6 +250,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // ── Create core subsystems ──
         camera = new Camera3D();
         HUDRenderer hudRenderer = new HUDRenderer();
+        hudRenderer.sceneLines(scene::hudLine);
         PauseScreenRenderer pauseRenderer = new PauseScreenRenderer();
         overlayPipeline = new OverlayPipeline(hudRenderer, pauseRenderer);
         scheduler = new TaskScheduler();
@@ -545,6 +546,15 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_G && !isCtrlDown()
                     && scene.uses3DCamera()) {
                 CgWorldRenderer.get().hdrScene(!CgWorldRenderer.get().hdrScene());
+            }
+            // [ ]: the HDR scene's glow gain down or up; - =: bloom's intensity, while it is on. Held, they repeat.
+            if (event.pressed() && !isCtrlDown() && scene.uses3DCamera()) {
+                CgWorldRenderer world = CgWorldRenderer.get();
+                CgBloom bloom = CgPostStack.get().bloom();
+                if (event.key() == CgKeyCodes.KEY_LBRACKET) world.sceneEmission(world.sceneEmission() / 1.25f);
+                if (event.key() == CgKeyCodes.KEY_RBRACKET) world.sceneEmission(world.sceneEmission() * 1.25f);
+                if (event.key() == CgKeyCodes.KEY_MINUS && bloom.intensity() > 0f) bloom.intensity(bloom.intensity() / 1.25f);
+                if (event.key() == CgKeyCodes.KEY_EQUALS && bloom.intensity() > 0f) bloom.intensity(bloom.intensity() * 1.25f);
             }
             // H: half-resolution draws (the beams' glow and light volumes) at half size, or at full size to compare.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_H && !isCtrlDown()
