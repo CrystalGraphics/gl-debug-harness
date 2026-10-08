@@ -39,6 +39,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -83,6 +84,11 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
     private static final int RECORDS = 64, FIRST = 8, GIVEN = 40;
     private static final Band OBJECTS = new Band(8, 168, 0, 0xFF30FF, CgMesh.quads(1), CgIndirect.INSTANCES, 1, 4,
             CgMesh.quads(64), GIVEN * 6, GIVEN);
+
+    /** Two records of one draw of {@code indirectEach}, each its own count: 37 cells, and 100 held to the mesh's 64. */
+    private static final List<Band> EACH = List.of(
+            new Band(8, 248, 0, 0xFF8030, CgMesh.quads(64), CgIndirect.INDICES, 6, 0, CgMesh.quads(64), 37 * 6, 37),
+            new Band(88, 248, 0, 0x30FFE0, CgMesh.quads(64), CgIndirect.INDICES, 6, 3, CgMesh.quads(64), 64 * 6, 64));
 
     private CgMaterial material;
     private CgCompute kernels;
@@ -178,6 +184,15 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
                 .indirect(counts, OBJECTS.uint() * 4L, OBJECTS.mode(), OBJECTS.factor());
         c.draw(pipeline, bindings, OBJECTS.reference()).range(0, FIRST * 6, OBJECTS.referenceCount());
         record(c, OBJECTS, HALF, OBJECTS.referenceBy());
+        c.draw(pipeline, bindings, EACH.get(0).mesh()).indirectEach(counts, CgIndirect.INDICES, 6);
+        for (Band band : EACH) {
+            record(c, band, 0, band.by());
+            c.countAt(band.uint() * 4L);
+        }
+        for (Band band : EACH) {
+            c.draw(pipeline, bindings, band.reference()).range(0, 0, band.referenceCount());
+            record(c, band, HALF, band.referenceBy());
+        }
         pass.add(c.end());
         pass.end();
         return rec;
@@ -210,6 +225,17 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
             float r = (band.rgb() >> 16 & 0xFF) / 255f, g = (band.rgb() >> 8 & 0xFF) / 255f, b = (band.rgb() & 0xFF) / 255f;
             world.draw(band.mesh(), material).indirect(counts, band.uint() * 4L, band.mode(), band.factor())
                     .custom(0, band.x(), band.y(), band.by(), 0f).custom(1, r, g, b, 1f).submit();
+            world.draw(band.reference(), material).indices(0, band.referenceCount())
+                    .custom(0, band.x() + HALF, band.y(), band.referenceBy(), 0f).custom(1, r, g, b, 1f).submit();
+        }
+        CgWorldRenderer.Draw each = world.draw(EACH.get(0).mesh(), material).indirectEach(counts, CgIndirect.INDICES, 6);
+        for (Band band : EACH) {
+            float r = (band.rgb() >> 16 & 0xFF) / 255f, g = (band.rgb() >> 8 & 0xFF) / 255f, b = (band.rgb() & 0xFF) / 255f;
+            each.each(0, 0, 0, band.uint() * 4L).custom(0, band.x(), band.y(), band.by(), 0f).custom(1, r, g, b, 1f);
+        }
+        each.submit();
+        for (Band band : EACH) {
+            float r = (band.rgb() >> 16 & 0xFF) / 255f, g = (band.rgb() >> 8 & 0xFF) / 255f, b = (band.rgb() & 0xFF) / 255f;
             world.draw(band.reference(), material).indices(0, band.referenceCount())
                     .custom(0, band.x() + HALF, band.y(), band.referenceBy(), 0f).custom(1, r, g, b, 1f).submit();
         }
@@ -252,7 +278,8 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         }
         if (pass) {
             System.out.println("[indirect-draw] PASS on " + on + ": every indirect draw matches its direct twin, "
-                    + "in a graph, executed again, and in the world, and the kernel's object records draw in the graph");
+                    + "in a graph, executed again, and in the world, a draw of a command a record (indirectEach) too, and the "
+                    + "kernel's object records draw in the graph");
         }
     }
 
@@ -267,7 +294,10 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
                 }
             }
         }
-        for (Band band : objects ? List.of(BANDS.get(0), BANDS.get(1), BANDS.get(2), BANDS.get(3), OBJECTS) : BANDS) {
+        List<Band> bands = new ArrayList<>(BANDS);
+        bands.addAll(EACH);
+        if (objects) bands.add(OBJECTS);
+        for (Band band : bands) {
             int filled = 0;
             for (int cell = 0; cell < 64; cell++) {
                 int x = (int) band.x() + (cell % 8) * 8 + 2, y = (int) band.y() + (cell / 8) * 8 + 2;

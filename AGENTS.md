@@ -41,8 +41,8 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   CPU reference: the gate for `.compute` on each device. `--mode=compute-graph` is the frame graph's: kernels, a
   history and an indirect dispatch recorded and built on a worker; with `-Dcrystalgraphics.graph.barriers=false` it
   must fail under synchronization validation. `--mode=indirect-draw` is the indirect draws': counts a kernel wrote,
-  drawn in every mode and matched against direct draws, in a graph and through the world renderer, and a draw of object
-  records a kernel wrote (`objects()`); it must fail the same way with the barriers off. `--mode=material-buffer` is a material's: a kernel's records compacted on the GPU,
+  drawn in every mode and matched against direct draws, in a graph and through the world renderer, a draw of a command a
+  record (`indirectEach`), and a draw of object records a kernel wrote (`objects()`); it must fail the same way with the barriers off. `--mode=material-buffer` is a material's: a kernel's records compacted on the GPU,
   each live one placed and coloured by a material's `Buffers { }` through one indirect draw, in a graph and through the
   world renderer; it must fail the same way too. `--mode=raster-levels` is raster passes into mip levels: a chain drawn
   level by level in one texture, each level reading the one above through a level view, every texel checked against
