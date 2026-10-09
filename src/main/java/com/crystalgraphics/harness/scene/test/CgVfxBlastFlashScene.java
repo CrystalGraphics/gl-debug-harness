@@ -9,7 +9,6 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
-import com.crystalgraphics.vfx.CgVfxEffect;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.effect.beam.CgEnergyWave;
 import org.apache.logging.log4j.LogManager;
@@ -29,8 +28,8 @@ import java.util.Locale;
  * // F: the flash double (now), single (before) or off     I: the impact frame and its hitstop on or off
  * // T: time at 1x, 0.25x or 0.1x                          , .: a blast more or less often
  *
- * // Each frame of the first blast's impact frame photographed, then it exits:
- * //   harness-output/vfx-blast-flash/vfx-blast-flash-NN-impact-frame-<k>.png
+ * // Each frame of the first blast's impact frame photographed, with the frame before and after it, then it exits:
+ * //   harness-output/vfx-blast-flash/vfx-blast-flash-00-before.png, -NN-impact-frame-<k>.png, -NN-after.png
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blast-flash" \
  *     -Dcrystalgraphics.harness.vfx.moments=true -Dcrystalgraphics.harness.fixedDelta=0.0166667
  * }</pre>
@@ -64,9 +63,13 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
     private int speed;
     /** The scene's own clock, slowed by T, and when the next wave fires on it. */
     private float period = 1f, clock, nextFire;
-    /** The impact frame's frame announced this tick, photographed this frame; the blast photographed; captures taken. */
+    /**
+     * The impact frame's frame announced this tick, photographed this frame; the first wave, the one photographed;
+     * whether it has hit and whether its impact frame has shown; captures taken.
+     */
     private String moment;
-    private CgVfxEffect photographed;
+    private CgEnergyWave photographed;
+    private boolean photographing, hit, shown;
     private int captures;
     private boolean running = true;
 
@@ -76,10 +79,11 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         ctx.getCamera3D().setPitch(-10f);
         ctx.getCamera3D().setMoveSpeed(6f);
         LOG.info("[vfx-blast-flash] a blast every {}s; F flash, I impact frame, T slow motion, , . period", period);
-        if (Boolean.getBoolean("crystalgraphics.harness.vfx.moments")) vfx.onMoment((effect, name, x, y, z, radius) -> {
-            if (!name.startsWith(CgEnergyWave.MOMENT_IMPACT_FRAME)) return;
-            if (photographed == null) photographed = effect;
-            if (photographed == effect) moment = name;
+        photographing = Boolean.getBoolean("crystalgraphics.harness.vfx.moments");
+        if (photographing) vfx.onMoment((effect, name, x, y, z, radius) -> {
+            if (effect != photographed) return;
+            if (name.equals(CgEnergyWave.MOMENT_IMPACT)) hit = true;
+            if (name.startsWith(CgEnergyWave.MOMENT_IMPACT_FRAME)) moment = name;
         });
     }
 
@@ -98,15 +102,30 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         }
         CgWorldRenderer world = CgWorldRenderer.get();
         vfx.update(clock);
-        if (moment != null) {
-            ctx.getArtifactService().requestCapture(String.format(Locale.ROOT, "%02d-%s", ++captures, moment));
-            if (moment.equals(CgEnergyWave.MOMENT_IMPACT_FRAME + CgEnergyWave.BLAST_BEATS.frames())) running = false;
-            moment = null;
-        }
+        if (photographing && photographed != null) photograph(ctx);
         vfx.submit(world);
         stage.submitStage(world, 0.0, 0.0, 0.0, ctx.getCamera3D().getPosX(), ctx.getCamera3D().getPosY(),
                 ctx.getCamera3D().getPosZ());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
+    }
+
+    /**
+     * The first wave's impact frame: the last frame before it (overwritten each frame from the hit), each of its
+     * frames as announced, and the first frame after it; then the scene exits.
+     */
+    private void photograph(HarnessContext ctx) {
+        String name = null;
+        if (photographed.impactFrameShowing()) {
+            shown = true;
+            if (moment != null) name = String.format(Locale.ROOT, "%02d-%s", ++captures, moment);
+        } else if (shown) {
+            name = String.format(Locale.ROOT, "%02d-after", ++captures);
+            running = false;
+        } else if (hit) {
+            name = "00-before";
+        }
+        moment = null;
+        if (name != null) ctx.getArtifactService().requestCapture(name);
     }
 
     private void fire() {
@@ -116,6 +135,7 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         if (flash != Flash.DOUBLE) wave.set(CgEnergyWave.BLAST_FLASH, flash == Flash.SINGLE ? SINGLE : NONE);
         wave.set(CgEnergyWave.BLAST_IMPACT, impact ? 1f : 0f);
         flying.add(vfx.play(wave));
+        if (photographed == null) photographed = wave;
     }
 
     @Override

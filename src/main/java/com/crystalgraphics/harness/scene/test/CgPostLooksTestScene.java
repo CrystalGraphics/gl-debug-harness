@@ -32,8 +32,8 @@ import java.util.function.Consumer;
  * The gate for the post stack's volumes and looks (render-post-process P7): bloom-occlusion's wall and glowing ball,
  * drawn once plain and once per look, each look set by a {@link CgPostVolume}. Checked from the pixels: a volume at
  * weight 0, one out of reach and a flash with the player's flashes at 0 change nothing; a flash brightens, a vignette
- * darkens the corners, an inverted impact frame is the negative, chromatic aberration moves edges, speed lines darken;
- * and a volume of higher priority overrides a lower one exactly.
+ * darkens the corners, an inverted impact frame is the negative, chromatic aberration moves edges, focus lines darken,
+ * a drawn frame fills the glowing ball and not the wall; and a volume of higher priority overrides a lower one exactly.
  *
  * <p>Prints {@code [post-looks] PASS} or {@code FAIL}; on Vulkan a validation error fails it. Captures land in its
  * output directory by look.</p>
@@ -93,7 +93,17 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         if (changed(chromatic, linear) < 50) failures.add("chromatic aberration moved " + changed(chromatic, linear) + " pixels");
         BufferedImage lines = draw(ctx, world, "lines", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.LINES, 1f))));
         if (!(mean(lines, 0, 0, W, H) < mean(base, 0, 0, W, H) * 0.95f)) {
-            failures.add("speed lines: mean " + mean(lines, 0, 0, W, H) + " against " + mean(base, 0, 0, W, H));
+            failures.add("focus lines: mean " + mean(lines, 0, 0, W, H) + " against " + mean(base, 0, 0, W, H));
+        }
+        // Drawn frames: the subject is what glows (the ball's Emissive pass), not the lit wall.
+        BufferedImage subject = draw(ctx, world, "subject", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.SUBJECT, 1f))));
+        if (!(mean(subject, W / 2 - 4, H / 2 - 4, 8, 8) > 200f && mean(subject, 0, 0, 24, 24) < 30f)) {
+            failures.add("a subject frame: ball " + mean(subject, W / 2 - 4, H / 2 - 4, 8, 8) + ", corner " + mean(subject, 0, 0, 24, 24));
+        }
+        BufferedImage focus = draw(ctx, world, "focus-lines", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.FOCUS_LINES, 1f))));
+        float rim = mean(focus, 0, 0, W, 24);
+        if (!(mean(focus, W / 2 - 4, H / 2 - 4, 8, 8) > 200f && rim > 60f && rim < 245f)) {
+            failures.add("focus lines on white: ball " + mean(focus, W / 2 - 4, H / 2 - 4, 8, 8) + ", top rows " + rim);
         }
 
         CgGraphicsSettings.FLASHES.set(flashes);
@@ -164,7 +174,8 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
             for (String f : failures) System.out.println("[post-looks] FAIL on " + on + ": " + f);
         } else {
             System.out.println("[post-looks] PASS on " + on + ": weight 0, out of reach and flashes 0 change nothing; "
-                    + "flash, vignette, invert, aberration and speed lines each show; priority overrides");
+                    + "flash, vignette, invert, aberration and focus lines each show; a drawn frame's subject is the glow; "
+                    + "priority overrides");
         }
     }
 
