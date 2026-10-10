@@ -5,6 +5,7 @@ import com.crystalgraphics.demo.CgVfxShowcase;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.effect.beam.CgEnergyWave;
@@ -20,7 +21,8 @@ import java.util.Locale;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blast-flash"
  * // F: the flash double (now), single (before) or off     I: the impact frame and its hitstop on or off
- * // Y: time at 1x, 0.25x or 0.1x                          , .: a shorter or longer wait before the next wave
+ * // B: the billows drawn or not                            , .: a shorter or longer wait before the next wave
+ * // Y: time faster, up to 2x; Shift+Y slower, down to 0x (0.5, 0.25, 0.1, 0.01)
  *
  * // Each frame of the first blast's impact frame photographed, with the frame before and after it, then it exits:
  * //   harness-output/vfx-blast-flash/vfx-blast-flash-00-before.png, -NN-impact-frame-<k>.png, -NN-after.png
@@ -49,14 +51,14 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
     /** The wave photographed, from 1 (.vfx.wave); captures taken. */
     private final int photographWave = Integer.getInteger("crystalgraphics.harness.vfx.wave", 1);
     private int captures;
-    private boolean running = true;
+    private boolean running = true, shift;
 
     @Override
     public void init(HarnessContext ctx) {
         ctx.getCamera3D().moveCamera(0f, 6f, 34f);
         ctx.getCamera3D().setPitch(-10f);
         ctx.getCamera3D().setMoveSpeed(6f);
-        LOG.info("[vfx-blast-flash] F flash, I impact frame, Y slow motion, , . wait before the next wave");
+        LOG.info("[vfx-blast-flash] F flash, I impact frame, B billows, Y / Shift+Y time, , . wait before the next wave");
         photographing = Boolean.getBoolean("crystalgraphics.harness.vfx.moments");
         if (photographing) blast.onMoment((effect, name, x, y, z, radius) -> {
             if (effect != photographed) return;
@@ -100,7 +102,9 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        if (event.pressed() && !event.repeat()) blast.press(event.key());
+        int key = event.key();
+        if (key == CgKeyCodes.KEY_LSHIFT || key == CgKeyCodes.KEY_RSHIFT) shift = event.pressed();
+        else if (event.pressed() && !event.repeat()) blast.press(key, shift);
         return true;
     }
 

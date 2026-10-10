@@ -254,7 +254,7 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 # Particles alone, the explosion kit bursting every 2.5 s: P switches 60 Hz (new) and 120 Hz (old) steps
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-particles"
 # The energy wave's blast, one wave at a time (CgVfxBlastFlash): F flash double/single/off, I impact frame, B billows
-# (off shows the dome alone), Y slow motion, , . the wait before the next wave
+# (off shows the dome alone), Y time faster to 2x and Shift+Y slower to 0x, , . the wait before the next wave
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blast-flash"
 # Its impact frame photographed: before, each beat and after, of wave N (.vfx.wave, 1), one beat a picture; then exits.
 # keyAt=1:C turns the camera's shake on (off at start), or the return shot's FOV kick is missing from the pictures
