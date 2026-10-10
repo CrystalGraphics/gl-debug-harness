@@ -21,12 +21,13 @@ import java.util.Locale;
 
 /**
  * The energy wave's blast over and over, for judging its screen flash and impact frame: a wave fires uncharged at the
- * floor every period and stops as it hits, so it bursts there. Scene id {@code vfx-blast-flash}.
+ * floor and stops as it hits, so it bursts there; a while after its impact frame (or its hit, without one) the scene
+ * clears and fires the next. Scene id {@code vfx-blast-flash}.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blast-flash"
  * // F: the flash double (now), single (before) or off     I: the impact frame and its hitstop on or off
- * // T: time at 1x, 0.25x or 0.1x                          , .: a blast more or less often
+ * // T: time at 1x, 0.25x or 0.1x                          , .: a shorter or longer wait before the next wave
  *
  * // Each frame of the first blast's impact frame photographed, with the frame before and after it, then it exits:
  * //   harness-output/vfx-blast-flash/vfx-blast-flash-00-before.png, -NN-impact-frame-<k>.png, -NN-after.png
@@ -35,8 +36,7 @@ import java.util.Locale;
  * // A later wave's: -Dcrystalgraphics.harness.vfx.wave=6
  * }</pre>
  *
- * Each switch applies from the next wave fired. Photographing ignores the period: each wave fires on a clean scene,
- * {@link #CLEAR_AFTER} after the last one's impact frame ends.
+ * Each switch applies from the next wave fired.
  */
 public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard {
 
@@ -52,9 +52,7 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
             .build();
     private static final CgKeyframes NONE = CgKeyframes.start(0f, 0f).to(1f, 0f, CgEasings.LINEAR).build();
     private static final float[] SPEEDS = {1f, 0.25f, 0.1f};
-    private static final float MIN_PERIOD = 0.5f, MAX_PERIOD = 5f;
-    /** Photographing: how long after a wave's impact frame ends the scene clears and fires the next. */
-    private static final float CLEAR_AFTER = 2f;
+    private static final float MIN_WAIT = 0.5f, MAX_WAIT = 5f;
     /** Where the wave fires from and where it bursts, in front of the showcase's grid. */
     private static final double MUZZLE_X = -9.0, MUZZLE_Y = 2.5, TARGET_X = 3.0, Z = 12.0;
 
@@ -65,8 +63,8 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
     private Flash flash = Flash.DOUBLE;
     private boolean impact = true;
     private int speed;
-    /** The scene's own clock, slowed by T, and when the next wave fires on it. */
-    private float period = 1f, clock, nextFire;
+    /** The scene's own clock, slowed by T; how long after a wave's impact frame the scene clears and fires the next. */
+    private float clock, wait = 2f;
     /**
      * The impact frame's frame announced this tick, photographed this frame; the first wave, the one photographed;
      * whether it has hit and whether its impact frame has shown; captures taken.
@@ -78,9 +76,9 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
     private final int photographWave = Integer.getInteger("crystalgraphics.harness.vfx.wave", 1);
     private int fired, captures;
     private boolean running = true;
-    /** Photographing: the wave whose impact frame ends the cycle, whether it has shown, when the scene clears. */
+    /** The wave in play; whether it was fired with an impact frame, has hit, and has shown it; when the scene clears. */
     private CgEnergyWave current;
-    private boolean currentShown;
+    private boolean currentFramed, currentHit, currentShown;
     private float clearAt = Float.NaN;
 
     @Override
@@ -88,7 +86,7 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         ctx.getCamera3D().moveCamera(0f, 6f, 34f);
         ctx.getCamera3D().setPitch(-10f);
         ctx.getCamera3D().setMoveSpeed(6f);
-        LOG.info("[vfx-blast-flash] a blast every {}s; F flash, I impact frame, T slow motion, , . period", period);
+        LOG.info("[vfx-blast-flash] the next wave {}s after a blast; F flash, I impact frame, T slow motion, , . wait", wait);
         photographing = Boolean.getBoolean("crystalgraphics.harness.vfx.moments");
         if (photographing) vfx.onMoment((effect, name, x, y, z, radius) -> {
             if (effect != photographed) return;
@@ -100,15 +98,11 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         clock += frame.getDeltaTime() * SPEEDS[speed];
-        if (photographing) {
-            cycle();
-        } else if (clock >= nextFire) {
-            fire();
-            nextFire = clock + period;
-        }
+        cycle();
         for (Iterator<CgEnergyWave> it = flying.iterator(); it.hasNext(); ) {
             CgEnergyWave wave = it.next();
             if (!wave.impacting()) continue;
+            if (wave == current) currentHit = true;
             wave.stop();
             it.remove();
         }
@@ -140,18 +134,18 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         if (name != null) ctx.getArtifactService().requestCapture(name);
     }
 
-    /** One wave at a time: the scene clears {@link #CLEAR_AFTER} after its impact frame, then fires the next. */
+    /** One wave at a time: the scene clears {@link #wait} after its impact frame (or its hit), then fires the next. */
     private void cycle() {
         if (current == null) {
             current = fire();
             return;
         }
         if (current.impactFrameShowing()) currentShown = true;
-        else if (currentShown && Float.isNaN(clearAt)) clearAt = clock + CLEAR_AFTER;
+        else if (Float.isNaN(clearAt) && (currentFramed ? currentShown : currentHit)) clearAt = clock + wait;
         if (Float.isNaN(clearAt) || clock < clearAt) return;
         vfx.clear();
         flying.clear();
-        currentShown = false;
+        currentHit = currentShown = false;
         clearAt = Float.NaN;
         current = fire();
     }
@@ -162,6 +156,7 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         wave.ground(0.0);
         if (flash != Flash.DOUBLE) wave.set(CgEnergyWave.BLAST_FLASH, flash == Flash.SINGLE ? SINGLE : NONE);
         wave.set(CgEnergyWave.BLAST_IMPACT, impact ? 1f : 0f);
+        currentFramed = impact;
         flying.add(vfx.play(wave));
         if (++fired == photographWave) photographed = wave;
         return wave;
@@ -174,8 +169,8 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
             case CgKeyCodes.KEY_F -> flash = Flash.values()[(flash.ordinal() + 1) % Flash.values().length];
             case CgKeyCodes.KEY_I -> impact = !impact;
             case CgKeyCodes.KEY_T -> speed = (speed + 1) % SPEEDS.length;
-            case CgKeyCodes.KEY_COMMA -> period = Math.max(MIN_PERIOD, period - 0.5f);
-            case CgKeyCodes.KEY_PERIOD -> period = Math.min(MAX_PERIOD, period + 0.5f);
+            case CgKeyCodes.KEY_COMMA -> wait = Math.max(MIN_WAIT, wait - 0.5f);
+            case CgKeyCodes.KEY_PERIOD -> wait = Math.min(MAX_WAIT, wait + 0.5f);
             default -> { }
         }
         return true;
@@ -183,8 +178,8 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
 
     @Override
     public String hudLine() {
-        return String.format(Locale.ROOT, "Flash [F]: %s   Impact frame [I]: %s   Time [T]: %sx   Every [, .]: %.1f s",
-                flash.name().toLowerCase(Locale.ROOT), impact ? "on" : "off", SPEEDS[speed], period);
+        return String.format(Locale.ROOT, "Flash [F]: %s   Impact frame [I]: %s   Time [T]: %sx   Next after [, .]: %.1f s",
+                flash.name().toLowerCase(Locale.ROOT), impact ? "on" : "off", SPEEDS[speed], wait);
     }
 
     @Override
