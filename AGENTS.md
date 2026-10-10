@@ -253,7 +253,8 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress" -Dcrystalgraphics.harness.vfx.beams=120
 # Particles alone, the explosion kit bursting every 2.5 s: P switches 60 Hz (new) and 120 Hz (old) steps
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-particles"
-# The energy wave's blast every second, for its flash: F double/single/off, I impact frame, T slow motion, , . period
+# The energy wave's blast, one wave at a time (CgVfxBlastFlash): F flash double/single/off, I impact frame, Y slow motion,
+# , . the wait before the next wave
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blast-flash"
 # Its impact frame photographed: before, each beat and after, of wave N (.vfx.wave, 1), one beat a picture; then exits.
 # keyAt=1:C turns the camera's shake on (off at start), or the return shot's FOV kick is missing from the pictures
