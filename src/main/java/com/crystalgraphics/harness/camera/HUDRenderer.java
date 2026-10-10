@@ -29,20 +29,17 @@ import java.util.logging.Logger;
  * projection overlay after the 3D scene content. The CgTextRenderer handles all
  * glyph rasterization, atlas management, and shader setup internally.</p>
  *
- * <p>Text and HUD elements scale proportionally with screen resolution.
- * The base reference resolution is 600px height; at higher resolutions
- * (e.g. 1440p, 4K) the font size scales up to remain readable.</p>
+ * <p>Text scales with the window's shorter side: 14 px at 600 pixels, in proportion above.</p>
  *
- * <p>HUD display format:</p>
+ * <p>HUD display format, the scene's own lines ({@code InteractiveSceneLifecycle.hudLine}) under it:</p>
  * <pre>
- * Pos: x.xx y.yy z.zz
- * Rot: yaw° pitch°
  * FPS: n
- * Shake [C]: on, trauma t
- * Bloom [L]: off | linear | blend
- * VFX sim [V]: cpu | gpu
- * HDR scene [G]: on | off
+ * Pos: x.xx y.yy z.zz \ yaw° pitch°
  * Particles: n  (the median drawn a frame over the last 0.5 s)
+ *
+ * VFX sim [V]: cpu | gpu - Shake [C]: on, trauma t | off
+ * HDR [G]: on | off | Glow [ ]: g
+ * Bloom [L]: off | linear | blend | Intensity [- =]: b
  * </pre>
  */
 public final class HUDRenderer {
@@ -51,12 +48,15 @@ public final class HUDRenderer {
 
     // Base reference values at 600px height (classic 800x600 resolution).
     // Font size and offset scale proportionally from these base values.
-    private static final int BASE_FONT_SIZE_PX = 16;
+    private static final int BASE_FONT_SIZE_PX = 14;
     private static final float BASE_QUAD_OFFSET = 8.0f;
     private static final float BASE_RESOLUTION_HEIGHT = 600.0f;
 
     // White text with full opacity (packed RGBA: 0xRRGGBBAA)
     private static final int TEXT_COLOR = 0XFFFF0000;
+    // Black outline, so the text reads over a bright effect.
+    private static final float OUTLINE_EM = 0.12f;
+    private static final int OUTLINE_COLOR = 0xFF000000;
 
     // Current scaled state (recomputed when screen resolution changes)
     private int lastScreenWidth = -1;
@@ -120,7 +120,8 @@ public final class HUDRenderer {
         lastScreenWidth = screenWidth;
         lastScreenHeight = screenHeight;
 
-        float scale = screenHeight / BASE_RESOLUTION_HEIGHT;
+        // The shorter side: a tall, narrow window would otherwise get text sized for its height.
+        float scale = Math.min(screenWidth, screenHeight) / BASE_RESOLUTION_HEIGHT;
         if (scale < 1.0f) {
             scale = 1.0f;
         }
@@ -263,23 +264,19 @@ public final class HUDRenderer {
         updateFpsSample();
         updateParticleSample();
 
-        // Format camera state into HUD text (three lines separated by newlines)
-        String posLine = String.format("Pos: %.2f %.2f %.2f",
-                camera.getPosX(), camera.getPosY(), camera.getPosZ());
-        // Convert yaw/pitch to integer degrees for clean display
-        String rotLine = String.format("Rot: %.2f%s %.2f%s",
-                camera.getYaw(), "\u00B0", camera.getPitch(), "\u00B0");
         String fpsLine = String.format("FPS: %.1f", displayedFps);
-        String shakeLine = HarnessCameraShake.INSTANCE.on()
-                ? String.format("Shake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "Shake [C]: off";
-        CgBloom bloom = CgPostStack.get().bloom();
-        String bloomLine = bloom.intensity() == 0f ? "Bloom [L]: off" : bloom.linear() ? "Bloom [L]: linear" : "Bloom [L]: blend";
-        String simLine = "VFX sim [V]: " + (CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU ? "cpu" : "gpu");
-        String sceneLine = "HDR scene [G]: " + (CgWorldRenderer.get().hdrScene() ? "on" : "off")
-                + String.format("   glow [ ]: %.2f   bloom - =: %.2f", CgWorldRenderer.get().sceneEmission(), bloom.intensity());
+        String posLine = String.format("Pos: %.2f %.2f %.2f \\ %.2f\u00B0 %.2f\u00B0",
+                camera.getPosX(), camera.getPosY(), camera.getPosZ(), camera.getYaw(), camera.getPitch());
         String particleLine = String.format("Particles: %,d", displayedParticles);
-        String hudText = posLine + "\n" + rotLine + "\n" + fpsLine + "\n" + shakeLine + "\n" + bloomLine + "\n" + simLine
-                + "\n" + sceneLine + "\n" + particleLine;
+        String simLine = "VFX sim [V]: " + (CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU ? "cpu" : "gpu")
+                + (HarnessCameraShake.INSTANCE.on()
+                ? String.format(" - Shake [C]: on, trauma %.2f", CgCameraShake.trauma()) : " - Shake [C]: off");
+        CgBloom bloom = CgPostStack.get().bloom();
+        String hdrLine = "HDR [G]: " + (CgWorldRenderer.get().hdrScene() ? "on" : "off")
+                + String.format(" | Glow [ ]: %.2f", CgWorldRenderer.get().sceneEmission());
+        String bloomLine = "Bloom [L]: " + (bloom.intensity() == 0f ? "off" : bloom.linear() ? "linear" : "blend")
+                + String.format(" | Intensity [- =]: %.2f", bloom.intensity());
+        String hudText = fpsLine + "\n" + posLine + "\n" + particleLine + "\n\n" + simLine + "\n" + hdrLine + "\n" + bloomLine;
         String own = sceneLines.get();
         if (own != null) hudText += "\n" + own;
 
@@ -292,7 +289,7 @@ public final class HUDRenderer {
         // via CgStateBoundary, but in the standalone harness the GLStateMirror
         // may be in UNKNOWN state, so we also do explicit cleanup after draw.
         renderer.beginBatch();
-        renderer.draw().layout(layout).font(font).at(4, 4).color(TEXT_COLOR).submit();
+        renderer.draw().layout(layout).font(font).at(4, 4).color(TEXT_COLOR).stroke(OUTLINE_EM, OUTLINE_COLOR).submit();
 
         double wheel = HarnessWindow.takeWheel();
         if (wheel > 0) {

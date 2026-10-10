@@ -1,11 +1,11 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.demo.CgVfxBlastFlash;
+import com.crystalgraphics.demo.CgVfxDemoControls;
 import com.crystalgraphics.demo.CgVfxShowcase;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.effect.beam.CgEnergyWave;
@@ -51,7 +51,8 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
     /** The wave photographed, from 1 (.vfx.wave); captures taken. */
     private final int photographWave = Integer.getInteger("crystalgraphics.harness.vfx.wave", 1);
     private int captures;
-    private boolean running = true, shift;
+    private boolean running = true;
+    private final HarnessVfxControls controls = new HarnessVfxControls();
 
     @Override
     public void init(HarnessContext ctx) {
@@ -71,7 +72,7 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
     public void render(HarnessContext ctx, FrameInfo frame) {
         seconds += frame.getDeltaTime();
         CgWorldRenderer world = CgWorldRenderer.get();
-        blast.submit(world, TARGET_X, 0.0, Z, 0.0, -1.0, seconds);
+        blast.submit(world, TARGET_X, 0.0, Z, 0.0, -1.0, CgVfxDemoControls.get().time(seconds));
         if (photographing) {
             if (photographed == null && blast.fired() == photographWave) photographed = blast.wave();
             if (photographed != null) photograph(ctx);
@@ -102,15 +103,12 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
 
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        int key = event.key();
-        if (key == CgKeyCodes.KEY_LSHIFT || key == CgKeyCodes.KEY_RSHIFT) shift = event.pressed();
-        else if (event.pressed() && !event.repeat()) blast.press(key, shift);
-        return true;
+        return controls.consume(event);
     }
 
     @Override
     public String hudLine() {
-        return blast.hudLine();
+        return CgVfxDemoControls.get().hudLines(true);
     }
 
     @Override

@@ -1,10 +1,12 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.demo.CgVfxBlasts;
+import com.crystalgraphics.demo.CgVfxDemoControls;
 import com.crystalgraphics.demo.CgVfxShowcase;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -18,7 +20,7 @@ import org.apache.logging.log4j.Logger;
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blasts" -Dcrystalgraphics.harness.vfx.blasts=240
  * }</pre>
  */
-public final class CgVfxBlastsScene implements InteractiveSceneLifecycle {
+public final class CgVfxBlastsScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard {
 
     private static final Logger LOG = LogManager.getLogger("CrystalGraphics.VfxBlasts");
 
@@ -27,6 +29,8 @@ public final class CgVfxBlastsScene implements InteractiveSceneLifecycle {
 
     private final CgVfxShowcase stage = new CgVfxShowcase();
     private final CgVfxBlasts blasts = new CgVfxBlasts(BLASTS);
+    private final HarnessVfxControls controls = new HarnessVfxControls();
+
     @Override
     public void init(HarnessContext ctx) {
         ctx.getCamera3D().moveCamera(0f, 30f, 78f);
@@ -38,9 +42,20 @@ public final class CgVfxBlastsScene implements InteractiveSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgWorldRenderer world = CgWorldRenderer.get();
-        blasts.submit(world, 0.0, 0.0, 0.0, (float) frame.getElapsedTime());        stage.submitStage(world, 0.0, 0.0, 0.0, ctx.getCamera3D().getPosX(), ctx.getCamera3D().getPosY(),
+        blasts.submit(world, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(frame.getElapsedTime()));
+        stage.submitStage(world, 0.0, 0.0, 0.0, ctx.getCamera3D().getPosX(), ctx.getCamera3D().getPosY(),
                 ctx.getCamera3D().getPosZ());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
+    }
+
+    @Override
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
+        return controls.consume(event);
+    }
+
+    @Override
+    public String hudLine() {
+        return CgVfxDemoControls.get().hudLines(false);
     }
 
     @Override

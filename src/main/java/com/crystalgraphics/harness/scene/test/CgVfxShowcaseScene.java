@@ -1,9 +1,11 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.demo.CgVfxDemoControls;
 import com.crystalgraphics.demo.CgVfxShowcase;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxEffect;
 import com.crystalgraphics.vfx.effect.beam.CgEnergyWave;
@@ -37,7 +39,7 @@ import java.util.Set;
  * ({@link CgVfxShowcase#stress}), every one holding at once: the baseline for a frame full of effects, slow on purpose.
  * Its moments name lanes {@code beam00} and on.</p>
  */
-public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
+public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard {
 
     private static final Logger LOG = LogManager.getLogger("CrystalGraphics.VfxShowcase");
 
@@ -73,6 +75,7 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
     private final String id;
     private final Matrix4f orbitView = new Matrix4f();
     private boolean running = true;
+    private final HarnessVfxControls controls = new HarnessVfxControls();
     /** This frame's moments, framed on the first; null when none. */
     private StringBuilder momentNames;
     private double momentX, momentY, momentZ;
@@ -126,8 +129,8 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo frame) {
         float seconds = (float) frame.getElapsedTime();
         CgWorldRenderer world = CgWorldRenderer.get();
-        // First, so a moment announced in it chooses this frame's camera.
-        showcase.submit(world, 0.0, 0.0, 0.0, seconds);
+        // First, so a moment announced in it chooses this frame's camera. The camera keeps real time.
+        showcase.submit(world, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(seconds));
         float camX, camY, camZ;
         Matrix4f view;
         if (momentNames != null) {
@@ -182,6 +185,16 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle {
         if (value == null) return null;
         String[] parts = value.split(",");
         return new float[]{Float.parseFloat(parts[0]), Float.parseFloat(parts[1]), Float.parseFloat(parts[2])};
+    }
+
+    @Override
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
+        return controls.consume(event);
+    }
+
+    @Override
+    public String hudLine() {
+        return CgVfxDemoControls.get().hudLines(true);
     }
 
     @Override

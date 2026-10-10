@@ -2,11 +2,13 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
+import com.crystalgraphics.demo.CgVfxDemoControls;
 import com.crystalgraphics.demo.CgVfxModules;
 import com.crystalgraphics.demo.CgVfxShowcase;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 
@@ -21,11 +23,12 @@ import com.crystalgraphics.render.world.CgWorldRenderer;
  * // V: CPU or GPU simulation; the stations and where they stand are logged at the start
  * }</pre>
  */
-public final class CgVfxModulesScene implements InteractiveSceneLifecycle {
+public final class CgVfxModulesScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard {
 
     private final CgVfxShowcase stage = new CgVfxShowcase();
     private CgVfxModules modules;
     private CgFont font;
+    private final HarnessVfxControls controls = new HarnessVfxControls();
 
     @Override
     public void init(HarnessContext ctx) {
@@ -39,10 +42,20 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgWorldRenderer world = CgWorldRenderer.get();
-        modules.submit(world, 0.0, 0.0, 0.0, (float) frame.getElapsedTime());
+        modules.submit(world, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(frame.getElapsedTime()));
         stage.submitStage(world, 0.0, 0.0, 0.0, ctx.getCamera3D().getPosX(), ctx.getCamera3D().getPosY(),
                 ctx.getCamera3D().getPosZ());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
+    }
+
+    @Override
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
+        return controls.consume(event);
+    }
+
+    @Override
+    public String hudLine() {
+        return CgVfxDemoControls.get().hudLines(false);
     }
 
     @Override
