@@ -255,6 +255,9 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-particles"
 # The energy wave's blast every second, for its flash: F double/single/off, I impact frame, T slow motion, , . period
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blast-flash"
+# Its impact frame photographed: before, each beat and after, of wave N (.vfx.wave, 1), one beat a picture; then exits
+./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blast-flash" -Dcrystalgraphics.harness.vfx.moments=true \
+    -Dcrystalgraphics.harness.vfx.wave=1 -Dcrystalgraphics.harness.fixedDelta=0.0083333
 # vfx-spheres-stress's two phases profiled from one run: profile-harness-300f-before/ (beams) and -after/ (blasts)
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress" -Dcrystalgraphics.harness.profile=300 \
     -Dcrystalgraphics.harness.profile.warmup=270 -Dcrystalgraphics.harness.profile.splitAt=vfx.blast \

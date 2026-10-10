@@ -32,6 +32,7 @@ import java.util.Locale;
  * //   harness-output/vfx-blast-flash/vfx-blast-flash-00-before.png, -NN-impact-frame-<k>.png, -NN-after.png
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blast-flash" \
  *     -Dcrystalgraphics.harness.vfx.moments=true -Dcrystalgraphics.harness.fixedDelta=0.0166667
+ * // A later wave's, among the smoke of those before it: -Dcrystalgraphics.harness.vfx.wave=6
  * }</pre>
  *
  * Each switch applies from the next wave fired.
@@ -70,7 +71,9 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
     private String moment;
     private CgEnergyWave photographed;
     private boolean photographing, hit, shown;
-    private int captures;
+    /** The wave photographed, from 1 (.vfx.wave), and waves fired; captures taken. */
+    private final int photographWave = Integer.getInteger("crystalgraphics.harness.vfx.wave", 1);
+    private int fired, captures;
     private boolean running = true;
 
     @Override
@@ -135,7 +138,7 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         if (flash != Flash.DOUBLE) wave.set(CgEnergyWave.BLAST_FLASH, flash == Flash.SINGLE ? SINGLE : NONE);
         wave.set(CgEnergyWave.BLAST_IMPACT, impact ? 1f : 0f);
         flying.add(vfx.play(wave));
-        if (photographed == null) photographed = wave;
+        if (++fired == photographWave) photographed = wave;
     }
 
     @Override
