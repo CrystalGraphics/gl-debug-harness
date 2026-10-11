@@ -77,8 +77,9 @@ public final class OverlayCaptureOrchestrator {
      *
      * @param paused      whether the runner is currently paused
      * @param uses3DCamera whether the active scene uses the 3D camera system
+     * @param afterOverlays drawn over the HUD and before the capture point (the harness's desktop), or null
      */
-    public void executePostSceneSequence(boolean paused, boolean uses3DCamera) {
+    public void executePostSceneSequence(boolean paused, boolean uses3DCamera, Runnable afterOverlays) {
         // Post-scene reset: clean up whatever state the scene left dirty
         // (shaders, VAOs, textures, depth/blend flags)
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "overlay.reset")) {
@@ -97,6 +98,7 @@ public final class OverlayCaptureOrchestrator {
             }
             RenderPassState.endOverlayPass();
         }
+        if (afterOverlays != null) afterOverlays.run();
 
         // Capture point: post-render callback fires for screenshot capture
         RenderPassState.beginCapturePoint();

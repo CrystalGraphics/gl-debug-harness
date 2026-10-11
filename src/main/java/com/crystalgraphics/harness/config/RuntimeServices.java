@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.config;
 
+import com.crystalgraphics.harness.HarnessDesktop;
 import com.crystalgraphics.harness.InteractiveSceneRunner;
 import com.crystalgraphics.harness.capture.ArtifactService;
 
@@ -68,6 +69,11 @@ public final class RuntimeServices {
      */
     public boolean isPaused() {
         return runner.isPaused();
+    }
+
+    /** The desktop an extension keeps over this scene, or null: a 2D scene, or no extension offering one. */
+    public HarnessDesktop desktop() {
+        return runner.desktop();
     }
 
     /**

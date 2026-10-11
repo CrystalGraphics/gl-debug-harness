@@ -341,9 +341,9 @@ Each entry has:
 
 **The harness is CrystalGraphics-only and names no project built on it.** A project's scenes come in as a
 `HarnessExtension`, found through `ServiceLoader`: CrystalGUI's live in its own `harness-scenes` module
-(`com.crystalgui.harness.CrystalGuiHarness`). One interface, three hooks — `registerScenes`, `beforeReload`
+(`com.crystalgui.harness.CrystalGuiHarness`). One interface, four hooks — `registerScenes`, `beforeReload`
 (Ctrl+R, ahead of CrystalGraphics' `CgAssetReloader.reload()`), and `shaderNamespaces` (what
-`shader-compile-audit` checks: each namespace's `.shader` and `.compute` under `shaders/`). Its javadoc has the example.
+`shader-compile-audit` checks: each namespace's `.shader` and `.compute` under `shaders/`). Its javadoc has the example. The fourth, `desktop`, offers the `HarnessDesktop` the runtime keeps over every 3D scene: windows drawn over the HUD and given input ahead of the scene, apps opened by id through `RuntimeServices.desktop()` (its javadoc has the example).
 
 The harness cannot depend on the module holding them, so that module wires itself into the run:
 
@@ -577,6 +577,7 @@ The interactive runner sequences these steps every frame:
 | H | Half-resolution draws on or off (`CgWorldRenderer.halfResolution`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
 | V | The VFX simulation on the CPU or the GPU (`CgVfxSystem.simulation`; `-Dcrystalgraphics.vfx.sim=cpu\|gpu` at launch). It reaches emitters that start after the press |
 | J | The distortion target at half size or full size (`CgWorldRenderer.distortionScale`): the hazes' bend at a quarter of the pixels, or a pixel per texel to compare |
+| F6 | The VFX Lab window on the harness's desktop, when CrystalGUI is on the classpath (`HarnessDesktop`) |
 | P | Particles stepped at 60 Hz (new) or every 120 Hz tick (old) (`CgVfxSystem.particleStep`; `-Dcrystalgraphics.vfx.particleStep=1\|2` at launch). `vfx-particles` shows particles alone for comparing them |
 
 ### HUD Display

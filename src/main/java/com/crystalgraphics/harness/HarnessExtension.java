@@ -44,4 +44,9 @@ public interface HarnessExtension {
     default List<String> shaderNamespaces() {
         return List.of();
     }
+
+    /** The desktop kept over every 3D scene, made fresh for each run; null for none. The first extension's wins. */
+    default HarnessDesktop desktop() {
+        return null;
+    }
 }

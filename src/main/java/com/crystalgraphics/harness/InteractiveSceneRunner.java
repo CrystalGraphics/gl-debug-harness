@@ -200,6 +200,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private List<CgSystemInput.Mouse> mouseListeners = new ArrayList<>();
     private List<CgSystemInput.Keyboard> keyboardListeners = new ArrayList<>();
+    /** The desktop an extension offers over a 3D scene, or null; the runtime's for the run. */
+    private HarnessDesktop desktop;
+    /** Whether the desktop was shown last frame, so the cursor is grabbed or freed once per change. */
+    private boolean desktopShown;
 
     public InteractiveSceneRunner(InteractiveSceneLifecycle scene, HarnessContext ctx) {
         this.scene = scene;
@@ -267,6 +271,17 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // ── Create runtime service collaborators ──
         frameClock = new FrameClock();
         inputPauseHandler = new InputPauseHandler(scene.uses3DCamera());
+        if (scene.uses3DCamera()) {
+            for (HarnessExtension extension : HarnessExtensions.all()) {
+                desktop = extension.desktop();
+                if (desktop != null) break;
+            }
+        }
+        // The desktop first: an open window takes the input aimed at it before the scene sees it.
+        if (desktop != null) {
+            desktop.attach(ctx);
+            registerInputHandler(desktop);
+        }
         registerInputHandler(scene);
         registerInputHandler(inputPauseHandler);
         resizeHandler = new ResizeHandler(ctx, worldPassCoordinator, overlayPipeline);
@@ -367,7 +382,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             }
 
             // 4. Camera update (skipped when paused, and in an unattended capture)
-            if (scene.uses3DCamera() && !inputPauseHandler.isPaused() && !UNATTENDED) {
+            boolean shown = desktop != null && desktop.shown();
+            if (shown != desktopShown) {
+                desktopShown = shown;
+                HarnessWindow.setGrabbed(!shown && !inputPauseHandler.isPaused());
+            }
+            if (scene.uses3DCamera() && !inputPauseHandler.isPaused() && !shown && !UNATTENDED) {
                 camera.update(frameClock.getDeltaTime());
             }
 
@@ -430,8 +450,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 // 10-13. Post-scene sequence: GL reset → pause overlay → HUD → capture callback
                 //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.overlay")) {
-                    overlayCaptureOrchestrator.executePostSceneSequence(
-                            inputPauseHandler.isPaused(), scene.uses3DCamera());
+                    // The desktop over the HUD, so its windows are never under the readout.
+                    overlayCaptureOrchestrator.executePostSceneSequence(inputPauseHandler.isPaused(), scene.uses3DCamera(),
+                            desktop == null ? null : () -> desktop.render(ctx, info));
                 }
             } finally {
                 CgGL.toHost();
@@ -491,6 +512,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         inputPauseHandler.releaseCursor();
 
         scene.dispose();
+        if (desktop != null) desktop.dispose();
         worldPassCoordinator.delete();
         overlayCaptureOrchestrator.deletePipeline();
         ctx.getTextContext().delete();
@@ -526,29 +548,30 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_R && isCtrlDown()) {
                 reloadAssets();
             }
+            boolean letters = scene.uses3DCamera() && (desktop == null || !desktop.shown());
             // C: camera shake on and off. Only with a 3D camera, since a UI scene's text field types the letter.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_C && !isCtrlDown()
-                    && scene.uses3DCamera()) {
+                    && letters) {
                 HarnessCameraShake.INSTANCE.toggle();
             }
             // L: bloom in the target's encoding, then in linear light, then off, to compare the three.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_L && !isCtrlDown()
-                    && scene.uses3DCamera()) {
+                    && letters) {
                 cycleBloom();
             }
             // V: the VFX simulation on the CPU or the GPU, the before and after of the same scene.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_V && !isCtrlDown()
-                    && scene.uses3DCamera()) {
+                    && letters) {
                 CgVfxSystem.simulation(CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU
                         ? CgVfxSystem.Simulation.GPU : CgVfxSystem.Simulation.CPU);
             }
             // G: the transparent stage into a linear HDR scene, or straight into the target as before, to compare.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_G && !isCtrlDown()
-                    && scene.uses3DCamera()) {
+                    && letters) {
                 CgWorldRenderer.get().hdrScene(!CgWorldRenderer.get().hdrScene());
             }
             // [ ]: the HDR scene's glow gain down or up; - =: bloom's intensity, while it is on. Held, they repeat.
-            if (event.pressed() && !isCtrlDown() && scene.uses3DCamera()) {
+            if (event.pressed() && !isCtrlDown() && letters) {
                 CgWorldRenderer world = CgWorldRenderer.get();
                 CgBloom bloom = CgPostStack.get().bloom();
                 if (event.key() == CgKeyCodes.KEY_LBRACKET) world.sceneEmission(world.sceneEmission() / 1.25f);
@@ -558,18 +581,18 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             }
             // H: half-resolution draws (the beams' glow and light volumes) at half size, or at full size to compare.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_H && !isCtrlDown()
-                    && scene.uses3DCamera()) {
+                    && letters) {
                 CgWorldRenderer.get().halfResolution(!CgWorldRenderer.get().halfResolution());
             }
             // J: the distortion target at half size, or at full size to compare.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_J && !isCtrlDown()
-                    && scene.uses3DCamera()) {
+                    && letters) {
                 CgWorldRenderer world = CgWorldRenderer.get();
                 world.distortionScale(world.distortionScale() < 1f ? 1f : 0.5f);
             }
             // P: particles stepped at 60 Hz (the CPU path now) or every 120 Hz tick (as it was), to compare the two.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_P && !isCtrlDown()
-                    && scene.uses3DCamera()) {
+                    && letters) {
                 CgVfxSystem.particleStep(CgVfxSystem.particleStep() == 1 ? 2 : 1);
             }
             for (CgSystemInput.Keyboard listener : keyboardListeners) {
@@ -805,6 +828,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      */
     public void setPaused(boolean paused) {
         inputPauseHandler.setPaused(paused);
+    }
+
+    /** The desktop an extension offers this scene, or null. */
+    public HarnessDesktop desktop() {
+        return desktop;
     }
 
     /**
