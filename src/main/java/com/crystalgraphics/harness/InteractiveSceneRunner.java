@@ -707,9 +707,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     /** {@link #RELOAD_AT}'s staged edit: every file under {@code .reloadStage} over the first override root. */
     private static void stageEdits() {
         String stage = System.getProperty("crystalgraphics.harness.reloadStage");
-        String roots = CgIO.OVERRIDE_DIRS.get();
-        if (stage == null || roots.isEmpty()) return;
-        Path from = Paths.get(stage), to = Paths.get(roots.split(File.pathSeparator)[0].trim());
+        if (stage == null || CgIO.overrideRoots().isEmpty()) return;
+        Path from = Paths.get(stage), to = CgIO.overrideRoots().get(0).toPath();
         try (Stream<Path> files = Files.walk(from)) {
             for (Path file : (Iterable<Path>) files.filter(Files::isRegularFile)::iterator) {
                 Path target = to.resolve(from.relativize(file).toString());

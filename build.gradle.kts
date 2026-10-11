@@ -34,7 +34,7 @@ val lwjglNatives: String = run {
 }
 
 // CrystalGraphics only. A project on top of it -- CrystalGUI -- adds its scenes as a HarnessExtension from
-// its own module, which puts itself on runHarness' classpath (see hostAssetRoots below).
+// its own module, which puts itself on runHarness' classpath.
 dependencies {
     // `api`: a scene an extension writes is handed CrystalGraphics and JOML types by HarnessContext.
     api("com.crystalgraphics:platform:1.0.0")
@@ -97,16 +97,6 @@ tasks.withType<JavaCompile>().configureEach {
     }
 }
 
-/**
- * Source resource roots a host build adds, so an edit to its assets is what Ctrl+R reads. Read after the
- * harness's own and before CrystalGraphics'.
- *
- *   (project(":gl-debug-harness").extra["hostAssetRoots"] as ConfigurableFileCollection)
- *       .from(file("src/main/resources"))
- */
-val hostAssetRoots: ConfigurableFileCollection = files()
-extra["hostAssetRoots"] = hostAssetRoots
-
 // DOWNLEVEL CONTEXTS: Mesa's software GL in place of the driver, capped at a version and stripped of every
 // extension that version lacks -- contexts genuinely without compute, which a forced tier on a 4.6 card is not,
 // and Mesa's GLSL compiler, which refuses what NVIDIA lets through (gpu-compute C12):
@@ -146,11 +136,6 @@ val fetchMesa = tasks.register("fetchMesa") {
         archive.delete()
     }
 }
-
-// CrystalGraphics' checkout: the included build of that name, or a sibling directory for a host that has
-// it as a plain folder.
-val crystalGraphicsDir: File = gradle.includedBuilds.firstOrNull { it.name == "CrystalGraphics" }?.projectDir
-    ?: rootProject.file("CrystalGraphics")
 
 tasks.register<JavaExec>("runHarness") {
     group = "harness"
@@ -196,54 +181,26 @@ tasks.register<JavaExec>("runHarness") {
         .filter { it.startsWith("crystalgraphics.") }
         .forEach { systemProperty(it, System.getProperty(it)) }
 
-    // Read assets from the SOURCE trees, so an edit-and-save is visible to the running harness with no
-    // rebuild -- Ctrl+R for stylesheets, and the existing reload paths for shaders and everything else.
-    //
-    // Without this CgIO resolves from the classpath, which for a Gradle run is */build/resources/main --
-    // a COPY that processResources made at build time. Editing src/main/resources/... would then change
-    // nothing the running harness can see, and a reload would faithfully re-read the stale copy and look
-    // broken.
-    //
-    // EVERY PROJECT'S ROOT, because each keeps its own resources and CgIO tries them in order: the
-    // harness's, each host's (hostAssetRoots), then CrystalGraphics'. One root can only ever serve one
-    // project; the others would silently fall back to their build-time copies, which is the version of
-    // this that looks like it works.
-    //
-    // Only set when the caller has not chosen their own, so an explicit
-    // -Dcrystalgraphics.resourceOverrideDirs=... still wins outright.
-    val alreadyChosen = System.getProperty("crystalgraphics.resourceOverrideDirs") != null
-    // A CONSUMER'S resources, so a mod's theme and stylesheets can be authored here rather than in a
-    // game client. Several roots may be given, separated by the platform path separator:
+    // Assets are read from the source trees with no setup: CgIO maps each project on the classpath back to
+    // its src/main/resources (CgDevResourceRoots). A consumer's resources, which nothing here puts on the
+    // classpath, are added ahead of them, so a mod's theme and stylesheets can be authored here:
     //
     //   -Pharness.assetRoots=X:/projects/RPG-Core-NeoForge/src/main/resources
-    //
-    // APPENDED to the roots below, never replacing them: those are what makes Ctrl+R reach the engines'.
-    // Appended LAST because CgIO takes the first root that answers, so a consumer cannot shadow an
-    // engine asset by accident.
     val extraRoots = (project.findProperty("harness.assetRoots") as String?)
         ?.split(File.pathSeparator)
         .orEmpty()
         .map { it.trim() }
         .filter { it.isNotEmpty() }
         .map { file(it) }
-
-    if (alreadyChosen && extraRoots.isNotEmpty()) {
-        logger.warn("[harness] -Pharness.assetRoots is ignored: -Dcrystalgraphics.resourceOverrideDirs " +
-            "was set explicitly and takes the whole list. Add your root to that property instead.")
-    }
     extraRoots.filterNot { it.isDirectory }.forEach {
         // Loud, because the silent version is a scene whose theme is simply never found -- which looks
         // exactly like a theme that failed to parse.
         logger.warn("[harness] -Pharness.assetRoots names '${it.absolutePath}', which is not a directory")
     }
-
-    if (!alreadyChosen) {
-        // At EXECUTION time: a host adds its roots after this script has run.
-        jvmArgumentProviders.add(CommandLineArgumentProvider {
-            val roots = (listOf(file("src/main/resources")) + hostAssetRoots.files
-                + crystalGraphicsDir.resolve("core/src/main/resources") + extraRoots).filter { it.isDirectory }
-            listOf("-Dcrystalgraphics.resourceOverrideDirs=" + roots.joinToString(File.pathSeparator) { it.absolutePath })
-        })
+    if (extraRoots.isNotEmpty()) {
+        val chosen = System.getProperty("crystalgraphics.resourceOverrideDirs")?.takeIf { it.isNotBlank() }
+        val roots = listOfNotNull(chosen) + extraRoots.map { it.absolutePath }
+        systemProperty("crystalgraphics.resourceOverrideDirs", roots.joinToString(File.pathSeparator))
     }
 
     // The scene, for a caller that cannot pass `--args` -- a task in another build can only

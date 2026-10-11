@@ -167,7 +167,7 @@ Three more unattended switches, for what a single picture cannot show:
 | Flag | Does |
 |---|---|
 | `-Dcrystalgraphics.harness.frameTimes=<n>` | after 60 frames, times `n` frame to frame, logs `[frame-times]` median, mean and p95, and stops. Pair with `.fps=0`, or the pacing is what gets timed; live input is ignored |
-| `-Dcrystalgraphics.harness.reloadAt=<frame>` | Ctrl+R's reload at that frame; with `.reloadStage=<dir>`, that directory's files are first copied over the first `crystalgraphics.resourceOverrideDirs` root — an edit saved mid-run |
+| `-Dcrystalgraphics.harness.reloadAt=<frame>` | Ctrl+R's reload at that frame; with `.reloadStage=<dir>`, that directory's files are first copied over the first override root (`CgIO.overrideRoots()`, the harness's own `src/main/resources` by default) — an edit saved mid-run |
 | `-Dcrystalgraphics.harness.resizeAt=<frame>:<w>x<h>` | resizes the window at that frame |
 | `-Dcrystalgraphics.harness.mainTarget=true` | interactive scenes draw the world and scene into a framebuffer of the window's size, blitted into the window before the overlays, as Minecraft draws into its main target; what only a host framebuffer takes (the world's merged emission) then runs. Off, they draw into the window's own, 0 |
 | `-Dcrystalgraphics.harness.camera=<x>,<y>,<z>,<yaw>,<pitch>` | the camera after the scene placed it, as the HUD's Pos and Rot read: a capture from where you were looking |
@@ -350,11 +350,11 @@ The harness cannot depend on the module holding them, so that module wires itsel
 ```kotlin
 evaluationDependsOn(":gl-debug-harness")
 val harness = project(":gl-debug-harness")
-(harness.extra["hostAssetRoots"] as ConfigurableFileCollection).from(file("src/main/resources"))
 harness.tasks.named<JavaExec>("runHarness") { classpath += sourceSets.main.get().runtimeClasspath }
 ```
 
-`hostAssetRoots` is what makes Ctrl+R see an edit to that module's assets. List the extension in
+On the classpath, that module's `src/main/resources` is read and hot reloaded with no more setup
+(`CgDevResourceRoots`); a folder that is not on it is added with `-Pharness.assetRoots=<dirs>`. List the extension in
 `META-INF/services/com.crystalgraphics.harness.HarnessExtension`; a scene id already taken throws at startup.
 
 Lifecycle modes:
