@@ -210,10 +210,8 @@ tasks.register<JavaExec>("runHarness") {
     // this that looks like it works.
     //
     // Only set when the caller has not chosen their own, so an explicit
-    // -Dcrystalgraphics.resourceOverrideDirs=... (or the older singular spelling) still wins outright.
-    val alreadyChosen = System.getProperties().stringPropertyNames().any {
-        it == "crystalgraphics.resourceOverrideDirs" || it == "crystalgraphics.shader.resourceOverrideDir"
-    }
+    // -Dcrystalgraphics.resourceOverrideDirs=... still wins outright.
+    val alreadyChosen = System.getProperty("crystalgraphics.resourceOverrideDirs") != null
     // A CONSUMER'S resources, so a mod's theme and stylesheets can be authored here rather than in a
     // game client. Several roots may be given, separated by the platform path separator:
     //
@@ -244,12 +242,7 @@ tasks.register<JavaExec>("runHarness") {
         jvmArgumentProviders.add(CommandLineArgumentProvider {
             val roots = (listOf(file("src/main/resources")) + hostAssetRoots.files
                 + crystalGraphicsDir.resolve("core/src/main/resources") + extraRoots).filter { it.isDirectory }
-            // Also under the ORIGINAL name, with the first root after the harness's own. A CgIO built before
-            // multi-root support ignores the plural property entirely and would then have no override at all
-            // -- hot reload silently stopping, with nothing on screen to say why.
-            listOfNotNull(
-                "-Dcrystalgraphics.resourceOverrideDirs=" + roots.joinToString(File.pathSeparator) { it.absolutePath },
-                roots.drop(1).firstOrNull()?.let { "-Dcrystalgraphics.shader.resourceOverrideDir=" + it.absolutePath })
+            listOf("-Dcrystalgraphics.resourceOverrideDirs=" + roots.joinToString(File.pathSeparator) { it.absolutePath })
         })
     }
 

@@ -7,6 +7,7 @@ import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.gl.CgGlRecording;
 import com.crystalgraphics.trace.CgTrace;
+import com.crystalgraphics.util.io.CgIO;
 import com.crystalgraphics.util.trace.CgChannels;
 import com.crystalgraphics.harness.trace.TraceDump;
 import com.crystalgraphics.platform.input.CgSystemInput;
@@ -706,9 +707,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     /** {@link #RELOAD_AT}'s staged edit: every file under {@code .reloadStage} over the first override root. */
     private static void stageEdits() {
         String stage = System.getProperty("crystalgraphics.harness.reloadStage");
-        String roots = System.getProperty("crystalgraphics.resourceOverrideDirs",
-                System.getProperty("crystalgraphics.shader.resourceOverrideDir"));
-        if (stage == null || roots == null) return;
+        String roots = CgIO.OVERRIDE_DIRS.get();
+        if (stage == null || roots.isEmpty()) return;
         Path from = Paths.get(stage), to = Paths.get(roots.split(File.pathSeparator)[0].trim());
         try (Stream<Path> files = Files.walk(from)) {
             for (Path file : (Iterable<Path>) files.filter(Files::isRegularFile)::iterator) {
