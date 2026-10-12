@@ -891,7 +891,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("collision-shapes")
-                .description("Every collision shape as debug lines over boxes it touches, a ball's sweep and a ring hitbox growing")
+                .description("CgCollisionDemo on the floor: every collision shape as debug lines, a cast, rays and a ring hitbox")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
