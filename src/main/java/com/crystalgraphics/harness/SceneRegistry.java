@@ -56,6 +56,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxParticlesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBlastFlashScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShowcaseScene;
 import com.crystalgraphics.harness.scene.test.CgVfxTrailsScene;
+import com.crystalgraphics.harness.scene.test.CgCollisionShapesScene;
 import com.crystalgraphics.harness.tool.CapabilityReport;
 import com.crystalgraphics.harness.tool.GlStateDumper;
 import com.crystalgraphics.harness.tool.ShaderCompileAuditScene;
@@ -886,6 +887,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxTrailsScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("collision-shapes")
+                .description("Every collision shape as debug lines over boxes it touches, a ball's sweep and a ring hitbox growing")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgCollisionShapesScene()
         );
 
         reg.register(
