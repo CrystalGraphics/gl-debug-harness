@@ -16,13 +16,15 @@ import com.crystalgraphics.render.graph.CgDispatch;
 import com.crystalgraphics.render.graph.CgGraphBuffer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
+import com.crystalgraphics.shape.primitive.CgBox;
+import com.crystalgraphics.shape.primitive.CgPlane;
+import com.crystalgraphics.shape.primitive.CgSphere;
 import com.crystalgraphics.vfx.particle.CgVfxAir;
 import com.crystalgraphics.vfx.particle.CgVfxCurlNoise;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
 import com.crystalgraphics.vfx.particle.CgVfxField;
 import com.crystalgraphics.vfx.particle.CgVfxModule;
-import com.crystalgraphics.vfx.particle.CgVfxModule.Volume;
 import com.crystalgraphics.vfx.particle.CgVfxParticleSet;
 import com.crystalgraphics.vfx.element.CgVfxExplosion;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
@@ -84,25 +86,25 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
             new ModuleCheck(new CgVfxModule.Buoyancy(16f, 0.9f)), new ModuleCheck(new CgVfxModule.Updraft(30f, 3f, 8f, 2.5f)),
             new ModuleCheck(new CgVfxModule.Ground(0.3f, 0.5f, 0.6f)), new ModuleCheck(new CgVfxModule.Spin(0.8f)),
             // X6's catalogue, each in the kernel's order from 8
-            new ModuleCheck(new CgVfxModule.Attract(Volume.sphere(4f).at(0f, 1f, 0f), 20f).attenuation(1.5f)
+            new ModuleCheck(new CgVfxModule.Attract(CgSphere.of(4f), 20f).at(0f, 1f, 0f).attenuation(1.5f)
                     .directed(0.3f, 1f, 0f, 0f)),
             new ModuleCheck(new CgVfxModule.Orbit(0.7f, 0.2f, 1f, 0.1f, 0f, 1f, 0f)),
             new ModuleCheck(new CgVfxModule.Vortex(0.1f, 1f, 0f, 12f, -4f, 0f, 1f, 0f)),
             new ModuleCheck(new CgVfxModule.Force(1f, -2f, 0.5f)),
-            new ModuleCheck(new CgVfxModule.VectorField(FIELD, Volume.box(3f, 2.5f, 3f).at(0f, 1f, 0f), 4f, 1.3f)),
+            new ModuleCheck(new CgVfxModule.VectorField(FIELD, CgBox.of(3f, 2.5f, 3f), 4f, 1.3f).at(0f, 1f, 0f)),
             new ModuleCheck(new CgVfxModule.Damping(240f)),
             new ModuleCheck(new CgVfxModule.LimitSpeed(4f)),
-            new ModuleCheck(new CgVfxModule.Conform(Volume.sphere(2.5f).at(0f, 1.5f, 0f), 1.5f, 40f, 6f)),
-            new ModuleCheck(new CgVfxModule.Collide(Volume.sphere(2f).at(0f, 1f, 0f), 0.6f, 0.2f, 0.5f)),
-            new ModuleCheck(new CgVfxModule.Kill(Volume.box(3f, 2f, 3f).at(0f, 1f, 0f), false)),
+            new ModuleCheck(new CgVfxModule.Conform(CgSphere.of(2.5f), 1.5f, 40f, 6f).at(0f, 1.5f, 0f)),
+            new ModuleCheck(new CgVfxModule.Collide(CgSphere.of(2f), 0.6f, 0.2f, 0.5f).at(0f, 1f, 0f)),
+            new ModuleCheck(new CgVfxModule.Kill(CgBox.of(3f, 2f, 3f), false).at(0f, 1f, 0f)),
             // more of each, through the case of its kind
-            new ModuleCheck(new CgVfxModule.Collide(Volume.box(1.5f, 1f, 1.5f).at(0f, 1f, 0f), 0.8f, 0.1f, 0.3f), 16),
-            new ModuleCheck(new CgVfxModule.Collide(Volume.box(3f, 2f, 3f).at(0f, 1.5f, 0f), 0.5f, 0f, 0f).container(), 16),
-            new ModuleCheck(new CgVfxModule.Collide(Volume.sphere(3f).at(0f, 1f, 0f), 0.7f, 0.3f, 0.2f).container(), 16),
-            new ModuleCheck(new CgVfxModule.Collide(Volume.plane(0.2f, 1f, 0f), 0f, 0f, 0f).killing(), 16),
-            new ModuleCheck(new CgVfxModule.Kill(Volume.sphere(2f), true), 17),
-            new ModuleCheck(new CgVfxModule.Attract(Volume.box(3f, 2f, 3f), -8f), 8),
-            new ModuleCheck(new CgVfxModule.VectorField(TILING, Volume.box(1.5f, 1f, 2f), -3f, 0f), 12)};
+            new ModuleCheck(new CgVfxModule.Collide(CgBox.of(1.5f, 1f, 1.5f), 0.8f, 0.1f, 0.3f).at(0f, 1f, 0f), 16),
+            new ModuleCheck(new CgVfxModule.Collide(CgBox.of(3f, 2f, 3f), 0.5f, 0f, 0f).at(0f, 1.5f, 0f).container(), 16),
+            new ModuleCheck(new CgVfxModule.Collide(CgSphere.of(3f), 0.7f, 0.3f, 0.2f).at(0f, 1f, 0f).container(), 16),
+            new ModuleCheck(new CgVfxModule.Collide(CgPlane.of(0.2f, 1f, 0f), 0f, 0f, 0f).killing(), 16),
+            new ModuleCheck(new CgVfxModule.Kill(CgSphere.of(2f), true), 17),
+            new ModuleCheck(new CgVfxModule.Attract(CgBox.of(3f, 2f, 3f), -8f), 8),
+            new ModuleCheck(new CgVfxModule.VectorField(TILING, CgBox.of(1.5f, 1f, 2f), -3f, 0f), 12)};
     private final List<PoolCheck> pools = new ArrayList<>();
     private final int[] seeds = new int[RANDS], spawns = new int[RANDS], draws = new int[RANDS];
     private final float[][] points = new float[CURLS][3];
@@ -136,16 +138,16 @@ public class CgVfxSimEquivalenceScene implements InteractiveSceneLifecycle {
         CgVfxEmitter catalogue = CgVfxEmitter.builder("catalogue").capacity(2000).burst(0f, 600).shape(0.5f)
                 .launch(0.3f, 1f, -0.2f).speed(2f, 9f).life(1f, 3f).size(0.1f, 0.4f, 2f).spin(1f, 4f)
                 .module(new CgVfxModule.Gravity(9.8f))
-                .module(new CgVfxModule.Attract(Volume.sphere(5f).at(0f, 2f, 0f), 18f).attenuation(0.5f))
+                .module(new CgVfxModule.Attract(CgSphere.of(5f), 18f).at(0f, 2f, 0f).attenuation(0.5f))
                 .module(new CgVfxModule.Vortex(0f, 1f, 0f, 9f, -2f, 0f, 0f, 0f))
-                .module(new CgVfxModule.VectorField(FIELD, Volume.box(3f, 2.5f, 3f).at(0f, 1f, 0f), 4f, 1f))
-                .module(new CgVfxModule.Conform(Volume.sphere(2f).at(1f, 2f, 0f), 1f, 30f, 5f))
+                .module(new CgVfxModule.VectorField(FIELD, CgBox.of(3f, 2.5f, 3f), 4f, 1f).at(0f, 1f, 0f))
+                .module(new CgVfxModule.Conform(CgSphere.of(2f), 1f, 30f, 5f).at(1f, 2f, 0f))
                 .module(new CgVfxModule.Damping(1.5f))
                 .module(new CgVfxModule.LimitSpeed(7f))
                 .module(new CgVfxModule.Orbit(0.4f, 0f, 1f, 0f, 0f, 0f, 0f))
-                .module(new CgVfxModule.Collide(Volume.sphere(1f).at(0.5f, 3f, 0f), 0.6f, 0.2f, 0.3f))
-                .module(new CgVfxModule.Collide(Volume.plane(0f, 1f, 0f).at(0f, -0.5f, 0f), 0.4f, 0.3f, 0.5f))
-                .module(new CgVfxModule.Kill(Volume.box(6f, 6f, 6f).at(0f, 3f, 0f), false)).build();
+                .module(new CgVfxModule.Collide(CgSphere.of(1f), 0.6f, 0.2f, 0.3f).at(0.5f, 3f, 0f))
+                .module(new CgVfxModule.Collide(CgPlane.of(0f, 1f, 0f), 0.4f, 0.3f, 0.5f).at(0f, -0.5f, 0f))
+                .module(new CgVfxModule.Kill(CgBox.of(6f, 6f, 6f), false).at(0f, 3f, 0f)).build();
         CgVfxEmitter[] definitions = {CgVfxExplosion.SPARKLES, CgVfxExplosion.SPECKS, CgVfxExplosion.BILLOWS,
                 CgVfxExplosion.INK, CgVfxExplosion.RAYS, CgVfxExplosion.RINGS, everyKind, catalogue};
         for (CgVfxEmitter definition : definitions) {
