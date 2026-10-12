@@ -10,6 +10,8 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.shape.bounds.CgAABB;
+import com.crystalgraphics.shape.bounds.CgAABBc;
 
 /**
  * Mesh rewrite M4's gate: draws of part of a mesh, and geometry with no vertex data.
@@ -28,6 +30,11 @@ import com.crystalgraphics.render.world.CgWorldRenderer;
  * </ul>
  */
 public class CgMeshDrawsScene implements InteractiveSceneLifecycle {
+
+    private static final CgAABBc QUADS_BOX = CgAABB.of(0, 0, 0, 3.2, 3.2, 0);
+    private static final CgAABBc STRIP_BOX = CgAABB.of(0, -0.2, 0, 3.2, 0.5, 0);
+    /** Off camera: the draw is culled. */
+    private static final CgAABBc OFF_SCREEN = CgAABB.of(100, 100, 100, 101, 101, 101);
 
     private CgMesh model, pulse, ribbon, ribbon24;
     private long frameNumber;
@@ -67,13 +74,13 @@ public class CgMeshDrawsScene implements InteractiveSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgWorldRenderer world = CgWorldRenderer.get();
         CgMesh quads = CgMesh.quads(1024);
-        world.draw(quads, quadsMaterial).at(-3.5f, 0f, -1f).indices(0, 300 * 6).bounds(0f, 0f, 0f, 3.2f, 3.2f, 0f).submit();
-        world.draw(quads, quadsMaterial).at(-3.5f, 0f, -1f).indices(600 * 6, 100 * 6).bounds(0f, 0f, 0f, 3.2f, 3.2f, 0f)
+        world.draw(quads, quadsMaterial).at(-3.5f, 0f, -1f).indices(0, 300 * 6).bounds(QUADS_BOX).submit();
+        world.draw(quads, quadsMaterial).at(-3.5f, 0f, -1f).indices(600 * 6, 100 * 6).bounds(QUADS_BOX)
                 .submit();
-        world.draw(quads, quadsMaterial).at(-3.5f, 0f, -1f).bounds(100f, 100f, 100f, 101f, 101f, 101f).submit();
+        world.draw(quads, quadsMaterial).at(-3.5f, 0f, -1f).bounds(OFF_SCREEN).submit();
 
         world.draw(CgMesh.vertices(64, CgMeshTopology.TRIANGLE_STRIP), stripMaterial).at(-0.2f, 1f, -1f)
-                .bounds(0f, -0.2f, 0f, 3.2f, 0.5f, 0f).submit();
+                .bounds(STRIP_BOX).submit();
 
         world.draw(model, solid).at(3.2f, 2.6f, -1f).submesh(1).custom(0, 0.4f, 0.8f, 1f, 1f).submit();
         world.draw(model, solid).at(3.2f, 0.8f, -1f).submesh(0).custom(0, 1f, 0.5f, 0.5f, 1f).submit();

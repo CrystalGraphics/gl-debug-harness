@@ -20,6 +20,7 @@ import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.gl.CgCapabilities.ComputeTier;
 import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgIndirect;
 import com.crystalgraphics.render.draw.CgInstanceKind;
@@ -472,12 +473,13 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
      */
     private int[][] expected() {
         FrustumIntersection frustum = new FrustumIntersection(new Matrix4f(projection).mul(view));
-        float[] box = lods.finest().bounds(new float[6]);
+        CgAABB box = lods.finest().bounds(new CgAABB());
         int[][] out = new int[3][HEIGHTS.length];
         Vector3f min = new Vector3f(), max = new Vector3f();
         for (int i = 0; i < N; i++) {
             Matrix4f model = new Matrix4f().translation(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-            model.transformAab(box[0], box[1], box[2], box[3], box[4], box[5], min, max);
+            model.transformAab((float) box.minX, (float) box.minY, (float) box.minZ, (float) box.maxX, (float) box.maxY,
+                    (float) box.maxZ, min, max);
             if (!frustum.testAab(min.x, min.y, min.z, max.x, max.y, max.z)) continue;
             float cx = (min.x + max.x) * 0.5f, cy = (min.y + max.y) * 0.5f, cz = (min.z + max.z) * 0.5f;
             float r = 0.5f * max.distance(min);
