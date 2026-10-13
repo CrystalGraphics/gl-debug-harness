@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.camera;
 
-import com.crystalgraphics.platform.service.CgHostCamera;
+import com.crystalgraphics.platform.world.CgHostCamera;
 import org.joml.Matrix4f;
 
 /**

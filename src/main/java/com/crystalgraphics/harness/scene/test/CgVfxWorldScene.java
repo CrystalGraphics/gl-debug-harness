@@ -8,8 +8,10 @@ import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.platform.service.CgWorldEvents;
-import com.crystalgraphics.platform.service.CgWorldQuery;
+import com.crystalgraphics.platform.world.CgWorldEvents;
+import com.crystalgraphics.platform.world.CgEntityQuery;
+import com.crystalgraphics.platform.world.CgLevels;
+import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
@@ -89,7 +91,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        CgPlatform.provide(CgWorldQuery.SERVICE, world);
+        CgPlatform.provide(CgLevels.SERVICE, CgLevels.single(world, CgEntityQuery.NONE));
         Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, 0.1f, -0.45f, -1f, 0f, 1f, 0f);
         view.set(CX - 8.5, 82.25, CZ + 30.5, look, new Matrix4f().perspective((float) Math.toRadians(80), 16f / 9f, 0.05f, 300f));
         CgVfxParticlePool.prepare(debris);
@@ -338,7 +340,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
-        CgPlatform.provide(CgWorldQuery.SERVICE, CgWorldQuery.NONE);
+        CgPlatform.provide(CgLevels.SERVICE, null);
     }
 
     @Override public boolean isRunning() { return running; }

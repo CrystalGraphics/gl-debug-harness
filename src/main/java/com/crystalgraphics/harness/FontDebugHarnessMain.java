@@ -6,7 +6,7 @@ import com.crystalgraphics.harness.config.*;
 import com.crystalgraphics.harness.util.HarnessOutputDir;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.service.CgCursorService;
-import com.crystalgraphics.platform.service.CgHostCamera;
+import com.crystalgraphics.platform.world.CgHostCamera;
 import com.crystalgraphics.harness.camera.HarnessCameraShake;
 import com.crystalgraphics.lwjgl3.GlfwCursorService;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
