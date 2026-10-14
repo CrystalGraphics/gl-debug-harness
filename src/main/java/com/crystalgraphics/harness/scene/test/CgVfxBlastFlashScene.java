@@ -9,6 +9,7 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.effect.beam.CgEnergyWave;
+import com.crystalgraphics.vfx.element.CgVfxBlast;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -64,7 +65,7 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         if (photographing) blast.onMoment((effect, name, x, y, z, radius) -> {
             if (effect != photographed) return;
             if (name.equals(CgEnergyWave.MOMENT_IMPACT)) hit = true;
-            if (name.startsWith(CgEnergyWave.MOMENT_IMPACT_FRAME)) moment = name;
+            if (name.startsWith(CgVfxBlast.MOMENT_IMPACT_FRAME)) moment = name;
         });
     }
 

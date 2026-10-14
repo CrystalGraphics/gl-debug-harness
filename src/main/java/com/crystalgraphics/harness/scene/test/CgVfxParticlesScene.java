@@ -8,6 +8,7 @@ import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxEffect;
 import com.crystalgraphics.vfx.CgVfxFrame;
 import com.crystalgraphics.vfx.CgVfxSystem;
+import com.crystalgraphics.vfx.element.CgVfxBlast;
 import com.crystalgraphics.vfx.element.CgVfxExplosion;
 import com.crystalgraphics.vfx.look.CgVfxLook;
 import com.crystalgraphics.vfx.look.CgVfxSchema;
@@ -33,9 +34,8 @@ public final class CgVfxParticlesScene implements InteractiveSceneLifecycle {
 
     private static final Logger LOG = LogManager.getLogger("CrystalGraphics.VfxParticles");
 
-    private static final CgVfxSchema SCHEMA = new CgVfxSchema();
-    private static final CgVfxExplosion BLAST = new CgVfxExplosion(SCHEMA, "blast");
-    private static final CgVfxLook LOOK = CgVfxLook.builder(SCHEMA).add(BLAST).build();
+    private static final CgVfxLook LOOK = CgVfxLook.builder(CgVfxSchema.of("harness:particles"))
+            .with(CgVfxBlast.EXPLOSION.kit()).build();
     /** Seconds between bursts, and where they go round, in front of the showcase's grid. */
     private static final float PERIOD = 2.5f;
     private static final float[][] SPOTS = {{-7f, 12f}, {0f, 15f}, {7f, 12f}};
