@@ -879,7 +879,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("vfx-trails")
-                .description("Trails rewritten every frame: the per-frame mesh path (CgMesh.Usage.FRAME)")
+                .description("Many ki streaks: CgVfxTrail points uploaded once a frame, every strip built on the GPU")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
