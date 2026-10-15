@@ -50,6 +50,7 @@ import com.crystalgraphics.harness.scene.test.CgMeshDrawsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshFrameStressScene;
 import com.crystalgraphics.harness.scene.test.CgVfxGasScene;
+import com.crystalgraphics.harness.scene.test.CgVfxParticleSmokeScene;
 import com.crystalgraphics.harness.scene.test.CgVfxModulesScene;
 import com.crystalgraphics.harness.scene.test.CgWorldLabelsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBlastsScene;
@@ -876,6 +877,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxGasScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-particle-smoke")
+                .description("Particles and smoke together: a slime mould, a particle smoke column, a nebula, a fire whirl, fireflies in a grenade's smoke, a comet's trail")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxParticleSmokeScene()
         );
 
         reg.register(
