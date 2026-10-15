@@ -83,7 +83,7 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle, CgSy
     private int momentCount;
     private final Set<String> lanesEnded = new HashSet<>();
     /** Each watched lane's first shot: a later one may start while it still lingers, and is not photographed. */
-    private final Map<String, CgVfxEffect> firstShots = new HashMap<>();
+    private final Map<String, CgVfxEffect<?>> firstShots = new HashMap<>();
 
     /** {@code vfx-spheres}: three beams. */
     public CgVfxShowcaseScene() {

@@ -46,7 +46,7 @@ public final class CgVfxParticlesScene implements InteractiveSceneLifecycle {
     private int bursts;
 
     /** One burst of the kit's emitters at its origin, on a floor at the origin's height; dies when they all have. */
-    private static final class Burst extends CgVfxEffect {
+    private static final class Burst extends CgVfxEffect<Burst> {
         private final List<CgVfxEmitterInstance> emitters = new ArrayList<>();
 
         Burst(double x, double y, double z) {

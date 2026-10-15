@@ -42,7 +42,7 @@ public final class CgVfxTrailsScene implements InteractiveSceneLifecycle {
     private final CgVfxSystem vfx = new CgVfxSystem();
 
     /** One point swirling round the origin, its streak behind it. */
-    private static final class Swirl extends CgVfxEffect {
+    private static final class Swirl extends CgVfxEffect<Swirl> {
         private final CgVfxTrail streak = CgVfxTrail.ribbon(0.6f);
         private final float phase, radius, speed;
 
