@@ -14,7 +14,7 @@ import com.crystalgraphics.render.world.CgWorldRenderer;
 
 /**
  * {@link CgVfxGasDemo}, gas simulated on the GPU, on the showcase's floor under its sky: a smoke grenade blasted open, a
- * bonfire, a steam vent and a mushroom cloud, replayed every {@link CgVfxGasDemo#PERIOD} seconds. Scene id
+ * bonfire, a steam geyser and a mushroom cloud, replayed every {@link CgVfxGasDemo#PERIOD} seconds. Scene id
  * {@code vfx-gas}.
  *
  * <pre>{@code
@@ -31,9 +31,10 @@ public final class CgVfxGasScene implements InteractiveSceneLifecycle, CgSystemI
 
     @Override
     public void init(HarnessContext ctx) {
-        ctx.getCamera3D().moveCamera(0f, 10f, 42f);
-        ctx.getCamera3D().setPitch(-10f);
-        ctx.getCamera3D().setMoveSpeed(8f);
+        // Back far enough to frame every station's box (CgVfxGasDemo.REACH either side), the mushroom cloud's top in view.
+        ctx.getCamera3D().moveCamera(0f, 16f, CgVfxGasDemo.REACH * 1.45f);
+        ctx.getCamera3D().setPitch(-6f);
+        ctx.getCamera3D().setMoveSpeed(16f);
         font = CgFont.load(HarnessFontUtil.LATIN_FONT, CgFontStyle.REGULAR, 48);
         gas = new CgVfxGasDemo(font);
     }
