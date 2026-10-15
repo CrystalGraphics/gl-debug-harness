@@ -48,8 +48,8 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   level by level in one texture, each level reading the one above through a level view, every texel checked against
   Java. `--mode=raster-layers` is raster passes into array layers: 2 to 5 layers of one array drawn each frame and
   summed through a `sampler2DArray`, every layer and the sum checked, the array on one storage throughout.
-  `--mode=vfx-sim-equivalence` is the GPU particle simulation's against the CPU path (plan `vfx-gpu` §13.9): today
-  `fx_rand` bit for bit and `fx_curl` within rounding of the Java, PASS at every forced tier and on `vulkan`.
+  `--mode=vfx-hashes` is the spawn hash's: `fx_rand` bit for bit against the Java an emitter's books draw by, PASS at
+  every forced tier and on `vulkan`.
   `--mode=vfx-world` is the world on the GPU's (X4): a world of its own behind `CgWorldQuery` in the voxel window,
   debris stepped onto its stairs and overhang resting on the half-block floor below each, a blast at a cave's mouth lit
   from the window by Range, and after part of the roof breaks the distance field, flooded again around it, matching a
@@ -249,7 +249,7 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres"
 # The same with 30 beams holding at once: the baseline for a frame full of effects, slow on purpose
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress"
-# 120 beams: the stress since the CPU path was tuned (vfx-gpu baseline 2)
+# 120 beams: the stress baseline (vfx-gpu baseline 2)
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-spheres-stress" -Dcrystalgraphics.harness.vfx.beams=120
 # Particles alone, the explosion kit bursting every 2.5 s: P switches 60 Hz (new) and 120 Hz (old) steps
 ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-particles"
@@ -575,7 +575,6 @@ The interactive runner sequences these steps every frame:
 | [ ] | The HDR scene's glow gain down or up by a quarter (`CgWorldRenderer.sceneEmission`, 0.5 by default): how much an Emissive pass adds sharp into the scene. Held, it repeats; the HUD shows it |
 | - = | Bloom's intensity down or up by a quarter while it is on (`CgBloom.intensity`); the HUD shows it |
 | H | Half-resolution draws on or off (`CgWorldRenderer.halfResolution`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
-| V | The VFX simulation on the CPU or the GPU (`CgVfxSystem.simulation`; `-Dcrystalgraphics.vfx.sim=cpu\|gpu` at launch). It reaches emitters that start after the press |
 | J | The distortion target at half size or full size (`CgWorldRenderer.distortionScale`): the hazes' bend at a quarter of the pixels, or a pixel per texel to compare |
 | F6 | The VFX Lab window on the harness's desktop, when CrystalGUI is on the classpath (`HarnessDesktop`) |
 | P | Particles stepped at 60 Hz (new) or every 120 Hz tick (old) (`CgVfxSystem.particleStep`; `-Dcrystalgraphics.vfx.particleStep=1\|2` at launch). `vfx-particles` shows particles alone for comparing them |

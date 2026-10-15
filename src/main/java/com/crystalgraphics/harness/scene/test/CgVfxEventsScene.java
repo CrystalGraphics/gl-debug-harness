@@ -10,6 +10,7 @@ import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
+import com.crystalgraphics.shape.primitive.CgSphere;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
 import com.crystalgraphics.vfx.particle.CgVfxModule;
@@ -59,7 +60,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
     private static final float TOLERANCE = 2e-3f;
 
     /** No forces: a child drifts at its launch, so where it is follows from its age. */
-    private final CgVfxEmitter dust = CgVfxEmitter.builder("events-dust").capacity(2000).burst(0f, 1).shape(0.4f)
+    private final CgVfxEmitter dust = CgVfxEmitter.builder("events-dust").capacity(2000).burst(0f, 1).shape(CgSphere.of(0.4f))
             .launch(0.2f, 1f, 1.5f).speed(1f, 3f).life(50f, 60f).size(0.1f, 0.2f, 1f).build();
     private final CgVfxGpuEmitter debris = new Evented(CgVfxEmitter.builder("events-debris").capacity(PARENTS).burst(0f, 1)
             .life(PARENT_LIFE, PARENT_LIFE).size(0.1f, 0.2f, 1f).module(new CgVfxModule.Gravity(9.8f))
@@ -200,13 +201,13 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
 
     /** Child {@code key} as {@code step_launch} launches it from the event, then drifted for its age. */
     private void check(int key, int e, double[] event, int r) {
-        float up = spawn[1] + (spawn[2] - spawn[1]) * (float) Math.pow(rand(key, 0), spawn[3]);
+        float up = spawn[16] + (spawn[17] - spawn[16]) * (float) Math.pow(rand(key, 0), spawn[18]);
         float heading = rand(key, 1) * 6.2831853f;
         float across = (float) Math.sqrt(Math.max(1f - up * up, 0f));
         float[] dir = orient(across * (float) Math.cos(heading), up, across * (float) Math.sin(heading),
                 (float) event[6], (float) event[7], (float) event[8]);
-        float start = spawn[0] * (float) Math.pow(rand(key, 2), 1.0 / 3.0);
-        float speed = spawn[4] + (spawn[5] - spawn[4]) * rand(key, 3);
+        float start = spawn[29] * (float) Math.pow(rand(key, 2), 1.0 / 3.0);
+        float speed = spawn[0] + (spawn[1] - spawn[0]) * rand(key, 3);
         float age = CgVfxRecord.f(childRecords, r, CgVfxRecord.AGE);
         for (int a = 0; a < 3; a++) {
             double born = event[a] - CHILD_ORIGIN[a] + dir[a] * start;

@@ -37,7 +37,7 @@ import java.util.logging.Logger;
  * Pos: x.xx y.yy z.zz \ yaw° pitch°
  * Particles: n  (the median drawn a frame over the last 0.5 s)
  *
- * VFX sim [V]: cpu | gpu - Shake [C]: on, trauma t | off
+ * Shake [C]: on, trauma t | off
  * HDR [G]: on | off | Glow [ ]: g
  * Bloom [L]: off | linear | blend | Intensity [- =]: b
  * </pre>
@@ -268,9 +268,8 @@ public final class HUDRenderer {
         String posLine = String.format("Pos: %.2f %.2f %.2f \\ %.2f\u00B0 %.2f\u00B0",
                 camera.getPosX(), camera.getPosY(), camera.getPosZ(), camera.getYaw(), camera.getPitch());
         String particleLine = String.format("Particles: %,d", displayedParticles);
-        String simLine = "VFX sim [V]: " + (CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU ? "cpu" : "gpu")
-                + (HarnessCameraShake.INSTANCE.on()
-                ? String.format(" - Shake [C]: on, trauma %.2f", CgCameraShake.trauma()) : " - Shake [C]: off");
+        String simLine = HarnessCameraShake.INSTANCE.on()
+                ? String.format("Shake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "Shake [C]: off";
         CgBloom bloom = CgPostStack.get().bloom();
         String hdrLine = "HDR [G]: " + (CgWorldRenderer.get().hdrScene() ? "on" : "off")
                 + String.format(" | Glow [ ]: %.2f", CgWorldRenderer.get().sceneEmission());

@@ -1,0 +1,14 @@
+// vfx-hashes' kernel (CgVfxHashesScene): fx_rand over inputs the scene chose, checked against CgVfxEmitterInstance.rand.
+#pragma kernel Rand map
+
+#include "crystalgraphics:shaders/lib/vfx/fx_rand.glsl"
+
+Buffers {
+    RAND_IN   ("Seed, spawn index, draw", uvec4, readonly)
+    RAND_OUT  ("Draws",                   float, writeonly)
+}
+
+void Rand() {
+    uvec4 at = RAND_IN(CG_ELEMENT);
+    RAND_OUT_WRITE(fx_rand(at.x, at.y, at.z));
+}

@@ -23,7 +23,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxEventsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxInputsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxRangeScene;
 import com.crystalgraphics.harness.scene.test.CgVfxWorldScene;
-import com.crystalgraphics.harness.scene.test.CgVfxSimEquivalenceScene;
+import com.crystalgraphics.harness.scene.test.CgVfxHashesScene;
 import com.crystalgraphics.harness.scene.test.CgVolumeTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
@@ -538,8 +538,8 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-sim-equivalence")
-                .description("vfx-gpu §13.9: the GPU particle simulation against the CPU path; first its GLSL libraries, fx_rand bit for bit and fx_curl within rounding of the Java")
+            SceneDescriptor.builder("vfx-hashes")
+                .description("The spawn hash: fx_rand on the GPU bit for bit against the Java an emitter's books use")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
@@ -548,7 +548,7 @@ public final class SceneRegistry {
                 .defaultHeight(120)
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
-            () -> new CgVfxSimEquivalenceScene()
+            () -> new CgVfxHashesScene()
         );
 
         reg.register(

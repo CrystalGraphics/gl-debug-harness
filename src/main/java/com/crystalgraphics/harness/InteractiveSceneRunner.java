@@ -560,12 +560,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     && letters) {
                 cycleBloom();
             }
-            // V: the VFX simulation on the CPU or the GPU, the before and after of the same scene.
-            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_V && !isCtrlDown()
-                    && letters) {
-                CgVfxSystem.simulation(CgVfxSystem.simulation() == CgVfxSystem.Simulation.CPU
-                        ? CgVfxSystem.Simulation.GPU : CgVfxSystem.Simulation.CPU);
-            }
             // G: the transparent stage into a linear HDR scene, or straight into the target as before, to compare.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_G && !isCtrlDown()
                     && letters) {

@@ -27,7 +27,7 @@ import java.util.List;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-particles"
- * // P: particles at 60 Hz (new) or 120 Hz (old), on the HUD under "VFX sim"
+ * // P: particles at 60 Hz (new) or 120 Hz (old)
  * }</pre>
  */
 public final class CgVfxParticlesScene implements InteractiveSceneLifecycle {
