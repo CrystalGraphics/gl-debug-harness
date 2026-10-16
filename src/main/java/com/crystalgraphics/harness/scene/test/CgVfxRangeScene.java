@@ -15,9 +15,12 @@ import com.crystalgraphics.render.graph.CgTextureDesc;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.stage.CgHostView;
 import com.crystalgraphics.trace.CgGpuTrace;
+import com.crystalgraphics.easing.CgEasings;
+import com.crystalgraphics.easing.CgKeyframes;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.vfx.element.CgVfxExplosion;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
+import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxCurveDomain;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxGpuEmitter;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxGpuModule;
@@ -72,8 +75,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private static final int[] CAPACITY = {2000, 500, 1500, 800}, SEEDED = {1800, 0, 1400, 700};
     private static final float[][] ORIGIN = {{0f, 0f, -20f}, {0f, 0f, -5f}, {0f, 0f, 15f}, {-16f, 2f, -15f}};
     private static final float[] SPREAD = {12f, 1f, 5f, 7f};
-    /** Words of a drawn record: place, motion, state, light. */
-    private static final int DRAWN_FLOATS = 16, OBJECT_FLOATS = 48;
+    /** Words of a drawn record: place, motion, state, light, color, scale. */
+    private static final int DRAWN_FLOATS = 24, DRAWN_BYTES = DRAWN_FLOATS * 4, OBJECT_FLOATS = 48;
+    private static final int TEXELS = CgVfxGpuEmitter.CURVE_TEXELS, STARTS = 8 * TEXELS;
     /** Within this share of a plane's reach, a particle may fall either side: float rounding, not a wrong cull. */
     private static final float BORDER = 1e-4f;
     /** The pyramid: its size (a power of two, so each texel folds a square of the one below), and the wall's depth. */
@@ -89,14 +93,22 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private static final int BY_SPEED = 0;
     private static final CgVfxCurveDomain SPEEDS = CgVfxCurveDomain.speed(1.5f, 4f);
 
-    private final CgVfxEmitter emitter = CgVfxExplosion.SPARKLES;
+    /** The explosion's sparkles with a colour and a scale between two and curves on each: every drawn lane varies. */
+    private final CgVfxEmitter emitter = CgVfxExplosion.SPARKLES.toBuilder()
+            .color(0xC0FFD27A, 2.5f, 0xFF3A7BFF, 1f).scale(1f, 0.5f, 2f, 1.5f, 1f, 4f)
+            .colorOverLife(CgKeyframes.constant(1f), CgKeyframes.start(0f, 1f).to(1f, 0.3f, CgEasings.LINEAR).build(),
+                    CgKeyframes.start(0f, 0.2f).to(1f, 1f, CgEasings.OUT_QUAD).build())
+            .intensityOverLife(CgKeyframes.start(0f, 3f).to(0.5f, 1f, CgEasings.LINEAR).build())
+            .scaleOverLife(CgKeyframes.start(0f, 1f).to(1f, 2f, CgEasings.LINEAR).build(), CgKeyframes.constant(1f),
+                    CgKeyframes.start(0f, 0.5f).to(1f, 1.5f, CgEasings.IN_QUAD).build())
+            .build();
     private final CgVfxGpuEmitter bySpeed = new BySpeed(emitter);
     private final CgHostView view = new CgHostView();
     private final Matrix4f viewProjection = new Matrix4f();
     private final float[][] planes = new float[6][4];
     private final float[][] pyramidLevels = new float[7][];
     private final Matrix4f projection = new Matrix4f();
-    private final float[] curves = new float[2 * CgVfxGpuEmitter.CURVE_TEXELS];
+    private final float[] curves = new float[4 * (2 * TEXELS + CgVfxGpuEmitter.CURVE_STARTS)];
     private final List<CgRequest> requests = new ArrayList<>();
     private CgVfxParticlePool pool, lead;
     private CgVfxRange range;
@@ -334,9 +346,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
                     checkEmpty(d, s, k);
                     continue;
                 }
-                Integer r = bySeed.get(s).get(Float.floatToRawIntBits(drawn.getFloat(d * 64 + 32)));
+                Integer r = bySeed.get(s).get(Float.floatToRawIntBits(drawn.getFloat(d * DRAWN_BYTES + 32)));
                 if (r == null) {
-                    fail("slot " + s + "'s drawn record " + k + " has seed " + drawn.getFloat(d * 64 + 32) + ", no particle's");
+                    fail("slot " + s + "'s drawn record " + k + " has seed " + drawn.getFloat(d * DRAWN_BYTES + 32) + ", no particle's");
                     return;
                 }
                 if (drawnOnce[r]) fail("slot " + s + " draws particle " + r + " twice");
@@ -458,8 +470,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private void checkPlaced(int d, int r) {
         float age = CgVfxRecord.f(records, r, CgVfxRecord.AGE), life = CgVfxRecord.f(records, r, CgVfxRecord.LIFE);
         float t = Math.min(age / life, 1f), u = curveAt(r, t);
-        float size = curve(u, 0), opacity = curve(u, 1);
+        float size = curve(u, 0, 3), opacity = curve(u, TEXELS, 3);
         worstRow = Math.max(worstRow, Math.max(Math.abs(size - emitter.sizeAt(u)), Math.abs(opacity - emitter.opacityAt(u))));
+        float[] look = look(r, u);
         float[] want = new float[DRAWN_FLOATS];
         for (int a = 0; a < 3; a++) {
             float now = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + a), was = CgVfxRecord.f(records, r, CgVfxRecord.PREVIOUS + a);
@@ -471,11 +484,15 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         want[8] = CgVfxRecord.f(records, r, CgVfxRecord.SEED);
         want[9] = CgVfxRecord.f(records, r, CgVfxRecord.SPIN) + CgVfxRecord.f(records, r, CgVfxRecord.SPIN_RATE) * AHEAD;
         want[10] = CgVfxRecord.f(records, r, CgVfxRecord.HEAT);
-        want[11] = opacity;
-        want[12] = 15f;
-        want[13] = 15f;
+        want[11] = look[7];
+        // Full light packed as one word, block + 16 sky; then its spawn id's low 24 bits
+        want[12] = 15f + 16f * 15f;
+        want[13] = CgVfxRecord.i(records, r, CgVfxRecord.ID) & 0xFFFFFF;
+        System.arraycopy(look, 4, want, 16, 4);
+        System.arraycopy(look, 1, want, 20, 3);
         for (int w = 0; w < DRAWN_FLOATS; w++) {
-            float got = drawn.getFloat(d * 64 + w * 4), off = Math.abs(got - want[w]) / (1e-5f * (1f + Math.abs(want[w])));
+            if (w == 14 || w == 15) continue;   // the floor under it: vfx-world's gate
+            float got = drawn.getFloat(d * DRAWN_BYTES + w * 4), off = Math.abs(got - want[w]) / (1e-5f * (1f + Math.abs(want[w])));
             worst = Math.max(worst, off);
             if (!(off <= 1f)) fail("particle " + r + " drawn word " + w + " is " + got + ", not " + want[w]);
         }
@@ -491,8 +508,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             float now = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + a), was = CgVfxRecord.f(records, r, CgVfxRecord.PREVIOUS + a);
             at[a] = was + (now - was) * ALPHA;
         }
-        float u = curveAt(r, t), size = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * curve(u, 0);
-        turned.rotationXYZ(turn * 1.7f, turn * 2.3f, turn).scale(size);
+        float u = curveAt(r, t), base = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * curve(u, 0, 3);
+        float[] look = look(r, u), size = {base * look[1], base * look[2], base * look[3]};
+        turned.rotationXYZ(turn * 1.7f, turn * 2.3f, turn).scale(size[0], size[1], size[2]);
         model.translation(at[0], at[1], at[2]).mul(turned).normal(normal);
         float[] want = new float[OBJECT_FLOATS];
         model.get(want, 0);
@@ -500,18 +518,20 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         want[28] = 15f;
         want[29] = 15f;
         want[30] = 0f;
-        want[31] = 1f;
+        want[31] = 0f;   // CG_OBJECT_SPARE: nothing under it, no window and no ground
+        for (int a = 0; a < 3; a++) want[32 + a] = CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + a);
         want[36] = t;
         want[37] = seed;
-        want[38] = curve(u, 1);
+        want[38] = look[7];
         want[39] = CgVfxRecord.f(records, r, CgVfxRecord.HEAT);
+        System.arraycopy(look, 4, want, 40, 3);
         for (int w = 0; w < OBJECT_FLOATS; w++) {
             float got = objects.getFloat(d * OBJECT_FLOATS * 4 + w * 4), off;
             boolean rotation = w % 4 != 3 && (w < 12 || (w >= 16 && w < 28));
             if (rotation) {
                 // The rotation alone: JOML takes each cosine as sqrt(1 - sin^2) in float, about 1e-3 off near a
-                // quarter turn, where the GPU's cos is exact to rounding.
-                float unit = w < 12 ? 1f / size : size;
+                // quarter turn, where the GPU's cos is exact to rounding. Each column is scaled by its own axis.
+                float unit = w < 12 ? 1f / size[w / 4] : size[(w - 16) / 4];
                 off = Math.abs(got - want[w]) * unit / 2e-3f;
             } else {
                 off = Math.abs(got - want[w]) / (1e-5f * (1f + Math.abs(want[w])));
@@ -521,12 +541,12 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         }
     }
 
-    /** A slot's record past its visible count: nothing, fully lit. */
+    /** A slot's record past its visible count: nothing, fully lit (the packed word). */
     private void checkEmpty(int d, int s, int k) {
         for (int w = 0; w < DRAWN_FLOATS; w++) {
-            float want = w == 12 || w == 13 ? 15f : 0f;
-            if (drawn.getFloat(d * 64 + w * 4) != want) {
-                fail("slot " + s + "'s unused record " + k + " word " + w + " is " + drawn.getFloat(d * 64 + w * 4));
+            float want = w == 12 ? 15f + 16f * 15f : 0f;
+            if (drawn.getFloat(d * DRAWN_BYTES + w * 4) != want) {
+                fail("slot " + s + "'s unused record " + k + " word " + w + " is " + drawn.getFloat(d * DRAWN_BYTES + w * 4));
                 return;
             }
         }
@@ -539,13 +559,31 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
                 CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + 1), CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + 2));
     }
 
-    /** The curve row at progress {@code t}, between its two nearest samples, as Place reads it. */
-    private float curve(float t, int lane) {
-        int texels = CgVfxGpuEmitter.CURVE_TEXELS;
-        float x = Math.max(0f, Math.min(t, 1f)) * (texels - 1);
-        int i0 = (int) Math.floor(x), i1 = Math.min(i0 + 1, texels - 1);
-        float f = x - i0, a = curves[2 * i0 + lane], b = curves[2 * i1 + lane];
+    /** Lane {@code lane} of the curve from vec4 {@code first} at progress {@code t}, between its two nearest samples. */
+    private float curve(float t, int first, int lane) {
+        float x = Math.max(0f, Math.min(t, 1f)) * (TEXELS - 1);
+        int i0 = (int) Math.floor(x), i1 = Math.min(i0 + 1, TEXELS - 1);
+        float f = x - i0, a = curves[4 * (first + i0) + lane], b = curves[4 * (first + i1) + lane];
         return a * (1f - f) + b * f;
+    }
+
+    /**
+     * Range's range_look for particle {@code r} at curve position {@code u}: the size multiplier, each axis's scale, then
+     * its colour and opacity, each start channel rolled on its own from its seed.
+     */
+    private float[] look(int r, float u) {
+        float[] out = new float[8];
+        int bits = Float.floatToRawIntBits(CgVfxRecord.f(records, r, CgVfxRecord.SEED));
+        out[0] = curve(u, 0, 3);
+        for (int a = 0; a < 3; a++) {
+            float roll = CgVfxEmitterInstance.rand(bits, 0, 24 + a), lo = curves[STARTS + 8 + a], hi = curves[STARTS + 12 + a];
+            out[1 + a] = (lo * (1f - roll) + hi * roll) * curve(u, 0, a);
+        }
+        for (int c = 0; c < 4; c++) {
+            float roll = CgVfxEmitterInstance.rand(bits, 0, 20 + c), lo = curves[STARTS + c], hi = curves[STARTS + 4 + c];
+            out[4 + c] = (lo * (1f - roll) + hi * roll) * curve(u, TEXELS, c);
+        }
+        return out;
     }
 
     private static ByteBuffer copy(ByteBuffer data) {
