@@ -49,6 +49,7 @@ import com.crystalgraphics.harness.scene.test.CgSceneColorScene;
 import com.crystalgraphics.harness.scene.test.CgMeshDrawsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshFrameStressScene;
+import com.crystalgraphics.harness.scene.test.CgVfxFluidScene;
 import com.crystalgraphics.harness.scene.test.CgVfxGasScene;
 import com.crystalgraphics.harness.scene.test.CgVfxParticleSmokeScene;
 import com.crystalgraphics.harness.scene.test.CgVfxModulesScene;
@@ -877,6 +878,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxGasScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-fluid")
+                .description("The fluid engine: Flow's editor stages sphere and box, Mantaflow's fire.py and simpleplume.py")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxFluidScene()
         );
 
         reg.register(
