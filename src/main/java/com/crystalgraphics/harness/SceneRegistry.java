@@ -50,7 +50,6 @@ import com.crystalgraphics.harness.scene.test.CgMeshDrawsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshFrameStressScene;
 import com.crystalgraphics.harness.scene.test.CgVfxFluidScene;
-import com.crystalgraphics.harness.scene.test.CgVfxGasScene;
 import com.crystalgraphics.harness.scene.test.CgVfxParticleSmokeScene;
 import com.crystalgraphics.harness.scene.test.CgVfxModulesScene;
 import com.crystalgraphics.harness.scene.test.CgWorldLabelsScene;
@@ -866,18 +865,6 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxModulesScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("vfx-gas")
-                .description("Gas on the GPU: a smoke grenade blasted open, a bonfire, a steam vent, a mushroom cloud")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(true)
-                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
-                .build(),
-            () -> new CgVfxGasScene()
         );
 
         reg.register(
