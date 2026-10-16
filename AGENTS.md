@@ -173,6 +173,7 @@ Three more unattended switches, for what a single picture cannot show:
 | `-Dcrystalgraphics.harness.camera=<x>,<y>,<z>,<yaw>,<pitch>` | the camera after the scene placed it, as the HUD's Pos and Rot read: a capture from where you were looking |
 | `-Dcrystalgraphics.harness.keepShadow=false` | stage entries read GL state back with `glGet` as on Minecraft, instead of trusting the shadow (every harness draw goes through `CgGL`); for measuring that cost or ruling the shadow out |
 | `-Dcrystalgraphics.harness.keyAt=<frame>:<key>[,...]` | presses that key (`CgKeyCodes` name less `KEY_`: `H`, `F7`) at that frame, as the window would; with `profile.splitAt`-style ranges, a binding profiled either side |
+| `-Dcrystalgraphics.harness.motion=<n>` | after `.motion.from` frames (180), logs `[motion]` how much the scene (before the HUD) changes frame to frame for `n` frames, then a summary of held frames, and stops (`MotionProbe`): "it moves at a low rate" as numbers. Pair with `fixedDelta`, a camera framing one thing, and `keyAt=1:H` so the volumes' march does not jitter each frame |
 
 On `--device=vulkan`, `[Harness] vulkan after teardown: validationErrors=N` is printed after the device has
 closed, so it counts what teardown raised. `-Dcrystalgraphics.vulkan.presentMode=immediate|mailbox|fifo` forces

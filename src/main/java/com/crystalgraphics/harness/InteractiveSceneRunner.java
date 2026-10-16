@@ -38,6 +38,7 @@ import com.crystalgraphics.harness.debug.HarnessDebugTools;
 import com.crystalgraphics.harness.runtime.FrameClock;
 import com.crystalgraphics.harness.runtime.InputPauseHandler;
 import com.crystalgraphics.harness.runtime.MainTarget;
+import com.crystalgraphics.harness.runtime.MotionProbe;
 import com.crystalgraphics.harness.runtime.OverlayCaptureOrchestrator;
 import com.crystalgraphics.harness.runtime.OverlayPipeline;
 import com.crystalgraphics.harness.runtime.ResizeHandler;
@@ -162,8 +163,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * different frame to time. */
     private static final int FRAME_TIMES = Integer.getInteger("crystalgraphics.harness.frameTimes", 0);
     private static final int FRAME_TIME_WARMUP = 60;
+    /** {@code -Dcrystalgraphics.harness.motion=<frames>}: after {@code .motion.from} frames (180), logs how much the
+     * scene changes frame to frame for that many ({@link MotionProbe}), and stops. Live input is ignored. */
+    private static final int MOTION = Integer.getInteger("crystalgraphics.harness.motion", 0);
+    private static final int MOTION_FROM = Integer.getInteger("crystalgraphics.harness.motion.from", 180);
     /** A capture or a timing run: nobody is at the keyboard, and a hand on the mouse must not change the picture. */
-    private static final boolean UNATTENDED = CAPTURE_AT > 0 || FRAME_TIMES > 0;
+    private static final boolean UNATTENDED = CAPTURE_AT > 0 || FRAME_TIMES > 0 || MOTION > 0;
     /** {@code -Dcrystalgraphics.harness.record=<frame>}: from that frame on, the scene pass is recorded and replayed
      * instead of drawn, so a capture shows the replay. Logs what a recorded frame allocates beside a direct one. */
     private static final int RECORD_FROM = Integer.getInteger("crystalgraphics.harness.record", 0);
@@ -361,6 +366,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             frameClock.tick();
             if (!sceneFrames) CgTrace.frameBegin();
             if (FRAME_TIMES > 0 && timeFrame(frameClock.getFrameNumber())) break;
+            if (motionDone) break;
             if (RELOAD_AT > 0 && frameClock.getFrameNumber() == RELOAD_AT) {
                 stageEdits();
                 reloadAssets();
@@ -445,6 +451,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 if (CgTrace.currentFrameIndex() != framedAs) sceneFrames = true;
                 if (CAPTURE_AT > 0 && frameClock.getFrameNumber() == CAPTURE_AT) {
                     artifactService.requestCapture("frame" + CAPTURE_AT);
+                }
+                // Before the HUD, whose readouts change every frame.
+                if (motion != null) {
+                    motionDone = motion.sample(frameClock.getFrameNumber(), ctx.getScreenWidth(), ctx.getScreenHeight());
                 }
 
                 if (MainTarget.ON) mainTarget.end();
@@ -662,6 +672,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * sees rather than the copy {@code processResources} made at build time.</p>
      */
     private long[] frameNanos, workNanos;
+    private final MotionProbe motion = MOTION > 0 ? new MotionProbe(MOTION, MOTION_FROM) : null;
+    private boolean motionDone;
     private long lastFrameStart, swapNanos;
 
     /**
