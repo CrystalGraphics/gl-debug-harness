@@ -30,6 +30,7 @@ import com.crystalgraphics.vfx.particle.gpu.CgVfxWords;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxWorldInput;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
+import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -73,7 +74,8 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
     private static final double[] CAMERA = {100.5, 70.25, -40.75}, DEPTH_ORIGIN = {100.8, 69.65, -40.3},
             ORIGIN = {-300.25, 64.5, 900.75};
 
-    private final CgVfxEmitter base = CgVfxEmitter.builder("inputs").capacity(PER_POOL).burst(0f, 1)
+    private final CgVfxEmitter base = CgVfxEmitter.builder("inputs").state(CgVfxEmitterState.ONCE)
+            .capacity(PER_POOL).burst(0f, 1)
             .life(100f, 100f).size(0.1f, 0.2f, 1f).build();
     private final float[] field = new float[FIELD * FIELD * FIELD * 4], heights = new float[HEIGHTS * HEIGHTS];
     private final float[] depths = new float[DEPTH * DEPTH];

@@ -23,6 +23,7 @@ import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxWords;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
+import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -60,9 +61,12 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
     private static final float TOLERANCE = 2e-3f;
 
     /** No forces: a child drifts at its launch, so where it is follows from its age. */
-    private final CgVfxEmitter dust = CgVfxEmitter.builder("events-dust").capacity(2000).burst(0f, 1).shape(CgSphere.of(0.4f))
+    private final CgVfxEmitter dust = CgVfxEmitter.builder("events-dust").state(CgVfxEmitterState.ONCE)
+            .capacity(2000).burst(0f, 1).shape(CgSphere.of(0.4f))
             .launch(0.2f, 1f, 1.5f).speed(1f, 3f).life(50f, 60f).size(0.1f, 0.2f, 1f).build();
-    private final CgVfxGpuEmitter debris = new Evented(CgVfxEmitter.builder("events-debris").capacity(PARENTS).burst(0f, 1)
+    private final CgVfxGpuEmitter debris = new Evented(CgVfxEmitter.builder("events-debris")
+            .state(CgVfxEmitterState.ONCE)
+            .capacity(PARENTS).burst(0f, 1)
             .life(PARENT_LIFE, PARENT_LIFE).size(0.1f, 0.2f, 1f).module(new CgVfxModule.Gravity(9.8f))
             .module(new CgVfxModule.Ground(0f, 1f, 100f)).build(),
             List.of(CgVfxEvent.onLanding().spawn(dust, COUNT[0]).inherit(INHERIT[0]).readback(1000),

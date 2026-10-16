@@ -29,6 +29,7 @@ import com.crystalgraphics.vfx.particle.gpu.CgVfxWords;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxWorldInput;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
+import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
 import com.crystalgraphics.vfx.world.CgVfxVoxelWindow;
 import org.joml.Matrix4f;
 
@@ -72,9 +73,11 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
     private static final float TOLERANCE = 2e-3f;
 
     /** No forces: a child drifts at its launch, so where it is follows from its age. */
-    private final CgVfxEmitter dust = CgVfxEmitter.builder("collide-dust").capacity(4000).burst(0f, 1).shape(CgSphere.of(0.2f))
+    private final CgVfxEmitter dust = CgVfxEmitter.builder("collide-dust").state(CgVfxEmitterState.ONCE)
+            .capacity(4000).burst(0f, 1).shape(CgSphere.of(0.2f))
             .launch(0.2f, 1f, 1.5f).speed(0.5f, 1.5f).life(50f, 60f).size(0.1f, 0.2f, 1f).build();
-    private final CgVfxEmitter base = CgVfxEmitter.builder("collide-debris").capacity(PARENTS).burst(0f, 1)
+    private final CgVfxEmitter base = CgVfxEmitter.builder("collide-debris").state(CgVfxEmitterState.ONCE)
+            .capacity(PARENTS).burst(0f, 1)
             .life(100f, 100f).size(0.1f, 0.2f, 1f).module(new CgVfxModule.Gravity(9.8f)).build();
     private final CgVfxGpuEmitter debris = new Colliding(base, List.of(base.modules().get(0), new Bounce()),
             List.of(CgVfxEvent.onCollision().spawn(dust, COUNT).inherit(INHERIT).readback(4000),

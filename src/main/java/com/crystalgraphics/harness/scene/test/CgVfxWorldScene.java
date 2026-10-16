@@ -24,6 +24,7 @@ import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
 import com.crystalgraphics.vfx.particle.gpu.draw.CgVfxRange;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
+import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
 import com.crystalgraphics.vfx.world.CgVfxVoxelWindow;
 import com.crystalgraphics.vfx.world.CgVfxVoxels;
 import org.joml.Matrix4f;
@@ -77,7 +78,8 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
     private final World world = new World();
     private final CgHostView view = new CgHostView();
     private final List<CgRequest> requests = new ArrayList<>();
-    private final CgVfxEmitter debris = CgVfxEmitter.builder("world-debris").capacity(PER_SLOT).burst(0f, 1)
+    private final CgVfxEmitter debris = CgVfxEmitter.builder("world-debris").state(CgVfxEmitterState.ONCE)
+            .capacity(PER_SLOT).burst(0f, 1)
             .life(100f, 100f).size(0.1f, 0.2f, 1f).module(new CgVfxModule.Gravity(9.8f))
             .module(new CgVfxModule.Ground(0f, 1f, 100f)).build();
     private final int[] slots = new int[ORIGIN.length], bases = new int[ORIGIN.length], words = new int[ORIGIN.length];
