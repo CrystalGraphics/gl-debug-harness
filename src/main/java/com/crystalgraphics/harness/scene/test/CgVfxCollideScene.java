@@ -103,7 +103,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, 0.1f, -0.45f, -1f, 0f, 1f, 0f);
         view.set(CX, 76.0, CZ + 20.5, look, new Matrix4f().perspective((float) Math.toRadians(80), 16f / 9f, 0.05f, 300f));
         CgVfxParticlePool.prepare(debris);
-        CgVfxParticlePool.prepare(dust);
+        CgVfxParticlePool.prepare(dust, 1);
         CgVfxParticlePool.listen(listener);
         CgVfxWords words = new CgVfxWords();
         int[] raw = new int[spawn.length];
@@ -149,7 +149,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
     private void seed(CgRecording rec) {
         if (!CgVfxVoxelWindow.get().live()) fail("the window has no level after " + FILL + " frames");
         parents = CgVfxParticlePool.of(this, debris);
-        children = CgVfxParticlePool.of(this, dust);
+        children = CgVfxParticlePool.of(this, dust, 1);   // its feed tier: spawned by debris's events
         if (parents == children) fail("the debris and its dust share a pool");
         parentSlot = parents.open(debris, PARENTS);
         childSlot = children.open(dust, PARENTS * COUNT * KILL_AFTER);

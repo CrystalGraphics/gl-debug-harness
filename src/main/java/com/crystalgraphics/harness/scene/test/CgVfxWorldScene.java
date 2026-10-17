@@ -63,7 +63,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
     private static final double[][] ORIGIN = {{CX + 2, 67, CZ + 2}, {CX - 6, 66, CZ + 2}, {CX - 6, 74, CZ + 2},
             {CAVE_X, 66, CZ + 2}};
     private static final float[] SPREAD = {1.9f, 1.9f, 1.9f, 4f};
-    private static final int PER_SLOT = 400, DRAWN_FLOATS = 16;
+    private static final int PER_SLOT = 400, DRAWN_FLOATS = 24;   // CgParticleBuffer's record: six vec4s
     /** A particle this near a block's or a half block's edge may fall either side of it: rounding, not a wrong floor. */
     private static final float EDGE = 0.02f;
     /** The frame the roof breaks: after the debris on it rests, and time enough for a refill and a flood after. */
@@ -198,16 +198,18 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
             double x = ORIGIN[s][0] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION);
             double y = ORIGIN[s][1] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 1);
             double z = ORIGIN[s][2] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 2);
-            double want = s == 0 ? (z - Math.floor(z) < 0.5 ? GROUND + 0.5 : GROUND + 1) : s == 2 ? ROOF + 1 : GROUND;
+            double floor = s == 0 ? (z - Math.floor(z) < 0.5 ? GROUND + 0.5 : GROUND + 1) : s == 2 ? ROOF + 1 : GROUND;
+            // Ground rests it as a ball of its size on the floor.
+            double want = floor + CgVfxRecord.f(records, r, CgVfxRecord.SIZE);
             boolean resting = (CgVfxRecord.i(records, r, CgVfxRecord.FLAGS) & CgVfxRecord.RESTING) != 0;
             if (!resting || Math.abs(y - want) > 1e-4) {
                 fail("debris " + CgVfxRecord.i(records, r, CgVfxRecord.ID) + " of slot " + s + " is at y " + y
-                        + (resting ? ", resting" : ", still falling") + "; its floor is " + want);
+                        + (resting ? ", resting" : ", still falling") + "; its floor is " + floor + ", so it rests at " + want);
                 return;
             }
             landed++;
-            if (s == 0 && want == GROUND + 0.5) onStep++;
-            if (s == 0 && want == GROUND + 1) onTop++;
+            if (s == 0 && floor == GROUND + 0.5) onStep++;
+            if (s == 0 && floor == GROUND + 1) onTop++;
             if (s == 1) underRoof++;
             if (s == 2) onRoof++;
         }
@@ -223,7 +225,8 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
                 if (nearEdge(x, 1.0)) continue;
                 int bx = (int) Math.floor(x);
                 int light = world.light(bx, 0, 0);
-                float block = drawn.getFloat(at + 48), sky = drawn.getFloat(at + 52);
+                // One lane, block + 16 sky (CG_PARTICLE_LIGHT unpacks it); its spawn id is the next.
+                float word = drawn.getFloat(at + 48), sky = (float) Math.floor(word / 16f), block = word - 16f * sky;
                 if (block != CgWorldQuery.blockLight(light) || sky != CgWorldQuery.skyLight(light)) {
                     fail("slot " + s + "'s particle at x " + x + " is lit " + block + ", " + sky + ", not "
                             + CgWorldQuery.blockLight(light) + ", " + CgWorldQuery.skyLight(light));

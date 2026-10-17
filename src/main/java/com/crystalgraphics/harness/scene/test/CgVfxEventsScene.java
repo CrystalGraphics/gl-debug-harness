@@ -59,6 +59,8 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
     private static final double[] PARENT_ORIGIN = {-700.25, 70.5, 1300.75}, CHILD_ORIGIN = {-697.0, 68.5, 1302.25};
     private static final int SEED_BITS = 0x5EED;
     private static final float TOLERANCE = 2e-3f;
+    /** Every debris's size: Ground rests it as a ball of that on the ground. */
+    private static final float DEBRIS_SIZE = 0.1f;
 
     /** No forces: a child drifts at its launch, so where it is follows from its age. */
     private final CgVfxEmitter dust = CgVfxEmitter.builder("events-dust").state(CgVfxEmitterState.ONCE)
@@ -88,7 +90,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         CgVfxParticlePool.prepare(debris);
-        CgVfxParticlePool.prepare(dust);
+        CgVfxParticlePool.prepare(dust, 1);
         CgVfxParticlePool.listen(listener);
         CgVfxWords words = new CgVfxWords();
         int[] raw = new int[spawn.length];
@@ -129,7 +131,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
 
     private void seed(CgRecording rec) {
         parents = CgVfxParticlePool.of(this, debris);
-        children = CgVfxParticlePool.of(this, dust);
+        children = CgVfxParticlePool.of(this, dust, 1);   // its feed tier: spawned by debris's events
         if (parents == children) fail("the debris and its dust share a pool");
         parentSlot = parents.open(debris, PARENTS);
         childSlots[0] = children.open(dust, PARENTS * COUNT[0]);
@@ -144,7 +146,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
             int at = r * CgVfxRecord.BYTES;
             packed.putFloat(at, x).putFloat(at + 4, y).putFloat(at + 8, z).putFloat(at + 12, 0f);
             packed.putFloat(at + 16, x).putFloat(at + 20, y).putFloat(at + 24, z).putFloat(at + 28, PARENT_LIFE);
-            packed.putFloat(at + 32, vx).putFloat(at + 36, 0f).putFloat(at + 40, vz).putFloat(at + 44, 0.1f);
+            packed.putFloat(at + 32, vx).putFloat(at + 36, 0f).putFloat(at + 40, vz).putFloat(at + 44, DEBRIS_SIZE);
             packed.putFloat(at + 48, random.nextFloat()).putFloat(at + 52, 0f).putFloat(at + 56, 0f).putFloat(at + 60, 0f);
             packed.putInt(at + 64, r).putInt(at + 68, parentSlot).putInt(at + 72, 0).putInt(at + 76, 0);
         }
@@ -179,7 +181,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
         }
         if (repeated > 0 || dropped > 0) fail(repeated + " events fired twice, " + dropped + " rows dropped");
         for (double[] landing : rows.get(LANDING).values()) {
-            if (Math.abs(landing[1] - (PARENT_ORIGIN[1] + GROUND)) > 1e-4) fail("a landing at y " + landing[1]);
+            if (Math.abs(landing[1] - (PARENT_ORIGIN[1] + GROUND + DEBRIS_SIZE)) > 1e-4) fail("a landing at y " + landing[1]);
         }
         Map<Integer, Integer> byId = new HashMap<>();
         for (int r = 0; r < childLive; r++) {

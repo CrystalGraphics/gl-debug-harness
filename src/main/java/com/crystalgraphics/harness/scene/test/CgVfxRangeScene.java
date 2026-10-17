@@ -211,7 +211,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         lead.instance(leadSlot, 0x1EAD, 1f, Float.NaN, origin(ORIGIN[0]));
         lead.endStep();
         lead.record(rec);
-        CgVfxRange.of(lead).frame(ALPHA, AHEAD);
+        CgVfxRange.of(lead).frame(ALPHA, DT);
 
         pool = CgVfxParticlePool.of(this, emitter);
         if (pool == lead) fail("the lead pool is the checked one: give it another shape");
@@ -238,7 +238,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         pool.record(rec);
 
         CgGraphTexture pyramid = pyramid(rec);
-        range = CgVfxRange.of(pool).frame(ALPHA, AHEAD).sorted(SORTED);
+        range = CgVfxRange.of(pool).frame(ALPHA, DT).sorted(SORTED);
         range.objects();
         CgVfxRange.record(rec, view, pyramid);
         slotFirst = range.visibleWord(0);
@@ -521,6 +521,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         want[30] = 0f;
         want[31] = 0f;   // CG_OBJECT_SPARE: nothing under it, no window and no ground
         for (int a = 0; a < 3; a++) want[32 + a] = CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + a);
+        want[35] = Math.max(age - (1f - ALPHA) * DT, 0f);   // its age between its last two steps, as its place is
         want[36] = t;
         want[37] = seed;
         want[38] = look[7];
