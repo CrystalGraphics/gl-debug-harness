@@ -20,6 +20,7 @@ import com.crystalgraphics.harness.scene.test.CgGpuBudgetTestScene;
 import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
 import com.crystalgraphics.harness.scene.test.CgVfxCollideScene;
 import com.crystalgraphics.harness.scene.test.CgVfxEventsScene;
+import com.crystalgraphics.harness.scene.test.CgVfxSequenceScene;
 import com.crystalgraphics.harness.scene.test.CgVfxInputsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxRangeScene;
 import com.crystalgraphics.harness.scene.test.CgVfxWorldScene;
@@ -710,6 +711,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVfxEventsScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-sequence")
+                .description("G2.1: a particle playing a clip, its part drawn where its node is and gone once faded; an event at the node, the clip's burst and stream spawning children and theirs grandchildren, every row checked against Java")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgVfxSequenceScene()
         );
 
         reg.register(

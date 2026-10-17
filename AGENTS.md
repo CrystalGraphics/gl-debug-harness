@@ -57,6 +57,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   `--mode=vfx-events` is particle events' (X5): debris that report landing, an age and death, landing and the age each
   spawning dust in a second pool fed by two slots, every row heard once and every child where Java puts it from its
   row. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
+  `--mode=vfx-sequence` is particle-played clips' (G2.1): one particle playing a clip, its part photographed where its
+  node is (stepped up, then left) and gone once its opacity keys to 0, a node's event row at the node facing its +Y,
+  and the clip's burst and stream spawning children a force carries, each dying into two grandchildren, every id and
+  place checked against Java. PASS at G43, G40, G33, on `mac41` and on `vulkan`.
   `--mode=vfx-collide` is collisions' and repeating events' (X6): debris bounced off a ground and a wall by a kind given
   as GLSL text over the window's distance field, each fast impact a collision spawning dust under its firing's key, a
   rate reporting each debris every period, the fourth collision killing it; every firing heard once and numbered, every
