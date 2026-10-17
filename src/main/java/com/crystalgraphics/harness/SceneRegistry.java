@@ -35,6 +35,7 @@ import com.crystalgraphics.harness.scene.test.CgCookedTextureTestScene;
 import com.crystalgraphics.harness.scene.test.CgSamplerBindingTestScene;
 import com.crystalgraphics.harness.scene.test.CgFlipbookTestScene;
 import com.crystalgraphics.harness.scene.test.CgGlobalParametersTestScene;
+import com.crystalgraphics.harness.scene.test.CgVfxPrefabScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrepareScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
@@ -431,6 +432,18 @@ public final class SceneRegistry {
                 .clearColor(0f, 0f, 0f, 1.0f)
                 .build(),
             () -> new CgVfxSortGroupScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-prefab")
+                .description("G0.9: a 458-node prefab drawn a ball a node, a subtree cut by opacity 0 and a chain dimmed by 0.5; evaluating it takes a few microseconds")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgVfxPrefabScene()
         );
 
         reg.register(
