@@ -92,7 +92,11 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   once, read by two materials through the world renderer (one in its vertex stage too) and ignored by a third, each
   quad's colour checked; PASS on `gl`, `mac41` and `vulkan`, and with `-Dcrystalgraphics.shaderBuffer.tier=TBO`.
   `--mode=vfx-sort-group` is a `CgVfxSortGroup`'s: two effects in one group, the layer of the higher hint drawn last
-  whichever is nearer, and an ungrouped pair sorted by distance; PASS on `gl`, `mac41` and `vulkan`. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
+  whichever is nearer, and an ungrouped pair sorted by distance; PASS on `gl`, `mac41` and `vulkan`.
+  `--mode=vfx-prepare` is programs prepared on load: a move's looks (the Kamehameha, the explosion, heat haze) prepared
+  together, played once `warmed()`, their first 1200 frames adding no `CgMaterialShader.compileWaits()`;
+  `-Dcrystalgraphics.harness.prepare.skip=true` is the control, unprepared, which must wait. PASS on `gl`, `mac41` and
+  `vulkan`. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
   renderer on the CPU and by the cull against a depth pyramid on the GPU, by hand and as one world draw of
   `instances()`, the pictures compared byte for byte with multi-draw off and on, the levels one multi-draw where they
   join, and each level's count held between what the wall must and may hide; it prints each path's draw cost, the

@@ -35,6 +35,7 @@ import com.crystalgraphics.harness.scene.test.CgCookedTextureTestScene;
 import com.crystalgraphics.harness.scene.test.CgSamplerBindingTestScene;
 import com.crystalgraphics.harness.scene.test.CgFlipbookTestScene;
 import com.crystalgraphics.harness.scene.test.CgGlobalParametersTestScene;
+import com.crystalgraphics.harness.scene.test.CgVfxPrepareScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
@@ -990,6 +991,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxTrailsScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-prepare")
+                .description("G0.8: a move's looks prepared together, then played: their first 1200 frames must compile nothing")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxPrepareScene()
         );
 
         reg.register(
