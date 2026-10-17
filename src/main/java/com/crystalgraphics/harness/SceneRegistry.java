@@ -38,6 +38,7 @@ import com.crystalgraphics.harness.scene.test.CgGlobalParametersTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostTransitionsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrefabScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrepareScene;
+import com.crystalgraphics.harness.scene.test.CgVfxShapesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
@@ -1029,6 +1030,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxPrepareScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-shapes")
+                .description("G0.11: 30 emitters each its own shape, so 30 pools of few particles: the particle frame's fixed cost per pool, on gl and vulkan")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxShapesScene()
         );
 
         reg.register(

@@ -100,7 +100,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   chain dimmed by 0.2, every check a pixel, and `evaluate()` timed (about 8 µs, at most 50); PASS on `gl`, `mac41` and
   `vulkan`. `--mode=post-transitions` is the post stack's transitions: a `CgPostMaterial` at weights 1, 0.5 and 0, a
   fade halfway to red in the composite's blend form (HDR scene off) and copy form (on), and a 1 s crossfade read a
-  quarter in and after, each firing's middle pixel checked; PASS on `gl`, `mac41` and `vulkan`. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
+  quarter in and after, each firing's middle pixel checked; PASS on `gl`, `mac41` and `vulkan`. `--mode=vfx-shapes` is
+  the particle frame at a move's scale, a measurement rather than a gate: 30 emitters each its own shape (30 pools, few
+  particles each, `.vfx.shapes=<n>` for another count); profile it on `gl` and `vulkan` (validation off) and compare
+  `gpu:vfx.pool.step` and `gpu:vfx.pool.range` (aaa-design §2.32: 27-42 µs a pool, Vulkan's frame below GL's). `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
   renderer on the CPU and by the cull against a depth pyramid on the GPU, by hand and as one world draw of
   `instances()`, the pictures compared byte for byte with multi-draw off and on, the levels one multi-draw where they
   join, and each level's count held between what the wall must and may hide; it prints each path's draw cost, the
