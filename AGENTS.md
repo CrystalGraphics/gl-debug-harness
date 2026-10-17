@@ -90,7 +90,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   grid over a life, a range looped, random frames against `CgRng` and a blend, each particle's frame checked against
   Java; PASS on `gl`, `mac41` and `vulkan`. `--mode=global-parameters` is a `CgParameterCollection`'s: one value set
   once, read by two materials through the world renderer (one in its vertex stage too) and ignored by a third, each
-  quad's colour checked; PASS on `gl`, `mac41` and `vulkan`, and with `-Dcrystalgraphics.shaderBuffer.tier=TBO`. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
+  quad's colour checked; PASS on `gl`, `mac41` and `vulkan`, and with `-Dcrystalgraphics.shaderBuffer.tier=TBO`.
+  `--mode=vfx-sort-group` is a `CgVfxSortGroup`'s: two effects in one group, the layer of the higher hint drawn last
+  whichever is nearer, and an ungrouped pair sorted by distance; PASS on `gl`, `mac41` and `vulkan`. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
   renderer on the CPU and by the cull against a depth pyramid on the GPU, by hand and as one world draw of
   `instances()`, the pictures compared byte for byte with multi-draw off and on, the levels one multi-draw where they
   join, and each level's count held between what the wall must and may hide; it prints each path's draw cost, the

@@ -35,6 +35,7 @@ import com.crystalgraphics.harness.scene.test.CgCookedTextureTestScene;
 import com.crystalgraphics.harness.scene.test.CgSamplerBindingTestScene;
 import com.crystalgraphics.harness.scene.test.CgFlipbookTestScene;
 import com.crystalgraphics.harness.scene.test.CgGlobalParametersTestScene;
+import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
@@ -415,6 +416,20 @@ public final class SceneRegistry {
                 .clearColor(0f, 0f, 0f, 1.0f)
                 .build(),
             () -> new CgGlobalParametersTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-sort-group")
+                .description("G0.7: two effects in one sort group keep their layers' authored order whichever is nearer; an ungrouped pair sorts by distance")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(240)
+                .defaultHeight(80)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgVfxSortGroupScene()
         );
 
         reg.register(
