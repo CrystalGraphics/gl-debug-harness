@@ -34,6 +34,7 @@ import com.crystalgraphics.harness.scene.test.CgMultiDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgCookedTextureTestScene;
 import com.crystalgraphics.harness.scene.test.CgSamplerBindingTestScene;
 import com.crystalgraphics.harness.scene.test.CgFlipbookTestScene;
+import com.crystalgraphics.harness.scene.test.CgGlobalParametersTestScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
@@ -400,6 +401,20 @@ public final class SceneRegistry {
                 .clearColor(0f, 0f, 0f, 1.0f)
                 .build(),
             () -> new CgFlipbookTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("global-parameters")
+                .description("G0.6: a parameter collection's value set once, read by two materials through the world renderer and ignored by a third; each quad must read the colour due")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(176)
+                .defaultHeight(64)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgGlobalParametersTestScene()
         );
 
         reg.register(
