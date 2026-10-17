@@ -75,7 +75,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private static final int[] CAPACITY = {2000, 500, 1500, 800}, SEEDED = {1800, 0, 1400, 700};
     private static final float[][] ORIGIN = {{0f, 0f, -20f}, {0f, 0f, -5f}, {0f, 0f, 15f}, {-16f, 2f, -15f}};
     private static final float[] SPREAD = {12f, 1f, 5f, 7f};
-    /** Words of a drawn record: place, motion, state, light, color, scale. */
+    /** Words of a drawn record: place, motion, state, light, color, scale and age. */
     private static final int DRAWN_FLOATS = 24, DRAWN_BYTES = DRAWN_FLOATS * 4, OBJECT_FLOATS = 48;
     private static final int TEXELS = CgVfxGpuEmitter.CURVE_TEXELS, STARTS = 8 * TEXELS;
     /** Within this share of a plane's reach, a particle may fall either side: float rounding, not a wrong cull. */
@@ -490,6 +490,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         want[13] = CgVfxRecord.i(records, r, CgVfxRecord.ID) & 0xFFFFFF;
         System.arraycopy(look, 4, want, 16, 4);
         System.arraycopy(look, 1, want, 20, 3);
+        want[23] = age;                         // CG_PARTICLE_AGE: what a flipbook's loop runs on
         for (int w = 0; w < DRAWN_FLOATS; w++) {
             if (w == 14 || w == 15) continue;   // the floor under it: vfx-world's gate
             float got = drawn.getFloat(d * DRAWN_BYTES + w * 4), off = Math.abs(got - want[w]) / (1e-5f * (1f + Math.abs(want[w])));

@@ -85,7 +85,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   contexts and `vulkan`. `--mode=cooked-texture` is cooked textures': one image from its PNG and its BC7 `.cgtex`,
   colour and alpha, magnified and on a lower mip, every cooked quad matched to its PNG twin; blocks where the context
   has BPTC, decoded to RGBA8 on `mac41`. `--mode=second-layer` is a mesh's second UV and colour: a glTF quad drawn
-  through `SPATIAL` at its first UV and, under `SECOND_LAYER`, its second; PASS on `gl`, `mac41` and `vulkan`. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
+  through `SPATIAL` at its first UV and, under `SECOND_LAYER`, its second; PASS on `gl`, `mac41` and `vulkan`.
+  `--mode=flipbook` is a flipbook's frames (`CgVfxFlipbook`, `fx_particle.glsl`): a rect table looped at 30 a second, a
+  grid over a life, a range looped, random frames against `CgRng` and a blend, each particle's frame checked against
+  Java; PASS on `gl`, `mac41` and `vulkan`. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
   renderer on the CPU and by the cull against a depth pyramid on the GPU, by hand and as one world draw of
   `instances()`, the pictures compared byte for byte with multi-draw off and on, the levels one multi-draw where they
   join, and each level's count held between what the wall must and may hide; it prints each path's draw cost, the

@@ -33,6 +33,7 @@ import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgMultiDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgCookedTextureTestScene;
 import com.crystalgraphics.harness.scene.test.CgSamplerBindingTestScene;
+import com.crystalgraphics.harness.scene.test.CgFlipbookTestScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
@@ -385,7 +386,23 @@ public final class SceneRegistry {
                 .clearColor(0f, 0f, 0f, 1.0f)
                 .build(),
             () -> new CgSecondLayerTestScene()
-        );        reg.register(
+        );
+
+        reg.register(
+            SceneDescriptor.builder("flipbook")
+                .description("G0.5: a flipbook's frames through fx_particle.glsl, as sprite.shader draws them: a rect table looped at 30 a second, the grid over a life, a range looped, random frames and a blend; every particle must show the frame due")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(264)
+                .defaultHeight(168)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgFlipbookTestScene()
+        );
+
+        reg.register(
             SceneDescriptor.builder("bloom-occlusion")
                 .description("The world bloom's gate: an emissive ball behind a wall must bloom nowhere and one in front must bloom, at two target sizes and bloom scales 1 and 0.5")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
