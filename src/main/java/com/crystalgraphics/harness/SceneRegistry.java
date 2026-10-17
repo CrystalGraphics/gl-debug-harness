@@ -33,6 +33,7 @@ import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgMultiDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgCookedTextureTestScene;
 import com.crystalgraphics.harness.scene.test.CgSamplerBindingTestScene;
+import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
@@ -371,7 +372,20 @@ public final class SceneRegistry {
                 .build(),
             () -> new CgCookedTextureTestScene()
         );
+
         reg.register(
+            SceneDescriptor.builder("second-layer")
+                .description("G0.4: a glTF quad's second UV set and vertex colour loaded into SPATIAL, drawn by one shader at its first UV and, under SECOND_LAYER, at its second; each quad must read the texel and tint due")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(216)
+                .defaultHeight(112)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgSecondLayerTestScene()
+        );        reg.register(
             SceneDescriptor.builder("bloom-occlusion")
                 .description("The world bloom's gate: an emissive ball behind a wall must bloom nowhere and one in front must bloom, at two target sizes and bloom scales 1 and 0.5")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
