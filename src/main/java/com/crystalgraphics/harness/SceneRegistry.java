@@ -35,6 +35,7 @@ import com.crystalgraphics.harness.scene.test.CgCookedTextureTestScene;
 import com.crystalgraphics.harness.scene.test.CgSamplerBindingTestScene;
 import com.crystalgraphics.harness.scene.test.CgFlipbookTestScene;
 import com.crystalgraphics.harness.scene.test.CgGlobalParametersTestScene;
+import com.crystalgraphics.harness.scene.test.CgPostTransitionsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrefabScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrepareScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
@@ -444,6 +445,18 @@ public final class SceneRegistry {
                 .clearColor(0f, 0f, 0f, 1.0f)
                 .build(),
             () -> new CgVfxPrefabScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("post-transitions")
+                .description("G0.10: a post material by its weight, a fade in both composite forms, a cut's held frame crossfaded out; each firing's pixel checked")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgPostTransitionsScene()
         );
 
         reg.register(

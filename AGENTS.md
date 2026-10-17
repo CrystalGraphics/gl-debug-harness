@@ -98,7 +98,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   `-Dcrystalgraphics.harness.prepare.skip=true` is the control, unprepared, which must wait. PASS on `gl`, `mac41` and
   `vulkan`. `--mode=vfx-prefab` is a `CgVfxPrefab`'s: 458 nodes a ball each, a subtree cut by an opacity of 0 and a
   chain dimmed by 0.2, every check a pixel, and `evaluate()` timed (about 8 µs, at most 50); PASS on `gl`, `mac41` and
-  `vulkan`. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
+  `vulkan`. `--mode=post-transitions` is the post stack's transitions: a `CgPostMaterial` at weights 1, 0.5 and 0, a
+  fade halfway to red in the composite's blend form (HDR scene off) and copy form (on), and a 1 s crossfade read a
+  quarter in and after, each firing's middle pixel checked; PASS on `gl`, `mac41` and `vulkan`. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
   renderer on the CPU and by the cull against a depth pyramid on the GPU, by hand and as one world draw of
   `instances()`, the pictures compared byte for byte with multi-draw off and on, the levels one multi-draw where they
   join, and each level's count held between what the wall must and may hide; it prints each path's draw cost, the
