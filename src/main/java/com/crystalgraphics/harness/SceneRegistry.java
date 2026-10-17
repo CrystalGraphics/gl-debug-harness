@@ -31,6 +31,7 @@ import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuCullTestScene;
 import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgMultiDrawTestScene;
+import com.crystalgraphics.harness.scene.test.CgCookedTextureTestScene;
 import com.crystalgraphics.harness.scene.test.CgSamplerBindingTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
@@ -357,6 +358,19 @@ public final class SceneRegistry {
             () -> new CgSamplerBindingTestScene()
         );
 
+        reg.register(
+            SceneDescriptor.builder("cooked-texture")
+                .description("G0.3: one image from its PNG and from its BC7 .cgtex, colour and alpha, at 3x and at a quarter (a lower mip); every cooked quad must match its PNG twin. Blocks where BPTC is, decoded to RGBA8 on mac41")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(808)
+                .defaultHeight(184)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgCookedTextureTestScene()
+        );
         reg.register(
             SceneDescriptor.builder("bloom-occlusion")
                 .description("The world bloom's gate: an emissive ball behind a wall must bloom nowhere and one in front must bloom, at two target sizes and bloom scales 1 and 0.5")
