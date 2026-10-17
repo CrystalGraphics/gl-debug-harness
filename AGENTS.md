@@ -80,7 +80,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   (overlaps adding, hidden by a wall, mirrored, the leak guard, the split, the after-distortion queue).
   `--mode=multi-draw` is joined draws': 78 instances of 76 meshes, with indices
   and without, drawn joined into multi-draws and then a call a draw, the pictures compared byte for byte and the calls
-  counted. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
+  counted. `--mode=sampler-binding` is a sampler per binding's: one texture, one upload, sampled wrapped, clamped,
+  mirrored and as its own in one pass, each read where its address mode decides; PASS on `gl`, both downlevel
+  contexts and `vulkan`. `--mode=gpu-cull` is `CgGpuOps.cull`'s: spheres at four distances, half behind a wall, culled by the world
   renderer on the CPU and by the cull against a depth pyramid on the GPU, by hand and as one world draw of
   `instances()`, the pictures compared byte for byte with multi-draw off and on, the levels one multi-draw where they
   join, and each level's count held between what the wall must and may hide; it prints each path's draw cost, the

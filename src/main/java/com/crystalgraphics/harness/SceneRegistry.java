@@ -31,6 +31,7 @@ import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuCullTestScene;
 import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgMultiDrawTestScene;
+import com.crystalgraphics.harness.scene.test.CgSamplerBindingTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
@@ -340,6 +341,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgMultiDrawTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("sampler-binding")
+                .description("G0.2: one 4x4 texture, one upload, drawn on four quads in one pass through a binding's sampler each (nearest wrapped, clamped, mirrored, and the texture's own); every quad must read the colour its address mode gives at u -0.25")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(424)
+                .defaultHeight(112)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgSamplerBindingTestScene()
         );
 
         reg.register(
