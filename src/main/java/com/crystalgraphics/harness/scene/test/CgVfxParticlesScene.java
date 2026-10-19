@@ -42,7 +42,7 @@ public final class CgVfxParticlesScene implements InteractiveSceneLifecycle {
 
     private final CgVfxShowcase stage = new CgVfxShowcase();
     private final CgVfxSystem vfx = new CgVfxSystem();
-    private float nextBurst;
+    private double nextBurst;
     private int bursts;
 
     /** One burst of the kit's emitters at its origin, on a floor at the origin's height; dies when they all have. */
@@ -86,7 +86,7 @@ public final class CgVfxParticlesScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        float seconds = (float) frame.getElapsedTime();
+        double seconds = frame.getElapsedTime();
         CgWorldRenderer world = CgWorldRenderer.get();
         if (seconds >= nextBurst) {
             float[] spot = SPOTS[bursts++ % SPOTS.length];

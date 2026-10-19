@@ -127,7 +127,7 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle, CgSy
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        float seconds = (float) frame.getElapsedTime();
+        double seconds = frame.getElapsedTime();
         CgWorldRenderer world = CgWorldRenderer.get();
         // First, so a moment announced in it chooses this frame's camera. The camera keeps real time.
         showcase.submit(world, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(seconds));
@@ -155,13 +155,13 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle, CgSy
         } else if (FOCUS >= 0 && FOCUS < CgVfxShowcase.COUNT) {
             float tx = (FOCUS % 4 - 1.5f) * CgVfxShowcase.SPACING, tz = (FOCUS / 4 - 1.5f) * CgVfxShowcase.SPACING;
             float ty = CgVfxShowcase.HEIGHT;
-            float angle = seconds * ORBIT_SPEED * 2f;
+            float angle = (float) (seconds * ORBIT_SPEED * 2 % (2 * Math.PI));
             camX = tx + (float) Math.sin(angle) * FOCUS_RADIUS;
             camY = ty + FOCUS_HEIGHT;
             camZ = tz + (float) Math.cos(angle) * FOCUS_RADIUS;
             view = orbitView.setLookAt(camX, camY, camZ, tx, ty, tz, 0f, 1f, 0f);
         } else if (ORBIT) {
-            float angle = seconds * ORBIT_SPEED;
+            float angle = (float) (seconds * ORBIT_SPEED % (2 * Math.PI));
             camX = (float) Math.sin(angle) * ORBIT_RADIUS;
             camY = ORBIT_HEIGHT + 0.8f * (float) Math.sin(seconds * 0.23f);
             camZ = (float) Math.cos(angle) * ORBIT_RADIUS;

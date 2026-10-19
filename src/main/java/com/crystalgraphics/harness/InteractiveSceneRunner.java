@@ -226,7 +226,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      */
     private void renderScene(HarnessContext ctx, FrameInfo info) {
         // The frame's time from the harness's own clock, so a fixed delta gives the same capture on every run.
-        CgFrameClock.set((float) info.getElapsedTime());
+        CgFrameClock.set(info.getElapsedTime());
         long frame = info.getFrameNumber();
         boolean sample = RECORD_FROM > 0 && frame >= RECORD_FROM - ALLOCATION_SAMPLE;
         long before = sample ? allocatedBytes() : 0;
