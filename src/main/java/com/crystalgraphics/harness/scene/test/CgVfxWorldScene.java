@@ -432,7 +432,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
         int n = order.limit() / 4;
         ByteBuffer out = ByteBuffer.allocate(n * DRAWN_FLOATS * 4).order(ByteOrder.nativeOrder());
         for (int d = 0; d < n; d++) {
-            int r = order.getInt(d * 4);
+            int r = (int) order.getFloat(d * 4);
             if (r < 0) continue;
             for (int w = 0; w < DRAWN_FLOATS; w++) {
                 out.putFloat((d * DRAWN_FLOATS + w) * 4, records.getFloat(r * CgVfxRecord.BYTES + (CgVfxRecord.DRAWN + w) * 4));

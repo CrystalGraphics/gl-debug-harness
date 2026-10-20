@@ -543,7 +543,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
 
     /** A slot's place past its visible count: Range's order names no record there. */
     private void checkEmpty(int d, int s, int k) {
-        if (order.getInt(d * 4) != -1) fail("slot " + s + "'s unused place " + k + " names record " + order.getInt(d * 4));
+        if ((int) order.getFloat(d * 4) != -1) fail("slot " + s + "'s unused place " + k + " names record " + (int) order.getFloat(d * 4));
     }
 
     /** Where particle {@code r} samples its curves: by speed in slot {@link #BY_SPEED}, else its life progress {@code t}. */
@@ -660,7 +660,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         int n = order.limit() / 4;
         ByteBuffer out = ByteBuffer.allocate(n * DRAWN_FLOATS * 4).order(ByteOrder.nativeOrder());
         for (int d = 0; d < n; d++) {
-            int r = order.getInt(d * 4);
+            int r = (int) order.getFloat(d * 4);
             if (r < 0) continue;
             for (int w = 0; w < DRAWN_FLOATS; w++) {
                 out.putFloat((d * DRAWN_FLOATS + w) * 4, records.getFloat(r * CgVfxRecord.BYTES + (CgVfxRecord.DRAWN + w) * 4));

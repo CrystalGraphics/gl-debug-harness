@@ -39,12 +39,13 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
             "crystalgraphics:heat_haze"};
     private static final int FRAMES = 1200;
     private static final boolean SKIP = Boolean.getBoolean("crystalgraphics.harness.prepare.skip");
+    private static final int IDLE = 120;
 
     private final CgVfxSystem vfx = new CgVfxSystem();
     private final CgVfxOwner owner = CgVfx.owner("harness", vfx);
     private boolean running = true, playing;
     private int frames, warmFrames;
-    private long before, unreadyBefore;
+    private long before, unreadyBefore, mostDrawn;
     private boolean hdrWas;
     private CgQuality qualityWas;
 
@@ -61,7 +62,8 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        if (!playing && (SKIP || vfx.warmed())) {
+        // Unprepared, the move waits IDLE frames first, so the engine's own passes (text, post) are built before it.
+        if (!playing && (SKIP ? warmFrames >= IDLE : vfx.warmed())) {
             before = CgMaterialShader.compileWaits();
             unreadyBefore = CgWorldRenderer.get().unreadyDraws();
             owner.play(MOVE[0], 0, 1.5, 0, 0, 0.5, -24).ground(0f);
@@ -79,6 +81,7 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
         vfx.update(frame.getElapsedTime());
         vfx.submit(CgWorldRenderer.get());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
+        if (playing) mostDrawn = Math.max(mostDrawn, CgVfxSystem.particlesDrawn());
         if (playing && ++frames == FRAMES) {
             report(CgMaterialShader.compileWaits() - before, CgWorldRenderer.get().unreadyDraws() - unreadyBefore);
             if (qualityWas != null) {
@@ -95,6 +98,9 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
         int validation = PlatformServiceHarness.validationErrors();
         if (validation > 0) {
             System.out.println("[vfx-prepare] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
+        } else if (mostDrawn == 0) {
+            // A move that draws nothing also compiles nothing: never a pass.
+            System.out.println("[vfx-prepare] FAIL on " + on + ": the move drew no particle in its " + FRAMES + " frames");
         } else if (SKIP && CgWorldRenderer.get().skipUnready()) {
             System.out.println("[vfx-prepare] " + (waits == 0 && unready > 0 ? "PASS" : "FAIL") + " on " + on
                     + " (unprepared, unready draws skipped): " + waits + " compile waits, " + unready + " draws skipped and counted");
