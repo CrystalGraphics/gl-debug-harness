@@ -48,7 +48,6 @@ import com.crystalgraphics.harness.util.HarnessProjectionUtil;
 import com.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.input.CgKeyCodes;
-import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.harness.runtime.FrameBench;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 
@@ -594,11 +593,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     && letters) {
                 CgWorldRenderer world = CgWorldRenderer.get();
                 world.distortionScale(world.distortionScale() < 1f ? 1f : 0.5f);
-            }
-            // P: particles stepped at 60 Hz (the CPU path now) or every 120 Hz tick (as it was), to compare the two.
-            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_P && !isCtrlDown()
-                    && letters) {
-                CgVfxSystem.particleStep(CgVfxSystem.particleStep() == 1 ? 2 : 1);
             }
             for (CgSystemInput.Keyboard listener : keyboardListeners) {
                 if (!listener.consumeKeyboardEvent(event)) break;

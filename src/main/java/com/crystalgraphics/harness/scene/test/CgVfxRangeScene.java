@@ -69,7 +69,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     /** What the timed frames take on besides the frustum: {@code sort} (slot 0's view depth), {@code pyramid}. */
     private static final String TIMED_WITH = System.getProperty("crystalgraphics.harness.vfxRange.timedWith", "");
     private static final String RANGE_ZONE = "vfx.pool.range";
-    private static final float DT = 1f / 60f, ALPHA = 0.37f, AHEAD = ALPHA * DT;
+    private static final float DT = 1f / 60f;
     private static final double CAMERA_X = 105.5, CAMERA_Y = 64.25, CAMERA_Z = -30.75;
     /** Per slot: capacity, particles seeded, origin from the camera, spread; slot 1 closes before the step. */
     private static final int[] CAPACITY = {2000, 500, 1500, 800}, SEEDED = {1800, 0, 1400, 700};
@@ -211,7 +211,6 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         lead.instance(leadSlot, 0x1EAD, 1f, Float.NaN, origin(ORIGIN[0]));
         lead.endStep();
         lead.record(rec);
-        CgVfxRange.of(lead).frame(ALPHA, DT);
 
         pool = CgVfxParticlePool.of(this, emitter);
         if (pool == lead) fail("the lead pool is the checked one: give it another shape");
@@ -238,7 +237,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         pool.record(rec);
 
         CgGraphTexture pyramid = pyramid(rec);
-        range = CgVfxRange.of(pool).frame(ALPHA, DT).sorted(SORTED);
+        range = CgVfxRange.of(pool).sorted(SORTED);
         range.objects();
         CgVfxRange.record(rec, view, pyramid);
         slotFirst = range.visibleWord(0);
@@ -475,14 +474,13 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         float[] look = look(r, u);
         float[] want = new float[DRAWN_FLOATS];
         for (int a = 0; a < 3; a++) {
-            float now = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + a), was = CgVfxRecord.f(records, r, CgVfxRecord.PREVIOUS + a);
-            want[a] = was + (now - was) * ALPHA;
+            want[a] = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + a);
             want[4 + a] = CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + a);
         }
         want[3] = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * size;
         want[7] = t;
         want[8] = CgVfxRecord.f(records, r, CgVfxRecord.SEED);
-        want[9] = CgVfxRecord.f(records, r, CgVfxRecord.SPIN) + CgVfxRecord.f(records, r, CgVfxRecord.SPIN_RATE) * AHEAD;
+        want[9] = CgVfxRecord.f(records, r, CgVfxRecord.SPIN);
         want[10] = CgVfxRecord.f(records, r, CgVfxRecord.HEAT);
         want[11] = look[7];
         // Full light packed as one word, block + 16 sky; then its spawn id's low 24 bits
@@ -506,8 +504,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         float turn = seed * 6.2831853f + CgVfxRecord.f(records, r, CgVfxRecord.SPIN);
         float[] at = new float[3];
         for (int a = 0; a < 3; a++) {
-            float now = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + a), was = CgVfxRecord.f(records, r, CgVfxRecord.PREVIOUS + a);
-            at[a] = was + (now - was) * ALPHA;
+            at[a] = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + a);
         }
         float u = curveAt(r, t), base = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * curve(u, 0, 3);
         float[] look = look(r, u), size = {base * look[1], base * look[2], base * look[3]};
@@ -521,7 +518,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         want[30] = 0f;
         want[31] = 0f;   // CG_OBJECT_SPARE: nothing under it, no window and no ground
         for (int a = 0; a < 3; a++) want[32 + a] = CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + a);
-        want[35] = Math.max(age - (1f - ALPHA) * DT, 0f);   // its age between its last two steps, as its place is
+        want[35] = age;                                      // its age where its step left it
         want[36] = t;
         want[37] = seed;
         want[38] = look[7];

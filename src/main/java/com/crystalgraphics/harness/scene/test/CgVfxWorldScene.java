@@ -170,7 +170,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
 
     /** Range over the settled debris, and what it and the pool hold, read back. */
     private void read(CgRecording rec) {
-        range = CgVfxRange.of(pool).frame(1f, 0f);
+        range = CgVfxRange.of(pool);
         CgVfxRange.record(rec, view);
         int end = 0;
         for (int s = 0; s < ORIGIN.length; s++) {
