@@ -7,6 +7,8 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.settings.CgGraphicsSettings;
+import com.crystalgraphics.settings.CgQuality;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxOwner;
 import com.crystalgraphics.vfx.CgVfxRegistry;
@@ -22,7 +24,12 @@ import com.crystalgraphics.vfx.look.CgVfxLook;
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-prepare"
  * // the control: played unprepared, the same frames must wait on compiles
  * ... -Dcrystalgraphics.harness.prepare.skip=true
+ * // unprepared with unready draws skipped: no waits, and the skipped draws counted
+ * ... -Dcrystalgraphics.harness.prepare.skip=true -Dcrystalgraphics.world.skipUnready=true
  * }</pre>
+ *
+ * <p>Prepared, halfway through the move it toggles HDR and the quality tier, which must re-warm before applying and so
+ * add no wait either; both settings are put back after.</p>
  *
  * <p>Prints {@code [vfx-prepare] PASS} or {@code FAIL}; run it on {@code gl}, {@code mac41} and {@code vulkan}.</p>
  */
@@ -37,7 +44,9 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
     private final CgVfxOwner owner = CgVfx.owner("harness", vfx);
     private boolean running = true, playing;
     private int frames, warmFrames;
-    private long before;
+    private long before, unreadyBefore;
+    private boolean hdrWas;
+    private CgQuality qualityWas;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -54,33 +63,47 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo frame) {
         if (!playing && (SKIP || vfx.warmed())) {
             before = CgMaterialShader.compileWaits();
+            unreadyBefore = CgWorldRenderer.get().unreadyDraws();
             owner.play(MOVE[0], 0, 1.5, 0, 0, 0.5, -24).ground(0f);
             owner.play(MOVE[1], 6, 0, -8, 6, 0, -8).ground(0f);
             owner.play(MOVE[2], -4, 0.5, -4, -4, 0.5, -4).ground(0f);
             playing = true;
         }
         if (!playing) warmFrames++;
+        if (playing && !SKIP && frames == FRAMES / 2) {
+            hdrWas = CgGraphicsSettings.HDR.get();
+            qualityWas = CgGraphicsSettings.QUALITY.get();
+            CgGraphicsSettings.HDR.set(!hdrWas);
+            CgGraphicsSettings.QUALITY.set(qualityWas == CgQuality.LOW ? CgQuality.HIGH : CgQuality.LOW);
+        }
         vfx.update(frame.getElapsedTime());
         vfx.submit(CgWorldRenderer.get());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         if (playing && ++frames == FRAMES) {
-            report(CgMaterialShader.compileWaits() - before);
+            report(CgMaterialShader.compileWaits() - before, CgWorldRenderer.get().unreadyDraws() - unreadyBefore);
+            if (qualityWas != null) {
+                CgGraphicsSettings.HDR.set(hdrWas);
+                CgGraphicsSettings.QUALITY.set(qualityWas);
+            }
             running = false;
         }
     }
 
-    private void report(long waits) {
+    private void report(long waits, long unready) {
         CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
         if (validation > 0) {
             System.out.println("[vfx-prepare] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
+        } else if (SKIP && CgWorldRenderer.get().skipUnready()) {
+            System.out.println("[vfx-prepare] " + (waits == 0 && unready > 0 ? "PASS" : "FAIL") + " on " + on
+                    + " (unprepared, unready draws skipped): " + waits + " compile waits, " + unready + " draws skipped and counted");
         } else if (SKIP) {
             System.out.println("[vfx-prepare] " + (waits > 0 ? "PASS" : "FAIL") + " on " + on + " (control, unprepared): "
                     + waits + " compile waits in the move's first " + FRAMES + " frames, where some are due");
         } else if (waits == 0) {
             System.out.println("[vfx-prepare] PASS on " + on + ": prepared over " + warmFrames + " frames, the move's first "
-                    + FRAMES + " frames compiled nothing");
+                    + FRAMES + " frames compiled nothing, HDR and the tier toggled halfway");
         } else {
             System.out.println("[vfx-prepare] FAIL on " + on + ": " + waits + " compile waits in the move's first " + FRAMES
                     + " frames after it was prepared");
