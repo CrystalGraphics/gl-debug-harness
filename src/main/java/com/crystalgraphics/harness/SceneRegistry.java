@@ -39,6 +39,7 @@ import com.crystalgraphics.harness.scene.test.CgGlobalParametersTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostTransitionsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrefabScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrepareScene;
+import com.crystalgraphics.harness.scene.test.CgVfxBenchArenaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShapesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
@@ -1045,6 +1046,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxPrepareScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("bench-arena")
+                .description("The arena's frame-thread load: 8 generated moves (180 emitters, 106 shapes, 163 layers each) playing, 30 palettes prepared; EFFECTS and SUBMIT per frame")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxBenchArenaScene()
         );
 
         reg.register(
