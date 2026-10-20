@@ -6,7 +6,6 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxEffect;
-import com.crystalgraphics.vfx.CgVfxFrame;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.element.CgVfxBlast;
 import com.crystalgraphics.vfx.element.CgVfxExplosion;
@@ -68,11 +67,6 @@ public final class CgVfxParticlesScene implements InteractiveSceneLifecycle {
                 done &= emitters.get(i).finished();
             }
             if (done && age > 1f) die();
-        }
-
-        @Override
-        protected void submit(CgVfxFrame frame) {
-            for (int i = 0; i < emitters.size(); i++) frame.particles(this, emitters.get(i));
         }
     }
 
