@@ -38,6 +38,7 @@ import com.crystalgraphics.harness.scene.test.CgFlipbookTestScene;
 import com.crystalgraphics.harness.scene.test.CgGlobalParametersTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostTransitionsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrefabScene;
+import com.crystalgraphics.harness.scene.test.CgVfxBooksScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrepareScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBenchArenaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShapesScene;
@@ -1046,6 +1047,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxPrepareScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-books")
+                .description("The books against the GPU: under a 200 ms frame no slot closes while its particles live")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxBooksScene()
         );
 
         reg.register(
