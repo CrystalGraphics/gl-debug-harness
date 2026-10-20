@@ -4,6 +4,7 @@ bench.py -- run a harness scene, keep its result file, and compare it with the s
 
     python bench.py run vfx-blasts --cell gl-g43                 # one run, then the comparison
     python bench.py run vfx-blasts --cell gl-g43 --repeat 3      # the field-wise median of three runs
+    python bench.py run bench-arena --cell vk --device vulkan --prop crystalgraphics.vfx.skipIdleEmitters=true
     python bench.py compare harness-output/vfx-blasts/profile-harness-300f/result.json
     python bench.py accept  <result.json> --reason "why the baseline moves"
 
@@ -27,6 +28,7 @@ import datetime
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -219,18 +221,19 @@ def _commit():
 def _run_command(args):
     commit = args.commit or _commit()
     gradle = str(ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew"))
-    cmd = [gradle, ":gl-debug-harness:runHarness", f"--args=--mode={args.scene}",
+    scene_args = f"--mode={args.scene}" + (f" --device={args.device}" if args.device else "")
+    cmd = [gradle, ":gl-debug-harness:runHarness", f"--args={scene_args}",
            f"-Dcrystalgraphics.harness.profile={args.frames}",
            f"-Dcrystalgraphics.harness.cell={args.cell}",
-           f"-Dcrystalgraphics.harness.commit={commit}"]
+           f"-Dcrystalgraphics.harness.commit={commit}"] + [f"-D{p}" for p in args.prop]
     if args.dry_run:
         print(" ".join(shlex.quote(c) for c in cmd))
         return 0
     produced = HERE / "harness-output" / args.scene / f"profile-harness-{args.frames}f" / "result.json"
     runs = []
     for i in range(args.repeat):
-        if produced.exists():
-            produced.unlink()
+        if produced.parent.exists():
+            shutil.rmtree(produced.parent, ignore_errors=True)  # a leftover dir blocks the harness's rename
         print(f"run {i + 1}/{args.repeat}: {' '.join(shlex.quote(c) for c in cmd)}")
         if subprocess.run(cmd, cwd=ROOT, timeout=1800).returncode != 0 or not produced.is_file():
             raise BenchError(f"the harness run of {args.scene} left no {produced}")
@@ -253,6 +256,8 @@ def main(argv):
     run.add_argument("--commit")
     run.add_argument("--frames", type=int, default=300)
     run.add_argument("--repeat", type=int, default=1)
+    run.add_argument("--device", help="the harness's --device: gl, tracked or vulkan")
+    run.add_argument("--prop", action="append", default=[], help="a -D system property, name=value; repeatable")
     run.add_argument("--baselines", default=default_baselines)
     run.add_argument("--dry-run", action="store_true", help="print the command and stop")
 
