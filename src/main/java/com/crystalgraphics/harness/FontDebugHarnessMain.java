@@ -12,6 +12,7 @@ import com.crystalgraphics.lwjgl3.GlfwCursorService;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.harness.runtime.RenderDoc;
 import com.crystalgraphics.platform.PlatformServiceHarness;
+import com.crystalgraphics.util.CgRandom;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -25,6 +26,8 @@ public final class FontDebugHarnessMain {
     public static void main(String[] args) {
         // CgRenderDemo is Minecraft's: in the harness it would draw a second showcase over vfx-spheres' own.
         if (System.getProperty("crystalgraphics.demo") == null) System.setProperty("crystalgraphics.demo", "false");
+        // Every run, so a capture repeats (Unreal's -FixedSeed).
+        CgRandom.fixedSeed(true);
         // Before the window: RenderDoc hooks context creation.
         RenderDoc.attachIfRequested(args);
 
