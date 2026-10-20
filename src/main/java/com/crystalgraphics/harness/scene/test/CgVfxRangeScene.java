@@ -382,10 +382,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         float cx = ORIGIN[slot][0] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION);
         float cy = ORIGIN[slot][1] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 1);
         float cz = ORIGIN[slot][2] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 2);
-        float dx = CgVfxRecord.f(records, r, CgVfxRecord.POSITION) - CgVfxRecord.f(records, r, CgVfxRecord.PREVIOUS);
-        float dy = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 1) - CgVfxRecord.f(records, r, CgVfxRecord.PREVIOUS + 1);
-        float dz = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 2) - CgVfxRecord.f(records, r, CgVfxRecord.PREVIOUS + 2);
-        float reach = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * radius[slot] + (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        // Its size alone: a frame draws it where its step left it.
+        float reach = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * radius[slot];
         if (slot == SOURCE) {
             // Kept by its source though outside the view itself: what tells the source's cull from each particle's.
             for (float[] p : planes) {
