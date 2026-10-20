@@ -5,6 +5,7 @@ import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.trace.CgTraceExport;
 import com.crystalgraphics.trace.CgTraceNames;
 import com.crystalgraphics.trace.CgTraceReport;
+import com.crystalgraphics.trace.CgTraceResult;
 import com.crystalgraphics.trace.CgTraceSnapshot;
 
 import java.io.File;
@@ -105,6 +106,7 @@ public final class TraceDump {
             LOGGER.log(Level.WARNING, "[TraceDump] failed to write the profile", e);
             return null;
         }
+        writeResult(folder, directory, range);
         if (Boolean.getBoolean("crystalgraphics.harness.profile.json")) {
             File json = new File(folder, "trace.json");
             try (Writer out = Files.newBufferedWriter(json.toPath(), StandardCharsets.UTF_8)) {
@@ -115,6 +117,23 @@ public final class TraceDump {
         }
         LOGGER.info("[TraceDump] wrote " + folder.getAbsolutePath() + " -- read report.txt first");
         return report;
+    }
+
+    /**
+     * {@code result.json} beside the report: the run's numbers for {@code bench.py}. The scene is the output folder's
+     * name; {@code -Dcrystalgraphics.harness.cell} (default {@code default}), {@code .commit} (default
+     * {@code unknown}) and {@code .target.ms} (default 16.7, the frame time that defines a hitch) name the rest.
+     */
+    private static void writeResult(File folder, File directory, CgTraceSnapshot range) {
+        double targetMillis = Double.parseDouble(System.getProperty("crystalgraphics.harness.target.ms", "16.7"));
+        try {
+            String json = CgTraceResult.toJson(range, directory.getName(),
+                    System.getProperty("crystalgraphics.harness.cell", "default"),
+                    System.getProperty("crystalgraphics.harness.commit", "unknown"), Math.round(targetMillis * 1e6d));
+            Files.write(new File(folder, "result.json").toPath(), json.getBytes(StandardCharsets.UTF_8));
+        } catch (IOException | RuntimeException e) {
+            LOGGER.log(Level.WARNING, "[TraceDump] failed to write the result file", e);
+        }
     }
 
     /** Moves the last run's folder aside, replacing the one before it. */
