@@ -211,6 +211,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         lead.instance(leadSlot, 0x1EAD, 1f, Float.NaN, origin(ORIGIN[0]));
         lead.endStep();
         lead.record(rec);
+        // Its range first, so the checked pool's words and records start after another pool's.
+        CgVfxRange.of(lead);
 
         pool = CgVfxParticlePool.of(this, emitter);
         if (pool == lead) fail("the lead pool is the checked one: give it another shape");
