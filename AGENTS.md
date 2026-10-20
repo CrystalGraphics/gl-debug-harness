@@ -131,8 +131,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   scene, which the scenes above must pass under synchronization validation. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
   shape, a general one with a lowerable fallback, one with only a Java body, one with neither, every result worked out
   in Java (`CgComputeSelfTest`, the engine's, which a client runs too). All five scenes must pass forced to each tier
-  (`-Dcrystalgraphics.compute.tier=G43|G40|G33|CPU`, and G33 with `-Dcrystalgraphics.shaderBuffer.tier=TBO` for a 3.3
-  context's GLSL), unforced on both downlevel contexts (below), and on `vulkan` at its own tier and at CPU.
+  (`-Dcrystalgraphics.compute.tier=G43|G40|G33`, and G33 with `-Dcrystalgraphics.shaderBuffer.tier=TBO` for a 3.3
+  context's GLSL), under the CPU oracle (`-Dcrystalgraphics.harness.oracle=true`: every kernel's Java body, which no
+  client can select), unforced on both downlevel contexts (below), and on `vulkan` at its own tier and under the oracle.
 
 ## `-Pharness.downlevel=mac41|gl33` — a context that genuinely lacks a feature
 

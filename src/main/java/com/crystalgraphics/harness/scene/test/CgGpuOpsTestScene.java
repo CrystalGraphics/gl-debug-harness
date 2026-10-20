@@ -10,7 +10,8 @@ import com.crystalgraphics.platform.device.CgDeviceInfo;
 /**
  * gpu-compute C7's gate: {@link CgGpuOpsCheck}, every {@code CgGpuOps} op at counts from none to 70,000, fixed and read
  * from the GPU, each answer checked bit for bit against Java. Run it at each tier a context can be forced to,
- * {@code -Dcrystalgraphics.compute.tier=G43|G40|G33|CPU}, and on the downlevel contexts.
+ * {@code -Dcrystalgraphics.compute.tier=G43|G40|G33}, under the CPU oracle ({@code -Dcrystalgraphics.harness.oracle=true}),
+ * and on the downlevel contexts.
  *
  * <p>Prints {@code [gpu-ops] PASS} or {@code FAIL} with every answer that differs; on the Vulkan device a validation
  * error fails it too.</p>
