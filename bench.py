@@ -218,7 +218,7 @@ def _commit():
 
 def _run_command(args):
     commit = args.commit or _commit()
-    gradle = "gradlew.bat" if os.name == "nt" else "./gradlew"
+    gradle = str(ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew"))
     cmd = [gradle, ":gl-debug-harness:runHarness", f"--args=--mode={args.scene}",
            f"-Dcrystalgraphics.harness.profile={args.frames}",
            f"-Dcrystalgraphics.harness.cell={args.cell}",
