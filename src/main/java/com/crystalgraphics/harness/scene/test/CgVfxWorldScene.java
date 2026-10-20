@@ -85,7 +85,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
     private final int[] slots = new int[ORIGIN.length], bases = new int[ORIGIN.length], words = new int[ORIGIN.length];
     private CgVfxParticlePool pool;
     private CgVfxRange range;
-    private ByteBuffer records, visible, drawn, distances;
+    private ByteBuffer records, visible, drawn, order, distances;
     private int frame, live = -1, landed, onStep, onTop, underRoof, onRoof, lit, dark, distancesChecked;
     private float worstDistance;
     private String failure;
@@ -120,7 +120,8 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
             CgImmediate.execute(rec);
             return;
         }
-        if (!compared && records != null && visible != null && drawn != null && distances != null && live >= 0) {
+        if (!compared && records != null && visible != null && order != null && distances != null && live >= 0) {
+            drawn = drawnFrom(order, records);
             compare();
             compared = true;
         }
@@ -183,7 +184,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
         requests.add(rec.readback(pool.live(), 0, 4, data -> live = data.getInt(0)));
         requests.add(rec.readback(pool.records(), 0, (long) pool.storage() * CgVfxRecord.BYTES, data -> records = copy(data)));
         requests.add(rec.readback(range.visible(), 0, allSlots * 4L, data -> visible = copy(data)));
-        requests.add(rec.readback(range.drawn(), 0, (long) end * DRAWN_FLOATS * 4, data -> drawn = copy(data)));
+        requests.add(rec.readback(range.order(), 0, (long) end * 4, data -> order = copy(data)));
         requests.add(rec.readback(CgVfxVoxelWindow.get().distance(), 0, 0, 0, 0, CgVfxVoxelWindow.WIDTH,
                 CgVfxVoxelWindow.HEIGHT, CgVfxVoxelWindow.DEPTH, data -> distances = copy(data)));
     }
@@ -424,5 +425,19 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
         @Override public int maxY() { return 256; }
         @Override public int seaLevel() { return 63; }
         @Override public int levelEpoch() { return 1; }
+    }
+
+    /** Each drawn particle's drawn part, read through Range's order as a draw reads it; zero past a slot's visible count. */
+    private static ByteBuffer drawnFrom(ByteBuffer order, ByteBuffer records) {
+        int n = order.limit() / 4;
+        ByteBuffer out = ByteBuffer.allocate(n * DRAWN_FLOATS * 4).order(ByteOrder.nativeOrder());
+        for (int d = 0; d < n; d++) {
+            int r = order.getInt(d * 4);
+            if (r < 0) continue;
+            for (int w = 0; w < DRAWN_FLOATS; w++) {
+                out.putFloat((d * DRAWN_FLOATS + w) * 4, records.getFloat(r * CgVfxRecord.BYTES + (CgVfxRecord.DRAWN + w) * 4));
+            }
+        }
+        return out;
     }
 }

@@ -115,7 +115,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private int slotCount, slotFirst, allSlots, live = -1, leadLive = -1;
     private int[] bases;
     private float[] radius;
-    private ByteBuffer records, visible, drawn, objects;
+    private ByteBuffer records, visible, drawn, order, objects;
     private final Matrix4f model = new Matrix4f(), turned = new Matrix4f(), normal = new Matrix4f();
     private int frame, checkedDrawn, culled, occluded, sourceKept, timedFrom = -1, slowest, between, fastest;
     private float worst, worstRow, worstObject;
@@ -153,7 +153,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             record();
             return;
         }
-        if (!compared && records != null && visible != null && drawn != null && objects != null && live >= 0 && leadLive >= 0) {
+        if (!compared && records != null && visible != null && order != null && objects != null && live >= 0 && leadLive >= 0) {
+            drawn = drawnFrom(order, records);
             compare();
             compared = true;
         }
@@ -257,7 +258,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         requests.add(rec.readback(lead.live(), 0, 4, data -> leadLive = data.getInt(0)));
         requests.add(rec.readback(pool.records(), 0, (long) storage * CgVfxRecord.BYTES, data -> records = copy(data)));
         requests.add(rec.readback(range.visible(), 0, (allSlots + 1) * 4L, data -> visible = copy(data)));
-        requests.add(rec.readback(range.drawn(), 0, (long) end * DRAWN_FLOATS * 4, data -> drawn = copy(data)));
+        requests.add(rec.readback(range.order(), 0, (long) end * 4, data -> order = copy(data)));
         requests.add(rec.readback(range.objects(), 0, (long) end * OBJECT_FLOATS * 4, data -> objects = copy(data)));
         CgImmediate.execute(rec);
     }
@@ -540,15 +541,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         }
     }
 
-    /** A slot's record past its visible count: nothing, fully lit (the packed word). */
+    /** A slot's place past its visible count: Range's order names no record there. */
     private void checkEmpty(int d, int s, int k) {
-        for (int w = 0; w < DRAWN_FLOATS; w++) {
-            float want = w == 12 ? 15f + 16f * 15f : 0f;
-            if (drawn.getFloat(d * DRAWN_BYTES + w * 4) != want) {
-                fail("slot " + s + "'s unused record " + k + " word " + w + " is " + drawn.getFloat(d * DRAWN_BYTES + w * 4));
-                return;
-            }
-        }
+        if (order.getInt(d * 4) != -1) fail("slot " + s + "'s unused place " + k + " names record " + order.getInt(d * 4));
     }
 
     /** Where particle {@code r} samples its curves: by speed in slot {@link #BY_SPEED}, else its life progress {@code t}. */
@@ -658,5 +653,19 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         public void writeSpawn(CgVfxWords out) { of.writeSpawn(out); }
         public void writeCurves(float[] out, int at, int texels) { of.writeCurves(out, at, texels); }
         public CgVfxCurveDomain curveDomain() { return SPEEDS; }
+    }
+
+    /** Each drawn particle's drawn part, read through Range's order as a draw reads it; zero past a slot's visible count. */
+    private static ByteBuffer drawnFrom(ByteBuffer order, ByteBuffer records) {
+        int n = order.limit() / 4;
+        ByteBuffer out = ByteBuffer.allocate(n * DRAWN_FLOATS * 4).order(ByteOrder.nativeOrder());
+        for (int d = 0; d < n; d++) {
+            int r = order.getInt(d * 4);
+            if (r < 0) continue;
+            for (int w = 0; w < DRAWN_FLOATS; w++) {
+                out.putFloat((d * DRAWN_FLOATS + w) * 4, records.getFloat(r * CgVfxRecord.BYTES + (CgVfxRecord.DRAWN + w) * 4));
+            }
+        }
+        return out;
     }
 }
