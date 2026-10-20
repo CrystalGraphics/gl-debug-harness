@@ -2,6 +2,8 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
+import com.crystalgraphics.api.material.CgBlendMode;
+import com.crystalgraphics.api.material.CgMaterialState;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.shape.primitive.CgSphere;
@@ -50,7 +52,10 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
     private static final float LIFE = 2f;
     private static final float PERIOD = SPAN + LIFE + 1f;
 
-    private static final String[] SHADERS = {"spark", "speck", "dust", "ray", "ring"};
+    private static final String[] SHADERS = {"spark", "speck", "dust", "ray", "ring", "sprite", "sprite_glow"};
+    private static final CgBlendMode[] BLENDS = {CgBlendMode.ADDITIVE, CgBlendMode.PREMULTIPLIED, CgBlendMode.ALPHA};
+    /** Shader x blend x sidedness: 42 programs, a layer taking the next in turn. */
+    private static final int PROGRAMS = SHADERS.length * BLENDS.length * 2;
 
     private final CgVfxSystem vfx = new CgVfxSystem();
     private final List<CgVfxLook> palettes = new ArrayList<>();
@@ -80,8 +85,12 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
             CgVfxEmitter emitter = e.build();
             look.emitter(emitter);
             if (i < LAYERS) {
-                String shader = SHADERS[i % SHADERS.length];
-                look.layer(CgVfxLayer.of("crystalgraphics:shaders/vfx/particle/" + shader + ".shader").on(emitter).build());
+                int program = i % PROGRAMS;
+                String shader = SHADERS[program % SHADERS.length];
+                CgMaterialState.Builder state = CgMaterialState.builder().blend(BLENDS[program / SHADERS.length % BLENDS.length]);
+                if (program >= PROGRAMS / 2) state.twoSided();
+                look.layer(CgVfxLayer.of("crystalgraphics:shaders/vfx/particle/" + shader + ".shader").on(emitter)
+                        .state(state.build()).build());
             }
         }
         return look.build();
