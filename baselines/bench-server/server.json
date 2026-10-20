@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "scene": "bench-server",
+  "cell": "server",
+  "commit": "unknown",
+  "targetNanos": 50000000,
+  "frames": 600,
+  "measures": {
+    "wall": {
+      "count": 600,
+      "median": 7567900,
+      "p99": 9681700,
+      "p99.9": 14941000,
+      "max": 14941000,
+      "sum": 4417700300
+    },
+    "cpu": {
+      "count": 600,
+      "median": 7567900,
+      "p99": 9681700,
+      "p99.9": 14941000,
+      "max": 14941000,
+      "sum": 4417700300
+    },
+    "gpu": null,
+    "allocatedBytes": {
+      "count": 600,
+      "median": 0,
+      "p99": 3200,
+      "p99.9": 1643200,
+      "max": 1643200,
+      "sum": 1821424
+    },
+    "directBytes": null
+  },
+  "hitches": {
+    "count": 0,
+    "ours": 0,
+    "unexplained": 0
+  },
+  "gcCollections": 0,
+  "gcPauseMillis": 0,
+  "jvm": {
+    "compilations": null,
+    "deoptimisations": null,
+    "safepoints": null,
+    "classLoads": null
+  },
+  "counters": {},
+  "baseline": {
+    "reason": "SC3 before-R3 baseline at CrystalGraphics bff5873d+, 3-run median, 600 frames, 120 fps cap; taken while REA's scripts load the machine (retake when quiet); 100 authoritative waves, server tick, loop-back net, one viewer (no player sequences yet)",
+    "commit": "unknown",
+    "accepted": "2026-10-20"
+  }
+}

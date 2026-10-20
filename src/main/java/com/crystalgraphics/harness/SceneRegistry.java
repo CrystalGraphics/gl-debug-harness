@@ -1061,6 +1061,30 @@ public final class SceneRegistry {
         );
 
         reg.register(
+            SceneDescriptor.builder("bench-duel")
+                .description("Two ultimates at once: 67 shapes alive in each, starting together; every frame under the target")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> CgVfxBenchArenaScene.duel()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("bench-brawl")
+                .description("The arena plus 300 one-off puffs a second: no allocation, no compile")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> CgVfxBenchArenaScene.brawl()
+        );
+
+        reg.register(
             SceneDescriptor.builder("vfx-shapes")
                 .description("G0.11: 30 emitters each its own shape, so 30 pools of few particles: the particle frame's fixed cost per pool, on gl and vulkan")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
