@@ -13,7 +13,6 @@ import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxScalability;
 import com.crystalgraphics.vfx.CgVfxSystem;
-import com.crystalgraphics.vfx.effect.CgVfxBurst;
 import com.crystalgraphics.vfx.look.CgVfxKit;
 import com.crystalgraphics.vfx.look.CgVfxLayer;
 import com.crystalgraphics.vfx.look.CgVfxLook;
@@ -40,6 +39,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import com.crystalgraphics.vfx.system.CgVfxSystemDefinition;
+import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
 
 /**
  * G2.1's gate, particle-played clips: one {@code SEQUENCE} particle plays a clip whose hub turns about z in steps (90
@@ -110,9 +111,9 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
             cx = Math.round(w * 0.5);
             cy = Math.round(h * 0.5);
             target = HarnessFboHelper.create(w, h, true);   // with depth: the GPU cull of its parts reads it
-            CgVfxLook look = CgVfxLook.builder(CgVfxBurst.SCHEMA)
+            CgVfxLook look = CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA)
                     .with(CgVfxKit.of("harness:sequence").emitter(root).build(), prefab.kit()).build();
-            vfx.play(new CgVfxBurst(look, cx, cy, 0.0)).scalability(CgVfxScalability.HERO);   // far from the camera, in pixels
+            vfx.play(new CgVfxSystemInstance(look, cx, cy, 0.0)).scalability(CgVfxScalability.HERO);   // far from the camera, in pixels
         }
         if (frame <= END) {
             target.bind();

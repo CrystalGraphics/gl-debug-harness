@@ -8,7 +8,6 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.shape.primitive.CgSphere;
 import com.crystalgraphics.vfx.CgVfxSystem;
-import com.crystalgraphics.vfx.effect.CgVfxBurst;
 import com.crystalgraphics.vfx.look.CgVfxLayer;
 import com.crystalgraphics.vfx.look.CgVfxLook;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
@@ -19,6 +18,8 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.crystalgraphics.vfx.system.CgVfxSystemDefinition;
+import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
 
 /**
  * The arena's frame-thread load: 8 moves playing at once, each a generated look of
@@ -100,7 +101,7 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
         CgVfxEmitter spark = CgVfxEmitter.builder("puff").capacity(32).state(CgVfxEmitterState.ONCE).burst(0f, 16)
                 .shape(CgSphere.of(0.2)).launch(0.2f, 1f, 1f).speed(1f, 3f).life(0.6f, 0.9f).size(0.05f, 0.1f)
                 .module(new CgVfxModule.Gravity(4f)).build();
-        return CgVfxLook.builder(CgVfxBurst.SCHEMA).emitter(spark)
+        return CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA).emitter(spark)
                 .layer(CgVfxLayer.of("crystalgraphics:shaders/vfx/particle/spark.shader").on(spark)
                         .state(CgMaterialState.builder().blend(CgBlendMode.ADDITIVE).build()).build())
                 .build();
@@ -118,7 +119,7 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
     }
 
     private CgVfxLook look(int variant) {
-        CgVfxLook.Builder look = CgVfxLook.builder(CgVfxBurst.SCHEMA);
+        CgVfxLook.Builder look = CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA);
         for (int i = 0; i < emitters; i++) {
             int shape = 1 + (i + variant) % shapes;
             float at = span * i / emitters;
@@ -167,7 +168,7 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
             boolean first = plays[m] < 0;
             plays[m] = round;
             double x = (m - (moves - 1) / 2.0) * 3.0;
-            CgVfxBurst burst = new CgVfxBurst(palettes.get((m + round) % palettes.size()), x, 1.0, 0.0);
+            CgVfxSystemInstance burst = new CgVfxSystemInstance(palettes.get((m + round) % palettes.size()), x, 1.0, 0.0);
             if (first && phase > 0f) burst.startAt(phase);
             vfx.play(burst).ground(0f);
         }
@@ -176,7 +177,7 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
             lastClock = clock;
             for (; owed >= 1f; owed -= 1f) {
                 double angle = puffs++ * 2.399963;   // golden angle: spread without a random source
-                vfx.play(new CgVfxBurst(puff, Math.cos(angle) * 10.0, 1.0, Math.sin(angle) * 4.0)).ground(0f);
+                vfx.play(new CgVfxSystemInstance(puff, Math.cos(angle) * 10.0, 1.0, Math.sin(angle) * 4.0)).ground(0f);
             }
         }
         vfx.update(frame.getElapsedTime());
