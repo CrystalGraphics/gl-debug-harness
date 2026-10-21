@@ -21,6 +21,8 @@ import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.vfx.element.CgVfxExplosion;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
+import com.crystalgraphics.vfx.particle.form.CgVfxModuleForm;
+import com.crystalgraphics.vfx.particle.form.CgVfxSpawnForm;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxCurveDomain;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxGpuEmitter;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxGpuModule;
@@ -655,6 +657,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         public void writeSpawn(CgVfxWords out) { of.writeSpawn(out); }
         public void writeCurves(float[] out, int at, int texels) { of.writeCurves(out, at, texels); }
         public CgVfxCurveDomain curveDomain() { return SPEEDS; }
+        public List<CgVfxModuleForm> moduleForms() { return of.moduleForms(); }
+        public List<CgVfxSpawnForm> spawnForms() { return of.spawnForms(); }
     }
 
     /** Each drawn particle's drawn part, read through Range's order as a draw reads it; zero past a slot's visible count. */

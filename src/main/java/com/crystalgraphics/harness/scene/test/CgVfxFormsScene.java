@@ -14,6 +14,8 @@ import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterAssets;
 import com.crystalgraphics.vfx.particle.form.CgVfxFormContext;
 import com.crystalgraphics.vfx.particle.form.CgVfxFormInput;
+import com.crystalgraphics.vfx.particle.form.CgVfxSpawnForm;
+import com.crystalgraphics.vfx.particle.form.CgVfxSpawnInput;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
@@ -27,11 +29,14 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * The gate for module inputs in forms (aaa-milestones P6.3): an emitter compiled from its file a form, each giving
- * {@code acceleration}'s value as a range per channel, a range rolled once, a locked range, a pick, curves by age, by the
- * particle's age, by its speed, by a random draw and by its id, and a binding to its age. Particles of known ids, ages,
- * lives and velocities are seeded and stepped once; with nothing else pulling, each one's change of velocity over the
- * step is its acceleration, which must be {@code CgVfxFormInput}'s Java evaluation for that particle, every lane.
+ * The gate for inputs in forms (aaa-milestones P6.3, P6.4). Module inputs: an emitter compiled from its file a form,
+ * each giving {@code acceleration}'s value as a range per channel, a range rolled once, a locked range, a pick, curves by
+ * age, by the particle's age, by its speed, by a random draw and by its id, and a binding to its age. Particles of known
+ * ids, ages, lives and velocities are seeded and stepped once; with nothing else pulling, each one's change of velocity
+ * over the step is its acceleration, which must be {@code CgVfxFormInput}'s Java evaluation for that particle, every
+ * lane. Spawn values: an emitter a spawn form ({@code initialize_particle}'s lifetime and sprite size,
+ * {@code add_velocity}'s speed, {@code shape_location}'s radius by the loop), 512 spawned at a known loop time and
+ * stepped once, each one's life, size, speed or distance from the source the form's Java evaluation for its key.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-forms"
@@ -50,6 +55,10 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
 
     /** Each form by name: its value as an emitter file writes it, an acceleration's three lanes. */
     private static final Map<String, Object> FORMS = new LinkedHashMap<>();
+    /** Each spawn form by name: its emitter file's {@code particle_spawn}. */
+    private static final Map<String, List<Object>> SPAWNS = new LinkedHashMap<>();
+    /** The loop's seconds the spawn stations spawn at. */
+    private static final float LOOP = 0.7f;
 
     static {
         Map<String, Object> cubic = Map.of("keys", List.of(List.of(0.0, -2.0, "cubic", "break", 0.0, 6.0),
@@ -69,6 +78,19 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         FORMS.put("curve-random", Map.of("curve", cubic, "by", "random"));
         FORMS.put("curve-id", Map.of("curve", Map.of("keys", List.of(List.of(0.0, 0.0), List.of(511.0, 3.0, "linear"))), "by", "id"));
         FORMS.put("age-binding", Map.of("bind", "particles.age", "scale", 2.0));
+        SPAWNS.put("spawn-life-pick", List.of(init(Map.of("lifetime", Map.of("pick", List.of(1.5, 3.0))))));
+        SPAWNS.put("spawn-life-id", List.of(init(Map.of("lifetime",
+                Map.of("curve", Map.of("keys", List.of(List.of(0.0, 1.0), List.of(511.0, 4.0, "linear"))), "by", "id")))));
+        SPAWNS.put("spawn-size-random", List.of(init(Map.of("lifetime", 3.0, "sprite_size", CgVfxSpawnForm.skewed(0.1f, 0.5f, 2f)))));
+        SPAWNS.put("spawn-speed-random", List.of(init(Map.of("lifetime", 3.0)), Map.of("id", "velocity",
+                "module", "crystalgraphics:add_velocity", "inputs", Map.of("mode", "outward", "speed", Map.of("curve", cubic, "by", "random")))));
+        SPAWNS.put("spawn-radius-loop", List.of(init(Map.of("lifetime", 3.0)), Map.of("id", "shape",
+                "module", "crystalgraphics:shape_location", "inputs", Map.of("shape", "sphere", "surface_only", true,
+                        "sphere_radius", CgVfxSpawnForm.swept(2f, 3f, 1.6f)))));
+    }
+
+    private static Map<String, Object> init(Map<String, Object> inputs) {
+        return Map.of("id", "init", "module", "crystalgraphics:initialize_particle", "inputs", inputs);
     }
 
     private final List<CgVfxEmitter> emitters = new ArrayList<>();
@@ -99,6 +121,19 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             CgVfxParticlePool.prepare(emitter);
             read.add(null);
         }
+        for (Map.Entry<String, List<Object>> spawn : SPAWNS.entrySet()) {
+            Map<String, Object> tree = new LinkedHashMap<>();
+            tree.put("_v", 1);
+            tree.put("properties", Map.of("capacity", PARTICLES));
+            tree.put("emitter_update", List.of(Map.of("id", "state", "module", "crystalgraphics:emitter_state",
+                    "inputs", Map.of("loop", "once", "duration", 1.6))));
+            tree.put("particle_spawn", spawn.getValue());
+            CgVfxEmitter emitter = CgVfxEmitterAssets.compile("forms-" + spawn.getKey(), tree, null);
+            if (emitter.spawnForms().size() != 1) fail(spawn.getKey() + " compiled " + emitter.spawnForms().size() + " spawn forms");
+            emitters.add(emitter);
+            CgVfxParticlePool.prepare(emitter);
+            read.add(null);
+        }
         Random random = new Random(1201);
         for (int id = 0; id < PARTICLES; id++) {
             // Every one outlives the step: a death would compact it away.
@@ -120,6 +155,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                     CgVfxParticlePool pool = pools.get(e);
                     pool.beginStep(DT, 0f, 0f, 0f);
                     pool.instance(slots.get(e), SEED_BITS, 1f, Float.NaN, origin());
+                    // A spawn station's particles: one burst at the step's start, at the loop's LOOP seconds.
+                    if (e >= FORMS.size()) pool.spawn(slots.get(e), 0, PARTICLES, PARTICLES, 0f, DT, 0f, 0f, 0f, 0f, 0f, 0f, LOOP, LOOP);
                     pool.endStep();
                 }
                 CgVfxParticlePool.record(rec, pools);
@@ -136,7 +173,10 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         boolean answered = true;
         for (CgRequest r : requests) answered &= r.status() != CgRequest.Status.PENDING;
         if (!compared && answered && !read.contains(null) && frame > 10) {
-            for (int e = 0; e < emitters.size(); e++) compare(e);
+            for (int e = 0; e < emitters.size(); e++) {
+                if (e < FORMS.size()) compare(e);
+                else compareSpawn(e);
+            }
             compared = true;
         }
         if (compared || frame > DRAIN) {
@@ -151,6 +191,11 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             CgVfxParticlePool pool = CgVfxParticlePool.of(this, emitter);
             if (pools.contains(pool)) fail(emitter.name() + " shares a pool with another form");
             int slot = pool.open(emitter, PARTICLES);
+            if (pools.size() >= FORMS.size()) {
+                pools.add(pool);
+                slots.add(slot);
+                continue;
+            }
             ByteBuffer packed = ByteBuffer.allocateDirect(PARTICLES * CgVfxRecord.BYTES).order(ByteOrder.nativeOrder());
             for (int id = 0; id < PARTICLES; id++) {
                 float[] s = seeded[id];
@@ -199,6 +244,51 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         }
     }
 
+    /** Every particle of spawn station {@code e}: its life, size, speed or distance, against the form's Java evaluation. */
+    private void compareSpawn(int e) {
+        CgVfxEmitter emitter = emitters.get(e);
+        CgVfxSpawnForm form = emitter.spawnForms().get(0);
+        ByteBuffer records = read.get(e);
+        CgVfxFormContext ctx = new CgVfxFormContext().seed(SEED_BITS).loop(LOOP, 0);
+        boolean[] seen = new boolean[PARTICLES];
+        for (int r = 0; r < PARTICLES; r++) {
+            int id = CgVfxRecord.i(records, r, CgVfxRecord.ID);
+            if (CgVfxRecord.f(records, r, CgVfxRecord.LIFE) == 0f || id < 0 || id >= PARTICLES || seen[id]) continue;
+            seen[id] = true;
+            int at = switch (form.target()) {
+                case LIFETIME -> CgVfxRecord.LIFE;
+                case SPRITE_SIZE -> CgVfxRecord.SIZE;
+                case SPEED -> CgVfxRecord.VELOCITY;
+                case RADIUS -> CgVfxRecord.POSITION;
+            };
+            float got = switch (form.target()) {
+                case SPEED, RADIUS -> length(records, r, at);
+                default -> CgVfxRecord.f(records, r, at);
+            };
+            float want = form.compiled().channel(ctx.particle(id), 0);
+            // A negative speed launches the other way: its velocity's length is the value's size.
+            if (form.target() == CgVfxSpawnInput.SPEED) want = Math.abs(want);
+            float off = Math.abs(got - want) / (TOLERANCE * (1f + Math.abs(want)));
+            worst = Math.max(worst, off);
+            if (!(off <= 1f)) {
+                fail(emitter.name() + ": particle " + id + "'s " + form.target() + " is " + got + ", Java gives " + want);
+                return;
+            }
+            checked++;
+        }
+        for (int id = 0; id < PARTICLES; id++) {
+            if (!seen[id]) {
+                fail(emitter.name() + ": particle " + id + " was not read back");
+                return;
+            }
+        }
+    }
+
+    private static float length(ByteBuffer records, int r, int at) {
+        float x = CgVfxRecord.f(records, r, at), y = CgVfxRecord.f(records, r, at + 1), z = CgVfxRecord.f(records, r, at + 2);
+        return (float) Math.sqrt(x * x + y * y + z * z);
+    }
+
     private static CgVfxInstanceView origin() {
         return new CgVfxInstanceView() {
             public double originX() { return ORIGIN[0]; }
@@ -236,7 +326,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         } else if (failure != null) {
             System.out.println("[vfx-forms] FAIL on " + on + ": " + failure);
         } else {
-            System.out.println("[vfx-forms] PASS on " + on + ": " + FORMS.size() + " forms, " + checked
+            System.out.println("[vfx-forms] PASS on " + on + ": " + FORMS.size() + " module forms, " + SPAWNS.size() + " spawn forms, " + checked
                     + " particles, every lane the form's Java evaluation (worst share of the tolerance " + worst + ")");
         }
     }
