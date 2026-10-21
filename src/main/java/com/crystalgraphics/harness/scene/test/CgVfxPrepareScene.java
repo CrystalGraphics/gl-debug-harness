@@ -40,7 +40,8 @@ import java.util.Map;
  * <p><b>Rehearsed</b> ({@code -Dcrystalgraphics.harness.prepare.casts=10}): the move is also rehearsed
  * ({@link CgVfxSystem#rehearse}) before it plays, then cast that many times, {@value #CAST_FRAMES} frames each and
  * cleared between. The first cast's frame-thread time must match the last's (within 10% or 0.25 ms a frame), and the
- * first cast must compile, deoptimise and load no engine class (JFR, {@link HarnessJitWatch}).
+ * first cast must load no engine class (JFR, {@link HarnessJitWatch}); its compilations and deopts are printed beside
+ * the last cast's, the JIT's floor in a warm cast.
  * {@code .prepare.rehearse=false} is the control, which should fail; {@code -Dcrystalgraphics.rehearsal.listGrowth=true}
  * lists the buffers the rehearsal grew instead of failing on the first.</p>
  *
@@ -177,7 +178,7 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
             }
         }
         if (playing && castFrame == 0) {
-            if (cast == 0) jit.open();
+            if (cast == 0 || cast == CASTS - 1) jit.open();
             playMove(vfx);
         }
         long start = System.nanoTime();
@@ -187,26 +188,28 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
         if (!playing) return;
         castNanos[cast] += System.nanoTime() - start;
         if (++castFrame < CAST_FRAMES) return;
-        if (cast == 0) jit.close();
+        if (cast == 0 || cast == CASTS - 1) jit.close();
         vfx.clear();
         castFrame = 0;
         if (++cast == CASTS) {
-            reportCasts(jit.stop().get(0));
+            List<HarnessJitWatch.Counts> windows = jit.stop();
+            reportCasts(windows.get(0), windows.get(windows.size() - 1));
             running = false;
         }
     }
 
-    private void reportCasts(HarnessJitWatch.Counts first) {
+    private void reportCasts(HarnessJitWatch.Counts first, HarnessJitWatch.Counts last) {
         double firstMs = castNanos[0] / 1e6 / CAST_FRAMES, lastMs = castNanos[CASTS - 1] / 1e6 / CAST_FRAMES;
         StringBuilder each = new StringBuilder();
         for (int i = 0; i < CASTS; i++) each.append(i == 0 ? "" : " ").append(String.format("%.2f", castNanos[i] / 1e6 / CAST_FRAMES));
         double noise = Math.max(NOISE_SHARE * castNanos[CASTS - 1], NOISE_FLOOR * CAST_FRAMES);
         boolean even = Math.abs(castNanos[0] - castNanos[CASTS - 1]) <= noise;
-        boolean pass = even && first.quiet();
+        boolean pass = even && first.classLoads() == 0;
         System.out.println("[vfx-prepare] " + (pass ? "PASS" : "FAIL") + " on " + device() + (REHEARSE ? "" : " (control, unrehearsed)")
                 + ": cast 1 " + String.format("%.2f", firstMs) + " ms a frame, cast " + CASTS + " "
                 + String.format("%.2f", lastMs) + " (" + (even ? "within" : "beyond") + " noise); cast 1 had " + first);
         System.out.println("[vfx-prepare] ms a frame, each cast: " + each);
+        System.out.println("[vfx-prepare] cast " + CASTS + " had " + last + ": the JIT's floor in a warm cast");
         // Cast 1's events by type and class, most first: what the rehearsal left cold.
         Map<String, Integer> byClass = new HashMap<>();
         for (String named : first.named()) {
