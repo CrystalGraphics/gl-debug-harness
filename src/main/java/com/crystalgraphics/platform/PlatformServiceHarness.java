@@ -188,6 +188,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
         @Override public void submitAndWait() { host.submitAndWait(); }
         @Override public void waitRetired(long frame) { host.waitRetired(frame); }
         @Override public int validationErrors() { return host.validationErrors(); }
+        @Override public boolean namesObjects() { return host.namesObjects(); }
         @Override public boolean bresenhamLines() { return host.bresenhamLines(); }
         @Override public boolean multiDrawIndirect() { return host.multiDrawIndirect(); }
         @Override public boolean indirectCount() { return host.indirectCount(); }
