@@ -100,7 +100,8 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   grid over a life, a range looped, random frames against `CgRng` and a blend, each particle's frame checked against
   Java; PASS on `gl`, `mac41` and `vulkan`. `--mode=global-parameters` is a `CgParameterCollection`'s: one value set
   once, read by two materials through the world renderer (one in its vertex stage too) and ignored by a third, each
-  quad's colour checked; PASS on `gl`, `mac41` and `vulkan`, and with `-Dcrystalgraphics.shaderBuffer.tier=TBO`.
+  quad's colour checked; PASS on `gl`, `mac41` and `vulkan`, and with `-Dcrystalgraphics.shaderBuffer.tier=TBO`. `--mode=property-table` is a material's `vec4[64]` read on the GPU, 64 quads each its own element's
+  colour across the table's four chunks; PASS at G43, G40, G33, with `-Dcrystalgraphics.shaderBuffer.tier=TBO` and on `vulkan`.
   `--mode=vfx-sort-group` is a `CgVfxSortGroup`'s: two effects in one group, the layer of the higher hint drawn last
   whichever is nearer, and an ungrouped pair sorted by distance; PASS on `gl`, `mac41` and `vulkan`.
   `--mode=vfx-prepare` is programs prepared on load: a move's looks (the Kamehameha, the explosion, heat haze) prepared
@@ -170,6 +171,10 @@ removed. Windows only; `--device=gl` only.
 - **`MESA_DEBUG=1`** prints each GL error with its function and enum; Mesa's context has no debug output for
   `-Dcrystalgraphics.gl.debugStacks`.
 - llvmpipe renders on the CPU: a scene that times anything means nothing here.
+
+`shader-compile-audit` audits a kit's ported programs too: stage them (`:CrystalGraphics:runtime:lwjgl:vulkan:stageKitPorts
+-PkitPorts=<ns>=<dir>`), then add `-Dcrystalgraphics.harness.audit.namespaces=<ns>` and
+`-Pharness.assetRoots=CrystalGraphics/runtime/lwjgl/vulkan/build/kit-ports`.
 
 ```bash
 ./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=tracked --seconds=10"

@@ -96,11 +96,17 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
 
     private static final Logger LOGGER = Logger.getLogger(ShaderCompileAuditScene.class.getName());
 
-    /** Namespaces whose {@code assets/<ns>/shaders/*.shader} get audited: ours, then each extension's. */
+    /**
+     * Namespaces whose {@code assets/<ns>/shaders/*.shader} get audited: ours, then each extension's, then a kit's
+     * named by {@code crystalgraphics.harness.audit.namespaces} (comma-separated) in an asset root.
+     */
     private static List<String> namespaces() {
         List<String> out = new ArrayList<>(List.of("crystalgraphics"));
         for (HarnessExtension extension : HarnessExtensions.all()) {
             out.addAll(extension.shaderNamespaces());
+        }
+        for (String ns : System.getProperty("crystalgraphics.harness.audit.namespaces", "").split(",")) {
+            if (!ns.isBlank() && !out.contains(ns.trim())) out.add(ns.trim());
         }
         return out;
     }
@@ -564,14 +570,29 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
      */
     private static List<String> shippedShaderPaths(String namespace) throws Exception {
         List<String> out = new ArrayList<>();
+        // An asset root (-Pharness.assetRoots) is no classpath entry: a kit staged there is found here.
+        for (File root : CgIO.overrideRoots()) {
+            Path shaders = root.toPath().resolve("assets").resolve(namespace).resolve("shaders");
+            if (!Files.isDirectory(shaders)) continue;
+            try (Stream<Path> walk = Files.walk(shaders)) {
+                walk.filter(f -> f.toString().endsWith(".shader")).forEach(f -> {
+                    String path = namespace + ":shaders/" + shaders.relativize(f).toString().replace(File.separatorChar, '/');
+                    if (!out.contains(path)) out.add(path);
+                });
+            }
+        }
         URL dir = ShaderCompileAuditScene.class.getResource("/assets/" + namespace + "/shaders/");
-        if (dir == null) return out;
+        if (dir == null) {
+            Collections.sort(out);
+            return out;
+        }
 
         if ("file".equals(dir.getProtocol())) {
             Path root = Paths.get(dir.toURI());
             try (Stream<Path> walk = Files.walk(root)) {
                 walk.filter(f -> f.toString().endsWith(".shader"))
-                        .forEach(f -> out.add(namespace + ":shaders/" + root.relativize(f).toString().replace('\\', '/')));
+                        .map(f -> namespace + ":shaders/" + root.relativize(f).toString().replace('\\', '/'))
+                        .filter(path -> !out.contains(path)).forEach(out::add);
             }
         } else if ("jar".equals(dir.getProtocol())) {
             String spec = dir.getPath();
