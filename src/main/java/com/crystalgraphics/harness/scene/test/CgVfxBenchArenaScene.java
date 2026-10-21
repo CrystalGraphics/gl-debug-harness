@@ -99,7 +99,7 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
     /** One burst of 16 sparks: what a hit throws. */
     private static CgVfxLook puffLook() {
         CgVfxEmitter spark = CgVfxEmitter.builder("puff").capacity(32).state(CgVfxEmitterState.ONCE).burst(0f, 16)
-                .shape(CgSphere.of(0.2)).launch(0.2f, 1f, 1f).speed(1f, 3f).life(0.6f, 0.9f).size(0.05f, 0.1f)
+                .shape(CgSphere.of(0.2)).hemisphere().speed(1f, 3f).life(0.6f, 0.9f).size(0.05f, 0.1f)
                 .module(new CgVfxModule.Gravity(4f)).build();
         return CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA).emitter(spark)
                 .layer(CgVfxLayer.of("crystalgraphics:shaders/vfx/particle/spark.shader").on(spark)
@@ -124,7 +124,7 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
             int shape = 1 + (i + variant) % shapes;
             float at = span * i / emitters;
             CgVfxEmitter.Builder e = CgVfxEmitter.builder("e" + i).capacity(CAPACITY).state(CgVfxEmitterState.ONCE)
-                    .burst(at, CAPACITY / 2).shape(CgSphere.of(0.4)).launch(0.2f, 1f, 1f).speed(0.5f, 1.5f)
+                    .burst(at, CAPACITY / 2).shape(CgSphere.of(0.4)).hemisphere().speed(0.5f, 1.5f)
                     .life(LIFE, LIFE).size(0.05f, 0.1f).spin(0.5f, 2f);
             modules(e, shape);
             CgVfxEmitter emitter = e.build();

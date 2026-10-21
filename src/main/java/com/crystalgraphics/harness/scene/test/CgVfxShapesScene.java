@@ -40,7 +40,7 @@ public final class CgVfxShapesScene implements InteractiveSceneLifecycle {
         CgVfxLook.Builder look = CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA);
         for (int s = 1; s <= SHAPES; s++) {
             CgVfxEmitter.Builder e = CgVfxEmitter.builder("shape" + s).capacity(256).rate(60f).shape(CgSphere.of(0.4))
-                    .launch(0.2f, 1f, 1f).speed(0.5f, 1.5f).life(2f, 3f).size(0.05f, 0.1f).spin(0.5f, 2f);
+                    .hemisphere().speed(0.5f, 1.5f).life(2f, 3f).size(0.05f, 0.1f).spin(0.5f, 2f);
             // The modules its number spells: each subset is a shape of its own, so each emitter its own pool.
             if ((s & 1) != 0) e.module(new CgVfxModule.Gravity(2f));
             if ((s & 2) != 0) e.module(new CgVfxModule.Drag(0.4f, 0f));

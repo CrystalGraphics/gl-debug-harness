@@ -65,7 +65,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
     /** No forces: a child drifts at its launch, so where it is follows from its age. */
     private final CgVfxEmitter dust = CgVfxEmitter.builder("events-dust").state(CgVfxEmitterState.ONCE)
             .capacity(2000).burst(0f, 1).shape(CgSphere.of(0.4f))
-            .launch(0.2f, 1f, 1.5f).speed(1f, 3f).life(50f, 60f).size(0.1f, 0.2f, 1f).build();
+            .hemisphere().speed(1f, 3f).life(50f, 60f).size(0.1f, 0.2f, 1f).build();
     private final CgVfxGpuEmitter debris = new Evented(CgVfxEmitter.builder("events-debris")
             .state(CgVfxEmitterState.ONCE)
             .capacity(PARENTS).burst(0f, 1)
@@ -207,7 +207,9 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
 
     /** Child {@code key} as {@code step_launch} launches it from the event, then drifted for its age. */
     private void check(int key, int e, double[] event, int r) {
-        float up = spawn[16] + (spawn[17] - spawn[16]) * (float) Math.pow(rand(key, 0), spawn[18]);
+        // step_place's sphere: a direction drawn evenly, folded up for a hemisphere (its flags' bit 4).
+        float up = rand(key, 0) * 2f - 1f;
+        if (((int) spawn[25] & 4) != 0) up = Math.abs(up);
         float heading = rand(key, 1) * 6.2831853f;
         float across = (float) Math.sqrt(Math.max(1f - up * up, 0f));
         float[] dir = orient(across * (float) Math.cos(heading), up, across * (float) Math.sin(heading),
