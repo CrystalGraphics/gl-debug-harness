@@ -59,7 +59,7 @@ public final class CgVfxShapesScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().moveCamera(0f, 3f, 14f);
         ctx.getCamera3D().setPitch(-8f);
         CgVfxLook look = look();
-        for (int i = 0; i < 3; i++) vfx.play(new CgVfxSystemInstance(look, (i - 1) * 4.0, 1.0, 0.0)).ground(0f);
+        for (int i = 0; i < 3; i++) vfx.play(new CgVfxSystemInstance<>(look, (i - 1) * 4.0, 1.0, 0.0)).ground(0f);
         LOG.info("[vfx-shapes] {} shapes, three effects of each", SHAPES);
     }
 

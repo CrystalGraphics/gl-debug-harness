@@ -85,7 +85,7 @@ public final class CgVfxBooksScene implements InteractiveSceneLifecycle {
     }
 
     private final CgVfxSystem vfx = new CgVfxSystem();
-    private final List<CgVfxSystemInstance> playing = new ArrayList<>();
+    private final List<CgVfxSystemInstance<?>> playing = new ArrayList<>();
     /** Per frame, per pool. */
     private final List<Map<CgVfxParticlePool, Reading>> readings = new ArrayList<>();
     private final List<CgRequest> requests = new ArrayList<>();
@@ -108,12 +108,12 @@ public final class CgVfxBooksScene implements InteractiveSceneLifecycle {
         if (frame < PLAYING) {
             for (int i = 0; i < LOOKS.length; i++) {
                 if ((frame + i) % 2 != 0) continue;
-                playing.add(vfx.play(new CgVfxSystemInstance(LOOKS[i], i * 3 - 4.5, 1, 0)));
+                playing.add(vfx.play(new CgVfxSystemInstance<>(LOOKS[i], i * 3 - 4.5, 1, 0)));
             }
             // The rate's open loop is stopped part way: what it spawned must still play out.
-            for (CgVfxSystemInstance s : playing) if (s.age() > 1.3f && s.look() == LOOKS[1]) s.stop();
+            for (CgVfxSystemInstance<?> s : playing) if (s.age() > 1.3f && s.look() == LOOKS[1]) s.stop();
         } else if (frame == PLAYING) {
-            for (CgVfxSystemInstance s : playing) s.stop();
+            for (CgVfxSystemInstance<?> s : playing) s.stop();
         }
         clock += FRAME_SECONDS;
         vfx.update(clock);

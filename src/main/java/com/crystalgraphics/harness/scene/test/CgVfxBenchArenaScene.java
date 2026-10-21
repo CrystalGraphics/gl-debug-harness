@@ -168,7 +168,7 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
             boolean first = plays[m] < 0;
             plays[m] = round;
             double x = (m - (moves - 1) / 2.0) * 3.0;
-            CgVfxSystemInstance burst = new CgVfxSystemInstance(palettes.get((m + round) % palettes.size()), x, 1.0, 0.0);
+            CgVfxSystemInstance<?> burst = new CgVfxSystemInstance<>(palettes.get((m + round) % palettes.size()), x, 1.0, 0.0);
             if (first && phase > 0f) burst.startAt(phase);
             vfx.play(burst).ground(0f);
         }
@@ -177,7 +177,7 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
             lastClock = clock;
             for (; owed >= 1f; owed -= 1f) {
                 double angle = puffs++ * 2.399963;   // golden angle: spread without a random source
-                vfx.play(new CgVfxSystemInstance(puff, Math.cos(angle) * 10.0, 1.0, Math.sin(angle) * 4.0)).ground(0f);
+                vfx.play(new CgVfxSystemInstance<>(puff, Math.cos(angle) * 10.0, 1.0, Math.sin(angle) * 4.0)).ground(0f);
             }
         }
         vfx.update(frame.getElapsedTime());

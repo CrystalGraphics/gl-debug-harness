@@ -113,7 +113,7 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
             target = HarnessFboHelper.create(w, h, true);   // with depth: the GPU cull of its parts reads it
             CgVfxLook look = CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA)
                     .with(CgVfxKit.of("harness:sequence").emitter(root).build(), prefab.kit()).build();
-            vfx.play(new CgVfxSystemInstance(look, cx, cy, 0.0)).scalability(CgVfxScalability.HERO);   // far from the camera, in pixels
+            vfx.play(new CgVfxSystemInstance<>(look, cx, cy, 0.0)).scalability(CgVfxScalability.HERO);   // far from the camera, in pixels
         }
         if (frame <= END) {
             target.bind();
