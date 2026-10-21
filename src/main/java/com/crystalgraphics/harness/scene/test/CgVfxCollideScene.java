@@ -4,6 +4,7 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.object.CgValueType;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
@@ -19,6 +20,7 @@ import com.crystalgraphics.shape.primitive.CgSphere;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
 import com.crystalgraphics.vfx.particle.CgVfxModule;
+import com.crystalgraphics.vfx.particle.CgVfxModuleTypes;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxEvent;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxEventListener;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxEventRows;
@@ -368,10 +370,14 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
      */
     private static final class Bounce implements CgVfxGpuModule {
         private static final CgVfxWorldInput[] WORLD = {CgVfxWorldInput.WORLD_DISTANCE};
+        static {
+            CgVfxModuleTypes.declare("gate_bounce", Bounce.class,
+                    t -> t.property("keep", CgValueType.FLOAT).property("slide", CgValueType.FLOAT).property("kill_after", CgValueType.FLOAT),
+                    (b, in) -> in.f("keep", BOUNCE).f("slide", SLIDE).f("kill_after", KILL_AFTER));
+        }
         public String gpuKind() { return "gate_bounce"; }
         public boolean afterSolve() { return true; }
         public CgVfxWorldInput[] worldInputs() { return WORLD; }
-        public void writeParams(CgVfxWords out) { out.vec4(BOUNCE, SLIDE, KILL_AFTER, 0f); }
         public String gpuSource() {
             return """
                     void fx_gate_bounce(inout FxParticle p, FxStep s, vec4 m, FxWorld world) {
@@ -394,7 +400,12 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
     }
 
     /** The debris's definition: its builder's numbers, the bounce after gravity, and the events. */
-    private record Colliding(CgVfxEmitter of, List<CgVfxGpuModule> modules, List<CgVfxEvent> events) implements CgVfxGpuEmitter {
+    private record Colliding(CgVfxEmitter of, List<CgVfxGpuModule> modules, List<CgVfxEvent> events, int[] moduleWords)
+            implements CgVfxGpuEmitter {
+        Colliding(CgVfxEmitter of, List<CgVfxGpuModule> modules, List<CgVfxEvent> events) {
+            this(of, modules, events, CgVfxModuleTypes.words(modules));
+        }
+
         public String name() { return of.name(); }
         public CgVfxEmitter.Renderer renderer() { return of.renderer(); }
         public void writeSpawn(CgVfxWords out) { of.writeSpawn(out); }

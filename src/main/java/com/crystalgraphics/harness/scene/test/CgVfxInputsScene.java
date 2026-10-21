@@ -9,6 +9,7 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.object.CgValueType;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.platform.gl.CgCapabilities;
@@ -20,6 +21,7 @@ import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.graph.CgTextureDesc;
 import com.crystalgraphics.render.stage.CgHostView;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
+import com.crystalgraphics.vfx.particle.CgVfxModuleTypes;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxEvent;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxEventListener;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxEventRows;
@@ -472,13 +474,21 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
 
     @Override public boolean shouldShutdownOnComplete() { return true; }
 
-    /** A kind given as text: its numbers one vec4, what it samples one texture or the depth. */
+    /** A kind given as text: its numbers one vec4, what it samples one texture or the depth. Each one's layout is this. */
     private record Kind(String gpuKind, boolean afterSolve, CgVfxWorldInput[] worldInputs, CgTexture[] textures,
                         float x, float y, float z, float w, String gpuSource) implements CgVfxGpuModule {
-        public void writeParams(CgVfxWords out) { out.vec4(x, y, z, w); }
+        static {
+            CgVfxModuleTypes.declare("gate_inputs_kind", Kind.class, t -> t.property("m", CgValueType.VEC4),
+                    (k, in) -> in.v4("m", k.x(), k.y(), k.z(), k.w()));
+        }
     }
 
-    private record Inputs(CgVfxEmitter of, List<CgVfxGpuModule> modules, List<CgVfxEvent> events) implements CgVfxGpuEmitter {
+    private record Inputs(CgVfxEmitter of, List<CgVfxGpuModule> modules, List<CgVfxEvent> events, int[] moduleWords)
+            implements CgVfxGpuEmitter {
+        Inputs(CgVfxEmitter of, List<CgVfxGpuModule> modules, List<CgVfxEvent> events) {
+            this(of, modules, events, CgVfxModuleTypes.words(modules));
+        }
+
         public String name() { return of.name() + "-" + modules.get(0).gpuKind(); }
         public CgVfxEmitter.Renderer renderer() { return of.renderer(); }
         public void writeSpawn(CgVfxWords out) { of.writeSpawn(out); }

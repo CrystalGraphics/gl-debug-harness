@@ -650,6 +650,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         public String name() { return of.name() + "-by-speed"; }
         public CgVfxEmitter.Renderer renderer() { return of.renderer(); }
         public List<? extends CgVfxGpuModule> modules() { return of.modules(); }
+        public int[] moduleWords() { return of.moduleWords(); }
         public void writeSpawn(CgVfxWords out) { of.writeSpawn(out); }
         public void writeCurves(float[] out, int at, int texels) { of.writeCurves(out, at, texels); }
         public CgVfxCurveDomain curveDomain() { return SPEEDS; }
