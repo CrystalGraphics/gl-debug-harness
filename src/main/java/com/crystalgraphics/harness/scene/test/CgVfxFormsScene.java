@@ -57,8 +57,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     private static final Map<String, Object> FORMS = new LinkedHashMap<>();
     /** Each spawn form by name: its emitter file's {@code particle_spawn}. */
     private static final Map<String, List<Object>> SPAWNS = new LinkedHashMap<>();
-    /** The loop's seconds the spawn stations spawn at. */
-    private static final float LOOP = 0.7f;
+    /** The loop's seconds the spawn stations spawn at, and the instance's as the module stations step. */
+    private static final float LOOP = 0.7f, STEP_LOOP = 1.3f;
 
     static {
         Map<String, Object> cubic = Map.of("keys", List.of(List.of(0.0, -2.0, "cubic", "break", 0.0, 6.0),
@@ -78,6 +78,17 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         FORMS.put("curve-random", Map.of("curve", cubic, "by", "random"));
         FORMS.put("curve-id", Map.of("curve", Map.of("keys", List.of(List.of(0.0, 0.0), List.of(511.0, 3.0, "linear"))), "by", "id"));
         FORMS.put("age-binding", Map.of("bind", "particles.age", "scale", 2.0));
+        FORMS.put("array-age", Map.of("array", List.of(List.of(0.0, 0.0, 0.0), List.of(1.0, 2.0, 3.0), List.of(-1.0, 0.0, 2.0)), "by", "age"));
+        FORMS.put("array-id-wrap", Map.of("array", List.of(List.of(1.0, 0.0, 0.0), List.of(0.0, 2.0, 0.0), List.of(0.0, 0.0, 3.0)),
+                "by", "id", "address", "wrap"));
+        FORMS.put("array-random", Map.of("array", List.of(List.of(4.0, 0.0, 0.0), List.of(0.0, -4.0, 0.0), List.of(0.0, 0.0, 4.0),
+                List.of(1.0, 1.0, 1.0)), "by", "random"));
+        FORMS.put("fn-random-range", Map.of("fn", "crystalgraphics:random_range", "inputs", Map.of(
+                "min", Map.of("range", List.of(List.of(0.0, 0.0, 0.0), List.of(1.0, 1.0, 1.0)), "per_channel", true),
+                "max", List.of(2.0, 3.0, 4.0))));
+        FORMS.put("fn-add", Map.of("fn", "crystalgraphics:add", "inputs", Map.of("a", Map.of("curve", cubic, "by", "age"),
+                "b", List.of(0.5, -0.5, 1.0))));
+        FORMS.put("curve-loop", Map.of("curve", seconds, "by", "loop"));
         SPAWNS.put("spawn-life-pick", List.of(init(Map.of("lifetime", Map.of("pick", List.of(1.5, 3.0))))));
         SPAWNS.put("spawn-life-id", List.of(init(Map.of("lifetime",
                 Map.of("curve", Map.of("keys", List.of(List.of(0.0, 1.0), List.of(511.0, 4.0, "linear"))), "by", "id")))));
@@ -215,7 +226,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         CgVfxEmitter emitter = emitters.get(e);
         CgVfxFormInput form = emitter.moduleForms().get(0).compiled();
         ByteBuffer records = read.get(e);
-        CgVfxFormContext ctx = new CgVfxFormContext().seed(SEED_BITS);
+        CgVfxFormContext ctx = new CgVfxFormContext().seed(SEED_BITS).loop(STEP_LOOP, 0);
         float[] want = new float[form.components()];
         boolean[] seen = new boolean[PARTICLES];
         for (int r = 0; r < PARTICLES; r++) {
@@ -298,6 +309,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             public float sourceX() { return 0f; }
             public float sourceY() { return 0f; }
             public float sourceZ() { return 0f; }
+            public float loopSeconds() { return STEP_LOOP; }
         };
     }
 

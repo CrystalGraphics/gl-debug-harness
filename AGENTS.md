@@ -67,8 +67,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   as GLSL text over the window's distance field, each fast impact a collision spawning dust under its firing's key, a
   rate reporting each debris every period, the fourth collision killing it; every firing heard once and numbered, every
   child where Java puts it, nothing inside the solid. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
-  `--mode=vfx-forms` is module inputs in forms (P6.3): an emitter compiled from its file a form (ranges, a pick,
-  curves by age, the particle's age, its speed, a random draw and its id, a binding to its age) giving `acceleration`,
+  `--mode=vfx-forms` is module inputs in forms (P6.3, P6.6): an emitter compiled from its file a form (ranges, a pick,
+  curves by age, the particle's age, its speed, a random draw, its id and the loop, arrays by age, id and a random draw,
+  `random_range` and `add` over forms, a binding to its age) giving `acceleration`,
   particles of known state stepped once, each one's change of velocity the form's Java evaluation, every lane; and
   spawn values in forms (P6.4): a lifetime as a pick and by id, a skewed size, a speed by a random draw and a swept
   radius, 512 spawned at a known loop time, each one's life, size, speed or distance the form's Java evaluation. PASS at
