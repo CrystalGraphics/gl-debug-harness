@@ -49,6 +49,10 @@ import java.util.Map;
  *     -Dcrystalgraphics.harness.fps=0
  * }</pre>
  *
+ * <p><b>Delayed</b> ({@code -Dcrystalgraphics.harness.prepare.delay=600}): the looks are prepared after that many idle
+ * frames rather than at start, as a game loads palettes mid-session: profile that window for the warm-up's own cost,
+ * not the JIT's at a cold start.</p>
+ *
  * <p>Prints {@code [vfx-prepare] PASS} or {@code FAIL}; run it on {@code gl}, {@code mac41} and {@code vulkan}.</p>
  */
 public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
@@ -61,6 +65,7 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
     private static final int CASTS = Integer.getInteger("crystalgraphics.harness.prepare.casts", 0);
     private static final boolean REHEARSE = Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.prepare.rehearse", "true"));
     private static final int CAST_FRAMES = 300;
+    private static final int DELAY = Integer.getInteger("crystalgraphics.harness.prepare.delay", 0);
     /** Noise between two casts' mean frame-thread time: a share, and a floor in nanoseconds. */
     private static final double NOISE_SHARE = 0.10, NOISE_FLOOR = 250_000;
 
@@ -82,9 +87,8 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().setYaw(-30f);
         ctx.getCamera3D().setPitch(-12f);
         if (SKIP) return;
-        CgVfxLook[] looks = new CgVfxLook[MOVE.length];
-        for (int i = 0; i < MOVE.length; i++) looks[i] = CgVfxRegistry.get(MOVE[i]).look();
-        owner.prepare(looks);
+        for (String id : MOVE) CgVfxRegistry.get(id).look();   // as a game has, long before a palette loads
+        if (DELAY == 0) prepareLooks();
         if (CASTS > 0) {
             jit = HarnessJitWatch.start();
             if (REHEARSE) {
@@ -96,6 +100,12 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
                 if (window != null) rehearsal.window(window);
             }
         }
+    }
+
+    private void prepareLooks() {
+        CgVfxLook[] looks = new CgVfxLook[MOVE.length];
+        for (int i = 0; i < MOVE.length; i++) looks[i] = CgVfxRegistry.get(MOVE[i]).look();
+        owner.prepare(looks);
     }
 
     /** The move, into {@code system}: what the real cast plays, for the rehearsal's hidden system too. */
@@ -117,7 +127,8 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
             return;
         }
         // Unprepared, the move waits IDLE frames first, so the engine's own passes (text, post) are built before it.
-        if (!playing && (SKIP ? warmFrames >= IDLE : vfx.warmed())) {
+        if (!SKIP && DELAY > 0 && warmFrames == DELAY) prepareLooks();
+        if (!playing && (SKIP ? warmFrames >= IDLE : warmFrames >= DELAY && vfx.warmed())) {
             before = CgMaterialShader.compileWaits();
             unreadyBefore = CgWorldRenderer.get().unreadyDraws();
             owner.play(MOVE[0], 0, 1.5, 0, 0, 0.5, -24).ground(0f);
@@ -138,10 +149,7 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
         if (playing) mostDrawn = Math.max(mostDrawn, CgVfxSystem.particlesDrawn());
         if (playing && ++frames == FRAMES) {
             report(CgMaterialShader.compileWaits() - before, CgWorldRenderer.get().unreadyDraws() - unreadyBefore);
-            if (qualityWas != null) {
-                CgGraphicsSettings.HDR.set(hdrWas);
-                CgGraphicsSettings.QUALITY.set(qualityWas);
-            }
+            restoreSettings();
             running = false;
         }
     }
@@ -241,7 +249,15 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
+        restoreSettings();   // a run cut short (a profile window, --seconds) would otherwise save them toggled
         vfx.delete();
+    }
+
+    private void restoreSettings() {
+        if (qualityWas == null) return;
+        CgGraphicsSettings.HDR.set(hdrWas);
+        CgGraphicsSettings.QUALITY.set(qualityWas);
+        qualityWas = null;
     }
 
     @Override public boolean isRunning() { return running; }
