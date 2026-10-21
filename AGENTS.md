@@ -104,6 +104,8 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   `examples/novamod`, a resource root the build adds when `plan/` is checked out; elsewhere
   `-Dcrystalgraphics.harness.nova.kit=<root>/assets/novamod -Pharness.assetRoots=<root>`), its systems' bundle loaded to `READY`, then played from
   their refs, its first 600 frames adding no compile wait, sync load or texture load; PASS on `gl` and `vulkan`.
+  With `-Dcrystalgraphics.harness.nova.reload=true` it plays a copy of the kit and saves the charge's file twice while
+  it plays: a spawn rate must reach it with its emitters kept, a module added must restart it at its age.
   `--mode=vfx-prefab` is a `CgVfxPrefab`'s: 458 nodes a ball each, a subtree cut by an opacity of 0 and a
   chain dimmed by 0.2, every check a pixel, and `evaluate()` timed (about 8 µs, at most 50); PASS on `gl`, `mac41` and
   `vulkan`. `--mode=post-transitions` is the post stack's transitions: a `CgPostMaterial` at weights 1, 0.5 and 0, a
