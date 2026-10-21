@@ -525,6 +525,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         want[38] = look[7];
         want[39] = CgVfxRecord.f(records, r, CgVfxRecord.HEAT);
         System.arraycopy(look, 4, want, 40, 3);
+        want[43] = d;                                        // its place in the order: what a mesh factory reads by
         for (int w = 0; w < OBJECT_FLOATS; w++) {
             float got = objects.getFloat(d * OBJECT_FLOATS * 4 + w * 4), off;
             boolean rotation = w % 4 != 3 && (w < 12 || (w >= 16 && w < 28));
