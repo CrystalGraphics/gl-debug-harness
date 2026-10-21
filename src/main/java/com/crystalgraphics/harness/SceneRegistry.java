@@ -45,6 +45,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxBooksScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrepareScene;
 import com.crystalgraphics.harness.scene.test.CgVfxNovaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBenchArenaScene;
+import com.crystalgraphics.harness.scene.test.CgVfxRenderersScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShapesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
@@ -1165,6 +1166,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxShapesScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-renderers")
+                .description("An emitter's renderers drawing from material definitions: four kinds over 100 effects, each one merged draw")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxRenderersScene()
         );
 
         reg.register(
