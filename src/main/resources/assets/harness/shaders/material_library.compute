@@ -1,0 +1,34 @@
+// material-library's kernel (CgMaterialLibraryScene): each of shaders/lib/material/'s functions on inputs the scene
+// chose, checked against Unreal's formulas in Java.
+#pragma kernel Library map
+
+#include "crystalgraphics:shaders/lib/material/depth_fade.glsl"
+#include "crystalgraphics:shaders/lib/material/panner.glsl"
+#include "crystalgraphics:shaders/lib/material/rotator.glsl"
+#include "crystalgraphics:shaders/lib/material/particle_sub_uv.glsl"
+#include "crystalgraphics:shaders/lib/material/rotate_about_axis.glsl"
+
+Properties {
+    _Sheet ("A 4x4 sheet sampled at texel centres", sampler2D) = "white"
+}
+
+Buffers {
+    IN0  ("uv, time, fade distance",          vec4, readonly)
+    IN1  ("speed, opacity, scene depth",       vec4, readonly)
+    IN2  ("axis, angle",                       vec4, readonly)
+    IN3  ("pivot, pixel depth",                vec4, readonly)
+    IN4  ("frame 0 uv, frame 1 uv",            vec4, readonly)
+    OUT0 ("depth fade, sub-uv lerp, panned uv fractional",  vec4, writeonly)
+    OUT1 ("panned uv, rotated uv",             vec4, writeonly)
+    OUT2 ("offset about the axis",             vec4, writeonly)
+    OUT3 ("the sheet blended",                 vec4, writeonly)
+}
+
+void Library() {
+    vec4 a = IN0(CG_ELEMENT), b = IN1(CG_ELEMENT), c = IN2(CG_ELEMENT), d = IN3(CG_ELEMENT), e = IN4(CG_ELEMENT);
+    float lerp_ = fract(a.z * 0.37);
+    OUT0_WRITE(vec4(cg_depth_fade(b.z, a.w, b.w, d.w), lerp_, cg_panner(a.xy, a.z, b.xy, true)));
+    OUT1_WRITE(vec4(cg_panner(a.xy, a.z, b.xy, false), cg_rotator(a.xy, vec2(0.5, 0.25), a.z, b.x)));
+    OUT2_WRITE(vec4(cg_rotate_about_axis(c, d.xyz, a.xyz * 3.0), 0.0));
+    OUT3_WRITE(cg_particle_sub_uv(_Sheet, e.xy, e.zw, lerp_, int(CG_ELEMENT) % 2 == 0));
+}
