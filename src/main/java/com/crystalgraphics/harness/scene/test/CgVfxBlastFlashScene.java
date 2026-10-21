@@ -63,7 +63,7 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
         LOG.info("[vfx-blast-flash] F flash, I impact frame, B billows, Y / Shift+Y time, , . wait before the next wave");
         photographing = Boolean.getBoolean("crystalgraphics.harness.vfx.moments");
         if (photographing) blast.onMoment((effect, name, x, y, z, radius) -> {
-            if (effect != photographed) return;
+            if (photographed == null || effect != photographed.instance()) return;
             if (name.equals(CgEnergyWave.MOMENT_IMPACT)) hit = true;
             if (name.startsWith(CgVfxBlast.MOMENT_IMPACT_FRAME)) moment = name;
         });
