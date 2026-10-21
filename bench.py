@@ -226,6 +226,9 @@ def _run_command(args):
            f"-Dcrystalgraphics.harness.profile={args.frames}",
            f"-Dcrystalgraphics.harness.cell={args.cell}",
            f"-Dcrystalgraphics.harness.commit={commit}"] + [f"-D{p}" for p in args.prop]
+    # The validation layer checks every Vulkan command: a timing with it on is the layer's.
+    if args.device == "vulkan" and not any(p.startswith("crystalgraphics.harness.vulkanValidation=") for p in args.prop):
+        cmd.append("-Dcrystalgraphics.harness.vulkanValidation=false")
     if args.dry_run:
         print(" ".join(shlex.quote(c) for c in cmd))
         return 0

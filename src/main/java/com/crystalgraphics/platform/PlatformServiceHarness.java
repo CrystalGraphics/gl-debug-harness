@@ -74,6 +74,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
     private CgDevice device;
     private CgRecordingDevice recordingDevice;
     private OwnedVulkanHost vulkanHost;
+    private boolean vulkanValidated;
     private CgVulkanDevice vulkanDevice;
     private CgTrackedGLBackend tracked;
 
@@ -109,6 +110,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
         } else if (device.equals("vulkan")) {
             // -Dcrystalgraphics.harness.vulkanValidation=false for a timing run: the layer checks every command.
             boolean validate = !"false".equals(System.getProperty("crystalgraphics.harness.vulkanValidation"));
+            p.vulkanValidated = validate;
             p.vulkanHost = new OwnedVulkanHost(HarnessWindow.handle(), validate);
             p.vulkanDevice = new CgVulkanDevice(new PresentTimed(p.vulkanHost), width, height, CgCacheDirectory.of("vulkan"));
             p.device = p.vulkanDevice;
@@ -244,12 +246,18 @@ public final class PlatformServiceHarness implements CgPlatformService {
         if (tracked() != null) INSTANCE.tracked.endFrame();
     }
 
+    /** Whether this run's Vulkan device asked for the validation layer: its CPU times are the layer's, not ours. */
+    public static boolean vulkanValidated() {
+        return INSTANCE.vulkanHost != null && INSTANCE.vulkanValidated;
+    }
+
     /** What the tracked backend did over the run, for the log; null on GL. */
     public static String trackedReport() {
         if (tracked() == null) return null;
         String device = INSTANCE.recordingDevice != null
                 ? "deviceDraws=" + INSTANCE.recordingDevice.draws() + " liveObjects=" + INSTANCE.recordingDevice.liveObjects()
                 : INSTANCE.vulkanDevice.info().name() + " barriers=" + INSTANCE.vulkanDevice.barriers()
+                        + " pushes=" + INSTANCE.vulkanDevice.pushes + " pushWrites=" + INSTANCE.vulkanDevice.pushWrites + " pushesSkipped=" + INSTANCE.vulkanDevice.pushesSkipped
                         + " validationErrors=" + INSTANCE.vulkanDevice.validationErrors()
                         + " transferCopies=" + INSTANCE.vulkanDevice.transferCopies
                         + " transferBufferCopies=" + INSTANCE.vulkanDevice.transferBufferCopies

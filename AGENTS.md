@@ -32,7 +32,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
 - **`vulkan`** — over **`CgVulkanDevice`** on its own device (`OwnedVulkanHost`), presenting to the window,
   which then has no GL context. The Khronos validation layer is on whenever it is installed (the LunarG SDK);
   `-Dcrystalgraphics.harness.vulkanValidation=false` turns it off for a timing run, since it checks every
-  command. Its messages print as `[vulkan] ERROR ...`, and their count ends the `tracked:` line.
+  command. Its messages print as `[vulkan] ERROR ...`, and their count ends the `tracked:` line. **Vulkan timings
+  run unvalidated**: validated, a descriptor push costs 10 µs where it costs 0.6 (bench-arena), so every profile
+  passes the flag; `bench.py --device vulkan` does, and a validated profile prints a warning.
   `-Dcrystalgraphics.vulkan.syncValidation=true` adds its synchronization checks, with the shader-access analysis
   they need to see what a shader reads and writes through pushed descriptors: a missing barrier between passes
   is then an error. `--mode=compute-seam` is the scene that proves it fires

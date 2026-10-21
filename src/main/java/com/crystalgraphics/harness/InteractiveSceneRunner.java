@@ -338,6 +338,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // -Dcrystalgraphics.trace.channels, which the engine applied at launch.
         int profileFrames = Integer.getInteger("crystalgraphics.harness.profile", 0);
         if (profileFrames > 0) {
+            if (PlatformServiceHarness.vulkanValidated()) {
+                System.out.println("[harness] WARNING: profiling Vulkan with the validation layer on: its CPU times are the"
+                        + " layer's. Time with -Dcrystalgraphics.harness.vulkanValidation=false");
+            }
             // Every profiled frame keeps its zones: at the default ceiling a dense channel wraps a thread's arena
             // within a dozen frames. After the scene's init, so a viewer's saved ring and stop-after-hitch cannot
             // cut a profile short.
