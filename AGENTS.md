@@ -76,6 +76,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   `--mode=vfx-renderers` is an emitter's renderers': a sprite, an arc, trails and a ribbon from material
   definitions over 100 effects, each renderer one particle set of every instance; PASS at G43, G40, G33 and on
   `vulkan`.
+  `--mode=kit-shading` is a kit's shading models drawing: its `shading.yaml` registered under
+  `-Dcrystalgraphics.harness.kit.namespace`, the material `.kit.material` compiled from the kit folder `.kit` through its
+  parent chain and drawn, its model's keyword on, no GL error; the kit's files reached with `-Pharness.assetRoots` (a root
+  holding `assets/<kit>`). PASS at G43, G33 and on `vulkan` for Goku's body as `kakarot:cell_tone`.
   `--mode=vfx-inputs` is what a kind samples besides the window (X6): a 3D vector field setting velocity, a 2D
   heightfield stopping a fall, and a depth pyramid of a wall and a floor under a turned camera that particles strike,
   once each, along the reconstructed normal; each against Java, the depth test replayed per pixel. PASS at G43, G40,

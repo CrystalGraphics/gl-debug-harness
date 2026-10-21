@@ -45,6 +45,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxBooksScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrepareScene;
 import com.crystalgraphics.harness.scene.test.CgVfxNovaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBenchArenaScene;
+import com.crystalgraphics.harness.scene.test.CgKitShadingScene;
 import com.crystalgraphics.harness.scene.test.CgVfxRenderersScene;
 import com.crystalgraphics.harness.scene.test.CgVfxShapesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
@@ -1178,6 +1179,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxRenderersScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("kit-shading")
+                .description("A kit's shading models drawing: its shading.yaml registered, one of its materials compiled from the kit and drawn")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgKitShadingScene()
         );
 
         reg.register(
