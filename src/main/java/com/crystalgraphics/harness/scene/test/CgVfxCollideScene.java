@@ -19,6 +19,7 @@ import com.crystalgraphics.render.stage.CgHostView;
 import com.crystalgraphics.shape.primitive.CgSphere;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
+import com.crystalgraphics.vfx.particle.form.CgVfxFormCompiler;
 import com.crystalgraphics.vfx.particle.CgVfxModule;
 import com.crystalgraphics.vfx.particle.CgVfxModuleTypes;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxEvent;
@@ -265,14 +266,14 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
     /** Dust {@code key} as {@code step_launch} launches it about the collision's normal, then drifted for its age. */
     private void check(int key, double[] event, int r) {
         // step_place's sphere: a direction drawn evenly, folded up for a hemisphere (its flags' bit 4).
-        float up = rand(key, 0) * 2f - 1f;
+        float up = rand(SHAPE, key, 0) * 2f - 1f;
         if (((int) spawn[25] & 4) != 0) up = Math.abs(up);
-        float heading = rand(key, 1) * 6.2831853f;
+        float heading = rand(SHAPE, key, 1) * 6.2831853f;
         float across = (float) Math.sqrt(Math.max(1f - up * up, 0f));
         float[] dir = orient(across * (float) Math.cos(heading), up, across * (float) Math.sin(heading),
                 (float) event[6], (float) event[7], (float) event[8]);
-        float start = spawn[29] * (float) Math.pow(rand(key, 2), 1.0 / 3.0);
-        float speed = spawn[0] + (spawn[1] - spawn[0]) * rand(key, 3);
+        float start = spawn[29] * (float) Math.pow(rand(SHAPE, key, 2), 1.0 / 3.0);
+        float speed = spawn[0] + (spawn[1] - spawn[0]) * rand(SPEED, key, 0);
         float age = CgVfxRecord.f(childRecords, r, CgVfxRecord.AGE);
         for (int a = 0; a < 3; a++) {
             double born = event[a] - CHILD_ORIGIN[a] + dir[a] * start;
@@ -296,8 +297,11 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
                 origin[2] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 2)};
     }
 
-    private static float rand(int key, int draw) {
-        return CgVfxEmitterInstance.rand(SEED_BITS, key, draw);
+    /** The launch's rolls of an emitter made in code, keyed as the kernel keys them (core.md § Values). */
+    private static final int SHAPE = CgVfxFormCompiler.key("shape", "shape"), SPEED = CgVfxFormCompiler.key("velocity", "speed");
+
+    private static float rand(int roll, int key, int draw) {
+        return CgVfxEmitterInstance.rand(SEED_BITS ^ roll, key, draw);
     }
 
     /** {@code step_orient}: Duff et al.'s basis about n, the identity for straight up. */
