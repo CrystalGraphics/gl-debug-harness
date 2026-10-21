@@ -12,7 +12,7 @@
 /out/
 /harness-output/
 /logs/
-
+/baselines/
 # The local crystalgui root directory for workspaces and cache
 /crystalgui/
 
