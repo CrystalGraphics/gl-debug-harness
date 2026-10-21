@@ -100,8 +100,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   `--mode=vfx-prepare` is programs prepared on load: a move's looks (the Kamehameha, the explosion, heat haze) prepared
   together, played once `warmed()`, their first 1200 frames adding no `CgMaterialShader.compileWaits()`;
   `-Dcrystalgraphics.harness.prepare.skip=true` is the control, unprepared, which must wait. PASS on `gl`, `mac41` and
-  `vulkan`. `--mode=vfx-nova` is the same from files: the Nova Cannon kit scanned (`-Pharness.assetRoots=<root>`,
-  `-Dcrystalgraphics.harness.nova.kit=<root>/assets/novamod`), its systems' bundle loaded to `READY`, then played from
+  `vulkan`. `--mode=vfx-nova` is the same from files: the Nova Cannon kit scanned (the plan repository's
+  `examples/novamod`, a resource root the build adds when `plan/` is checked out; elsewhere
+  `-Dcrystalgraphics.harness.nova.kit=<root>/assets/novamod -Pharness.assetRoots=<root>`), its systems' bundle loaded to `READY`, then played from
   their refs, its first 600 frames adding no compile wait, sync load or texture load; PASS on `gl` and `vulkan`.
   `--mode=vfx-prefab` is a `CgVfxPrefab`'s: 458 nodes a ball each, a subtree cut by an opacity of 0 and a
   chain dimmed by 0.2, every check a pixel, and `evaluate()` timed (about 8 µs, at most 50); PASS on `gl`, `mac41` and

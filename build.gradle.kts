@@ -183,6 +183,11 @@ tasks.register<JavaExec>("runHarness") {
         .filter { it.startsWith("crystalgraphics.") }
         .forEach { systemProperty(it, System.getProperty(it)) }
 
+    // The format's example kits, each a resource root, where the private plan/ repository is checked out:
+    // vfx-nova plays the Nova Cannon's from there.
+    val exampleRoots = listOf(rootProject.file("plan/crystalgraphics/vfx-aaa/examples/novamod"))
+        .filter { it.isDirectory }
+
     // Assets are read from the source trees with no setup: CgIO maps each project on the classpath back to
     // its src/main/resources (CgDevResourceRoots). A consumer's resources, which nothing here puts on the
     // classpath, are added ahead of them, so a mod's theme and stylesheets can be authored here:
@@ -193,7 +198,7 @@ tasks.register<JavaExec>("runHarness") {
         .orEmpty()
         .map { it.trim() }
         .filter { it.isNotEmpty() }
-        .map { file(it) }
+        .map { file(it) } + exampleRoots
     extraRoots.filterNot { it.isDirectory }.forEach {
         // Loud, because the silent version is a scene whose theme is simply never found -- which looks
         // exactly like a theme that failed to parse.

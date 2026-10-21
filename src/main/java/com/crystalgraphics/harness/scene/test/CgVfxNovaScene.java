@@ -33,19 +33,22 @@ import java.util.List;
  * Scene id {@code vfx-nova}.
  *
  * <pre>{@code
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-nova --device=vulkan" -Pharness.assetRoots=<root> \
- *     -Dcrystalgraphics.harness.nova.kit=<root>/assets/novamod
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-nova --device=vulkan"
+ * // a kit elsewhere: its namespace folder, and the resource root holding it
+ * ... -Dcrystalgraphics.harness.nova.kit=<root>/assets/novamod -Pharness.assetRoots=<root>
  * }</pre>
  *
  * <ul>
- *   <li>{@code .nova.kit} is the kit's namespace folder (its {@code vfx/}, {@code materials/}, {@code textures/}), inside
- *       a resource root's {@code assets/novamod}, so its textures resolve as {@code novamod:textures/...}.</li>
+ *   <li>The kit is the private plan repository's, {@code plan/crystalgraphics/vfx-aaa/examples/novamod}, a resource root
+ *       the harness's build adds when it is checked out, so its textures resolve as {@code novamod:textures/...}.</li>
  *   <li>Prints {@code [vfx-nova] PASS} or {@code FAIL}; run it on {@code gl} and {@code vulkan}.</li>
  * </ul>
  */
 public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
 
     private static final int FRAMES = 600;
+    /** From the harness's working directory, {@code gl-debug-harness/}. */
+    private static final String KIT = "../plan/crystalgraphics/vfx-aaa/examples/novamod/assets/novamod";
     private static final String[] SYSTEMS = {"novamod:nova_cannon/charge", "novamod:nova_cannon/beam",
             "novamod:nova_cannon/impact"};
 
@@ -62,9 +65,10 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().moveCamera(-6f, 4f, 12f);
         ctx.getCamera3D().setYaw(-25f);
         ctx.getCamera3D().setPitch(-10f);
-        String kit = System.getProperty("crystalgraphics.harness.nova.kit");
-        if (kit == null || !Files.isDirectory(Paths.get(kit))) {
-            throw new IllegalStateException("-Dcrystalgraphics.harness.nova.kit=<the Nova Cannon kit's folder> is required");
+        String kit = System.getProperty("crystalgraphics.harness.nova.kit", KIT);
+        if (!Files.isDirectory(Paths.get(kit))) {
+            throw new IllegalStateException("no Nova Cannon kit at " + Paths.get(kit).toAbsolutePath()
+                    + ": check out plan/, or pass -Dcrystalgraphics.harness.nova.kit=<root>/assets/novamod");
         }
         CgVfxSystemAssets.register();
         CgAssetRegistry registry = new CgAssetRegistry();
