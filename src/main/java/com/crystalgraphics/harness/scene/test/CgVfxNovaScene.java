@@ -45,11 +45,15 @@ import java.util.stream.Stream;
  *       while the charge plays its file is saved twice, each save announced as {@code CgHotReload} announces one
  *       ({@link CgAssetReloader#changed}). A value (the gather's spawn rate) must reach the playing charge with its
  *       emitters kept; a structure (a drag module added) must restart it at its age, its emitters made anew.</li>
+ *   <li><b>Held</b> ({@code -Dcrystalgraphics.harness.nova.hold=true}): plays the kit until the window closes, the beam
+ *       and the impact again as each ends, for editing its files by hand. Each save that reaches a playing system prints
+ *       {@code [vfx-nova] <system> took a newer definition}, its values in place or restarted at its age.</li>
  * </ul>
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-nova --device=vulkan"
  * ... -Dcrystalgraphics.harness.nova.reload=true
+ * ... -Dcrystalgraphics.harness.nova.hold=true    // then edit plan/.../examples/novamod/assets/novamod and save
  * // a kit elsewhere: its namespace folder, and the resource root holding it
  * ... -Dcrystalgraphics.harness.nova.kit=<root>/assets/novamod -Pharness.assetRoots=<root>
  * }</pre>
@@ -66,6 +70,7 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
     /** From the harness's working directory, {@code gl-debug-harness/}. */
     private static final String KIT = "../plan/crystalgraphics/vfx-aaa/examples/novamod/assets/novamod";
     private static final boolean RELOAD = Boolean.getBoolean("crystalgraphics.harness.nova.reload");
+    private static final boolean HOLD = Boolean.getBoolean("crystalgraphics.harness.nova.hold");
     private static final String[] SYSTEMS = {"novamod:nova_cannon/charge", "novamod:nova_cannon/beam",
             "novamod:nova_cannon/impact"};
     private static final String CHARGE_FILE = "novamod:vfx/systems/nova_cannon/charge.yaml";
@@ -81,7 +86,7 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
     /** Frames the charge's books held particles: what plays, wherever the camera points. */
     private int framesAlive;
     /** The reload: the kit's copy, the charge, and each save's phase. */
-    private Path copy;
+    private Path copy, kitPath;
     private CgVfxSystemInstance<?> charge;
     private Reload phase = Reload.WAIT_VALUE;
     private int savedAt, valueFrames;
@@ -90,6 +95,11 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
     private float ageBefore;
 
     private enum Reload { WAIT_VALUE, VALUE, WAIT_STRUCTURE, STRUCTURE }
+
+    /** Held: each system playing, and the definition and first emitter it was last seen with. */
+    private final CgVfxSystemInstance<?>[] held = new CgVfxSystemInstance<?>[SYSTEMS.length];
+    private final CgVfxSystemDefinition[] heldDefinition = new CgVfxSystemDefinition[SYSTEMS.length];
+    private final CgVfxEmitterInstance[] heldEmitter = new CgVfxEmitterInstance[SYSTEMS.length];
 
     @Override
     @SuppressWarnings("unchecked")
@@ -103,6 +113,7 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
                     + ": check out plan/, or pass -Dcrystalgraphics.harness.nova.kit=<root>/assets/novamod");
         }
         if (RELOAD) kit = copy = copyOf(kit);   // saved into, never the kit itself
+        kitPath = kit.toAbsolutePath().normalize();
         CgVfxSystemAssets.register();
         CgAssetRegistry registry = new CgAssetRegistry();
         registry.registerEngine();
@@ -131,7 +142,13 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
                 syncs = CgVfxAssets.instance().syncLoads();
                 textures = CgTextureAbstract.loads();
                 charge = vfx.play(new CgVfxSystemInstance<>(refs[0], 0, 1.5, 0)).ground(0f);
-                if (!RELOAD) {
+                if (HOLD) {
+                    held[0] = charge;
+                    heldDefinition[0] = charge.definition();
+                    heldEmitter[0] = charge.emitter(0);
+                    playing = true;
+                    System.out.println("[vfx-nova] held: edit and save the kit's files at " + kitPath);
+                } else if (!RELOAD) {
                     vfx.play(new CgVfxSystemInstance<>(refs[1], 0, 1.5, 0)).ground(0f);
                     vfx.play(new CgVfxSystemInstance<>(refs[2], 0, 0.5, -20)).ground(0f);
                 }
@@ -150,12 +167,33 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
             }
         }
         frames++;
-        if (RELOAD) {
+        if (HOLD) {
+            hold();
+        } else if (RELOAD) {
             reload();
         } else if (frames == FRAMES) {
             report(CgMaterialShader.compileWaits() - waits, CgVfxAssets.instance().syncLoads() - syncs,
                     CgTextureAbstract.loads() - textures);
             running = false;
+        }
+    }
+
+    /** Plays each system again once it ends, and prints each newer definition a playing one takes. */
+    private void hold() {
+        for (int i = 0; i < held.length; i++) {
+            CgVfxSystemInstance<?> s = held[i];
+            if (s == null || s.state() == CgVfxSystemInstance.State.DEAD) {
+                s = held[i] = vfx.play(new CgVfxSystemInstance<>(refs[i], 0, i == 2 ? 0.5 : 1.5, i == 2 ? -20 : 0)).ground(0f);
+                heldDefinition[i] = s.definition();
+                heldEmitter[i] = s.emitters() > 0 ? s.emitter(0) : null;
+                continue;
+            }
+            if (s.definition() == heldDefinition[i]) continue;
+            CgVfxEmitterInstance first = s.emitters() > 0 ? s.emitter(0) : null;
+            System.out.println("[vfx-nova] " + SYSTEMS[i] + " took a newer definition at " + s.age() + " s: "
+                    + (first == heldEmitter[i] ? "its values, in place" : "restarted at its age"));
+            heldDefinition[i] = s.definition();
+            heldEmitter[i] = first;
         }
     }
 
