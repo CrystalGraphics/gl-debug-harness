@@ -1,0 +1,508 @@
+{
+  "version": 1,
+  "scene": "vfx-blasts",
+  "cell": "vk",
+  "commit": "f9ef89be",
+  "targetNanos": 16700000,
+  "frames": 599,
+  "measures": {
+    "wall": {
+      "count": 599,
+      "median": 8333600,
+      "p99": 11745200,
+      "p99.9": 21788900,
+      "max": 21788900,
+      "sum": 5050693500
+    },
+    "cpu": {
+      "count": 599,
+      "median": 4045800,
+      "p99": 11494600,
+      "p99.9": 21771800,
+      "max": 21771800,
+      "sum": 2685048800
+    },
+    "gpu": null,
+    "allocatedBytes": {
+      "count": 599,
+      "median": 102728,
+      "p99": 925272,
+      "p99.9": 6389568,
+      "max": 6389568,
+      "sum": 81182024
+    },
+    "directBytes": {
+      "count": 599,
+      "median": 44890152,
+      "p99": 44965884,
+      "p99.9": 44965884,
+      "max": 44965884,
+      "sum": 26903817324
+    }
+  },
+  "hitches": {
+    "count": 1,
+    "ours": 0,
+    "unexplained": 1
+  },
+  "gcCollections": 1,
+  "gcPauseMillis": 5,
+  "jvm": {
+    "compilations": 2167,
+    "deoptimisations": 46,
+    "safepoints": 1,
+    "classLoads": 29
+  },
+  "counters": {
+    "asyncCommit.bytesUploaded": {
+      "sum": 70966,
+      "max": 37236,
+      "frames": 599
+    },
+    "asyncCommit.glyphsUploaded": {
+      "sum": 4,
+      "max": 2,
+      "frames": 599
+    },
+    "atlas.added.bitmap": {
+      "sum": 2,
+      "max": 2,
+      "frames": 2
+    },
+    "atlas.added.msdf": {
+      "sum": 2,
+      "max": 1,
+      "frames": 2
+    },
+    "cull.tested": {
+      "sum": 111268,
+      "max": 301,
+      "frames": 599
+    },
+    "draw.buckets": {
+      "sum": 602,
+      "max": 2,
+      "frames": 599
+    },
+    "draw.glyphCount": {
+      "sum": 101694,
+      "max": 170,
+      "frames": 600
+    },
+    "draw.materialTransition": {
+      "sum": 602,
+      "max": 2,
+      "frames": 599
+    },
+    "draw.quadsEmitted": {
+      "sum": 85339,
+      "max": 143,
+      "frames": 599
+    },
+    "frameRing.overflow": {
+      "sum": 0,
+      "max": 0,
+      "frames": 0
+    },
+    "gl.flush.count": {
+      "sum": 602,
+      "max": 2,
+      "frames": 599
+    },
+    "glState.adopt.count": {
+      "sum": 9588,
+      "max": 17,
+      "frames": 599
+    },
+    "glState.adopt.units": {
+      "sum": 3618,
+      "max": 12,
+      "frames": 599
+    },
+    "glState.scopes": {
+      "sum": 7192,
+      "max": 14,
+      "frames": 599
+    },
+    "glState.scopes.all": {
+      "sum": 1198,
+      "max": 2,
+      "frames": 599
+    },
+    "glyph.bitmap.atlasHit": {
+      "sum": 15,
+      "max": 4,
+      "frames": 3
+    },
+    "glyph.bitmap.deferredToWorker": {
+      "sum": 10,
+      "max": 4,
+      "frames": 3
+    },
+    "glyph.msdf.fellBackToBitmap": {
+      "sum": 20,
+      "max": 4,
+      "frames": 10
+    },
+    "glyph.msdfQueueDepth": {
+      "sum": 1,
+      "max": 1,
+      "frames": 600
+    },
+    "glyph.resolvePlacements.queried": {
+      "sum": 101524,
+      "max": 170,
+      "frames": 599
+    },
+    "glyph.resolvePlacements.reusedDistanceField": {
+      "sum": 0,
+      "max": 0,
+      "frames": 599
+    },
+    "glyph.warmPending": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "graph.args-dispatches": {
+      "sum": 1198,
+      "max": 2,
+      "frames": 599
+    },
+    "graph.async-passes": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "graph.async-waits": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "graph.barriers": {
+      "sum": 108732,
+      "max": 186,
+      "frames": 599
+    },
+    "graph.batches": {
+      "sum": 13181,
+      "max": 23,
+      "frames": 599
+    },
+    "graph.dispatches": {
+      "sum": 44925,
+      "max": 75,
+      "frames": 599
+    },
+    "graph.draws": {
+      "sum": 13181,
+      "max": 23,
+      "frames": 599
+    },
+    "graph.indirect-commands": {
+      "sum": 380956,
+      "max": 979,
+      "frames": 599
+    },
+    "graph.instances": {
+      "sum": 476507,
+      "max": 1139,
+      "frames": 599
+    },
+    "graph.multi-draw.breaks.copy": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "graph.multi-draw.breaks.pipeline": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "graph.passes": {
+      "sum": 20279,
+      "max": 42,
+      "frames": 599
+    },
+    "graph.snapshots": {
+      "sum": 41936,
+      "max": 72,
+      "frames": 599
+    },
+    "graph.target-copies": {
+      "sum": 2396,
+      "max": 4,
+      "frames": 599
+    },
+    "graph.target-copy-pixels": {
+      "sum": 0,
+      "max": 0,
+      "frames": 599
+    },
+    "mesh.drawn-vertices": {
+      "sum": 46545783,
+      "max": 77709,
+      "frames": 599
+    },
+    "mesh.indirect-draws": {
+      "sum": 380956,
+      "max": 979,
+      "frames": 599
+    },
+    "mesh.multi-draw-commands": {
+      "sum": 380956,
+      "max": 979,
+      "frames": 599
+    },
+    "mesh.multi-draws": {
+      "sum": 2396,
+      "max": 4,
+      "frames": 599
+    },
+    "mesh.slab-kb": {
+      "sum": 2457600,
+      "max": 4096,
+      "frames": 600
+    },
+    "msdfgen.overlapUsed": {
+      "sum": 2,
+      "max": 1,
+      "frames": 2
+    },
+    "msdfgen.pixelFloats": {
+      "sum": 70516,
+      "max": 37236,
+      "frames": 2
+    },
+    "msdfgen.syncFrameMicros": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "packer.freeRectCount": {
+      "sum": 171,
+      "max": 67,
+      "frames": 4
+    },
+    "packer.packedCount": {
+      "sum": 210,
+      "max": 103,
+      "frames": 4
+    },
+    "paragraphLayout.miss": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "placementCache.miss": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "placementCache.miss.absent": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "placementCache.miss.effectiveTargetPx": {
+      "sum": 15000,
+      "max": 25,
+      "frames": 600
+    },
+    "placementCache.miss.resultDistanceField": {
+      "sum": 597,
+      "max": 1,
+      "frames": 600
+    },
+    "placementCache.skippedDeferred": {
+      "sum": 3,
+      "max": 1,
+      "frames": 3
+    },
+    "quadRenderer.flush.count": {
+      "sum": 602,
+      "max": 2,
+      "frames": 599
+    },
+    "quadRenderer.instances": {
+      "sum": 0,
+      "max": 0,
+      "frames": 599
+    },
+    "readback.bytes": {
+      "sum": 1550992,
+      "max": 3920,
+      "frames": 599
+    },
+    "readback.delivered": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "readback.frames": {
+      "sum": 2396,
+      "max": 4,
+      "frames": 599
+    },
+    "readback.requests": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "shaderBuffer.upload": {
+      "sum": 4795,
+      "max": 9,
+      "frames": 599
+    },
+    "shaderBuffer.uploadSkipped": {
+      "sum": 608,
+      "max": 4,
+      "frames": 599
+    },
+    "streamBuffer.ssbo.bytes": {
+      "sum": 113615280,
+      "max": 279812,
+      "frames": 599
+    },
+    "streamBuffer.ubo.bytes": {
+      "sum": 28752,
+      "max": 48,
+      "frames": 599
+    },
+    "text.msdfForcedByStroke": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "tracked.texture-buffer-copies": {
+      "sum": 4,
+      "max": 2,
+      "frames": 4
+    },
+    "tracked.upload-breaks": {
+      "sum": 0,
+      "max": 0,
+      "frames": 4
+    },
+    "upload.lease-bytes": {
+      "sum": 70966,
+      "max": 37236,
+      "frames": 4
+    },
+    "upload.lease-copy-bytes": {
+      "sum": 70966,
+      "max": 37236,
+      "frames": 4
+    },
+    "upload.leases": {
+      "sum": 4,
+      "max": 2,
+      "frames": 4
+    },
+    "upload.pool-bytes": {
+      "sum": 20132659200,
+      "max": 33554432,
+      "frames": 600
+    },
+    "upload.textures": {
+      "sum": 4,
+      "max": 2,
+      "frames": 4
+    },
+    "vfx.asleep": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "vfx.draws.particle-gpu": {
+      "sum": 380956,
+      "max": 979,
+      "frames": 599
+    },
+    "vfx.draws.particle-sets": {
+      "sum": 2396,
+      "max": 4,
+      "frames": 599
+    },
+    "vfx.effects": {
+      "sum": 109770,
+      "max": 298,
+      "frames": 600
+    },
+    "vfx.effects/crystalgraphics": {
+      "sum": 109770,
+      "max": 298,
+      "frames": 600
+    },
+    "vfx.gpu.pools-stepped": {
+      "sum": 2396,
+      "max": 4,
+      "frames": 599
+    },
+    "vfx.gpu.slots-stepped": {
+      "sum": 381169,
+      "max": 980,
+      "frames": 599
+    },
+    "vfx.pool.storage-grows": {
+      "sum": 7,
+      "max": 2,
+      "frames": 5
+    },
+    "vfx.pool.table-grows": {
+      "sum": 6,
+      "max": 3,
+      "frames": 2
+    },
+    "vfx.pressure-percent": {
+      "sum": 120343,
+      "max": 235,
+      "frames": 600
+    },
+    "vfx.ticks": {
+      "sum": 1212,
+      "max": 6,
+      "frames": 599
+    },
+    "world.distortionApplies": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "world.distortionDraws": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "world.emissiveDraws": {
+      "sum": 1200,
+      "max": 2,
+      "frames": 600
+    },
+    "world.halfDraws": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "world.opaqueDraws": {
+      "sum": 1200,
+      "max": 2,
+      "frames": 600
+    },
+    "world.transparentDraws": {
+      "sum": 2400,
+      "max": 4,
+      "frames": 600
+    },
+    "world.volumeDraws": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    }
+  },
+  "baseline": {
+    "reason": "SC3 retake 2026-10-21 at CrystalGraphics f9ef89be (reset clears only what it used), 3-run median, 600 frames, 120 fps cap, RTX 4070 SUPER, quiet machine; after R3, C's allocation sweep and A4; wall p99 9.1 -> 10.1 ms on GL (P13's 16.8 ms rise mostly gone), CPU median down",
+    "commit": "f9ef89be",
+    "accepted": "2026-10-21"
+  }
+}

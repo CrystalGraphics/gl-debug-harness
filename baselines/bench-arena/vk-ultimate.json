@@ -1,0 +1,408 @@
+{
+  "version": 1,
+  "scene": "bench-arena",
+  "cell": "vk-ultimate",
+  "commit": "f9ef89be",
+  "targetNanos": 16700000,
+  "frames": 599,
+  "measures": {
+    "wall": {
+      "count": 599,
+      "median": 8333300,
+      "p99": 11682800,
+      "p99.9": 32256500,
+      "max": 32256500,
+      "sum": 5055919100
+    },
+    "cpu": {
+      "count": 599,
+      "median": 2442200,
+      "p99": 7219000,
+      "p99.9": 12589100,
+      "max": 12589100,
+      "sum": 1592911200
+    },
+    "gpu": null,
+    "allocatedBytes": {
+      "count": 599,
+      "median": 82984,
+      "p99": 143280,
+      "p99.9": 2705864,
+      "max": 2705864,
+      "sum": 53768640
+    },
+    "directBytes": {
+      "count": 599,
+      "median": 52634288,
+      "p99": 52634288,
+      "p99.9": 52634288,
+      "max": 52634288,
+      "sum": 31527938512
+    }
+  },
+  "hitches": {
+    "count": 2,
+    "ours": 0,
+    "unexplained": 2
+  },
+  "gcCollections": 0,
+  "gcPauseMillis": 0,
+  "jvm": {
+    "compilations": 159,
+    "deoptimisations": 11,
+    "safepoints": 0,
+    "classLoads": 0
+  },
+  "counters": {
+    "asyncCommit.bytesUploaded": {
+      "sum": 0,
+      "max": 0,
+      "frames": 599
+    },
+    "asyncCommit.glyphsUploaded": {
+      "sum": 0,
+      "max": 0,
+      "frames": 599
+    },
+    "cull.tested": {
+      "sum": 1198,
+      "max": 2,
+      "frames": 599
+    },
+    "draw.buckets": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "draw.glyphCount": {
+      "sum": 85200,
+      "max": 142,
+      "frames": 600
+    },
+    "draw.materialTransition": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "draw.quadsEmitted": {
+      "sum": 70682,
+      "max": 118,
+      "frames": 599
+    },
+    "gl.flush.count": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "glState.adopt.count": {
+      "sum": 9584,
+      "max": 16,
+      "frames": 599
+    },
+    "glState.adopt.units": {
+      "sum": 3594,
+      "max": 6,
+      "frames": 599
+    },
+    "glState.scopes": {
+      "sum": 7188,
+      "max": 12,
+      "frames": 599
+    },
+    "glState.scopes.all": {
+      "sum": 1198,
+      "max": 2,
+      "frames": 599
+    },
+    "glyph.msdfQueueDepth": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "glyph.resolvePlacements.queried": {
+      "sum": 85058,
+      "max": 142,
+      "frames": 599
+    },
+    "glyph.resolvePlacements.reusedDistanceField": {
+      "sum": 0,
+      "max": 0,
+      "frames": 599
+    },
+    "glyph.warmPending": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "graph.args-dispatches": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "graph.async-passes": {
+      "sum": 597,
+      "max": 1,
+      "frames": 597
+    },
+    "graph.async-waits": {
+      "sum": 597,
+      "max": 1,
+      "frames": 597
+    },
+    "graph.barriers": {
+      "sum": 220316,
+      "max": 474,
+      "frames": 599
+    },
+    "graph.batches": {
+      "sum": 14957,
+      "max": 25,
+      "frames": 599
+    },
+    "graph.dispatches": {
+      "sum": 83592,
+      "max": 175,
+      "frames": 599
+    },
+    "graph.draws": {
+      "sum": 14957,
+      "max": 25,
+      "frames": 599
+    },
+    "graph.indirect-commands": {
+      "sum": 5373,
+      "max": 9,
+      "frames": 599
+    },
+    "graph.instances": {
+      "sum": 85040,
+      "max": 142,
+      "frames": 599
+    },
+    "graph.multi-draw.breaks.copy": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "graph.multi-draw.breaks.pipeline": {
+      "sum": 4175,
+      "max": 7,
+      "frames": 599
+    },
+    "graph.passes": {
+      "sum": 31292,
+      "max": 64,
+      "frames": 599
+    },
+    "graph.snapshots": {
+      "sum": 56984,
+      "max": 107,
+      "frames": 599
+    },
+    "graph.target-copies": {
+      "sum": 2396,
+      "max": 4,
+      "frames": 599
+    },
+    "graph.target-copy-pixels": {
+      "sum": 0,
+      "max": 0,
+      "frames": 599
+    },
+    "mesh.drawn-vertices": {
+      "sum": 451047,
+      "max": 753,
+      "frames": 599
+    },
+    "mesh.indirect-draws": {
+      "sum": 5373,
+      "max": 9,
+      "frames": 599
+    },
+    "mesh.multi-draw-commands": {
+      "sum": 5373,
+      "max": 9,
+      "frames": 599
+    },
+    "mesh.multi-draws": {
+      "sum": 5373,
+      "max": 9,
+      "frames": 599
+    },
+    "mesh.slab-kb": {
+      "sum": 614400,
+      "max": 1024,
+      "frames": 600
+    },
+    "msdfgen.syncFrameMicros": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "paragraphLayout.miss": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "placementCache.miss": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "placementCache.miss.absent": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "placementCache.miss.effectiveTargetPx": {
+      "sum": 15000,
+      "max": 25,
+      "frames": 600
+    },
+    "placementCache.miss.resultDistanceField": {
+      "sum": 600,
+      "max": 1,
+      "frames": 600
+    },
+    "quadRenderer.flush.count": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "quadRenderer.instances": {
+      "sum": 0,
+      "max": 0,
+      "frames": 599
+    },
+    "readback.bytes": {
+      "sum": 21492,
+      "max": 36,
+      "frames": 599
+    },
+    "readback.delivered": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "readback.frames": {
+      "sum": 2396,
+      "max": 4,
+      "frames": 599
+    },
+    "readback.requests": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "shaderBuffer.upload": {
+      "sum": 4792,
+      "max": 8,
+      "frames": 599
+    },
+    "streamBuffer.ssbo.bytes": {
+      "sum": 12433388,
+      "max": 20764,
+      "frames": 599
+    },
+    "streamBuffer.ubo.bytes": {
+      "sum": 28752,
+      "max": 48,
+      "frames": 599
+    },
+    "text.msdfForcedByStroke": {
+      "sum": 599,
+      "max": 1,
+      "frames": 599
+    },
+    "upload.pool-bytes": {
+      "sum": 20132659200,
+      "max": 33554432,
+      "frames": 600
+    },
+    "vfx.asleep": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "vfx.draws.particle-gpu": {
+      "sum": 5373,
+      "max": 9,
+      "frames": 599
+    },
+    "vfx.draws.particle-sets": {
+      "sum": 5373,
+      "max": 9,
+      "frames": 599
+    },
+    "vfx.effects": {
+      "sum": 600,
+      "max": 1,
+      "frames": 600
+    },
+    "vfx.gpu.pools-stepped": {
+      "sum": 16319,
+      "max": 39,
+      "frames": 597
+    },
+    "vfx.gpu.slots-stepped": {
+      "sum": 16319,
+      "max": 39,
+      "frames": 597
+    },
+    "vfx.pressure-percent": {
+      "sum": 120000,
+      "max": 200,
+      "frames": 600
+    },
+    "vfx.ticks": {
+      "sum": 1212,
+      "max": 6,
+      "frames": 599
+    },
+    "vfx.ticks.capped": {
+      "sum": 0,
+      "max": 0,
+      "frames": 0
+    },
+    "world.distortionApplies": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "world.distortionDraws": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "world.emissiveDraws": {
+      "sum": 3050,
+      "max": 6,
+      "frames": 600
+    },
+    "world.halfDraws": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "world.opaqueDraws": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    },
+    "world.transparentDraws": {
+      "sum": 5382,
+      "max": 9,
+      "frames": 600
+    },
+    "world.volumeDraws": {
+      "sum": 0,
+      "max": 0,
+      "frames": 600
+    }
+  },
+  "baseline": {
+    "reason": "SC3 retake 2026-10-21 at CrystalGraphics f9ef89be (reset clears only what it used), 3-run median, 600 frames, 120 fps cap, RTX 4070 SUPER, quiet machine; after R3, C's allocation sweep and A4; arena-family cells measured after a 900-frame warm-up so A4's spread preparation ends first",
+    "commit": "f9ef89be",
+    "accepted": "2026-10-21"
+  }
+}

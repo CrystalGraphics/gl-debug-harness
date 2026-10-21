@@ -2,106 +2,101 @@
   "version": 1,
   "scene": "bench-duel",
   "cell": "gl",
-  "commit": "bff5873d",
+  "commit": "f9ef89be",
   "targetNanos": 16700000,
   "frames": 599,
   "measures": {
     "wall": {
       "count": 599,
-      "median": 8334400,
-      "p99": 18334900,
-      "p99.9": 21930700,
-      "max": 21930700,
-      "sum": 5232656500
+      "median": 8333500,
+      "p99": 10113100,
+      "p99.9": 15608200,
+      "max": 15608200,
+      "sum": 5025726700
     },
     "cpu": {
       "count": 599,
-      "median": 4086300,
-      "p99": 18253200,
-      "p99.9": 21823900,
-      "max": 21823900,
-      "sum": 2766128800
+      "median": 3245200,
+      "p99": 9935200,
+      "p99.9": 15483400,
+      "max": 15483400,
+      "sum": 1754667800
     },
     "gpu": null,
     "allocatedBytes": {
       "count": 599,
-      "median": 413592,
-      "p99": 4494528,
-      "p99.9": 13900392,
-      "max": 13900392,
-      "sum": 341878440
+      "median": 57336,
+      "p99": 179368,
+      "p99.9": 6348992,
+      "max": 6348992,
+      "sum": 45132872
     },
     "directBytes": {
       "count": 599,
-      "median": 49141520,
-      "p99": 49145804,
-      "p99.9": 49145804,
-      "max": 49145804,
-      "sum": 29436183852
+      "median": 40757424,
+      "p99": 40757424,
+      "p99.9": 40757424,
+      "max": 40757424,
+      "sum": 24413696976
     }
   },
   "hitches": {
-    "count": 2,
+    "count": 0,
     "ours": 0,
-    "unexplained": 1
+    "unexplained": 0
   },
-  "gcCollections": 2,
-  "gcPauseMillis": 10,
+  "gcCollections": 0,
+  "gcPauseMillis": 0,
   "jvm": {
-    "compilations": 1450,
-    "deoptimisations": 58,
-    "safepoints": 2,
-    "classLoads": 14
+    "compilations": 120,
+    "deoptimisations": 1,
+    "safepoints": 0,
+    "classLoads": 0
   },
   "counters": {
     "asyncCommit.bytesUploaded": {
-      "sum": 121694,
-      "max": 56372,
+      "sum": 0,
+      "max": 0,
       "frames": 599
     },
     "asyncCommit.glyphsUploaded": {
-      "sum": 8,
-      "max": 3,
+      "sum": 0,
+      "max": 0,
       "frames": 599
     },
-    "atlas.added.bitmap": {
-      "sum": 4,
-      "max": 3,
-      "frames": 2
-    },
-    "atlas.added.msdf": {
-      "sum": 4,
-      "max": 2,
-      "frames": 4
+    "cull.rejected": {
+      "sum": 0,
+      "max": 0,
+      "frames": 0
     },
     "cull.tested": {
-      "sum": 1689,
-      "max": 5,
+      "sum": 1517,
+      "max": 3,
       "frames": 599
     },
     "draw.buckets": {
-      "sum": 603,
-      "max": 2,
+      "sum": 599,
+      "max": 1,
       "frames": 599
     },
     "draw.glyphCount": {
-      "sum": 85934,
-      "max": 145,
+      "sum": 85580,
+      "max": 144,
       "frames": 600
     },
     "draw.materialTransition": {
-      "sum": 603,
-      "max": 2,
+      "sum": 599,
+      "max": 1,
       "frames": 599
     },
     "draw.quadsEmitted": {
-      "sum": 71408,
-      "max": 121,
+      "sum": 71060,
+      "max": 120,
       "frames": 599
     },
     "gl.flush.count": {
-      "sum": 603,
-      "max": 2,
+      "sum": 599,
+      "max": 1,
       "frames": 599
     },
     "glState.adopt.count": {
@@ -110,8 +105,8 @@
       "frames": 599
     },
     "glState.scopes": {
-      "sum": 6759,
-      "max": 18,
+      "sum": 6624,
+      "max": 17,
       "frames": 599
     },
     "glState.scopes.all": {
@@ -119,29 +114,14 @@
       "max": 2,
       "frames": 599
     },
-    "glyph.bitmap.atlasHit": {
-      "sum": 6,
-      "max": 3,
-      "frames": 4
-    },
-    "glyph.bitmap.deferredToWorker": {
-      "sum": 6,
-      "max": 3,
-      "frames": 4
-    },
-    "glyph.msdf.fellBackToBitmap": {
-      "sum": 12,
-      "max": 3,
-      "frames": 7
-    },
     "glyph.msdfQueueDepth": {
-      "sum": 1,
-      "max": 1,
+      "sum": 0,
+      "max": 0,
       "frames": 600
     },
     "glyph.resolvePlacements.queried": {
-      "sum": 85790,
-      "max": 145,
+      "sum": 85436,
+      "max": 144,
       "frames": 599
     },
     "glyph.resolvePlacements.reusedDistanceField": {
@@ -155,119 +135,104 @@
       "frames": 600
     },
     "graph.args-dispatches": {
-      "sum": 482,
+      "sum": 457,
       "max": 1,
-      "frames": 482
+      "frames": 457
     },
     "graph.barriers": {
-      "sum": 267436,
-      "max": 1148,
-      "frames": 483
+      "sum": 438273,
+      "max": 1128,
+      "frames": 458
     },
     "graph.batches": {
-      "sum": 75843,
-      "max": 217,
+      "sum": 68214,
+      "max": 150,
       "frames": 599
     },
     "graph.dispatches": {
-      "sum": 121503,
-      "max": 456,
-      "frames": 482
+      "sum": 171870,
+      "max": 380,
+      "frames": 457
     },
     "graph.draws": {
-      "sum": 75843,
-      "max": 217,
+      "sum": 68214,
+      "max": 150,
       "frames": 599
     },
     "graph.indirect-commands": {
-      "sum": 69452,
-      "max": 268,
-      "frames": 482
+      "sum": 58772,
+      "max": 134,
+      "frames": 457
     },
     "graph.instances": {
-      "sum": 149729,
-      "max": 403,
+      "sum": 138699,
+      "max": 269,
       "frames": 599
     },
     "graph.multi-draw.breaks.copy": {
-      "sum": 481,
+      "sum": 455,
       "max": 1,
-      "frames": 481
+      "frames": 455
     },
     "graph.multi-draw.breaks.pipeline": {
-      "sum": 43634,
-      "max": 115,
-      "frames": 481
+      "sum": 39424,
+      "max": 90,
+      "frames": 455
+    },
+    "graph.multi-draw.breaks.records": {
+      "sum": 18436,
+      "max": 42,
+      "frames": 457
     },
     "graph.passes": {
-      "sum": 31047,
-      "max": 301,
+      "sum": 44427,
+      "max": 228,
       "frames": 599
     },
     "graph.snapshots": {
-      "sum": 108587,
-      "max": 322,
+      "sum": 118114,
+      "max": 253,
       "frames": 599
     },
     "graph.target-copies": {
-      "sum": 2161,
+      "sum": 2110,
       "max": 4,
       "frames": 599
     },
     "graph.target-copy-pixels": {
       "sum": 0,
       "max": 0,
-      "frames": 481
+      "frames": 455
     },
     "mesh.drawn-vertices": {
-      "sum": 455055,
-      "max": 771,
+      "sum": 452805,
+      "max": 765,
       "frames": 599
     },
     "mesh.indirect-draws": {
-      "sum": 69452,
-      "max": 268,
-      "frames": 482
+      "sum": 58772,
+      "max": 134,
+      "frames": 457
     },
     "mesh.multi-draw-commands": {
-      "sum": 69452,
-      "max": 268,
-      "frames": 482
+      "sum": 58772,
+      "max": 134,
+      "frames": 457
     },
     "mesh.multi-draws": {
-      "sum": 44599,
-      "max": 117,
-      "frames": 482
+      "sum": 58772,
+      "max": 134,
+      "frames": 457
     },
     "mesh.slab-kb": {
       "sum": 614400,
       "max": 1024,
       "frames": 600
     },
-    "msdfgen.overlapUsed": {
-      "sum": 1,
-      "max": 1,
-      "frames": 2
-    },
-    "msdfgen.pixelFloats": {
-      "sum": 120988,
-      "max": 56372,
-      "frames": 4
-    },
     "msdfgen.syncFrameMicros": {
       "sum": 0,
       "max": 0,
       "frames": 600
-    },
-    "packer.freeRectCount": {
-      "sum": 285,
-      "max": 101,
-      "frames": 4
-    },
-    "packer.packedCount": {
-      "sum": 380,
-      "max": 138,
-      "frames": 4
     },
     "paragraphLayout.miss": {
       "sum": 599,
@@ -290,18 +255,13 @@
       "frames": 600
     },
     "placementCache.miss.resultDistanceField": {
-      "sum": 596,
+      "sum": 600,
       "max": 1,
       "frames": 600
     },
-    "placementCache.skippedDeferred": {
-      "sum": 4,
-      "max": 1,
-      "frames": 4
-    },
     "quadRenderer.flush.count": {
-      "sum": 603,
-      "max": 2,
+      "sum": 599,
+      "max": 1,
       "frames": 599
     },
     "quadRenderer.instances": {
@@ -310,74 +270,49 @@
       "frames": 599
     },
     "readback.bytes": {
-      "sum": 379696,
-      "max": 1072,
-      "frames": 482
+      "sum": 242088,
+      "max": 536,
+      "frames": 457
     },
     "readback.delivered": {
-      "sum": 482,
-      "max": 3,
-      "frames": 367
+      "sum": 457,
+      "max": 2,
+      "frames": 447
     },
     "readback.frames": {
-      "sum": 828,
-      "max": 6,
-      "frames": 367
+      "sum": 898,
+      "max": 3,
+      "frames": 447
     },
     "readback.requests": {
-      "sum": 482,
+      "sum": 457,
       "max": 1,
-      "frames": 482
+      "frames": 457
     },
     "shaderBuffer.upload": {
-      "sum": 4449,
-      "max": 9,
+      "sum": 4367,
+      "max": 8,
       "frames": 599
     },
-    "shaderBuffer.uploadSkipped": {
-      "sum": 12,
-      "max": 3,
-      "frames": 4
-    },
     "streamBuffer.ssbo.bytes": {
-      "sum": 27624848,
-      "max": 82144,
+      "sum": 25057488,
+      "max": 50520,
       "frames": 599
     },
     "streamBuffer.ubo.bytes": {
-      "sum": 23136,
+      "sum": 21936,
       "max": 48,
-      "frames": 482
+      "frames": 457
     },
     "text.msdfForcedByStroke": {
       "sum": 599,
       "max": 1,
       "frames": 599
     },
-    "upload.lease-bytes": {
-      "sum": 121694,
-      "max": 56372,
-      "frames": 4
-    },
-    "upload.lease-copy-bytes": {
-      "sum": 121694,
-      "max": 56372,
-      "frames": 4
-    },
-    "upload.leases": {
-      "sum": 8,
-      "max": 3,
-      "frames": 4
-    },
     "upload.pool-bytes": {
       "sum": 20132659200,
       "max": 33554432,
       "frames": 600
-    },
-    "upload.textures": {
-      "sum": 8,
-      "max": 3,
-      "frames": 4
     },
     "vfx.asleep": {
       "sum": 0,
@@ -385,84 +320,79 @@
       "frames": 600
     },
     "vfx.draws.particle-gpu": {
-      "sum": 69452,
-      "max": 268,
-      "frames": 482
+      "sum": 58772,
+      "max": 134,
+      "frames": 457
     },
     "vfx.draws.particle-sets": {
-      "sum": 66371,
-      "max": 201,
-      "frames": 482
+      "sum": 58772,
+      "max": 134,
+      "frames": 457
     },
     "vfx.effects": {
-      "sum": 1092,
-      "max": 4,
+      "sum": 920,
+      "max": 2,
       "frames": 600
     },
     "vfx.gpu.pools-stepped": {
-      "sum": 16987,
-      "max": 134,
-      "frames": 255
+      "sum": 30345,
+      "max": 67,
+      "frames": 458
     },
     "vfx.gpu.slots-stepped": {
-      "sum": 40856,
-      "max": 536,
-      "frames": 255
+      "sum": 60622,
+      "max": 134,
+      "frames": 458
     },
     "vfx.pressure-percent": {
-      "sum": 122670,
-      "max": 355,
+      "sum": 120000,
+      "max": 200,
       "frames": 600
     },
     "vfx.ticks": {
-      "sum": 1256,
-      "max": 6,
+      "sum": 1204,
+      "max": 4,
       "frames": 599
-    },
-    "vfx.ticks.capped": {
-      "sum": 0,
-      "max": 0,
-      "frames": 0
     },
     "world.distortionApplies": {
       "sum": 0,
       "max": 0,
-      "frames": 483
+      "frames": 458
     },
     "world.distortionDraws": {
       "sum": 0,
       "max": 0,
-      "frames": 483
+      "frames": 458
     },
     "world.emissiveDraws": {
-      "sum": 37719,
-      "max": 114,
-      "frames": 483
+      "sum": 33408,
+      "max": 76,
+      "frames": 458
     },
     "world.halfDraws": {
       "sum": 0,
       "max": 0,
-      "frames": 483
+      "frames": 458
     },
     "world.opaqueDraws": {
       "sum": 0,
       "max": 0,
-      "frames": 483
+      "frames": 458
     },
     "world.transparentDraws": {
-      "sum": 66505,
-      "max": 201,
-      "frames": 483
+      "sum": 58906,
+      "max": 134,
+      "frames": 458
     },
     "world.volumeDraws": {
       "sum": 0,
       "max": 0,
-      "frames": 483
+      "frames": 458
     }
   },
   "baseline": {
-    "reason": "SC3 before-R3 baseline at CrystalGraphics bff5873d+, 3-run median, 600 frames, 120 fps cap; taken while REA's scripts load the machine (retake when quiet); 2 ultimates of 67 shapes starting together",
-    "commit": "bff5873d",
-    "accepted": "2026-10-20"
+    "reason": "SC3 retake 2026-10-21 at CrystalGraphics f9ef89be (reset clears only what it used), 3-run median, 600 frames, 120 fps cap, RTX 4070 SUPER, quiet machine; after R3, C's allocation sweep and A4; arena-family cells measured after a 900-frame warm-up so A4's spread preparation ends first",
+    "commit": "f9ef89be",
+    "accepted": "2026-10-21"
   }
 }
