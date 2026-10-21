@@ -2,6 +2,7 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgBlendMode;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
+import com.crystalgraphics.api.material.CgMaterialUsage;
 import com.crystalgraphics.asset.kind.CgAssetKinds;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -45,8 +46,8 @@ public final class CgVfxRenderersScene implements InteractiveSceneLifecycle {
     private int frames;
     private boolean running = true;
 
-    private static CgMaterialDefinition material(String id, String shader) {
-        return CgMaterialDefinition.builder("harness:materials/" + id, shader).blend(CgBlendMode.ADDITIVE).build();
+    private static CgMaterialDefinition material(String id, String shader, CgMaterialUsage usage) {
+        return CgMaterialDefinition.builder("harness:materials/" + id, shader).blend(CgBlendMode.ADDITIVE).usage(usage).build();
     }
 
     private static CgVfxEmitter.Builder emitter(String name) {
@@ -56,13 +57,13 @@ public final class CgVfxRenderersScene implements InteractiveSceneLifecycle {
 
     private static CgVfxLook look() {
         CgVfxEmitter sprites = emitter("sprites").renderer(CgVfxRenderers.sprite("sprite")
-                .material(material("sprite", SPRITE)).bind("_Color", "user.ember").build()).build();
+                .material(material("sprite", SPRITE, CgMaterialUsage.SPRITES)).bind("_Color", "user.ember").build()).build();
         CgVfxEmitter arcs = emitter("arcs").renderer(CgVfxEmitter.Renderer.ARCS)
-                .renderer(CgVfxRenderers.arc("arc").material(material("arc", ARC)).build()).build();
+                .renderer(CgVfxRenderers.arc("arc").material(material("arc", ARC, CgMaterialUsage.SPRITES)).build()).build();
         CgVfxEmitter trails = emitter("trails").trail(8).renderer(CgVfxRenderers.trails("trails")
-                .material(material("streaks", STREAKS)).field("points", 8).build()).build();
+                .material(material("streaks", STREAKS, CgMaterialUsage.RIBBONS)).field("points", 8).build()).build();
         CgVfxEmitter ribbons = emitter("ribbons").renderer(CgVfxRenderers.ribbon("ribbon")
-                .material(material("ribbon", RIBBON)).build()).build();
+                .material(material("ribbon", RIBBON, CgMaterialUsage.RIBBONS)).build()).build();
         return CgVfxLook.builder(SCHEMA).emitter(sprites).emitter(arcs).emitter(trails).emitter(ribbons).build();
     }
 
