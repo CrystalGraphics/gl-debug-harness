@@ -117,7 +117,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private int slotCount, slotFirst, allSlots, live = -1, leadLive = -1;
     private int[] bases;
     private float[] radius;
-    private ByteBuffer records, visible, drawn, order, objects;
+    private ByteBuffer records, drawnParts, visible, drawn, order, objects;
     private final Matrix4f model = new Matrix4f(), turned = new Matrix4f(), normal = new Matrix4f();
     private int frame, checkedDrawn, culled, occluded, sourceKept, timedFrom = -1, slowest, between, fastest;
     private float worst, worstRow, worstObject;
@@ -155,8 +155,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             record();
             return;
         }
-        if (!compared && records != null && visible != null && order != null && objects != null && live >= 0 && leadLive >= 0) {
-            drawn = drawnFrom(order, records);
+        if (!compared && records != null && drawnParts != null && visible != null && order != null && objects != null
+                && live >= 0 && leadLive >= 0) {
+            drawn = drawnFrom(order, drawnParts);
             compare();
             compared = true;
         }
@@ -207,8 +208,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         Random random = new Random(1201);
         lead = CgVfxParticlePool.of(this, LEAD);
         int leadSlot = lead.open(LEAD, LEAD_CAPACITY * SCALE), leadTotal = LEAD_SEEDED * SCALE;
-        ByteBuffer leadPacked = ByteBuffer.allocateDirect(leadTotal * CgVfxRecord.BYTES).order(ByteOrder.nativeOrder());
-        for (int r = 0; r < leadTotal; r++) seedOne(leadPacked, r, leadTotal, leadSlot, random);
+        ByteBuffer leadPacked = ByteBuffer.allocateDirect(leadTotal * lead.record().bytes()).order(ByteOrder.nativeOrder());
+        for (int r = 0; r < leadTotal; r++) seedOne(leadPacked, lead.record(), r, leadTotal, leadSlot, random);
         lead.seed(rec, leadPacked, leadTotal);
         lead.beginStep(DT, 0.4f, 0f, 0.2f);
         lead.instance(leadSlot, 0x1EAD, 1f, Float.NaN, origin(ORIGIN[0]));
@@ -227,9 +228,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
 
         int total = 0;
         for (int n : SEEDED) total += n * SCALE;
-        ByteBuffer packed = ByteBuffer.allocateDirect(total * CgVfxRecord.BYTES).order(ByteOrder.nativeOrder());
+        ByteBuffer packed = ByteBuffer.allocateDirect(total * pool.record().bytes()).order(ByteOrder.nativeOrder());
         for (int s = 0, r = 0; s < CAPACITY.length; s++) {
-            for (int i = 0; i < SEEDED[s] * SCALE; i++, r++) seedOne(packed, r, total, slots[s], random);
+            for (int i = 0; i < SEEDED[s] * SCALE; i++, r++) seedOne(packed, pool.record(), r, total, slots[s], random);
         }
         pool.seed(rec, packed, total);
 
@@ -258,7 +259,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         int storage = pool.storage(), end = range.base(0) + pool.capacity();
         requests.add(rec.readback(pool.live(), 0, 4, data -> live = data.getInt(0)));
         requests.add(rec.readback(lead.live(), 0, 4, data -> leadLive = data.getInt(0)));
-        requests.add(rec.readback(pool.records(), 0, (long) storage * CgVfxRecord.BYTES, data -> records = copy(data)));
+        requests.add(rec.readback(pool.records(), 0, (long) storage * pool.record().bytes(), data -> records = copy(data)));
+        requests.add(rec.readback(pool.drawn(), 0, (long) storage * CgVfxRecord.DRAWN_BYTES, data -> drawnParts = copy(data)));
         requests.add(rec.readback(range.visible(), 0, (allSlots + 1) * 4L, data -> visible = copy(data)));
         requests.add(rec.readback(range.order(), 0, (long) end * 4, data -> order = copy(data)));
         requests.add(rec.readback(range.objects(), 0, (long) end * OBJECT_FLOATS * 4, data -> objects = copy(data)));
@@ -266,18 +268,22 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     }
 
     /** A particle near its slot's origin, moving, part way through its life; its seed unique among them all. */
-    private static void seedOne(ByteBuffer out, int r, int total, int slot, Random random) {
-        int at = r * CgVfxRecord.BYTES;
+    private static void seedOne(ByteBuffer out, CgVfxRecord layout, int r, int total, int slot, Random random) {
         float spread = SPREAD[slot];   // slots open in order on a fresh pool: a slot is its index here
         float x = spread(random, spread), y = spread(random, spread), z = spread(random, spread);
         float vx = spread(random, 3f), vy = spread(random, 3f), vz = spread(random, 3f);
         float life = 0.5f + random.nextFloat() * 2f;
-        out.putFloat(at, x).putFloat(at + 4, y).putFloat(at + 8, z).putFloat(at + 12, random.nextFloat() * life * 0.98f);
-        out.putFloat(at + 16, x - vx * DT).putFloat(at + 20, y - vy * DT).putFloat(at + 24, z - vz * DT).putFloat(at + 28, life);
-        out.putFloat(at + 32, vx).putFloat(at + 36, vy).putFloat(at + 40, vz).putFloat(at + 44, 0.05f + random.nextFloat() * 0.5f);
-        out.putFloat(at + 48, (r + 0.5f) / total).putFloat(at + 52, random.nextFloat() * 6.28f)
-                .putFloat(at + 56, spread(random, 4f)).putFloat(at + 60, random.nextFloat());
-        out.putInt(at + 64, r).putInt(at + 68, slot).putInt(at + 72, 0).putInt(at + 76, 0);
+        layout.put(out, r, x, y, z, vx, vy, vz, random.nextFloat() * life * 0.98f, life, 0.05f + random.nextFloat() * 0.5f,
+                (r + 0.5f) / total, r, slot);
+        layout.putF(out, r, CgVfxRecord.SPIN, random.nextFloat() * 6.28f);
+        layout.putF(out, r, CgVfxRecord.SPIN_RATE, spread(random, 4f));
+        layout.putF(out, r, CgVfxRecord.HEAT, random.nextFloat());
+        int previous = layout.word(CgVfxRecord.Tail.PREVIOUS);
+        if (previous >= 0) {
+            layout.putF(out, r, previous, x - vx * DT);
+            layout.putF(out, r, previous + 1, y - vy * DT);
+            layout.putF(out, r, previous + 2, z - vz * DT);
+        }
     }
 
     /** The wall's pyramid, uploaded into {@code rec}. */
@@ -311,12 +317,12 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         boolean[] mayDraw = new boolean[live], mustDraw = new boolean[live], drawnOnce = new boolean[live];
         for (int s = 0; s < slotCount; s++) bySeed.add(new HashMap<>());
         for (int r = 0; r < live; r++) {
-            int slot = CgVfxRecord.i(records, r, CgVfxRecord.SLOT);
+            int slot = pool.record().i(records, r, CgVfxRecord.SLOT);
             if (slot < 0 || slot >= slotCount || !pool.isOpen(slot)) {
                 fail("record " + r + " names slot " + slot);
                 return;
             }
-            bySeed.get(slot).put(Float.floatToRawIntBits(CgVfxRecord.f(records, r, CgVfxRecord.SEED)), r);
+            bySeed.get(slot).put(Float.floatToRawIntBits(pool.record().f(records, r, CgVfxRecord.SEED)), r);
             int cull = cull(r, slot);
             mustDraw[r] = cull > 0;
             mayDraw[r] = cull >= 0;
@@ -382,11 +388,11 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
 
     /** 1 inside the view, -1 outside, 0 within rounding of a plane: Range's test, in Java. */
     private int cull(int r, int slot) {
-        float cx = ORIGIN[slot][0] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION);
-        float cy = ORIGIN[slot][1] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 1);
-        float cz = ORIGIN[slot][2] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 2);
+        float cx = ORIGIN[slot][0] + pool.record().f(records, r, CgVfxRecord.POSITION);
+        float cy = ORIGIN[slot][1] + pool.record().f(records, r, CgVfxRecord.POSITION + 1);
+        float cz = ORIGIN[slot][2] + pool.record().f(records, r, CgVfxRecord.POSITION + 2);
         // Its size alone: a frame draws it where its step left it.
-        float reach = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * radius[slot];
+        float reach = pool.record().f(records, r, CgVfxRecord.SIZE) * radius[slot];
         if (slot == SOURCE) {
             // Kept by its source though outside the view itself: what tells the source's cull from each particle's.
             for (float[] p : planes) {
@@ -459,9 +465,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
 
     /** Range's view depth key: 16 bits, logarithmic from 1/64 to 1024 blocks. */
     private int depthKey(int r, int slot) {
-        float cx = ORIGIN[slot][0] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION);
-        float cy = ORIGIN[slot][1] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 1);
-        float cz = ORIGIN[slot][2] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 2);
+        float cx = ORIGIN[slot][0] + pool.record().f(records, r, CgVfxRecord.POSITION);
+        float cy = ORIGIN[slot][1] + pool.record().f(records, r, CgVfxRecord.POSITION + 1);
+        float cz = ORIGIN[slot][2] + pool.record().f(records, r, CgVfxRecord.POSITION + 2);
         Matrix4f vp = viewProjection;
         float w = Math.max(vp.m03() * cx + vp.m13() * cy + vp.m23() * cz + vp.m33(), 1f / 64f);
         float log = (float) (Math.log(w) / Math.log(2));
@@ -470,25 +476,25 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
 
     /** Drawn record {@code d} against particle {@code r} as {@code CgVfxSystem.writeRecords} writes it. */
     private void checkPlaced(int d, int r) {
-        float age = CgVfxRecord.f(records, r, CgVfxRecord.AGE), life = CgVfxRecord.f(records, r, CgVfxRecord.LIFE);
+        float age = pool.record().f(records, r, CgVfxRecord.AGE), life = pool.record().f(records, r, CgVfxRecord.LIFE);
         float t = Math.min(age / life, 1f), u = curveAt(r, t);
         float size = curve(u, 0, 3), opacity = curve(u, TEXELS, 3);
         worstRow = Math.max(worstRow, Math.max(Math.abs(size - emitter.sizeAt(u)), Math.abs(opacity - emitter.opacityAt(u))));
         float[] look = look(r, u);
         float[] want = new float[DRAWN_FLOATS];
         for (int a = 0; a < 3; a++) {
-            want[a] = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + a);
-            want[4 + a] = CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + a);
+            want[a] = pool.record().f(records, r, CgVfxRecord.POSITION + a);
+            want[4 + a] = pool.record().f(records, r, CgVfxRecord.VELOCITY + a);
         }
-        want[3] = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * size;
+        want[3] = pool.record().f(records, r, CgVfxRecord.SIZE) * size;
         want[7] = t;
-        want[8] = CgVfxRecord.f(records, r, CgVfxRecord.SEED);
-        want[9] = CgVfxRecord.f(records, r, CgVfxRecord.SPIN);
-        want[10] = CgVfxRecord.f(records, r, CgVfxRecord.HEAT);
+        want[8] = pool.record().f(records, r, CgVfxRecord.SEED);
+        want[9] = pool.record().f(records, r, CgVfxRecord.SPIN);
+        want[10] = pool.record().f(records, r, CgVfxRecord.HEAT);
         want[11] = look[7];
         // Full light packed as one word, block + 16 sky; then its spawn id's low 24 bits
         want[12] = 15f + 16f * 15f;
-        want[13] = CgVfxRecord.i(records, r, CgVfxRecord.ID) & 0xFFFFFF;
+        want[13] = pool.record().i(records, r, CgVfxRecord.ID) & 0xFFFFFF;
         System.arraycopy(look, 4, want, 16, 4);
         System.arraycopy(look, 1, want, 20, 3);
         want[23] = age;                         // CG_PARTICLE_AGE: what a flipbook's loop runs on
@@ -502,14 +508,14 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
 
     /** Object record {@code d} against particle {@code r} as {@code CgVfxFrame.particleMeshes} places its mesh. */
     private void checkObject(int d, int r) {
-        float age = CgVfxRecord.f(records, r, CgVfxRecord.AGE), life = CgVfxRecord.f(records, r, CgVfxRecord.LIFE);
-        float t = Math.min(age / life, 1f), seed = CgVfxRecord.f(records, r, CgVfxRecord.SEED);
-        float turn = seed * 6.2831853f + CgVfxRecord.f(records, r, CgVfxRecord.SPIN);
+        float age = pool.record().f(records, r, CgVfxRecord.AGE), life = pool.record().f(records, r, CgVfxRecord.LIFE);
+        float t = Math.min(age / life, 1f), seed = pool.record().f(records, r, CgVfxRecord.SEED);
+        float turn = seed * 6.2831853f + pool.record().f(records, r, CgVfxRecord.SPIN);
         float[] at = new float[3];
         for (int a = 0; a < 3; a++) {
-            at[a] = CgVfxRecord.f(records, r, CgVfxRecord.POSITION + a);
+            at[a] = pool.record().f(records, r, CgVfxRecord.POSITION + a);
         }
-        float u = curveAt(r, t), base = CgVfxRecord.f(records, r, CgVfxRecord.SIZE) * curve(u, 0, 3);
+        float u = curveAt(r, t), base = pool.record().f(records, r, CgVfxRecord.SIZE) * curve(u, 0, 3);
         float[] look = look(r, u), size = {base * look[1], base * look[2], base * look[3]};
         turned.rotationXYZ(turn * 1.7f, turn * 2.3f, turn).scale(size[0], size[1], size[2]);
         model.translation(at[0], at[1], at[2]).mul(turned).normal(normal);
@@ -520,12 +526,12 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         want[29] = 15f;
         want[30] = 0f;
         want[31] = 0f;   // CG_OBJECT_SPARE: nothing under it, no window and no ground
-        for (int a = 0; a < 3; a++) want[32 + a] = CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + a);
+        for (int a = 0; a < 3; a++) want[32 + a] = pool.record().f(records, r, CgVfxRecord.VELOCITY + a);
         want[35] = age;                                      // its age where its step left it
         want[36] = t;
         want[37] = seed;
         want[38] = look[7];
-        want[39] = CgVfxRecord.f(records, r, CgVfxRecord.HEAT);
+        want[39] = pool.record().f(records, r, CgVfxRecord.HEAT);
         System.arraycopy(look, 4, want, 40, 3);
         want[43] = d;                                        // its place in the order: what a mesh factory reads by
         for (int w = 0; w < OBJECT_FLOATS; w++) {
@@ -551,9 +557,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
 
     /** Where particle {@code r} samples its curves: by speed in slot {@link #BY_SPEED}, else its life progress {@code t}. */
     private float curveAt(int r, float t) {
-        if (CgVfxRecord.i(records, r, CgVfxRecord.SLOT) != BY_SPEED) return t;
-        return SPEEDS.at(0f, 1f, CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY),
-                CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + 1), CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + 2));
+        if (pool.record().i(records, r, CgVfxRecord.SLOT) != BY_SPEED) return t;
+        return SPEEDS.at(0f, 1f, pool.record().f(records, r, CgVfxRecord.VELOCITY),
+                pool.record().f(records, r, CgVfxRecord.VELOCITY + 1), pool.record().f(records, r, CgVfxRecord.VELOCITY + 2));
     }
 
     /** Lane {@code lane} of the curve from vec4 {@code first} at progress {@code t}, between its two nearest samples. */
@@ -570,7 +576,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
      */
     private float[] look(int r, float u) {
         float[] out = new float[8];
-        int bits = Float.floatToRawIntBits(CgVfxRecord.f(records, r, CgVfxRecord.SEED));
+        int bits = Float.floatToRawIntBits(pool.record().f(records, r, CgVfxRecord.SEED));
         out[0] = curve(u, 0, 3);
         for (int a = 0; a < 3; a++) {
             float roll = CgVfxEmitterInstance.rand(bits, 0, 24 + a), lo = curves[STARTS + 8 + a], hi = curves[STARTS + 12 + a];
@@ -662,14 +668,14 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     }
 
     /** Each drawn particle's drawn part, read through Range's order as a draw reads it; zero past a slot's visible count. */
-    private static ByteBuffer drawnFrom(ByteBuffer order, ByteBuffer records) {
+    private static ByteBuffer drawnFrom(ByteBuffer order, ByteBuffer parts) {
         int n = order.limit() / 4;
         ByteBuffer out = ByteBuffer.allocate(n * DRAWN_FLOATS * 4).order(ByteOrder.nativeOrder());
         for (int d = 0; d < n; d++) {
             int r = (int) order.getFloat(d * 4);
             if (r < 0) continue;
             for (int w = 0; w < DRAWN_FLOATS; w++) {
-                out.putFloat((d * DRAWN_FLOATS + w) * 4, records.getFloat(r * CgVfxRecord.BYTES + (CgVfxRecord.DRAWN + w) * 4));
+                out.putFloat((d * DRAWN_FLOATS + w) * 4, parts.getFloat(r * CgVfxRecord.DRAWN_BYTES + w * 4));
             }
         }
         return out;

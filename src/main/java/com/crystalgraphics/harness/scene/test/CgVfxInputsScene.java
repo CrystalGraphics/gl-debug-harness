@@ -177,7 +177,7 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
                 for (int p = 0; p < 3; p++) {
                     int at = p;
                     requests.add(rec.readback(pools[p].live(), 0, 4, data -> live[at] = data.getInt(0)));
-                    requests.add(rec.readback(pools[p].records(), 0, (long) pools[p].storage() * CgVfxRecord.BYTES,
+                    requests.add(rec.readback(pools[p].records(), 0, (long) pools[p].storage() * pools[p].record().bytes(),
                             data -> records[at] = copy(data)));
                 }
             }
@@ -204,7 +204,8 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
         for (int p = 0; p < 3; p++) {
             pools[p] = CgVfxParticlePool.of(this, definitions[p]);
             slots[p] = pools[p].open(definitions[p], PER_POOL);
-            ByteBuffer packed = ByteBuffer.allocateDirect(PER_POOL * CgVfxRecord.BYTES).order(ByteOrder.nativeOrder());
+            CgVfxRecord layout = pools[p].record();
+            ByteBuffer packed = ByteBuffer.allocateDirect(PER_POOL * layout.bytes()).order(ByteOrder.nativeOrder());
             for (int r = 0; r < PER_POOL; r++) {
                 float[] at = new float[3], v = new float[3];
                 if (p == 0) {
@@ -217,12 +218,7 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
                 } else {
                     thrown(r, random, at, v);
                 }
-                int b = r * CgVfxRecord.BYTES;
-                packed.putFloat(b, at[0]).putFloat(b + 4, at[1]).putFloat(b + 8, at[2]).putFloat(b + 12, 0f);
-                packed.putFloat(b + 16, at[0]).putFloat(b + 20, at[1]).putFloat(b + 24, at[2]).putFloat(b + 28, 100f);
-                packed.putFloat(b + 32, v[0]).putFloat(b + 36, v[1]).putFloat(b + 40, v[2]).putFloat(b + 44, 0.1f);
-                packed.putFloat(b + 48, (r + 0.5f) / PER_POOL).putFloat(b + 52, 0f).putFloat(b + 56, 0f).putFloat(b + 60, 0f);
-                packed.putInt(b + 64, r).putInt(b + 68, slots[p]).putInt(b + 72, 0).putInt(b + 76, 0);
+                layout.put(packed, r, at[0], at[1], at[2], v[0], v[1], v[2], 0f, 100f, 0.1f, (r + 0.5f) / PER_POOL, r, slots[p]);
             }
             pools[p].seed(rec, packed, PER_POOL);
         }
@@ -282,14 +278,25 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
         checkDepth();
     }
 
+    /**
+     * Pool {@code p}'s particle {@code r}'s position on axis {@code a} as its last step started: where its layout keeps
+     * none, its position less that step's motion.
+     */
+    private float previous(int p, int r, int a) {
+        CgVfxRecord layout = pools[p].record();
+        int at = layout.word(CgVfxRecord.Tail.PREVIOUS);
+        if (at >= 0) return layout.f(records[p], r, at + a);
+        return layout.f(records[p], r, CgVfxRecord.POSITION + a) - layout.f(records[p], r, CgVfxRecord.VELOCITY + a) * DT;
+    }
+
     /** Its velocity the field where it stood at the step's start, and where that took it. */
     private void checkField(int r) {
         ByteBuffer b = records[0];
         float[] was = new float[3];
-        for (int a = 0; a < 3; a++) was[a] = (CgVfxRecord.f(b, r, CgVfxRecord.PREVIOUS + a) + BOX) / (2f * BOX);
+        for (int a = 0; a < 3; a++) was[a] = (previous(0, r, a) + BOX) / (2f * BOX);
         for (int a = 0; a < 3; a++) {
-            float want = sample3(was, a), v = CgVfxRecord.f(b, r, CgVfxRecord.VELOCITY + a);
-            float moved = CgVfxRecord.f(b, r, CgVfxRecord.PREVIOUS + a) + v * DT, at = CgVfxRecord.f(b, r, CgVfxRecord.POSITION + a);
+            float want = sample3(was, a), v = pools[0].record().f(b, r, CgVfxRecord.VELOCITY + a);
+            float moved = previous(0, r, a) + v * DT, at = pools[0].record().f(b, r, CgVfxRecord.POSITION + a);
             worstField = Math.max(worstField, Math.abs(v - want));
             if (Math.abs(v - want) > FILTERED || Math.abs(at - moved) > 1e-4f) {
                 fail("particle " + r + " in the field moves " + v + " on axis " + a + ", not " + want + ", to " + at);
@@ -302,12 +309,12 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
     /** At the height it fell to, or on the heightfield where that is above it, never moving across. */
     private void checkHeight(int r) {
         ByteBuffer b = records[1];
-        float x = CgVfxRecord.f(b, r, CgVfxRecord.POSITION), z = CgVfxRecord.f(b, r, CgVfxRecord.POSITION + 2);
-        float y = CgVfxRecord.f(b, r, CgVfxRecord.POSITION + 1);
+        float x = pools[1].record().f(b, r, CgVfxRecord.POSITION), z = pools[1].record().f(b, r, CgVfxRecord.POSITION + 2);
+        float y = pools[1].record().f(b, r, CgVfxRecord.POSITION + 1);
         float h = sample2((x + BOX) / (2f * BOX), (z + BOX) / (2f * BOX));
         // Its last step: falling on from where it was, or stopped on the ground there.
-        float free = CgVfxRecord.f(b, r, CgVfxRecord.PREVIOUS + 1) - FALL * DT;
-        boolean stopped = CgVfxRecord.f(b, r, CgVfxRecord.VELOCITY + 1) == 0f;
+        float free = previous(1, r, 1) - FALL * DT;
+        boolean stopped = pools[1].record().f(b, r, CgVfxRecord.VELOCITY + 1) == 0f;
         float off = stopped ? Math.abs(y - h) : Math.abs(y - free);
         worstHeight = Math.max(worstHeight, off);
         if (stopped ? off > FILTERED : off > 1e-4f || y < h - FILTERED) {
@@ -323,7 +330,7 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
         Vector3f wall = inverse.transformDirection(new Vector3f(0f, 0f, 1f)), floor = new Vector3f(0f, 1f, 0f);
         ByteBuffer b = records[2];
         for (int r = 0; r < PER_POOL; r++) {
-            int id = CgVfxRecord.i(b, r, CgVfxRecord.ID);
+            int id = pools[2].record().i(b, r, CgVfxRecord.ID);
             double[] hit = hits.get(id);
             int count = hitCounts.getOrDefault(id, 0);
             if (hit == null || count != 1) {
@@ -348,7 +355,7 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
                 return;
             }
             for (int a = 0; a < 3; a++) {
-                double now = DEPTH_ORIGIN[a] + CgVfxRecord.f(b, r, CgVfxRecord.POSITION + a);
+                double now = DEPTH_ORIGIN[a] + pools[2].record().f(b, r, CgVfxRecord.POSITION + a);
                 if (Math.abs(now - hit[a]) > 1e-3) fail("depth particle " + id + " moved after it struck");
             }
             if (id % 2 == 0) wallHits++;

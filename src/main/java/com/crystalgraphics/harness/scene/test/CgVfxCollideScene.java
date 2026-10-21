@@ -126,10 +126,10 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
             if (frame > FILL) step(rec);
             if (frame == FILL + STEPS + 1) {
                 requests.add(rec.readback(parents.live(), 0, 4, data -> parentLive = data.getInt(0)));
-                requests.add(rec.readback(parents.records(), 0, (long) parents.storage() * CgVfxRecord.BYTES,
+                requests.add(rec.readback(parents.records(), 0, (long) parents.storage() * parents.record().bytes(),
                         data -> parentRecords = copy(data)));
                 requests.add(rec.readback(children.live(), 0, 4, data -> childLive = data.getInt(0)));
-                requests.add(rec.readback(children.records(), 0, (long) children.storage() * CgVfxRecord.BYTES,
+                requests.add(rec.readback(children.records(), 0, (long) children.storage() * children.record().bytes(),
                         data -> childRecords = copy(data)));
             }
             CgImmediate.execute(rec);
@@ -158,16 +158,12 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         childSlot = children.open(dust, PARENTS * COUNT * KILL_AFTER);
         children.feed(childSlot, parents, parentSlot, COLLISION);
         Random random = new Random(1201);
-        ByteBuffer packed = ByteBuffer.allocateDirect(PARENTS * CgVfxRecord.BYTES).order(ByteOrder.nativeOrder());
+        CgVfxRecord layout = parents.record();
+        ByteBuffer packed = ByteBuffer.allocateDirect(PARENTS * layout.bytes()).order(ByteOrder.nativeOrder());
         for (int r = 0; r < PARENTS; r++) {
             float x = -3f + random.nextFloat() * 5f, y = -1f + random.nextFloat() * 2.5f, z = (random.nextFloat() * 2f - 1f) * 3f;
             float vx = 1f + random.nextFloat() * 6f, vy = -1f + random.nextFloat() * 4f, vz = random.nextFloat() * 2f - 1f;
-            int at = r * CgVfxRecord.BYTES;
-            packed.putFloat(at, x).putFloat(at + 4, y).putFloat(at + 8, z).putFloat(at + 12, 0f);
-            packed.putFloat(at + 16, x).putFloat(at + 20, y).putFloat(at + 24, z).putFloat(at + 28, 100f);
-            packed.putFloat(at + 32, vx).putFloat(at + 36, vy).putFloat(at + 40, vz).putFloat(at + 44, 0.1f);
-            packed.putFloat(at + 48, random.nextFloat()).putFloat(at + 52, 0f).putFloat(at + 56, 0f).putFloat(at + 60, 0f);
-            packed.putInt(at + 64, r).putInt(at + 68, parentSlot).putInt(at + 72, 0).putInt(at + 76, 0);
+            layout.put(packed, r, x, y, z, vx, vy, vz, 0f, 100f, 0.1f, random.nextFloat(), r, parentSlot);
         }
         parents.seed(rec, packed, PARENTS);
     }
@@ -198,9 +194,9 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         if (repeated > 0 || dropped > 0) fail(repeated + " firings heard twice, " + dropped + " rows dropped");
         Map<Integer, Integer> alive = new HashMap<>();
         for (int r = 0; r < parentLive; r++) {
-            alive.put(CgVfxRecord.i(parentRecords, r, CgVfxRecord.ID), r);
+            alive.put(parents.record().i(parentRecords, r, CgVfxRecord.ID), r);
             double[] at = place(parentRecords, r, PARENT_ORIGIN);
-            if (world.inside(at[0], at[1], at[2])) fail("debris " + CgVfxRecord.i(parentRecords, r, CgVfxRecord.ID) + " ends inside a solid block");
+            if (world.inside(at[0], at[1], at[2])) fail("debris " + parents.record().i(parentRecords, r, CgVfxRecord.ID) + " ends inside a solid block");
         }
         killed = PARENTS - parentLive;
         if (rows.get(DEATH).size() != killed) fail(rows.get(DEATH).size() + " deaths heard, " + killed + " debris gone");
@@ -208,12 +204,12 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         for (int id = 0; id < PARENTS; id++) {
             TreeMap<Integer, double[]> hits = rows.get(COLLISION).getOrDefault(id, new TreeMap<>());
             Integer r = alive.get(id);
-            int want = r == null ? KILL_AFTER : CgVfxRecord.i(parentRecords, r, CgVfxRecord.FLAGS) >>> CgVfxRecord.COLLISIONS_SHIFT;
+            int want = r == null ? KILL_AFTER : parents.record().i(parentRecords, r, parents.record().word(CgVfxRecord.Tail.FLAGS)) >>> CgVfxRecord.COLLISIONS_SHIFT;
             if (r == null && !rows.get(DEATH).containsKey(id)) fail("debris " + id + " is gone with no death heard");
             if (!numbered(hits, want)) fail("debris " + id + "'s collisions are " + hits.keySet() + ", not 1 to " + want);
             for (Map.Entry<Integer, double[]> hit : hits.entrySet()) collided(id, hit.getKey(), hit.getValue());
             TreeMap<Integer, double[]> rated = rows.get(RATE).getOrDefault(id, new TreeMap<>());
-            int firings = r == null ? rated.size() : (int) Math.floor(CgVfxRecord.f(parentRecords, r, CgVfxRecord.AGE) / PERIOD);
+            int firings = r == null ? rated.size() : (int) Math.floor(parents.record().f(parentRecords, r, CgVfxRecord.AGE) / PERIOD);
             if (!numbered(rated, firings) || firings == 0) fail("debris " + id + "'s rate fired " + rated.keySet() + ", not 1 to " + firings);
             rates += rated.size();
             if (failure != null) return;
@@ -257,7 +253,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         if (childIds == null) {
             childIds = new HashMap<>();
             for (int r = 0; r < childLive; r++) {
-                if (childIds.put(CgVfxRecord.i(childRecords, r, CgVfxRecord.ID), r) != null) fail("two dust share an id");
+                if (childIds.put(children.record().i(childRecords, r, CgVfxRecord.ID), r) != null) fail("two dust share an id");
             }
         }
         return childIds;
@@ -274,13 +270,13 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
                 (float) event[6], (float) event[7], (float) event[8]);
         float start = spawn[29] * (float) Math.pow(rand(SHAPE, key, 2), 1.0 / 3.0);
         float speed = spawn[0] + (spawn[1] - spawn[0]) * rand(SPEED, key, 0);
-        float age = CgVfxRecord.f(childRecords, r, CgVfxRecord.AGE);
+        float age = children.record().f(childRecords, r, CgVfxRecord.AGE);
         for (int a = 0; a < 3; a++) {
             double born = event[a] - CHILD_ORIGIN[a] + dir[a] * start;
             double velocity = dir[a] * speed + INHERIT * event[3 + a];
             double want = born + velocity * age;
-            float got = CgVfxRecord.f(childRecords, r, CgVfxRecord.POSITION + a);
-            float gotV = CgVfxRecord.f(childRecords, r, CgVfxRecord.VELOCITY + a);
+            float got = children.record().f(childRecords, r, CgVfxRecord.POSITION + a);
+            float gotV = children.record().f(childRecords, r, CgVfxRecord.VELOCITY + a);
             float off = (float) Math.max(Math.abs(got - want), Math.abs(gotV - velocity)) / (TOLERANCE * (1f + (float) Math.abs(want)));
             worst = Math.max(worst, off);
             if (!(off <= 1f)) {
@@ -291,10 +287,10 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         checked++;
     }
 
-    private static double[] place(ByteBuffer records, int r, double[] origin) {
-        return new double[]{origin[0] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION),
-                origin[1] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 1),
-                origin[2] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 2)};
+    private double[] place(ByteBuffer records, int r, double[] origin) {
+        return new double[]{origin[0] + parents.record().f(records, r, CgVfxRecord.POSITION),
+                origin[1] + parents.record().f(records, r, CgVfxRecord.POSITION + 1),
+                origin[2] + parents.record().f(records, r, CgVfxRecord.POSITION + 2)};
     }
 
     /** The launch's rolls of an emitter made in code, keyed as the kernel keys them (core.md § Values). */

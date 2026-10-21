@@ -110,7 +110,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
             else step(rec);
             if (frame == STEPS + 1) {
                 requests.add(rec.readback(children.live(), 0, 4, data -> childLive = data.getInt(0)));
-                requests.add(rec.readback(children.records(), 0, (long) children.storage() * CgVfxRecord.BYTES,
+                requests.add(rec.readback(children.records(), 0, (long) children.storage() * children.record().bytes(),
                         data -> childRecords = copy(data)));
             }
             CgImmediate.execute(rec);
@@ -140,16 +140,12 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
         children.feed(childSlots[0], parents, parentSlot, LANDING);
         children.feed(childSlots[1], parents, parentSlot, AT_AGE);
         Random random = new Random(1201);
-        ByteBuffer packed = ByteBuffer.allocateDirect(PARENTS * CgVfxRecord.BYTES).order(ByteOrder.nativeOrder());
+        CgVfxRecord layout = parents.record();
+        ByteBuffer packed = ByteBuffer.allocateDirect(PARENTS * layout.bytes()).order(ByteOrder.nativeOrder());
         for (int r = 0; r < PARENTS; r++) {
             float x = (random.nextFloat() * 2f - 1f) * 3f, y = 1f + random.nextFloat() * 2f, z = (random.nextFloat() * 2f - 1f) * 3f;
             float vx = (random.nextFloat() * 2f - 1f) * 2f, vz = (random.nextFloat() * 2f - 1f) * 2f;
-            int at = r * CgVfxRecord.BYTES;
-            packed.putFloat(at, x).putFloat(at + 4, y).putFloat(at + 8, z).putFloat(at + 12, 0f);
-            packed.putFloat(at + 16, x).putFloat(at + 20, y).putFloat(at + 24, z).putFloat(at + 28, PARENT_LIFE);
-            packed.putFloat(at + 32, vx).putFloat(at + 36, 0f).putFloat(at + 40, vz).putFloat(at + 44, DEBRIS_SIZE);
-            packed.putFloat(at + 48, random.nextFloat()).putFloat(at + 52, 0f).putFloat(at + 56, 0f).putFloat(at + 60, 0f);
-            packed.putInt(at + 64, r).putInt(at + 68, parentSlot).putInt(at + 72, 0).putInt(at + 76, 0);
+            layout.put(packed, r, x, y, z, vx, 0f, vz, 0f, PARENT_LIFE, DEBRIS_SIZE, random.nextFloat(), r, parentSlot);
         }
         parents.seed(rec, packed, PARENTS);
     }
@@ -186,7 +182,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
         }
         Map<Integer, Integer> byId = new HashMap<>();
         for (int r = 0; r < childLive; r++) {
-            if (byId.put(CgVfxRecord.i(childRecords, r, CgVfxRecord.ID), r) != null) fail("two children share an id");
+            if (byId.put(children.record().i(childRecords, r, CgVfxRecord.ID), r) != null) fail("two children share an id");
         }
         int expected = 0;
         for (int e = 0; e < 2; e++) {
@@ -198,7 +194,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
                         fail("no child " + i + " of debris " + parent.getKey() + "'s event " + e);
                         return;
                     }
-                    if (CgVfxRecord.i(childRecords, r, CgVfxRecord.SLOT) != childSlots[e]) fail("child " + key + " is in the wrong slot");
+                    if (children.record().i(childRecords, r, CgVfxRecord.SLOT) != childSlots[e]) fail("child " + key + " is in the wrong slot");
                     check(key, e, parent.getValue(), r);
                 }
             }
@@ -217,13 +213,13 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
                 (float) event[6], (float) event[7], (float) event[8]);
         float start = spawn[29] * (float) Math.pow(rand(SHAPE, key, 2), 1.0 / 3.0);
         float speed = spawn[0] + (spawn[1] - spawn[0]) * rand(SPEED, key, 0);
-        float age = CgVfxRecord.f(childRecords, r, CgVfxRecord.AGE);
+        float age = children.record().f(childRecords, r, CgVfxRecord.AGE);
         for (int a = 0; a < 3; a++) {
             double born = event[a] - CHILD_ORIGIN[a] + dir[a] * start;
             double velocity = dir[a] * speed + INHERIT[e] * event[3 + a];
             double want = born + velocity * age;
-            float got = CgVfxRecord.f(childRecords, r, CgVfxRecord.POSITION + a);
-            float gotV = CgVfxRecord.f(childRecords, r, CgVfxRecord.VELOCITY + a);
+            float got = children.record().f(childRecords, r, CgVfxRecord.POSITION + a);
+            float gotV = children.record().f(childRecords, r, CgVfxRecord.VELOCITY + a);
             float off = (float) Math.max(Math.abs(got - want), Math.abs(gotV - velocity)) / (TOLERANCE * (1f + (float) Math.abs(want)));
             worst = Math.max(worst, off);
             if (!(off <= 1f)) {

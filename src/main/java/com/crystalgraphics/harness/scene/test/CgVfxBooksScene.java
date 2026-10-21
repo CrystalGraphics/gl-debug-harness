@@ -74,6 +74,7 @@ public final class CgVfxBooksScene implements InteractiveSceneLifecycle {
         float[] lifeLeft;
         int live = -1;
         ByteBuffer records;
+        CgVfxRecord layout;
 
         Reading(long[] openings) {
             this.openings = openings;
@@ -134,6 +135,7 @@ public final class CgVfxBooksScene implements InteractiveSceneLifecycle {
             long[] openings = new long[pool.slotCount()];
             for (int s = 0; s < openings.length; s++) openings[s] = pool.opening(s);
             Reading r = new Reading(openings);
+            r.layout = pool.record();
             now.put(pool, r);
             if (pool.records() == null || pool.storage() == 0) {
                 r.live = 0;
@@ -141,7 +143,7 @@ public final class CgVfxBooksScene implements InteractiveSceneLifecycle {
                 continue;
             }
             requests.add(stage.recording().readback(pool.live(), 0, 4, data -> r.live = data.getInt(0)));
-            requests.add(stage.recording().readback(pool.records(), 0, (long) pool.storage() * CgVfxRecord.BYTES,
+            requests.add(stage.recording().readback(pool.records(), 0, (long) pool.storage() * r.layout.bytes(),
                     data -> r.records = copy(data)));
         }
         readings.add(now);
@@ -181,8 +183,8 @@ public final class CgVfxBooksScene implements InteractiveSceneLifecycle {
         if (r.lifeLeft != null) return;
         r.lifeLeft = new float[r.openings.length];
         for (int i = 0; i < r.live; i++) {
-            int slot = CgVfxRecord.i(r.records, i, CgVfxRecord.SLOT);
-            float left = CgVfxRecord.f(r.records, i, CgVfxRecord.LIFE) - CgVfxRecord.f(r.records, i, CgVfxRecord.AGE);
+            int slot = r.layout.i(r.records, i, CgVfxRecord.SLOT);
+            float left = r.layout.f(r.records, i, CgVfxRecord.LIFE) - r.layout.f(r.records, i, CgVfxRecord.AGE);
             if (slot < 0 || slot >= r.lifeLeft.length) continue;
             particlesChecked++;
             r.lifeLeft[slot] = Math.max(r.lifeLeft[slot], left);

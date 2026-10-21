@@ -85,7 +85,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
     private final int[] slots = new int[ORIGIN.length], bases = new int[ORIGIN.length], words = new int[ORIGIN.length];
     private CgVfxParticlePool pool;
     private CgVfxRange range;
-    private ByteBuffer records, visible, drawn, order, distances;
+    private ByteBuffer records, drawnParts, visible, drawn, order, distances;
     private int frame, live = -1, landed, onStep, onTop, underRoof, onRoof, lit, dark, distancesChecked;
     private float worstDistance;
     private String failure;
@@ -120,8 +120,9 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
             CgImmediate.execute(rec);
             return;
         }
-        if (!compared && records != null && visible != null && order != null && distances != null && live >= 0) {
-            drawn = drawnFrom(order, records);
+        if (!compared && records != null && drawnParts != null && visible != null && order != null && distances != null
+                && live >= 0) {
+            drawn = drawnFrom(order, drawnParts);
             compare();
             compared = true;
         }
@@ -139,7 +140,8 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
         if (!CgVfxVoxelWindow.get().live()) fail("the window has no level after " + FILL + " frames");
         pool = CgVfxParticlePool.of(this, debris);
         Random random = new Random(1201);
-        ByteBuffer packed = ByteBuffer.allocateDirect(ORIGIN.length * PER_SLOT * CgVfxRecord.BYTES).order(ByteOrder.nativeOrder());
+        CgVfxRecord layout = pool.record();
+        ByteBuffer packed = ByteBuffer.allocateDirect(ORIGIN.length * PER_SLOT * layout.bytes()).order(ByteOrder.nativeOrder());
         for (int s = 0, r = 0; s < ORIGIN.length; s++) {
             slots[s] = pool.open(debris, PER_SLOT);
             pool.cullAbout(slots[s], 8f);
@@ -150,13 +152,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
                     z = (random.nextFloat() * 2f - 1f) * SPREAD[s];
                 } while (nearEdge(ORIGIN[s][0] + x, 1.0) || nearEdge(ORIGIN[s][2] + z, 0.5));
                 float y = random.nextFloat() * 2f;
-                int at = r * CgVfxRecord.BYTES;
-                packed.putFloat(at, x).putFloat(at + 4, y).putFloat(at + 8, z).putFloat(at + 12, 0f);
-                packed.putFloat(at + 16, x).putFloat(at + 20, y).putFloat(at + 24, z).putFloat(at + 28, 100f);
-                packed.putFloat(at + 32, 0f).putFloat(at + 36, 0f).putFloat(at + 40, 0f).putFloat(at + 44, 0.1f);
-                packed.putFloat(at + 48, (r + 0.5f) / (ORIGIN.length * PER_SLOT)).putFloat(at + 52, 0f)
-                        .putFloat(at + 56, 0f).putFloat(at + 60, 0f);
-                packed.putInt(at + 64, r).putInt(at + 68, slots[s]).putInt(at + 72, 0).putInt(at + 76, 0);
+                layout.put(packed, r, x, y, z, 0f, 0f, 0f, 0f, 100f, 0.1f, (r + 0.5f) / (ORIGIN.length * PER_SLOT), r, slots[s]);
             }
         }
         pool.seed(rec, packed, ORIGIN.length * PER_SLOT);
@@ -182,7 +178,9 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
         int allSlots = 0;
         for (int w : words) allSlots = Math.max(allSlots, w + 1);
         requests.add(rec.readback(pool.live(), 0, 4, data -> live = data.getInt(0)));
-        requests.add(rec.readback(pool.records(), 0, (long) pool.storage() * CgVfxRecord.BYTES, data -> records = copy(data)));
+        requests.add(rec.readback(pool.records(), 0, (long) pool.storage() * pool.record().bytes(), data -> records = copy(data)));
+        requests.add(rec.readback(pool.drawn(), 0, (long) pool.storage() * CgVfxRecord.DRAWN_BYTES,
+                data -> drawnParts = copy(data)));
         requests.add(rec.readback(range.visible(), 0, allSlots * 4L, data -> visible = copy(data)));
         requests.add(rec.readback(range.order(), 0, (long) end * 4, data -> order = copy(data)));
         requests.add(rec.readback(CgVfxVoxelWindow.get().distance(), 0, 0, 0, 0, CgVfxVoxelWindow.WIDTH,
@@ -195,16 +193,16 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
             return;
         }
         for (int r = 0; r < live; r++) {
-            int s = CgVfxRecord.i(records, r, CgVfxRecord.SLOT);
-            double x = ORIGIN[s][0] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION);
-            double y = ORIGIN[s][1] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 1);
-            double z = ORIGIN[s][2] + CgVfxRecord.f(records, r, CgVfxRecord.POSITION + 2);
+            int s = pool.record().i(records, r, CgVfxRecord.SLOT);
+            double x = ORIGIN[s][0] + pool.record().f(records, r, CgVfxRecord.POSITION);
+            double y = ORIGIN[s][1] + pool.record().f(records, r, CgVfxRecord.POSITION + 1);
+            double z = ORIGIN[s][2] + pool.record().f(records, r, CgVfxRecord.POSITION + 2);
             double floor = s == 0 ? (z - Math.floor(z) < 0.5 ? GROUND + 0.5 : GROUND + 1) : s == 2 ? ROOF + 1 : GROUND;
             // Ground rests it as a ball of its size on the floor.
-            double want = floor + CgVfxRecord.f(records, r, CgVfxRecord.SIZE);
-            boolean resting = (CgVfxRecord.i(records, r, CgVfxRecord.FLAGS) & CgVfxRecord.RESTING) != 0;
+            double want = floor + pool.record().f(records, r, CgVfxRecord.SIZE);
+            boolean resting = (pool.record().i(records, r, pool.record().word(CgVfxRecord.Tail.FLAGS)) & CgVfxRecord.RESTING) != 0;
             if (!resting || Math.abs(y - want) > 1e-4) {
-                fail("debris " + CgVfxRecord.i(records, r, CgVfxRecord.ID) + " of slot " + s + " is at y " + y
+                fail("debris " + pool.record().i(records, r, CgVfxRecord.ID) + " of slot " + s + " is at y " + y
                         + (resting ? ", resting" : ", still falling") + "; its floor is " + floor + ", so it rests at " + want);
                 return;
             }
@@ -428,14 +426,14 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
     }
 
     /** Each drawn particle's drawn part, read through Range's order as a draw reads it; zero past a slot's visible count. */
-    private static ByteBuffer drawnFrom(ByteBuffer order, ByteBuffer records) {
+    private static ByteBuffer drawnFrom(ByteBuffer order, ByteBuffer parts) {
         int n = order.limit() / 4;
         ByteBuffer out = ByteBuffer.allocate(n * DRAWN_FLOATS * 4).order(ByteOrder.nativeOrder());
         for (int d = 0; d < n; d++) {
             int r = (int) order.getFloat(d * 4);
             if (r < 0) continue;
             for (int w = 0; w < DRAWN_FLOATS; w++) {
-                out.putFloat((d * DRAWN_FLOATS + w) * 4, records.getFloat(r * CgVfxRecord.BYTES + (CgVfxRecord.DRAWN + w) * 4));
+                out.putFloat((d * DRAWN_FLOATS + w) * 4, parts.getFloat(r * CgVfxRecord.DRAWN_BYTES + w * 4));
             }
         }
         return out;

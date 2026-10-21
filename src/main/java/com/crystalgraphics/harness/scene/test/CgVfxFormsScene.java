@@ -174,7 +174,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 for (int e = 0; e < pools.size(); e++) {
                     int at = e;
                     CgVfxParticlePool pool = pools.get(e);
-                    requests.add(rec.readback(pool.records(), 0, (long) pool.storage() * CgVfxRecord.BYTES,
+                    requests.add(rec.readback(pool.records(), 0, (long) pool.storage() * pool.record().bytes(),
                             data -> read.set(at, copy(data))));
                 }
             }
@@ -207,13 +207,11 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 slots.add(slot);
                 continue;
             }
-            ByteBuffer packed = ByteBuffer.allocateDirect(PARTICLES * CgVfxRecord.BYTES).order(ByteOrder.nativeOrder());
+            CgVfxRecord layout = pool.record();
+            ByteBuffer packed = ByteBuffer.allocateDirect(PARTICLES * layout.bytes()).order(ByteOrder.nativeOrder());
             for (int id = 0; id < PARTICLES; id++) {
                 float[] s = seeded[id];
-                int at = id * CgVfxRecord.BYTES;
-                packed.putFloat(at + 12, s[0]).putFloat(at + 28, s[1]);
-                packed.putFloat(at + 32, s[2]).putFloat(at + 36, s[3]).putFloat(at + 40, s[4]).putFloat(at + 44, 0.1f);
-                packed.putInt(at + 64, id).putInt(at + 68, slot);
+                layout.put(packed, id, 0f, 0f, 0f, s[2], s[3], s[4], s[0], s[1], 0.1f, 0f, id, slot);
             }
             pool.seed(rec, packed, PARTICLES);
             pools.add(pool);
@@ -226,18 +224,19 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         CgVfxEmitter emitter = emitters.get(e);
         CgVfxFormInput form = emitter.moduleForms().get(0).compiled();
         ByteBuffer records = read.get(e);
+        CgVfxRecord layout = pools.get(e).record();
         CgVfxFormContext ctx = new CgVfxFormContext().seed(SEED_BITS).loop(STEP_LOOP, 0);
         float[] want = new float[form.components()];
         boolean[] seen = new boolean[PARTICLES];
         for (int r = 0; r < PARTICLES; r++) {
-            int id = CgVfxRecord.i(records, r, CgVfxRecord.ID);
-            if (CgVfxRecord.f(records, r, CgVfxRecord.LIFE) == 0f || id < 0 || id >= PARTICLES || seen[id]) continue;
+            int id = layout.i(records, r, CgVfxRecord.ID);
+            if (layout.f(records, r, CgVfxRecord.LIFE) == 0f || id < 0 || id >= PARTICLES || seen[id]) continue;
             seen[id] = true;
             float[] s = seeded[id];
             float speed = (float) Math.sqrt(s[2] * s[2] + s[3] * s[3] + s[4] * s[4]);
             form.eval(ctx.particle(id).age(s[0] / s[1]).particleAge(s[0]).speed(speed), want);
             for (int c = 0; c < 3; c++) {
-                float got = (CgVfxRecord.f(records, r, CgVfxRecord.VELOCITY + c) - s[2 + c]) / DT;
+                float got = (layout.f(records, r, CgVfxRecord.VELOCITY + c) - s[2 + c]) / DT;
                 float off = Math.abs(got - want[Math.min(c, want.length - 1)]) / (TOLERANCE * (1f + Math.abs(want[Math.min(c, want.length - 1)])));
                 worst = Math.max(worst, off);
                 if (!(off <= 1f)) {
@@ -260,11 +259,12 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         CgVfxEmitter emitter = emitters.get(e);
         CgVfxSpawnForm form = emitter.spawnForms().get(0);
         ByteBuffer records = read.get(e);
+        CgVfxRecord layout = pools.get(e).record();
         CgVfxFormContext ctx = new CgVfxFormContext().seed(SEED_BITS).loop(LOOP, 0);
         boolean[] seen = new boolean[PARTICLES];
         for (int r = 0; r < PARTICLES; r++) {
-            int id = CgVfxRecord.i(records, r, CgVfxRecord.ID);
-            if (CgVfxRecord.f(records, r, CgVfxRecord.LIFE) == 0f || id < 0 || id >= PARTICLES || seen[id]) continue;
+            int id = layout.i(records, r, CgVfxRecord.ID);
+            if (layout.f(records, r, CgVfxRecord.LIFE) == 0f || id < 0 || id >= PARTICLES || seen[id]) continue;
             seen[id] = true;
             int at = switch (form.target()) {
                 case LIFETIME -> CgVfxRecord.LIFE;
@@ -273,8 +273,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 case RADIUS -> CgVfxRecord.POSITION;
             };
             float got = switch (form.target()) {
-                case SPEED, RADIUS -> length(records, r, at);
-                default -> CgVfxRecord.f(records, r, at);
+                case SPEED, RADIUS -> length(layout, records, r, at);
+                default -> layout.f(records, r, at);
             };
             float want = form.compiled().channel(ctx.particle(id), 0);
             // A negative speed launches the other way: its velocity's length is the value's size.
@@ -295,8 +295,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         }
     }
 
-    private static float length(ByteBuffer records, int r, int at) {
-        float x = CgVfxRecord.f(records, r, at), y = CgVfxRecord.f(records, r, at + 1), z = CgVfxRecord.f(records, r, at + 2);
+    private static float length(CgVfxRecord layout, ByteBuffer records, int r, int at) {
+        float x = layout.f(records, r, at), y = layout.f(records, r, at + 1), z = layout.f(records, r, at + 2);
         return (float) Math.sqrt(x * x + y * y + z * z);
     }
 
