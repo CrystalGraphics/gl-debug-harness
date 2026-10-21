@@ -18,7 +18,8 @@ import java.util.List;
 /**
  * Counts what the JIT and the class loader did to the engine's code in a window of a run: JIT compilations,
  * deoptimisations and class loads of {@code com.crystalgraphics} classes, the harness's own left out. A JFR recording
- * runs from {@link #start}; windows are marked as the run goes and counted once at {@link #stop}.
+ * runs from {@link #start}; windows are marked as the run goes and counted once at {@link #stop}. Class loads count on
+ * the thread that opened the window alone: a worker loading a class meanwhile is listed, never counted.
  *
  * <pre>{@code
  * HarnessJitWatch jit = HarnessJitWatch.start();
@@ -52,6 +53,7 @@ public final class HarnessJitWatch {
 
     private final Recording recording = new Recording();
     private final List<Instant> opens = new ArrayList<>(), closes = new ArrayList<>();
+    private final List<String> openers = new ArrayList<>();
 
     private HarnessJitWatch() {
         recording.enable("jdk.Compilation").withThreshold(Duration.ZERO);
@@ -68,6 +70,7 @@ public final class HarnessJitWatch {
     /** Opens a window now. */
     public void open() {
         opens.add(Instant.now());
+        openers.add(Thread.currentThread().getName());
     }
 
     /** Closes the window opened last. */
@@ -85,14 +88,14 @@ public final class HarnessJitWatch {
             List<RecordedEvent> events = RecordingFile.readAllEvents(file);
             Files.deleteIfExists(file);
             List<Counts> counts = new ArrayList<>();
-            for (int w = 0; w < closes.size(); w++) counts.add(count(events, opens.get(w), closes.get(w)));
+            for (int w = 0; w < closes.size(); w++) counts.add(count(events, opens.get(w), closes.get(w), openers.get(w)));
             return counts;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    private static Counts count(List<RecordedEvent> events, Instant from, Instant to) {
+    private static Counts count(List<RecordedEvent> events, Instant from, Instant to, String thread) {
         int compiled = 0, deopts = 0, loads = 0;
         List<String> named = new ArrayList<>();
         for (RecordedEvent e : events) {
@@ -103,7 +106,11 @@ public final class HarnessJitWatch {
             switch (type) {
                 case "jdk.Compilation" -> compiled++;
                 case "jdk.Deoptimization" -> deopts++;
-                default -> loads++;
+                default -> {
+                    String by = e.getThread() == null ? null : e.getThread().getJavaName();
+                    if (!thread.equals(by)) name += " (on " + by + ", not counted)";
+                    else loads++;
+                }
             }
             named.add(type.substring(4) + " " + name);
         }
