@@ -50,6 +50,8 @@ dependencies {
     // Core compiles against its mesh loaders and ships neither: CgObjLoader and CgGltfLoader, for mesh-test.
     runtimeOnly("de.javagl:obj:0.4.0")
     runtimeOnly("de.javagl:jgltf-model:2.0.4")
+    // Asset files are YAML (CgFormats.YAML): core's consumerApi does not reach this run's classpath.
+    runtimeOnly("org.yaml:snakeyaml:2.7")
 
     // LWJGL 3, with the Vulkan, shaderc and VMA bindings the device seam needs. Natives for the OS this
     // runs on; LWJGL extracts them itself. lwjgl-vulkan has natives only on macOS (MoltenVK) -- elsewhere
