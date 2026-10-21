@@ -78,6 +78,8 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
     private boolean running = true, playing;
     private int frames, loadFrames;
     private long waits, syncs, textures, mostDrawn;
+    /** Frames the charge's books held particles: what plays, wherever the camera points. */
+    private int framesAlive;
     /** The reload: the kit's copy, the charge, and each save's phase. */
     private Path copy;
     private CgVfxSystemInstance<?> charge;
@@ -141,6 +143,12 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         if (!playing) return;
         mostDrawn = Math.max(mostDrawn, CgVfxSystem.particlesDrawn());
+        for (int i = 0; i < charge.emitters(); i++) {
+            if (charge.emitter(i).mayHaveParticles()) {
+                framesAlive++;
+                break;
+            }
+        }
         frames++;
         if (RELOAD) {
             reload();
@@ -231,10 +239,13 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
 
     private void report(long compiles, long syncLoads, long textureLoads) {
         int validation = PlatformServiceHarness.validationErrors();
-        boolean pass = compiles == 0 && syncLoads == 0 && textureLoads == 0 && mostDrawn > 0 && validation == 0;
+        // The charge loops for ever: its books hold particles nearly every frame. What the camera kept to draw is a
+        // readout only, since live input turns the camera.
+        boolean pass = compiles == 0 && syncLoads == 0 && textureLoads == 0 && framesAlive > FRAMES / 2 && validation == 0;
         System.out.println("[vfx-nova] " + (pass ? "PASS" : "FAIL") + " on " + device() + ": ready after " + loadFrames
                 + " frames; in the first " + FRAMES + " frames of play " + compiles + " compile waits, " + syncLoads
-                + " sync loads, " + textureLoads + " texture loads, " + mostDrawn + " particles drawn at most"
+                + " sync loads, " + textureLoads + " texture loads; the charge held particles " + framesAlive + " frames, "
+                + mostDrawn + " particles drawn at most"
                 + (validation > 0 ? ", " + validation + " Vulkan validation errors" : ""));
     }
 
