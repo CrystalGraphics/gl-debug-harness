@@ -166,8 +166,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * scene changes frame to frame for that many ({@link MotionProbe}), and stops. Live input is ignored. */
     private static final int MOTION = Integer.getInteger("crystalgraphics.harness.motion", 0);
     private static final int MOTION_FROM = Integer.getInteger("crystalgraphics.harness.motion.from", 180);
-    /** A capture or a timing run: nobody is at the keyboard, and a hand on the mouse must not change the picture. */
-    private static final boolean UNATTENDED = CAPTURE_AT > 0 || FRAME_TIMES > 0 || MOTION > 0;
+    /**
+     * A capture, a timing run or a gate ({@code -Dcrystalgraphics.harness.unattended=true}): nobody is at the keyboard,
+     * and a hand on the mouse must not change the picture. A gate that checks what is in view needs it.
+     */
+    private static final boolean UNATTENDED = CAPTURE_AT > 0 || FRAME_TIMES > 0 || MOTION > 0
+            || Boolean.getBoolean("crystalgraphics.harness.unattended");
     /** {@code -Dcrystalgraphics.harness.record=<frame>}: from that frame on, the scene pass is recorded and replayed
      * instead of drawn, so a capture shows the replay. Logs what a recorded frame allocates beside a direct one. */
     private static final int RECORD_FROM = Integer.getInteger("crystalgraphics.harness.record", 0);

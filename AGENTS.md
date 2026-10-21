@@ -202,6 +202,7 @@ Three more unattended switches, for what a single picture cannot show:
 
 | Flag | Does |
 |---|---|
+| `-Dcrystalgraphics.harness.unattended=true` | live input is ignored, as under `captureAt`: for a gate that checks what is in view, which a hand on the mouse would turn away |
 | `-Dcrystalgraphics.harness.frameTimes=<n>` | after 60 frames, times `n` frame to frame, logs `[frame-times]` median, mean and p95, and stops. Pair with `.fps=0`, or the pacing is what gets timed; live input is ignored |
 | `-Dcrystalgraphics.harness.reloadAt=<frame>` | Ctrl+R's reload at that frame; with `.reloadStage=<dir>`, that directory's files are first copied over the first override root (`CgIO.overrideRoots()`, the harness's own `src/main/resources` by default) — an edit saved mid-run |
 | `-Dcrystalgraphics.harness.resizeAt=<frame>:<w>x<h>` | resizes the window at that frame |
