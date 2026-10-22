@@ -83,7 +83,7 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   by a kernel each frame, 50 of them clustered so cells pass the 32-light cap, the list and the light grid read back
   and held to Java (the CPU's in order, the kernel's as a set, every cell Unreal's sphere-against-box binning). PASS at
   G43, G40, G33 (TBO too) and on `vulkan`. `--mode=lights-bench` is their cost: `crystalgraphics.harness.lights` (1,000)
-  lights over the floor drawn as `orb_light` spheres, the cost the list replaces, to profile.
+  lights over the floor through the list, to profile: 1,000 drawn as spheres, one draw each, were 0.323 ms of GPU on gl.
   `--mode=vfx-renderers` is an emitter's renderers': a sprite, an arc, trails, a ribbon and a `#type spatial`
   material drawn as sprites (no vertex data) from material definitions over 100 effects, each renderer one particle
   set of every instance; PASS at G43, G40, G33 and on
