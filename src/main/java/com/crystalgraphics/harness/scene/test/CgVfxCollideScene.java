@@ -30,7 +30,8 @@ import com.crystalgraphics.vfx.particle.gpu.CgVfxGpuEmitter;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxGpuModule;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxWords;
-import com.crystalgraphics.vfx.particle.gpu.CgVfxWorldInput;
+import com.crystalgraphics.vfx.particle.gpu.CgVfxDataInterface;
+import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxDataInterfaces;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
 import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
@@ -372,7 +373,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
      * none. Its {@code m.z}th collision kills it.
      */
     private static final class Bounce implements CgVfxGpuModule {
-        private static final CgVfxWorldInput[] WORLD = {CgVfxWorldInput.WORLD_DISTANCE};
+        private static final CgVfxDataInterface[] WORLD = {CgVfxDataInterfaces.WORLD_DISTANCE};
         static {
             CgVfxModuleTypes.declare("gate_bounce", Bounce.class,
                     t -> t.property("keep", CgValueType.FLOAT).property("slide", CgValueType.FLOAT).property("kill_after", CgValueType.FLOAT),
@@ -380,7 +381,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         }
         public String gpuKind() { return "gate_bounce"; }
         public boolean afterSolve() { return true; }
-        public CgVfxWorldInput[] worldInputs() { return WORLD; }
+        public CgVfxDataInterface[] dataInterfaces() { return WORLD; }
         public String gpuSource() {
             return """
                     void fx_gate_bounce(inout FxParticle p, FxStep s, vec4 m, FxWorld world) {

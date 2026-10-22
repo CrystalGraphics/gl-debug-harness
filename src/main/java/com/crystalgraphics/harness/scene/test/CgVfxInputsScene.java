@@ -30,7 +30,8 @@ import com.crystalgraphics.vfx.particle.gpu.CgVfxGpuEmitter;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxGpuModule;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxWords;
-import com.crystalgraphics.vfx.particle.gpu.CgVfxWorldInput;
+import com.crystalgraphics.vfx.particle.gpu.CgVfxDataInterface;
+import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxDataInterfaces;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
 import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
@@ -121,12 +122,12 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
         fieldTexture.uploadRegion(0, 0, 0, 0, FIELD, FIELD, FIELD, floats(field), CgGL.GL_RGBA, CgGL.GL_FLOAT);
         heightTexture = CgTexture2D.createEmpty(HEIGHTS, HEIGHTS, CgTextureType.R32F.toTextureSpec());
         heightTexture.uploadRegion(0, 0, 0, HEIGHTS, HEIGHTS, floats(heights), CgGL.GL_RED, CgGL.GL_FLOAT);
-        fielded = new Inputs(base, List.of(new Kind("gate_field", false, CgVfxWorldInput.NONE, new CgTexture[]{fieldTexture}, -BOX, -BOX, -BOX, 1f / (2f * BOX), """
+        fielded = new Inputs(base, List.of(new Kind("gate_field", false, CgVfxGpuModule.NO_INTERFACES, new CgTexture[]{fieldTexture}, -BOX, -BOX, -BOX, 1f / (2f * BOX), """
                 void fx_gate_field(inout FxParticle p, inout FxForces f, FxStep s, vec4 m, sampler3D field) {
                     p.velocity = texture(field, (p.position - m.xyz) * m.w).xyz;
                 }
                 """)), List.of());
-        heightened = new Inputs(base, List.of(new Kind("gate_height", true, CgVfxWorldInput.NONE, new CgTexture[]{heightTexture}, -BOX, -BOX, 1f / (2f * BOX), 0f, """
+        heightened = new Inputs(base, List.of(new Kind("gate_height", true, CgVfxGpuModule.NO_INTERFACES, new CgTexture[]{heightTexture}, -BOX, -BOX, 1f / (2f * BOX), 0f, """
                 void fx_gate_height(inout FxParticle p, FxStep s, vec4 m, sampler2D heights) {
                     float h = texture(heights, (p.position.xz - m.xy) * m.z).r;
                     if (p.position.y < h) {
@@ -135,7 +136,7 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
                     }
                 }
                 """)), List.of());
-        depthed = new Inputs(base, List.of(new Kind("gate_depth", true, new CgVfxWorldInput[]{CgVfxWorldInput.DEPTH}, CgVfxGpuModule.NO_TEXTURES, THICKNESS, 0f, 0f, 0f, """
+        depthed = new Inputs(base, List.of(new Kind("gate_depth", true, new CgVfxDataInterface[]{CgVfxDataInterfaces.DEPTH}, CgVfxGpuModule.NO_TEXTURES, THICKNESS, 0f, 0f, 0f, """
                 void fx_gate_depth(inout FxParticle p, FxStep s, vec4 m, FxDepth depth) {
                     vec3 n;
                     if (!fx_depth_behind(depth, p.position, m.x, n)) return;
@@ -483,7 +484,7 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
     @Override public boolean shouldShutdownOnComplete() { return true; }
 
     /** A kind given as text: its numbers one vec4, what it samples one texture or the depth. Each one's layout is this. */
-    private record Kind(String gpuKind, boolean afterSolve, CgVfxWorldInput[] worldInputs, CgTexture[] textures,
+    private record Kind(String gpuKind, boolean afterSolve, CgVfxDataInterface[] dataInterfaces, CgTexture[] textures,
                         float x, float y, float z, float w, String gpuSource) implements CgVfxGpuModule {
         static {
             CgVfxModuleTypes.declare("gate_inputs_kind", Kind.class, t -> t.property("m", CgValueType.VEC4),
