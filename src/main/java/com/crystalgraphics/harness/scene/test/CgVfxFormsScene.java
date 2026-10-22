@@ -74,6 +74,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     private static final Map<String, List<Object>> SPAWNS = new LinkedHashMap<>();
     /** Each spawn form's target, by name. */
     private static final Map<String, CgVfxSpawnInput> TARGETS = new LinkedHashMap<>();
+    /** A light station's light_attributes inputs. */
+    private static final Map<String, Map<String, Object>> LIGHTS = new LinkedHashMap<>();
     /** The skeleton points the view answers, from the origin; the third it leaves unanswered. */
     private static final float[][] SOCKETS = {{1.5f, 0.25f, -2f}, {-0.75f, 3f, 0.5f}};
     private static final float[][] SOCKET_OFFSETS = {{0.5f, 0f, 0f}, {0f, 0.25f, 0f}, {0f, 0f, 0f}};
@@ -177,6 +179,13 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 "module", "crystalgraphics:initial_mesh_orientation", "inputs", Map.of("rotation",
                         Map.of("curves", List.of(seconds, cubic, linear), "by", "loop")))));
         SPAWNS.put("spawn-turn-rate-pick", List.of(init(Map.of("lifetime", 3.0))));
+        // A light's radius scale by the loop, Cascade's RadiusScale at the emitter's time, and an exponent rolled at birth.
+        SPAWNS.put("spawn-light-loop", List.of(init(Map.of("lifetime", 3.0))));
+        SPAWNS.put("spawn-light-range", List.of(init(Map.of("lifetime", 3.0))));
+        LIGHTS.put("spawn-light-loop", Map.of("radius", Map.of("curve", seconds, "by", "loop")));
+        LIGHTS.put("spawn-light-range", Map.of("exponent", Map.of("range", List.of(2.0, 9.0))));
+        TARGETS.put("spawn-light-loop", CgVfxSpawnInput.LIGHT_RADIUS);
+        TARGETS.put("spawn-light-range", CgVfxSpawnInput.LIGHT_EXPONENT);
         TARGETS.put("spawn-turn-loop", CgVfxSpawnInput.MESH_ORIENTATION);
         TARGETS.put("spawn-turn-rate-pick", CgVfxSpawnInput.MESH_ROTATION_RATE);
         TARGETS.put("spawn-color-loop", CgVfxSpawnInput.COLOR);
@@ -256,6 +265,10 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             tree.put("emitter_update", List.of(Map.of("id", "state", "module", "crystalgraphics:emitter_state",
                     "inputs", Map.of("loop", "once", "duration", 1.6))));
             tree.put("particle_spawn", spawn.getValue());
+            if (LIGHTS.containsKey(spawn.getKey())) {
+                tree.put("particle_update", List.of(Map.of("id", "light", "module", "crystalgraphics:light_attributes",
+                        "inputs", LIGHTS.get(spawn.getKey()))));
+            }
             if (spawn.getKey().equals("spawn-turn-rate-pick")) {
                 tree.put("particle_update", List.of(Map.of("id", "rotation_rate", "module", "crystalgraphics:mesh_rotation_rate",
                         "inputs", Map.of("rate", Map.of("pick", List.of(List.of(1.0, -2.0, 0.5), List.of(-3.0, 0.25, 4.0)))))));
@@ -489,6 +502,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 case MESH_SCALE -> layout.word(CgVfxRecord.Tail.SCALE);
                 case MESH_ORIENTATION -> layout.word(CgVfxRecord.Tail.TURN);
                 case MESH_ROTATION_RATE -> layout.word(CgVfxRecord.Tail.TURN_RATE);
+                case LIGHT_RADIUS -> layout.word(CgVfxRecord.Tail.LIGHT);
+                case LIGHT_EXPONENT -> layout.word(CgVfxRecord.Tail.LIGHT) + 1;
             };
             CgVfxFormInput c = form.compiled();
             // An rgb colour's alpha is the row's: it stores none.
