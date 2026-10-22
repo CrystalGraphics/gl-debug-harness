@@ -126,7 +126,8 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
             String shader = SHADERS[program % SHADERS.length];
             CgMaterialDefinition.Builder m = CgMaterialDefinition.of("harness:materials/arena-" + program,
                     "crystalgraphics:shaders/vfx/particle/" + shader + ".shader")
-                    .blend(BLENDS[program / SHADERS.length % BLENDS.length]).usage(CgMaterialUsage.SPRITES);
+                    .blend(BLENDS[program / SHADERS.length % BLENDS.length])
+                    .usage(shader.equals("ring") ? CgMaterialUsage.MESH_PARTICLES : CgMaterialUsage.SPRITES);
             if (program >= PROGRAMS / 2) m.twoSided();
             MATERIALS[program] = m.build();
         }
@@ -144,9 +145,11 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
             modules(e, shape);
             if (i < layers) {
                 int program = i % PROGRAMS;
-                // A ray is drawn along its motion: an arc renderer, as the engine's demos draw it.
-                CgVfxRenderers.Builder r = SHADERS[program % SHADERS.length].equals("ray") ? CgVfxRenderers.arc("ray")
-                        : CgVfxRenderers.sprite("sprite");
+                // Each shader on the renderer the engine's kits draw it with: a ray along its motion as an arc, a
+                // ring as a mesh particle on the unit sphere.
+                String shader = SHADERS[program % SHADERS.length];
+                CgVfxRenderers.Builder r = shader.equals("ray") ? CgVfxRenderers.arc("ray")
+                        : shader.equals("ring") ? CgVfxRenderers.mesh("ring") : CgVfxRenderers.sprite("sprite");
                 e.renderer(r.material(material(program)).build());
             }
             look.emitter(e.build());
