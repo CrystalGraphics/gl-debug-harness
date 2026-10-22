@@ -141,7 +141,7 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
                 waits = CgMaterialShader.compileWaits();
                 syncs = CgVfxAssets.instance().syncLoads();
                 textures = CgTextureAbstract.loads();
-                charge = vfx.play(new CgVfxSystemInstance<>(refs[0], 0, 1.5, 0)).ground(0f);
+                charge = vfx.spawn(refs[0], 0, 1.5, 0).ground(0f);
                 if (HOLD) {
                     held[0] = charge;
                     heldDefinition[0] = charge.definition();
@@ -149,8 +149,8 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
                     playing = true;
                     System.out.println("[vfx-nova] held: edit and save the kit's files at " + kitPath);
                 } else if (!RELOAD) {
-                    vfx.play(new CgVfxSystemInstance<>(refs[1], 0, 1.5, 0)).ground(0f);
-                    vfx.play(new CgVfxSystemInstance<>(refs[2], 0, 0.5, -20)).ground(0f);
+                    vfx.spawn(refs[1], 0, 1.5, 0).ground(0f);
+                    vfx.spawn(refs[2], 0, 0.5, -20).ground(0f);
                 }
                 playing = true;
             }
@@ -183,7 +183,12 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
         for (int i = 0; i < held.length; i++) {
             CgVfxSystemInstance<?> s = held[i];
             if (s == null || s.state() == CgVfxSystemInstance.State.DEAD) {
-                s = held[i] = vfx.play(new CgVfxSystemInstance<>(refs[i], 0, i == 2 ? 0.5 : 1.5, i == 2 ? -20 : 0)).ground(0f);
+                CgVfxSystemInstance<?> was = s;
+                s = held[i] = vfx.spawn(refs[i], 0, i == 2 ? 0.5 : 1.5, i == 2 ? -20 : 0).ground(0f);
+                if (was != null) {
+                    System.out.println("[vfx-nova] " + SYSTEMS[i] + " played again at frame " + frames + ": "
+                            + (s == was ? "the same instance, from its pool" : "another instance"));
+                }
                 heldDefinition[i] = s.definition();
                 heldEmitter[i] = s.emitters() > 0 ? s.emitter(0) : null;
                 continue;
