@@ -4,19 +4,21 @@
 
 #include "crystalgraphics:shaders/lib/lights.glsl"
 
-struct CgLight { vec4 positionRadius; vec4 colorExponent; };
+struct CgLight { vec4 positionRadius; vec4 colorExponent; vec4 spotCos; vec4 segmentCone; };
+// A placed point light: position and radius, colour and exponent.
+struct Placed { vec4 positionRadius; vec4 colorExponent; };
 
 Properties {
     _LightEye ("The firing's eye, absolute", vec4) = (0, 0, 0, 0)
 }
 
 Buffers {
-    PLACED ("Lights in the world: position and radius, colour and exponent", CgLight, readonly)
+    PLACED ("Lights in the world: position and radius, colour and exponent", Placed,  readonly)
     LIGHTS ("The world's lights",                                             CgLight, append)
 }
 
 void Append() {
-    CgLight l = PLACED(CG_ELEMENT);
+    Placed l = PLACED(CG_ELEMENT);
     LIGHTS_APPEND(cg_light(l.positionRadius.xyz - _LightEye.xyz, l.positionRadius.w, l.colorExponent.rgb,
             l.colorExponent.w));
 }

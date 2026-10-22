@@ -22,8 +22,8 @@ public final class CgLightsBenchScene implements InteractiveSceneLifecycle {
     private static final int LIGHTS = Integer.getInteger("crystalgraphics.harness.lights", 1000);
     /** Blocks between lights, how far each reaches, and the size of what glows. */
     private static final float SPACING = 1.5f, REACH = 2.5f, SIZE = 0.4f;
-    /** As bright as a slot's light of that size: four times its glow, times {@code (100 × SIZE)²}. */
-    private static final float INTENSITY = 4f * 1.0e4f * SIZE * SIZE;
+    /** As bright as a slot's light of that size: four times its glow, times {@code SIZE²}. */
+    private static final float INTENSITY = 4f * SIZE * SIZE;
 
     private int columns;
 

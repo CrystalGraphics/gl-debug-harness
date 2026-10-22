@@ -181,7 +181,7 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
             for (int i = 0; i < listed && found < 0; i++) {
                 if (taken[i]) continue;
                 boolean same = true;
-                for (int c = 0; c < 8 && same; c++) same = Math.abs(list.getFloat((i * 8 + c) * 4) - w[c]) <= TOLERANCE * (1f + Math.abs(w[c]));
+                for (int c = 0; c < 8 && same; c++) same = Math.abs(list.getFloat((i * CgWorldLights.FLOATS + c) * 4) - w[c]) <= TOLERANCE * (1f + Math.abs(w[c]));
                 if (same) found = i;
             }
             if (found < 0) {
@@ -190,7 +190,7 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
             }
             taken[found] = true;
             for (int c = 0; c < 8; c++) {
-                worst = Math.max(worst, Math.abs(list.getFloat((found * 8 + c) * 4) - w[c]) / (TOLERANCE * (1f + Math.abs(w[c]))));
+                worst = Math.max(worst, Math.abs(list.getFloat((found * CgWorldLights.FLOATS + c) * 4) - w[c]) / (TOLERANCE * (1f + Math.abs(w[c]))));
             }
         }
         System.out.printf("[vfx-lights] PASS: %d of %d particles give light (share %.2f), each listed as Java gathers it"

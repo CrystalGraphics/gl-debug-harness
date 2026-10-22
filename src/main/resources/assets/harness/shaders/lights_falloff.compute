@@ -1,0 +1,23 @@
+// lights-grid's falloff check (CgLightsGridScene): cg_light_falloff of every light at every sample point, held to
+// Java's twin.
+#pragma kernel Falloff map
+
+#include "crystalgraphics:shaders/lib/lights.glsl"
+
+struct CgLight { vec4 positionRadius; vec4 colorExponent; vec4 spotCos; vec4 segmentCone; };
+
+Properties {
+    _Samples ("Sample points a light", int) = 1
+}
+
+Buffers {
+    LIGHTS  ("Lights",                 CgLight, readonly)
+    SAMPLES ("Sample points",          vec4,    readonly)
+    OUT     ("Falloff, light by point", float,  writeonly)
+}
+
+void Falloff() {
+    CgLight l = LIGHTS(CG_ELEMENT / _Samples);
+    vec3 p = SAMPLES(CG_ELEMENT % _Samples).xyz;
+    OUT_WRITE(cg_light_falloff(l.positionRadius.xyz, l.positionRadius.w, l.colorExponent.w, l.spotCos, l.segmentCone, p));
+}
