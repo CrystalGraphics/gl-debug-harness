@@ -79,6 +79,11 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   tessellated, on interpolation points, on the target), stepped 14 times beside a Java simulation of them, each beam's
   record, its run and the points the strip factory's `fx_beam_point` draws matched against it. PASS at G43, G40, G33
   (TBO too) and on `vulkan`.
+  `--mode=lights-grid` is the world's point lights' (`CgWorldLights`): 150 lights added from the CPU and 250 appended
+  by a kernel each frame, 50 of them clustered so cells pass the 32-light cap, the list and the light grid read back
+  and held to Java (the CPU's in order, the kernel's as a set, every cell Unreal's sphere-against-box binning). PASS at
+  G43, G40, G33 (TBO too) and on `vulkan`. `--mode=lights-bench` is their cost: `crystalgraphics.harness.lights` (1,000)
+  lights over the floor drawn as `orb_light` spheres, the cost the list replaces, to profile.
   `--mode=vfx-renderers` is an emitter's renderers': a sprite, an arc, trails, a ribbon and a `#type spatial`
   material drawn as sprites (no vertex data) from material definitions over 100 effects, each renderer one particle
   set of every instance; PASS at G43, G40, G33 and on

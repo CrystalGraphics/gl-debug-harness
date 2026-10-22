@@ -25,6 +25,8 @@ import com.crystalgraphics.harness.scene.test.CgVfxInputsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxRangeScene;
 import com.crystalgraphics.harness.scene.test.CgVfxWorldScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialLibraryScene;
+import com.crystalgraphics.harness.scene.test.CgLightsBenchScene;
+import com.crystalgraphics.harness.scene.test.CgLightsGridScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBeamsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxFormsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxHashesScene;
@@ -749,6 +751,28 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVfxBeamsScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("lights-bench")
+                .description("Effect lights' cost: n point lights over the floor (crystalgraphics.harness.lights, 1,000)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .build(),
+            () -> new CgLightsBenchScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("lights-grid")
+                .description("The world's light list and grid read back against Java: CPU and appended lights, Unreal's binning")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .build(),
+            () -> new CgLightsGridScene()
         );
 
         reg.register(

@@ -1,0 +1,22 @@
+// lights-grid's appender (CgLightsGridScene): lights the scene placed in the world, appended into the world's list
+// from the firing's eye, as a particle light renderer appends its own.
+#pragma kernel Append append
+
+#include "crystalgraphics:shaders/lib/lights.glsl"
+
+struct CgLight { vec4 positionRadius; vec4 colorExponent; };
+
+Properties {
+    _LightEye ("The firing's eye, absolute", vec4) = (0, 0, 0, 0)
+}
+
+Buffers {
+    PLACED ("Lights in the world: position and radius, colour and exponent", CgLight, readonly)
+    LIGHTS ("The world's lights",                                             CgLight, append)
+}
+
+void Append() {
+    CgLight l = PLACED(CG_ELEMENT);
+    LIGHTS_APPEND(cg_light(l.positionRadius.xyz - _LightEye.xyz, l.positionRadius.w, l.colorExponent.rgb,
+            l.colorExponent.w));
+}
