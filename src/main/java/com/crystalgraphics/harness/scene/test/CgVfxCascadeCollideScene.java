@@ -80,7 +80,7 @@ public class CgVfxCascadeCollideScene implements InteractiveSceneLifecycle {
 
     private final CgVfxEmitter[] emitters = {
             emitter(NAMES[DAMP], false, CgVfxModule.CollisionResponse.NONE
-                    .damping(LO_X, LO_Y, LO_Z, HI_X, HI_Y, HI_Z, false).rotation(TURN, TURN, TURN)),
+                    .damping(LO_X, LO_Y, LO_Z, HI_X, HI_Y, HI_Z, CgVfxModule.CollisionResponse.PER_AXIS).rotation(TURN, TURN, TURN)),
             emitter(NAMES[FREEZE], true, CgVfxModule.CollisionResponse.NONE.limit(3, CgVfxModule.CollisionCompletion.FREEZE)),
             emitter(NAMES[HALT], true, CgVfxModule.CollisionResponse.NONE.limit(1f, 2f, CgVfxModule.CollisionCompletion.HALT)),
             emitter(NAMES[KILL], true, CgVfxModule.CollisionResponse.NONE.delay(DELAY)
