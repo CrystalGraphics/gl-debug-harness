@@ -1,12 +1,14 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialDefinition;
+import com.crystalgraphics.api.material.CgMaterialUsage;
+import com.crystalgraphics.vfx.particle.renderer.CgVfxRenderers;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.shape.primitive.CgSphere;
 import com.crystalgraphics.vfx.CgVfxSystem;
-import com.crystalgraphics.vfx.look.CgVfxLayer;
 import com.crystalgraphics.vfx.look.CgVfxLook;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxModule;
@@ -38,6 +40,8 @@ public final class CgVfxShapesScene implements InteractiveSceneLifecycle {
 
     private static CgVfxLook look() {
         CgVfxLook.Builder look = CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA);
+        CgMaterialDefinition SPARK = CgMaterialDefinition.of("harness:materials/shapes-spark",
+                "crystalgraphics:shaders/vfx/particle/spark.shader").usage(CgMaterialUsage.SPRITES).build();
         for (int s = 1; s <= SHAPES; s++) {
             CgVfxEmitter.Builder e = CgVfxEmitter.builder("shape" + s).capacity(256).rate(60f).shape(CgSphere.of(0.4))
                     .hemisphere().speed(0.5f, 1.5f).life(2f, 3f).size(0.05f, 0.1f).spin(0.5f, 2f);
@@ -48,8 +52,7 @@ public final class CgVfxShapesScene implements InteractiveSceneLifecycle {
             if ((s & 8) != 0) e.module(new CgVfxModule.Spin(0.5f));
             if ((s & 16) != 0) e.module(new CgVfxModule.Damping(0.3f));
             if ((s & 32) != 0) e.module(new CgVfxModule.LimitSpeed(3f));
-            CgVfxEmitter emitter = e.build();
-            look.emitter(emitter).layer(CgVfxLayer.of("crystalgraphics:shaders/vfx/particle/spark.shader").on(emitter).build());
+            look.emitter(e.renderer(CgVfxRenderers.sprite("spark").material(SPARK).build()).build());
         }
         return look.build();
     }

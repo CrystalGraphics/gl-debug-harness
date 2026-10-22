@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialDefinition;
+import com.crystalgraphics.api.material.CgMaterialUsage;
 import com.crystalgraphics.easing.CgKeyframes;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -14,7 +16,6 @@ import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxScalability;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.look.CgVfxKit;
-import com.crystalgraphics.vfx.look.CgVfxLayer;
 import com.crystalgraphics.vfx.look.CgVfxLook;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxModule;
@@ -67,7 +68,8 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
     private static final String[] SHOT_NAMES = {"up", "left", "faded"};
     private static final float TOLERANCE = 2e-3f;
 
-    private final CgVfxLayer.Builder white = CgVfxLayer.of("crystalgraphics:shaders/vfx/sequence/part.shader");
+    private final CgMaterialDefinition white = CgMaterialDefinition.of("harness:materials/sequence-part",
+            "crystalgraphics:shaders/vfx/sequence/part.shader").usage(CgMaterialUsage.MESH_PARTICLES, CgMaterialUsage.STATIC_MESH).build();
     private final CgVfxPrefab prefab = CgVfxPrefab.builder("harness:sequence_gate").node("hub")
             .node("tip").parent("hub").at(REACH, 0f, 0f).scale(PART).part(white).build();
     private final int tip = prefab.node("tip");

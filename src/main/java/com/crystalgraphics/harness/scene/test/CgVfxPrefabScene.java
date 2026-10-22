@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialDefinition;
+import com.crystalgraphics.api.mesh.CgMesh;
+import com.crystalgraphics.api.mesh.CgProceduralMesh;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -12,7 +15,6 @@ import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxEffect;
 import com.crystalgraphics.vfx.CgVfxFrame;
 import com.crystalgraphics.vfx.CgVfxSystem;
-import com.crystalgraphics.vfx.look.CgVfxLayer;
 import com.crystalgraphics.vfx.look.CgVfxLook;
 import com.crystalgraphics.vfx.look.CgVfxSchema;
 import com.crystalgraphics.vfx.prefab.CgVfxPrefab;
@@ -39,8 +41,10 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
     private static final int CHAINS = 19, LENGTH = 24, CUT = 7, CUT_AT = 10, DIM = 3;
     private static final float EVALUATE_BUDGET_US = 50f;
     private static final CgVfxSchema SCHEMA = CgVfxSchema.of("harness:prefab");
-    private static final CgVfxLayer.Builder BALL = CgVfxLayer.of("harness:shader/prefab_test.shader").size(4f)
-            .set("_Color", 0.9f, 0.6f, 0.2f, 1f);
+    private static final CgMaterialDefinition BALL = CgMaterialDefinition.of("harness:materials/prefab-ball",
+            "harness:shader/prefab_test.shader").value("_Color", 0.9f, 0.6f, 0.2f, 1f).build();
+    /** Each node's ball: radius 4, the size the gate's pixels were placed for. */
+    private static final CgMesh BALL_MESH = CgProceduralMesh.revolve(CgProceduralMesh.sphere(4f, -4f, 4f)).divisions(32, 16).build();
 
     private final CgVfxSystem vfx = new CgVfxSystem();
     private float dx, dy;
@@ -74,7 +78,7 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
         for (int c = 0; c < CHAINS; c++) {
             for (int k = 0; k < LENGTH; k++) {
                 b.node(name(c, k)).parent(k == 0 ? "pivot" : name(c, k - 1)).at(k == 0 ? c * dx : 0f, k == 0 ? 0f : dy, 0f)
-                        .part(BALL);
+                        .part(BALL, BALL_MESH);
                 if (c == CUT && k == CUT_AT) b.opacity(0f);
                 if (c == DIM && k == 0) b.opacity(0.2f);
             }

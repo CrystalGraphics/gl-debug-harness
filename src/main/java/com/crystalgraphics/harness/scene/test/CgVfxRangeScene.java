@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.vfx.particle.gpu.CgVfxDrawLayout;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -657,7 +658,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     /** The checked emitter with its curves by speed: another row of the same pool. */
     private record BySpeed(CgVfxEmitter of) implements CgVfxGpuEmitter {
         public String name() { return of.name() + "-by-speed"; }
-        public CgVfxEmitter.Renderer renderer() { return of.renderer(); }
+        public CgVfxDrawLayout drawLayout() { return of.drawLayout(); }
         public List<? extends CgVfxGpuModule> modules() { return of.modules(); }
         public int[] moduleWords() { return of.moduleWords(); }
         public void writeSpawn(CgVfxWords out) { of.writeSpawn(out); }

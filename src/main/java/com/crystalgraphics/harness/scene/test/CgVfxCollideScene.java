@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.vfx.particle.gpu.CgVfxDrawLayout;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -409,7 +410,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         }
 
         public String name() { return of.name(); }
-        public CgVfxEmitter.Renderer renderer() { return of.renderer(); }
+        public CgVfxDrawLayout drawLayout() { return of.drawLayout(); }
         public void writeSpawn(CgVfxWords out) { of.writeSpawn(out); }
         public void writeCurves(float[] out, int at, int texels) { of.writeCurves(out, at, texels); }
     }

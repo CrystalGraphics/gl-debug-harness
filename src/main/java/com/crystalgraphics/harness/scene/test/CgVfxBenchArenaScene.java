@@ -1,14 +1,15 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialDefinition;
+import com.crystalgraphics.api.material.CgMaterialUsage;
+import com.crystalgraphics.vfx.particle.renderer.CgVfxRenderers;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.api.material.CgBlendMode;
-import com.crystalgraphics.api.material.CgMaterialState;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.shape.primitive.CgSphere;
 import com.crystalgraphics.vfx.CgVfxSystem;
-import com.crystalgraphics.vfx.look.CgVfxLayer;
 import com.crystalgraphics.vfx.look.CgVfxLook;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
@@ -101,10 +102,9 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
         CgVfxEmitter spark = CgVfxEmitter.builder("puff").capacity(32).state(CgVfxEmitterState.ONCE).burst(0f, 16)
                 .shape(CgSphere.of(0.2)).hemisphere().speed(1f, 3f).life(0.6f, 0.9f).size(0.05f, 0.1f)
                 .module(new CgVfxModule.Gravity(4f)).build();
-        return CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA).emitter(spark)
-                .layer(CgVfxLayer.of("crystalgraphics:shaders/vfx/particle/spark.shader").on(spark)
-                        .state(CgMaterialState.builder().blend(CgBlendMode.ADDITIVE).build()).build())
-                .build();
+        return CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA).emitter(spark.toBuilder().renderer(CgVfxRenderers.sprite("spark")
+                .material(CgMaterialDefinition.of("harness:materials/arena-puff", "crystalgraphics:shaders/vfx/particle/spark.shader")
+                        .blend(CgBlendMode.ADDITIVE).usage(CgMaterialUsage.SPRITES).build()).build()).build()).build();
     }
 
     /** Seven module kinds; bit {@code k} of {@code subset} picks kind {@code k}: each subset a shape of its own. */
@@ -118,6 +118,21 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
         if ((subset & 64) != 0) e.module(new CgVfxModule.Wind(0.5f));
     }
 
+    private static final CgMaterialDefinition[] MATERIALS = new CgMaterialDefinition[PROGRAMS];
+
+    /** Program {@code program}'s material: a shader, a blend, and two-sided for the second half. */
+    private static CgMaterialDefinition material(int program) {
+        if (MATERIALS[program] == null) {
+            String shader = SHADERS[program % SHADERS.length];
+            CgMaterialDefinition.Builder m = CgMaterialDefinition.of("harness:materials/arena-" + program,
+                    "crystalgraphics:shaders/vfx/particle/" + shader + ".shader")
+                    .blend(BLENDS[program / SHADERS.length % BLENDS.length]).usage(CgMaterialUsage.SPRITES);
+            if (program >= PROGRAMS / 2) m.twoSided();
+            MATERIALS[program] = m.build();
+        }
+        return MATERIALS[program];
+    }
+
     private CgVfxLook look(int variant) {
         CgVfxLook.Builder look = CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA);
         for (int i = 0; i < emitters; i++) {
@@ -127,16 +142,14 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
                     .burst(at, CAPACITY / 2).shape(CgSphere.of(0.4)).hemisphere().speed(0.5f, 1.5f)
                     .life(LIFE, LIFE).size(0.05f, 0.1f).spin(0.5f, 2f);
             modules(e, shape);
-            CgVfxEmitter emitter = e.build();
-            look.emitter(emitter);
             if (i < layers) {
                 int program = i % PROGRAMS;
-                String shader = SHADERS[program % SHADERS.length];
-                CgMaterialState.Builder state = CgMaterialState.builder().blend(BLENDS[program / SHADERS.length % BLENDS.length]);
-                if (program >= PROGRAMS / 2) state.twoSided();
-                look.layer(CgVfxLayer.of("crystalgraphics:shaders/vfx/particle/" + shader + ".shader").on(emitter)
-                        .state(state.build()).build());
+                // A ray is drawn along its motion: an arc renderer, as the engine's demos draw it.
+                CgVfxRenderers.Builder r = SHADERS[program % SHADERS.length].equals("ray") ? CgVfxRenderers.arc("ray")
+                        : CgVfxRenderers.sprite("sprite");
+                e.renderer(r.material(material(program)).build());
             }
+            look.emitter(e.build());
         }
         return look.build();
     }

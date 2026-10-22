@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialDefinition;
+import com.crystalgraphics.vfx.render.CgVfxSlotRenderer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -12,7 +14,6 @@ import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxEffect;
 import com.crystalgraphics.vfx.CgVfxFrame;
 import com.crystalgraphics.vfx.CgVfxSystem;
-import com.crystalgraphics.vfx.look.CgVfxLayer;
 import com.crystalgraphics.vfx.look.CgVfxLook;
 import com.crystalgraphics.vfx.look.CgVfxSchema;
 import com.crystalgraphics.vfx.look.CgVfxSlot;
@@ -47,8 +48,9 @@ public class CgVfxSortGroupScene implements HarnessSceneLifecycle {
     private final CgVfxSystem vfx = new CgVfxSystem();
 
     private static CgVfxLook look(String name, float[] c, int hint) {
-        return CgVfxLook.builder(SCHEMA).layer(CgVfxLayer.of("harness:shader/sort_group.shader").on(BALL).order(hint)
-                .set("_Color", c[0], c[1], c[2], 1f).named(name).build()).build();
+        CgMaterialDefinition material = CgMaterialDefinition.of("harness:materials/sort-group-" + name,
+                "harness:shader/sort_group.shader").order(hint).value("_Color", c[0], c[1], c[2], 1f).build();
+        return CgVfxLook.builder(SCHEMA).slot(CgVfxSlotRenderer.of(name, BALL).material(material).build()).build();
     }
 
     /** A ball of {@code radius} at its origin, drawn for ever. */

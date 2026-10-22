@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialDefinition;
+import com.crystalgraphics.vfx.render.CgVfxSlotRenderer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -8,7 +10,6 @@ import com.crystalgraphics.vfx.CgVfxEffect;
 import com.crystalgraphics.vfx.CgVfxFrame;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.look.CgVfxKit;
-import com.crystalgraphics.vfx.look.CgVfxLayer;
 import com.crystalgraphics.vfx.look.CgVfxLook;
 import com.crystalgraphics.vfx.look.CgVfxSchema;
 import com.crystalgraphics.vfx.look.CgVfxSlot;
@@ -36,7 +37,8 @@ public final class CgVfxTrailsScene implements InteractiveSceneLifecycle {
     private static final CgVfxSchema SCHEMA = CgVfxSchema.of("harness:trails");
     private static final CgVfxSlot STREAK = CgVfxSlot.trail("harness:trails/streak");
     private static final CgVfxLook LOOK = CgVfxLook.builder(SCHEMA).with(CgVfxKit.of("harness:trails")
-            .layer(CgVfxLayer.of("crystalgraphics:shaders/vfx/trail/glow.shader").on(STREAK).size(0.12f).build())
+            .slot(CgVfxSlotRenderer.of("glow", STREAK).material(CgMaterialDefinition.of("harness:materials/trails-glow",
+                    "crystalgraphics:shaders/vfx/trail/glow.shader").order(192).build()).size(0.12f).build())
             .build()).build();
 
     private final CgVfxSystem vfx = new CgVfxSystem();

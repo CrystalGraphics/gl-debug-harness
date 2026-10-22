@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.vfx.particle.gpu.CgVfxDrawLayout;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -24,7 +25,7 @@ import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxWords;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
-import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
+import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -303,7 +304,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
     /** A definition with events, the rest its delegate's: the builder's {@code event} is the other side's to add. */
     private record Evented(CgVfxEmitter of, List<CgVfxEvent> events) implements CgVfxGpuEmitter {
         public String name() { return of.name(); }
-        public CgVfxEmitter.Renderer renderer() { return of.renderer(); }
+        public CgVfxDrawLayout drawLayout() { return of.drawLayout(); }
         public List<? extends CgVfxGpuModule> modules() { return of.modules(); }
         public int[] moduleWords() { return of.moduleWords(); }
         public void writeSpawn(CgVfxWords out) { of.writeSpawn(out); }
