@@ -25,8 +25,8 @@ import com.crystalgraphics.vfx.particle.gpu.draw.CgVfxRange;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
 import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
-import com.crystalgraphics.vfx.world.CgVfxVoxelWindow;
-import com.crystalgraphics.vfx.world.CgVfxVoxels;
+import com.crystalgraphics.render.world.CgWorldVoxelWindow;
+import com.crystalgraphics.render.world.CgWorldVoxels;
 import org.joml.Matrix4f;
 
 import java.nio.ByteBuffer;
@@ -113,7 +113,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
                 CgGpuTrace.resetTotals();
                 CgWorldEvents.blockBroken(CX - 5, ROOF, CZ + 1, CgWorldQuery.SURFACE_STONE, 0xFF707070);
             }
-            CgVfxVoxelWindow.get().useDistance().record(rec, view);
+            CgWorldVoxelWindow.get().useDistance().record(rec, view);
             if (frame == FILL) seed(rec);
             if (frame > FILL) step(rec);
             if (frame == FILL + STEPS + 1) read(rec);
@@ -137,7 +137,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
 
     /** Each slot's debris at rest in a box above its floor, its seed unique. */
     private void seed(CgRecording rec) {
-        if (!CgVfxVoxelWindow.get().live()) fail("the window has no level after " + FILL + " frames");
+        if (!CgWorldVoxelWindow.get().live()) fail("the window has no level after " + FILL + " frames");
         pool = CgVfxParticlePool.of(this, debris);
         Random random = new Random(1201);
         CgVfxRecord layout = pool.record();
@@ -183,8 +183,8 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
                 data -> drawnParts = copy(data)));
         requests.add(rec.readback(range.visible(), 0, allSlots * 4L, data -> visible = copy(data)));
         requests.add(rec.readback(range.order(), 0, (long) end * 4, data -> order = copy(data)));
-        requests.add(rec.readback(CgVfxVoxelWindow.get().distance(), 0, 0, 0, 0, CgVfxVoxelWindow.WIDTH,
-                CgVfxVoxelWindow.HEIGHT, CgVfxVoxelWindow.DEPTH, data -> distances = copy(data)));
+        requests.add(rec.readback(CgWorldVoxelWindow.get().distance(), 0, 0, 0, 0, CgWorldVoxelWindow.WIDTH,
+                CgWorldVoxelWindow.HEIGHT, CgWorldVoxelWindow.DEPTH, data -> distances = copy(data)));
     }
 
     private void compare() {
@@ -245,13 +245,13 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
         int reach = 9, x0 = CHECKED[0] - reach, y0 = CHECKED[1] - reach, z0 = CHECKED[2] - reach;
         int sx = CHECKED[3] + reach - x0 + 1, sy = CHECKED[4] + reach - y0 + 1, sz = CHECKED[5] + reach - z0 + 1;
         int[] octants = new int[sx * sy * sz];
-        float[] boxes = new float[CgVfxVoxels.BOXES * 6];
+        float[] boxes = new float[CgWorldVoxels.BOXES * 6];
         for (int z = 0; z < sz; z++) {
             for (int y = 0; y < sy; y++) {
-                for (int x = 0; x < sx; x++) octants[x + sx * (y + sy * z)] = CgVfxVoxels.octants(world, x0 + x, y0 + y, z0 + z, boxes);
+                for (int x = 0; x < sx; x++) octants[x + sx * (y + sy * z)] = CgWorldVoxels.octants(world, x0 + x, y0 + y, z0 + z, boxes);
             }
         }
-        int w = CgVfxVoxelWindow.WIDTH, h = CgVfxVoxelWindow.HEIGHT, d = CgVfxVoxelWindow.DEPTH;
+        int w = CgWorldVoxelWindow.WIDTH, h = CgWorldVoxelWindow.HEIGHT, d = CgWorldVoxelWindow.DEPTH;
         for (int bz = CHECKED[2]; bz <= CHECKED[5]; bz++) {
             for (int by = CHECKED[1]; by <= CHECKED[4]; by++) {
                 for (int bx = CHECKED[0]; bx <= CHECKED[3]; bx++) {

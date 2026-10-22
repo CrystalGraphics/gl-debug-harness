@@ -57,6 +57,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxShapesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
+import com.crystalgraphics.harness.scene.test.CgLightsShadowScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
@@ -789,6 +790,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVfxRangeScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("lights-shadow")
+                .description("The world lights' shadows: a light beside a wall of blocks, its light behind the wall withheld and in the open kept")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
+                .build(),
+            () -> new CgLightsShadowScene()
         );
 
         reg.register(

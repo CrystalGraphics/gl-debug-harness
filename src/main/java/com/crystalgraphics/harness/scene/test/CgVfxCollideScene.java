@@ -35,7 +35,7 @@ import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxDataInterfaces;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
 import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
-import com.crystalgraphics.vfx.world.CgVfxVoxelWindow;
+import com.crystalgraphics.render.world.CgWorldVoxelWindow;
 import org.joml.Matrix4f;
 
 import java.nio.ByteBuffer;
@@ -123,7 +123,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         frame++;
         if (frame <= FILL + STEPS + 1) {
             CgRecording rec = new CgRecording();
-            CgVfxVoxelWindow.get().useDistance().record(rec, view);
+            CgWorldVoxelWindow.get().useDistance().record(rec, view);
             if (frame == FILL) seed(rec);
             if (frame > FILL) step(rec);
             if (frame == FILL + STEPS + 1) {
@@ -152,7 +152,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
     }
 
     private void seed(CgRecording rec) {
-        if (!CgVfxVoxelWindow.get().live()) fail("the window has no level after " + FILL + " frames");
+        if (!CgWorldVoxelWindow.get().live()) fail("the window has no level after " + FILL + " frames");
         parents = CgVfxParticlePool.of(this, debris);
         children = CgVfxParticlePool.of(this, dust, 1);   // its feed tier: spawned by debris's events
         if (parents == children) fail("the debris and its dust share a pool");
