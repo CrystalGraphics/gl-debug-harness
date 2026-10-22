@@ -88,6 +88,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   and held to Java (the CPU's in order, the kernel's as a set, every cell Unreal's sphere-against-box binning). PASS at
   G43, G40, G33 (TBO too) and on `vulkan`. `--mode=lights-bench` is their cost: `crystalgraphics.harness.lights` (1,000)
   lights over the floor through the list, to profile: 1,000 drawn as spheres, one draw each, were 0.323 ms of GPU on gl.
+  `--mode=lights-sun` and `--mode=lights-torch` are Minecraft's own light shadowed by our objects: a box of ours over
+  the host's ground at noon and beside a torch at night, the ground behind it darkened, the open ground unchanged
+  (`docs/LIGHTS.md` §7). PASS on `gl` and `vulkan`.
   `--mode=lights-shadow` is their shadows': a light beside a wall of blocks in a world of its own, the light it adds
   behind the wall gone and in the open the same as with `shadowed(false)`. PASS on `gl`, at G33 with TBO and on `vulkan`.
   `--mode=vfx-renderers` is an emitter's renderers': a sprite, an arc, trails, a ribbon and a `#type spatial`

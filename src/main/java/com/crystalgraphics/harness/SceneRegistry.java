@@ -59,6 +59,7 @@ import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
 import com.crystalgraphics.harness.scene.test.CgLightsShadowScene;
 import com.crystalgraphics.harness.scene.test.CgLightsSunScene;
+import com.crystalgraphics.harness.scene.test.CgLightsTorchScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
@@ -819,6 +820,20 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
                 .build(),
             () -> new CgLightsSunScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("lights-torch")
+                .description("Minecraft's block light: a torch on the host's ground, our box beside it shadowing the ground behind it, against no box")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
+                .build(),
+            () -> new CgLightsTorchScene()
         );
 
         reg.register(
