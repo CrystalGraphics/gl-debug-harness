@@ -73,7 +73,9 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
     private static final float DT = 1f / 60f, GROUND = -1f, PARENT_LIFE = 1.5f;
     /** The debris's events, in the order its handlers resolve; the puffer's one. */
     private static final int LANDING = 0, SPAWN = 1, DEATH = 2, LOCATION = 3, BURST = 0;
-    private static final int[] COUNT_MIN = {3, 1, 1}, COUNT_MAX = {3, 3, 1};
+    private static final int[] COUNT_MIN = {3, 1, 1}, COUNT_MAX = {3, 3, 2};
+    /** The death handler's count, Cascade's: a float between these, rounded to the nearest. */
+    private static final float DEATH_LOW = 0.6f, DEATH_HIGH = 2.4f;
     private static final float[][] INHERIT = {{0.5f, 0.2f, 0.8f}, {0f, 0f, 0f}, {0f, 0f, 0f}};
     private static final int BURST_COUNT = 2, LOCATION_CAP = CgVfxEvent.MAX_PER_FRAME;
     private static final double[] PARENT_ORIGIN = {-700.25, 70.5, 1300.75}, CHILD_ORIGIN = {-697.0, 68.5, 1302.25},
@@ -134,7 +136,8 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
         Map<String, Object> dustTree = CgVfxEmitterAssets.write(DUST);
         dustTree.put("events", List.of(
                 handler("e2", "spawn", "h1", Map.of("emitter", "h3", "count", Map.of("range", List.of(1, 3))), PARENTS),
-                handler("e3", "death", "h1", Map.of("emitter", "h3", "count", 1, "use_emitter_location", true), PARENTS),
+                handler("e3", "death", "h1", Map.of("emitter", "h3", "count",
+                        Map.of("range", List.of((double) DEATH_LOW, (double) DEATH_HIGH), "rounding", "nearest"), "use_emitter_location", true), PARENTS),
                 handler("e4", "location", "h1", Map.of("emitter", "h3", "count", 1), -1),
                 handler("e5", "burst", "h2", Map.of("emitter", "h3", "count", BURST_COUNT), PARENTS)));
         Map<String, Object> tree = new LinkedHashMap<>();
@@ -286,8 +289,8 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
         int expected = 0;
         for (int e = 0; e < 3; e++) {
             for (Map.Entry<Integer, double[]> parent : rows.get(e).entrySet()) {
-                int n = CgVfxEvent.rolledCount(COUNT_MIN[e], COUNT_MAX[e], CgVfxEmitterInstance.rand(SEED_BITS,
-                        CgVfxEvent.childKey(parent.getKey(), e, CgVfxEvent.MAX_CHILDREN), 0));
+                float roll = CgVfxEmitterInstance.rand(SEED_BITS, CgVfxEvent.childKey(parent.getKey(), e, CgVfxEvent.MAX_CHILDREN), 0);
+                int n = e == DEATH ? CgVfxEvent.roundedCount(DEATH_LOW, DEATH_HIGH, roll) : CgVfxEvent.rolledCount(COUNT_MIN[e], COUNT_MAX[e], roll);
                 for (int i = 0; i < n; i++, expected++) {
                     if (!child(CgVfxEvent.childKey(parent.getKey(), e, i), childSlots[e], INHERIT[e], parent.getValue(), byId)) return;
                 }
