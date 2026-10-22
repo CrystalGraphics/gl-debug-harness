@@ -72,6 +72,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     private static final Map<String, Object> FORMS = new LinkedHashMap<>();
     /** Each spawn form by name: its emitter file's {@code particle_spawn}. */
     private static final Map<String, List<Object>> SPAWNS = new LinkedHashMap<>();
+    private static final Map<String, Map<String, Object>> ORBITS = new LinkedHashMap<>();
     /** Each spawn form's target, by name. */
     private static final Map<String, CgVfxSpawnInput> TARGETS = new LinkedHashMap<>();
     /** A light station's light_attributes inputs. */
@@ -184,6 +185,15 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         SPAWNS.put("spawn-light-range", List.of(init(Map.of("lifetime", 3.0))));
         LIGHTS.put("spawn-light-loop", Map.of("radius", Map.of("curve", seconds, "by", "loop")));
         LIGHTS.put("spawn-light-range", Map.of("exponent", Map.of("range", List.of(2.0, 9.0))));
+        // Cascade's orbit, stored at birth: a rate by the loop, and an offset picked.
+        SPAWNS.put("spawn-orbit-rate-loop", List.of(init(Map.of("lifetime", 3.0))));
+        SPAWNS.put("spawn-orbit-offset-pick", List.of(init(Map.of("lifetime", 3.0))));
+        ORBITS.put("spawn-orbit-rate-loop", Map.of("offset", List.of(0.0, 1.0, 0.0), "rotation", List.of(0.0, 0.0, 0.0),
+                "rotation_rate", Map.of("curves", List.of(seconds, cubic, linear), "by", "loop")));
+        ORBITS.put("spawn-orbit-offset-pick", Map.of("offset", Map.of("pick", List.of(List.of(1.0, 2.0, 3.0), List.of(-1.0, 0.5, 2.0))),
+                "rotation", List.of(0.0, 0.0, 0.0), "rotation_rate", List.of(0.0, 0.0, 0.0)));
+        TARGETS.put("spawn-orbit-rate-loop", CgVfxSpawnInput.ORBIT_RATE);
+        TARGETS.put("spawn-orbit-offset-pick", CgVfxSpawnInput.ORBIT_OFFSET);
         TARGETS.put("spawn-light-loop", CgVfxSpawnInput.LIGHT_RADIUS);
         TARGETS.put("spawn-light-range", CgVfxSpawnInput.LIGHT_EXPONENT);
         TARGETS.put("spawn-turn-loop", CgVfxSpawnInput.MESH_ORIENTATION);
@@ -265,6 +275,10 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             tree.put("emitter_update", List.of(Map.of("id", "state", "module", "crystalgraphics:emitter_state",
                     "inputs", Map.of("loop", "once", "duration", 1.6))));
             tree.put("particle_spawn", spawn.getValue());
+            if (ORBITS.containsKey(spawn.getKey())) {
+                tree.put("particle_update", List.of(Map.of("id", "orbit", "module", "crystalgraphics:orbit",
+                        "inputs", ORBITS.get(spawn.getKey()))));
+            }
             if (LIGHTS.containsKey(spawn.getKey())) {
                 tree.put("particle_update", List.of(Map.of("id", "light", "module", "crystalgraphics:light_attributes",
                         "inputs", LIGHTS.get(spawn.getKey()))));
@@ -504,6 +518,9 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 case MESH_ROTATION_RATE -> layout.word(CgVfxRecord.Tail.TURN_RATE);
                 case LIGHT_RADIUS -> layout.word(CgVfxRecord.Tail.LIGHT);
                 case LIGHT_EXPONENT -> layout.word(CgVfxRecord.Tail.LIGHT) + 1;
+                case ORBIT_OFFSET -> layout.word(CgVfxRecord.Tail.ORBIT);
+                case ORBIT_ROTATION -> layout.word(CgVfxRecord.Tail.ORBIT) + 3;
+                case ORBIT_RATE -> layout.word(CgVfxRecord.Tail.ORBIT) + 6;
             };
             CgVfxFormInput c = form.compiled();
             // An rgb colour's alpha is the row's: it stores none.

@@ -76,7 +76,7 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   `random_range` and `add` over forms, a binding to its age) giving `acceleration`,
   particles of known state stepped once, each one's change of velocity the form's Java evaluation, every lane; and
   spawn values in forms (P6.4): a lifetime as a pick and by id, a skewed size, a speed by a random draw and a swept
-  radius, 512 spawned at a known loop time, each one's life, size, speed or distance the form's Java evaluation. PASS at
+  radius, an orbit's rate by the loop and its offset picked, 512 spawned at a known loop time, each one's life, size, speed or distance the form's Java evaluation. PASS at
   G43, G40, G33 (TBO too) and on `vulkan`.
   `--mode=vfx-beams` is beams': Cascade's beam modules in twelve cases (straight, a Hermite under a turned effect, a far
   end travelling and arriving, noise re-picked each step, at a lock time, smoothed, oscillating, by distance,
