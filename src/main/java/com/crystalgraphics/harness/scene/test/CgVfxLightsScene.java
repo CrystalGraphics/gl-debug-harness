@@ -164,11 +164,14 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
             float radius = layout.f(records, r, tail) * size * (sx + sy) * 0.5f;
             float a = drawn.getFloat(part + 64 + 12), k = a * scale[3];
             double[] o = origins[slot];
+            // Its block and sky light, packed block + 16 sky in its drawn light (look.compute).
+            float blockSky = drawn.getFloat(part + 48);
             want.add(new float[] {
                     (float) (o[0] - eyeX + drawn.getFloat(part)), (float) (o[1] - eyeY + drawn.getFloat(part + 4)),
                     (float) (o[2] - eyeZ + drawn.getFloat(part + 8)), radius,
                     drawn.getFloat(part + 64) * k * scale[0], drawn.getFloat(part + 68) * k * scale[1],
-                    drawn.getFloat(part + 72) * k * scale[2], layout.f(records, r, tail + 1)});
+                    drawn.getFloat(part + 72) * k * scale[2], layout.f(records, r, tail + 1), 0f, 0f, 0f, -2f, 0f, 0f, 0f, 0f,
+                    blockSky % 16f, (float) Math.floor(blockSky / 16f)});
         }
         if (listed != want.size()) {
             fail("the list holds " + listed + " lights, Java gathers " + want.size() + " of " + n + " particles");
@@ -181,7 +184,7 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
             for (int i = 0; i < listed && found < 0; i++) {
                 if (taken[i]) continue;
                 boolean same = true;
-                for (int c = 0; c < 8 && same; c++) same = Math.abs(list.getFloat((i * CgWorldLights.FLOATS + c) * 4) - w[c]) <= TOLERANCE * (1f + Math.abs(w[c]));
+                for (int c = 0; c < 18 && same; c++) same = Math.abs(list.getFloat((i * CgWorldLights.FLOATS + c) * 4) - w[c]) <= TOLERANCE * (1f + Math.abs(w[c]));
                 if (same) found = i;
             }
             if (found < 0) {
@@ -189,7 +192,7 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
                 return;
             }
             taken[found] = true;
-            for (int c = 0; c < 8; c++) {
+            for (int c = 0; c < 18; c++) {
                 worst = Math.max(worst, Math.abs(list.getFloat((found * CgWorldLights.FLOATS + c) * 4) - w[c]) / (TOLERANCE * (1f + Math.abs(w[c]))));
             }
         }

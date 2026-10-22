@@ -221,6 +221,9 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
                     cpuLight[i * 5 + 3]};
             System.arraycopy(head, 0, want, 0, 8);
             want[11] = -2f;
+            // The block and sky light at the light: the harness has no level, so full.
+            want[16] = 15f;
+            want[17] = 15f;
             if (i % 3 == 1) {
                 // SpotLightComponent.cpp:49-55's clamp, as CgWorldLights.spot does it.
                 double inner = Math.toRadians(Math.max(0f, Math.min(89f, cpuSpot[i * 5 + 3])));

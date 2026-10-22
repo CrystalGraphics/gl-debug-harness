@@ -4,7 +4,7 @@
 
 #include "crystalgraphics:shaders/lib/lights.glsl"
 
-struct CgLight { vec4 positionRadius; vec4 colorExponent; vec4 spotCos; vec4 segmentCone; };
+struct CgLight { vec4 positionRadius; vec4 colorExponent; vec4 spotCos; vec4 segmentCone; vec4 ambient; };
 // A placed point light: position and radius, colour and exponent.
 struct Placed { vec4 positionRadius; vec4 colorExponent; };
 
