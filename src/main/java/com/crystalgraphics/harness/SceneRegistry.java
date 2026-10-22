@@ -39,6 +39,7 @@ import com.crystalgraphics.harness.scene.test.CgSamplerBindingTestScene;
 import com.crystalgraphics.harness.scene.test.CgFlipbookTestScene;
 import com.crystalgraphics.harness.scene.test.CgGlobalParametersTestScene;
 import com.crystalgraphics.harness.scene.test.CgPropertyTableScene;
+import com.crystalgraphics.harness.scene.test.CgTextureCubeScene;
 import com.crystalgraphics.harness.scene.test.CgPostTransitionsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrefabScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBooksScene;
@@ -429,6 +430,20 @@ public final class SceneRegistry {
                 .clearColor(0f, 0f, 0f, 1.0f)
                 .build(),
             () -> new CgGlobalParametersTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("texture-cube")
+                .description("A stacked-faces cube sampled along each axis, and a .hdr read as half floats: each face i the device's face i")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(116)
+                .defaultHeight(20)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgTextureCubeScene()
         );
 
         reg.register(
