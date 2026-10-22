@@ -32,8 +32,9 @@ import java.util.Random;
  * The gate for the world's light list and its grid ({@code CgWorldLights}): lights added from the CPU (points, spots
  * and tubes) and appended by a kernel each frame, the list and the grid read back after the world fires and held to
  * Java. The CPU's come first, exactly; the kernel's follow, as a set; and every cell lists exactly the lights whose
- * sphere reaches its view-space box, a spot's cone tested first (Unreal's LightGridInjection), in index order, the first
- * {@link CgWorldLights#PER_CELL} of them. A cluster of lights round one point passes that cap in the cells about it. The
+ * sphere reaches its view-space box, a spot's cone tested first (Unreal's LightGridInjection), in index order, all of
+ * them: where compute runs through the parent grid, below it from every light. A cluster of lights round one point puts
+ * more than {@link CgWorldLights#PER_CELL} in the cells about it, past the average the cells share. The
  * falloff every light is applied by ({@code lights.glsl}'s {@code cg_light_falloff}) is evaluated by a kernel at sample
  * points round a point, spots and tubes, and held to Java too. Scene id {@code lights-grid}.
  *
@@ -69,7 +70,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
     private CgWorldLights.Appender appender;
     private ByteBuffer count, list, cells, indices;
     private double eyeX, eyeY, eyeZ;
-    private int gridX, gridY, frame, checked, cellsChecked, capped;
+    private int gridX, gridY, frame, checked, cellsChecked, dense;
     private float[] rays, zParams;
     private float tileU, tileV;
     private final Matrix4f toView = new Matrix4f();
@@ -194,7 +195,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         CgRecording rec = new CgRecording();
         requests.add(rec.readback(lights.count(), 0, 4, data -> count = copy(data)));
         requests.add(rec.readback(lights.list(), 0, (long) (CPU + KERNEL) * CgWorldLights.FLOATS * 4, data -> list = copy(data)));
-        requests.add(rec.readback(lights.cells(), 0, n * 4L, data -> cells = copy(data)));
+        requests.add(rec.readback(lights.cells(), 0, n * 8L, data -> cells = copy(data)));
         requests.add(rec.readback(lights.indices(), 0, (long) n * CgWorldLights.PER_CELL * 4, data -> indices = copy(data)));
         CgComputePass pass = rec.compute("lights-grid.falloff");
         pass.dispatch(falloff, FALLOFF_LIGHTS * SAMPLES).bind("LIGHTS", falloffLightBuffer).bind("SAMPLES", sampleBuffer)
@@ -282,12 +283,12 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
                         if (gap < -BORDER * r * r && cone > 0) must.add(i);
                         else if (gap <= BORDER * r * r) may.add(i);
                     }
-                    int got = cells.getInt(e * 4);
+                    int got = cells.getInt(e * 8), from = cells.getInt(e * 8 + 4);
                     int[] indexes = new int[got];
-                    for (int k = 0; k < got; k++) indexes[k] = indices.getInt((e * per + k) * 4);
+                    for (int k = 0; k < got; k++) indexes[k] = indices.getInt((from + k) * 4);
                     cellsChecked++;
-                    if (must.size() + may.size() > per) capped++;
-                    if (!sameCell(indexes, must, may, per)) {
+                    if (must.size() > per) dense++;
+                    if (!sameCell(indexes, must, may)) {
                         fail("cell (" + x + ", " + y + ", " + z + ") lists " + Arrays.toString(indexes) + ", not " + must
                                 + (may.isEmpty() ? "" : " with any of " + may));
                         return;
@@ -295,21 +296,19 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
                 }
             }
         }
-        if (capped == 0) fail("no cell passed its " + per + " lights: the cluster is not dense enough to test the cap");
+        if (dense == 0) fail("no cell holds over " + per + " lights: the cluster is not dense enough to test a long list");
     }
 
-    /** Whether a cell's list is its lights in index order, the first PER_CELL of them, borderline ones either way. */
-    private static boolean sameCell(int[] got, List<Integer> must, List<Integer> may, int per) {
+    /** Whether a cell's list is its lights in index order, every one, borderline ones either way. */
+    private static boolean sameCell(int[] got, List<Integer> must, List<Integer> may) {
         int last = -1;
         for (int g : got) {
             if (g <= last) return false;
             last = g;
             if (!must.contains(g) && !may.contains(g)) return false;
         }
-        // Every light it must hold and could fit, before its list filled, is there.
-        int highest = got.length == per ? got[got.length - 1] : Integer.MAX_VALUE;
+        // Every light it must hold is there.
         for (int m : must) {
-            if (m > highest) continue;
             boolean found = false;
             for (int g : got) found |= g == m;
             if (!found) return false;
@@ -473,8 +472,8 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         } else if (failure != null) {
             System.out.println("[lights-grid] FAIL on " + on + ": " + failure);
         } else {
-            System.out.printf("[lights-grid] PASS on %s: %d light words, %d cells (%d past the cap of %d), %d falloffs%n", on,
-                    checked, cellsChecked, capped, CgWorldLights.PER_CELL, falloffChecked);
+            System.out.printf("[lights-grid] PASS on %s: %d light words, %d cells (%d holding over %d), %d falloffs%n", on,
+                    checked, cellsChecked, dense, CgWorldLights.PER_CELL, falloffChecked);
         }
     }
 

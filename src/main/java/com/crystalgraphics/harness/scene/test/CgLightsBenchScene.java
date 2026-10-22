@@ -1,5 +1,9 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterial;
+import com.crystalgraphics.api.mesh.CgMesh;
+import com.crystalgraphics.api.mesh.CgMeshShapes;
+import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -7,7 +11,7 @@ import com.crystalgraphics.render.world.CgWorldLights;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 
 /**
- * Effect lights' cost: {@code n} point lights over the floor, a grid of them glowing on the ground, added to the
+ * Effect lights' cost: {@code n} point lights over a floor, a grid of them glowing on the ground, added to the
  * world's light list as a slot's light adds its own. Profile it for the GPU time the list costs: {@code world.lights}
  * bins them, {@code world.lightsApply} adds them onto the scene. Scene id {@code lights-bench}.
  *
@@ -26,6 +30,9 @@ public final class CgLightsBenchScene implements InteractiveSceneLifecycle {
     private static final float INTENSITY = 4f * SIZE * SIZE;
 
     private int columns;
+    /** Ground under every light, as Minecraft's terrain is: what the light falls on, and what the grid's HZB culls by. */
+    private CgMesh floor;
+    private CgMaterial floorMaterial;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -33,6 +40,9 @@ public final class CgLightsBenchScene implements InteractiveSceneLifecycle {
         float half = columns * SPACING * 0.5f;
         ctx.getCamera3D().moveCamera(0f, half * 1.1f, half * 1.4f);
         ctx.getCamera3D().setPitch(-40f);
+        float side = columns * SPACING + 2f * REACH;
+        floor = CgMesh.build(CgVertexFormat.SPATIAL, m -> CgMeshShapes.plane(m, 1, 1, side, side));
+        floorMaterial = CgMaterial.newInstance("crystalgraphics:shaders/demo/vfx_floor.shader");
     }
 
     @Override
@@ -43,11 +53,13 @@ public final class CgLightsBenchScene implements InteractiveSceneLifecycle {
             float x = (i % columns) * SPACING - half, z = (i / columns) * SPACING - half;
             lights.add(x, 0.6, z, REACH, 0xE62E73FF, INTENSITY, 0f);
         }
+        CgWorldRenderer.get().draw(floor, floorMaterial).at(0.0, 0.0, 0.0).submit();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }
 
     @Override
     public void dispose() {
+        if (floor != null) floor.release();
     }
 
     @Override public boolean isRunning() { return true; }
