@@ -277,7 +277,10 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
                         // A spot passes its cone's test, then is bounded by the sphere round its cone (lights.glsl's
                         // cg_light_reaches); a cone test within float rounding of its edge goes either way.
                         float[] at = {view[i * 3], view[i * 3 + 1], view[i * 3 + 2], light(i, 3)};
+                        int drawn = drawn(at, spot, i * 4);
+                        if (drawn < 0) continue;
                         int cone = spot[i * 4 + 3] > -1.5f ? cone(at, spot, i * 4, box) : 1;
+                        if (drawn == 0) cone = Math.min(cone, 0);
                         if (cone < 0) continue;
                         float r = at[3], gap = gap(box, at[0], at[1], at[2]) - r * r;
                         if (gap < -BORDER * r * r && cone > 0) must.add(i);
@@ -338,6 +341,32 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
             for (int k = 0; k < 3; k++) at[k] += spot[s + k] * at[3];
         }
         return result;
+    }
+
+    /**
+     * Whether a light is drawn at all, r.MinScreenRadiusForLights by its bounding sphere (a spot's round its cone): 1
+     * drawn, -1 not, 0 within rounding of the edge.
+     */
+    private static int drawn(float[] at, float[] spot, int s) {
+        float min = CgWorldLights.minScreenRadius();
+        if (min <= 0f) return 1;
+        float cx = at[0], cy = at[1], cz = at[2], bound = at[3], c = spot[s + 3];
+        if (c > -1.5f) {
+            float sin = (float) Math.sqrt(Math.max(1f - c * c, 0f));
+            if (c < 0.707107f) {
+                cx += spot[s] * at[3] * c;
+                cy += spot[s + 1] * at[3] * c;
+                cz += spot[s + 2] * at[3] * c;
+                bound = at[3] * sin;
+            } else {
+                bound = at[3] / (2f * c);
+                cx += spot[s] * bound;
+                cy += spot[s + 1] * bound;
+                cz += spot[s + 2] * bound;
+            }
+        }
+        float reach = (float) Math.sqrt(cx * cx + cy * cy + cz * cz) * Math.min(0.02f, min / Math.max(bound, 1e-6f));
+        return reach < 1f - BORDER ? 1 : reach > 1f + BORDER ? -1 : 0;
     }
 
     /** {@code (x, y, z)} turned into view space into {@code out} at {@code at}: a camera-relative vector, no shift. */
