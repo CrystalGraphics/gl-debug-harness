@@ -74,6 +74,11 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   spawn values in forms (P6.4): a lifetime as a pick and by id, a skewed size, a speed by a random draw and a swept
   radius, 512 spawned at a known loop time, each one's life, size, speed or distance the form's Java evaluation. PASS at
   G43, G40, G33 (TBO too) and on `vulkan`.
+  `--mode=vfx-beams` is beams': Cascade's beam modules in twelve cases (straight, a Hermite under a turned effect, a far
+  end travelling and arriving, noise re-picked each step, at a lock time, smoothed, oscillating, by distance,
+  tessellated, on interpolation points, on the target), stepped 14 times beside a Java simulation of them, each beam's
+  record, its run and the points the strip factory's `fx_beam_point` draws matched against it. PASS at G43, G40, G33
+  (TBO too) and on `vulkan`.
   `--mode=vfx-renderers` is an emitter's renderers': a sprite, an arc, trails, a ribbon and a `#type spatial`
   material drawn as sprites (no vertex data) from material definitions over 100 effects, each renderer one particle
   set of every instance; PASS at G43, G40, G33 and on

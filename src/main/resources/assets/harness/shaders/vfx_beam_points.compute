@@ -1,0 +1,41 @@
+// vfx-beams' kernel (CgVfxBeamsScene): each live beam's drawn points as the strip factory places them, through the
+// same fx_beam_point, for the scene to hold against Cascade's formulas in Java. An element a point: record e, point k.
+#pragma kernel Points map
+
+#include "crystalgraphics:shaders/lib/vfx/fx_record.glsl"
+
+Properties {
+    _RecordVectors ("A record's uvec4s: its pool's layout",         int) = 4
+    _Stride        ("Points written a record: the most segments + 1", int) = 1
+    _NoisePoints   ("Its pool's CgVfxShape.beamPoints",              int) = 0
+}
+
+Buffers {
+    RECORDS ("Particles, after the step",                                       uvec4, readonly)
+    LIVE    ("How many are alive",                                              uint,  readonly)
+    TABLE   ("Each slot's beams: first vec4, beams, vec4s a beam, 0",           uvec4, readonly)
+    RUNS    ("Every beam's run",                                                vec4,  readonly)
+    CASES   ("Per slot: its draw's CUSTOM2, then segments a beam in x",         vec4,  readonly)
+    POINTS  ("Per record and point: the point from the origin, segments filled", vec4,  writeonly)
+}
+
+// After the buffers, whose accessors its point functions read.
+#define FX_BEAM_RUN(at) RUNS(at)
+#include "crystalgraphics:shaders/lib/vfx/fx_beam.glsl"
+
+void Points() {
+    int e = CG_ELEMENT / _Stride, k = CG_ELEMENT - e * _Stride;
+    if (e >= int(LIVE(0))) {
+        POINTS_WRITE(vec4(0.0, 0.0, 0.0, -1.0));
+        return;
+    }
+    int r = e * _RecordVectors;
+    uvec4 heatId = RECORDS(r + FX_RECORD_HEAT_ID);
+    uvec4 run = TABLE(int(heatId.z));
+    int at = int(run.x + (heatId.y % max(run.y, 1u)) * run.z);
+    vec4 c2 = CASES(int(heatId.z) * 2);
+    int segments = int(CASES(int(heatId.z) * 2 + 1).x + 0.5);
+    vec3 end = uintBitsToFloat(RECORDS(r + FX_RECORD_POSITION_AGE).xyz);
+    int filled = fx_beam_filled(at, _NoisePoints, segments);
+    POINTS_WRITE(vec4(fx_beam_point(at, min(k, filled), filled, _NoisePoints, end, c2), float(filled)));
+}

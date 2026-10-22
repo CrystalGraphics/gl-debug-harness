@@ -25,6 +25,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxInputsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxRangeScene;
 import com.crystalgraphics.harness.scene.test.CgVfxWorldScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialLibraryScene;
+import com.crystalgraphics.harness.scene.test.CgVfxBeamsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxFormsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxHashesScene;
 import com.crystalgraphics.harness.scene.test.CgVolumeTestScene;
@@ -734,6 +735,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVfxFormsScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-beams")
+                .description("Beams: each beam's ends, noise and drawn points on the GPU against a Java simulation of Cascade's")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgVfxBeamsScene()
         );
 
         reg.register(
