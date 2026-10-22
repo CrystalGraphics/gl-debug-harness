@@ -77,7 +77,7 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
             .speed(0f, 0f).event(CgVfxEvent.onDeath().readback(128)).build();
     private final CgVfxEmitter middle = CgVfxEmitter.builder("sequence-middle").capacity(64).life(0.5f, 0.5f)
             .speed(0f, 0f).module(new CgVfxModule.Force(FORCE, 0f, 0f))
-            .event(CgVfxEvent.onDeath().spawn(leaf, LEAVES).readback(64)).build();
+            .event(CgVfxEvent.onDeath().spawn(leaf, LEAVES).maxPerFrame(64).readback(64)).build();
     private final CgVfxNodeClip clip = CgVfxNodeClip.of(prefab, 90)
             .channel("hub", Channel.ROTATION_Z, Interp.CONSTANT, 0, 0f, 15, 90f, 45, 180f)
             .channel("tip", Channel.OPACITY, Interp.CONSTANT, 0, 1f, 66, 0f)

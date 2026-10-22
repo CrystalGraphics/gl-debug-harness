@@ -84,7 +84,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
             .capacity(PARENTS).burst(0f, 1)
             .life(100f, 100f).size(0.1f, 0.2f, 1f).module(new CgVfxModule.Gravity(9.8f)).build();
     private final CgVfxGpuEmitter debris = new Colliding(base, List.of(base.modules().get(0), new Bounce()),
-            List.of(CgVfxEvent.onCollision().spawn(dust, COUNT).inherit(INHERIT).readback(4000),
+            List.of(CgVfxEvent.onCollision().spawn(dust, COUNT).inherit(INHERIT).maxPerFrame(PARENTS).readback(4000),
                     CgVfxEvent.every(PERIOD).readback(4000), CgVfxEvent.onDeath().readback(4000)));
     private final World world = new World();
     private final CgHostView view = new CgHostView();

@@ -61,7 +61,7 @@ public final class CgVfxBooksScene implements InteractiveSceneLifecycle {
     private static final CgVfxEmitter LONG = CgVfxEmitter.builder("books_long").state(CgVfxEmitterState.once(1f))
             .capacity(200).rate(50f).life(2f, 3f).speed(0.2f, 0.5f).build();
     private static final CgVfxEmitter PARENT = CgVfxEmitter.builder("books_parent").state(CgVfxEmitterState.ONCE)
-            .capacity(40).burst(0f, 30).life(0.6f, 1f).speed(1f, 2f).event(CgVfxEvent.onDeath().spawn(CHILD, 2)).build();
+            .capacity(40).burst(0f, 30).life(0.6f, 1f).speed(1f, 2f).event(CgVfxEvent.onDeath().spawn(CHILD, 2).maxPerFrame(40)).build();
     private static final CgVfxLook[] LOOKS = {
             CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA).emitter(BURST).build(),
             CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA).emitter(RATE).build(),
