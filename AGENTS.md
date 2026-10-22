@@ -67,6 +67,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   as GLSL text over the window's distance field, each fast impact a collision spawning dust under its firing's key, a
   rate reporting each debris every period, the fourth collision killing it; every firing heard once and numbered, every
   child where Java puts it, nothing inside the solid. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
+  `--mode=vfx-cascade-collide` is a collider's Cascade response through the engine's `CollideWorld`: per-axis damping
+  rolled per particle against Java to 1e-4 with its turn scaled, freezing after 3 collisions, halting after a count rolled
+  from 1 to 2 and falling through, and killing at the first contact past a delay of half its life. PASS at G43, G40, G33
+  and on `vulkan`.
   `--mode=vfx-forms` is module inputs in forms (P6.3, P6.6): an emitter compiled from its file a form (ranges, a pick,
   curves by age, the particle's age, its speed, a random draw, its id and the loop, arrays by age, id and a random draw,
   `random_range` and `add` over forms, a binding to its age) giving `acceleration`,

@@ -18,6 +18,7 @@ import com.crystalgraphics.harness.scene.test.CgDistortionTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeCheckTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuBudgetTestScene;
 import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
+import com.crystalgraphics.harness.scene.test.CgVfxCascadeCollideScene;
 import com.crystalgraphics.harness.scene.test.CgVfxCollideScene;
 import com.crystalgraphics.harness.scene.test.CgVfxEventsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSequenceScene;
@@ -844,6 +845,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVfxCollideScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-cascade-collide")
+                .description("A collider's Cascade response: per-axis damping rolled per particle, a count with freeze, halt and kill, and a delay, each group checked against Java")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgVfxCascadeCollideScene()
         );
 
         reg.register(
