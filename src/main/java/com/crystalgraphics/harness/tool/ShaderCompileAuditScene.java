@@ -253,7 +253,7 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
             buildPipelines(asset.getOrCompile(pass.name(), Collections.emptySet()),
                     "pass '" + pass.name() + "' base variant", body);
         }
-        // Auto-generated ShadowCaster/Depth passes fail non-fatally: the engine logs and carries on.
+        // An auto-generated Depth pass fails non-fatally: the engine logs and carries on.
         // Report them anyway — a run that printed a GLSL error to the console while the report said
         // "0 failures" is exactly the kind of thing that gets a real problem dismissed.
         List<String> nonFatal = capture.drain();
@@ -271,11 +271,9 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
         if (CgCapabilities.detect().multiDraw()) {
             Set<String> multi = Set.of(CgMaterialShaderCompiler.MULTI_DRAW);
             for (CgParsedPass pass : parsed.passes()) compileVariant(asset, pass.name(), multi, capture, body);
-            for (CgRenderPassVariant generated : List.of(CgRenderPassVariant.DEPTH, CgRenderPassVariant.SHADOW)) {
-                String name = generated.lightModeName();
-                if (parsed.getPassByName(name) == null && asset.hasCompiledPass(name)) {
-                    compileVariant(asset, name, multi, capture, body);
-                }
+            String depth = CgRenderPassVariant.DEPTH.lightModeName();
+            if (parsed.getPassByName(depth) == null && asset.hasCompiledPass(depth)) {
+                compileVariant(asset, depth, multi, capture, body);
             }
         }
     }
