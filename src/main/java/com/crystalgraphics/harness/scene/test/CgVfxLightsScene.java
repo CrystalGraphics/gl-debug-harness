@@ -53,6 +53,8 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
     /** Embers: 200 unless {@code -Dcrystalgraphics.harness.vfx.lights} asks more, which also keeps it running to be profiled. */
     private static final int PARTICLES = Integer.getInteger("crystalgraphics.harness.vfx.lights", 200), WARM = 30, DRAIN = 90;
     private static final boolean PROFILED = Integer.getInteger("crystalgraphics.harness.vfx.lights") != null;
+    /** Spawned at a rate, as fireflies are, rather than in one burst: {@code -Dcrystalgraphics.harness.vfx.lights.rate=true}. */
+    private static final boolean RATE = Boolean.getBoolean("crystalgraphics.harness.vfx.lights.rate");
     private static final float SHARE = 0.5f, RADIUS_SCALE = 12f, EXPONENT = 8f, TOLERANCE = 1e-3f;
     private static final float[] COLOR_SCALE = {1f, 0.5f, 0.25f};
     private static final CgVfxSchema SCHEMA = CgVfxSchema.of("harness:vfx_lights");
@@ -70,7 +72,9 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
     private boolean running = true, asked, compared;
 
     private static CgVfxEmitter emitter() {
-        return CgVfxEmitter.builder("embers").capacity(PARTICLES).state(CgVfxEmitterState.once(1f)).burst(0f, PARTICLES)
+        CgVfxEmitter.Builder b = CgVfxEmitter.builder("embers").capacity(PARTICLES);
+        b = RATE ? b.state(CgVfxEmitterState.infinite(1f)).rate(PARTICLES / 0.4f) : b.state(CgVfxEmitterState.once(1f)).burst(0f, PARTICLES);
+        return b
                 .shape(CgBox.of(6, 0.05, 6)).speed(0f, 0f).life(30f, 30f).size(0.2f, 0.6f)
                 .light(RADIUS_SCALE, EXPONENT, CgVfxDrawnChannel.over(CgKeyframes.constant(COLOR_SCALE[0])),
                         CgVfxDrawnChannel.over(CgKeyframes.constant(COLOR_SCALE[1])),
@@ -151,6 +155,13 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
             int slot = layout.i(records, r, CgVfxRecord.SLOT), part = r * stride * CgVfxRecord.DRAWN_BYTES;
             int light = (r * stride + 2) * CgVfxRecord.DRAWN_BYTES;
             float t = Math.min(age / life, 1f);
+            // Its light's reach and falloff, rolled at spawn from the light module (constants here).
+            if (Math.abs(layout.f(records, r, tail) - RADIUS_SCALE) > TOLERANCE * RADIUS_SCALE
+                    || Math.abs(layout.f(records, r, tail + 1) - EXPONENT) > TOLERANCE * EXPONENT) {
+                fail("particle " + r + "'s light radius scale and exponent are " + layout.f(records, r, tail) + " and "
+                        + layout.f(records, r, tail + 1) + ", not " + RADIUS_SCALE + " and " + EXPONENT);
+                return;
+            }
             // The light element against its channels in Java, by age.
             float[] scale = {COLOR_SCALE[0], COLOR_SCALE[1], COLOR_SCALE[2], BRIGHTNESS.at(t)};
             for (int c = 0; c < 4; c++) {
