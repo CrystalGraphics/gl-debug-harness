@@ -19,6 +19,7 @@ import com.crystalgraphics.harness.scene.test.CgComputeCheckTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuBudgetTestScene;
 import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
 import com.crystalgraphics.harness.scene.test.CgVfxCascadeCollideScene;
+import com.crystalgraphics.harness.scene.test.CgVfxSpawnFromScene;
 import com.crystalgraphics.harness.scene.test.CgVfxCollideScene;
 import com.crystalgraphics.harness.scene.test.CgVfxEventsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSequenceScene;
@@ -904,6 +905,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVfxCascadeCollideScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-spawn-from")
+                .description("Particles born on another emitter's: random on still sources, sequential inheriting moving sources' velocity, an empty source's at the origin, checked against the seeded sources")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgVfxSpawnFromScene()
         );
 
         reg.register(

@@ -71,6 +71,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   rolled per particle against Java to 1e-4 with its turn scaled, freezing after 3 collisions, halting after a count rolled
   from 1 to 2 and falling through, and killing at the first contact past a delay of half its life. PASS at G43, G40, G33
   and on `vulkan`.
+  `--mode=vfx-spawn-from` is particles born on another emitter's (`CgVfxSpawnFrom`): three sources at tier 0 publishing
+  seeded particles, each read by an emitter at tier 1 bursting once; a random reader on still sources, every one exactly
+  on a source particle; a sequential reader taking each moving source particle's half velocity once; an empty source's
+  readers left at their origin. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
   `--mode=vfx-forms` is module inputs in forms (P6.3, P6.6): an emitter compiled from its file a form (ranges, a pick,
   curves by age, the particle's age, its speed, a random draw, its id and the loop, arrays by age, id and a random draw,
   `random_range` and `add` over forms, a binding to its age) giving `acceleration`,
