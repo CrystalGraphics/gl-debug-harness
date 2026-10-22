@@ -259,6 +259,9 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         float[] view = new float[listed * 3], spot = new float[listed * 4];
         for (int i = 0; i < listed; i++) {
             turn(light(i, 0), light(i, 1), light(i, 2), view, i * 3);
+            view[i * 3] += toView.m30();
+            view[i * 3 + 1] += toView.m31();
+            view[i * 3 + 2] += toView.m32();
             turn(light(i, 8), light(i, 9), light(i, 10), spot, i * 4);
             spot[i * 4 + 3] = light(i, 11);
         }
@@ -338,7 +341,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         return result;
     }
 
-    /** {@code (x, y, z)} turned into view space into {@code out} at {@code at}: a camera-relative vector, no translation. */
+    /** {@code (x, y, z)} turned into view space into {@code out} at {@code at}: a camera-relative vector, no shift. */
     private void turn(float x, float y, float z, float[] out, int at) {
         out[at] = toView.m00() * x + toView.m10() * y + toView.m20() * z;
         out[at + 1] = toView.m01() * x + toView.m11() * y + toView.m21() * z;
