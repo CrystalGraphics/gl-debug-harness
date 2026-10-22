@@ -73,7 +73,9 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
     private static final int CX = -1000, CZ = 2000, GROUND = 64, WALL_X = CX + 4, WALL_TOP = 69;
     private static final double[] PARENT_ORIGIN = {CX + 0.25, 66.5, CZ + 0.75}, CHILD_ORIGIN = {CX - 2.0, 65.5, CZ + 1.25};
     private static final int PARENTS = 400, COUNT = 2, KILL_AFTER = 4, SEED_BITS = 0x5EED;
-    private static final float BOUNCE = 0.6f, SLIDE = 1.5f, PERIOD = 0.0937f, INHERIT = 0.25f;
+    private static final float BOUNCE = 0.6f, SLIDE = 1.5f, PERIOD = 0.0937f;
+    /** Each axis of an impact's velocity its dust takes on. */
+    private static final float[] INHERIT = {0.25f, 0.6f, 0.1f};
     private static final int COLLISION = 0, RATE = 1, DEATH = 2;
     private static final float TOLERANCE = 2e-3f;
 
@@ -85,7 +87,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
             .capacity(PARENTS).burst(0f, 1)
             .life(100f, 100f).size(0.1f, 0.2f, 1f).module(new CgVfxModule.Gravity(9.8f)).build();
     private final CgVfxGpuEmitter debris = new Colliding(base, List.of(base.modules().get(0), new Bounce()),
-            List.of(CgVfxEvent.onCollision().spawn(dust, COUNT).inherit(INHERIT).maxPerFrame(PARENTS).readback(4000),
+            List.of(CgVfxEvent.onCollision().spawn(dust, COUNT).inherit(INHERIT[0], INHERIT[1], INHERIT[2]).maxPerFrame(PARENTS).readback(4000),
                     CgVfxEvent.every(PERIOD).readback(4000), CgVfxEvent.onDeath().readback(4000)));
     private final World world = new World();
     private final CgHostView view = new CgHostView();
@@ -275,7 +277,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         float age = children.record().f(childRecords, r, CgVfxRecord.AGE);
         for (int a = 0; a < 3; a++) {
             double born = event[a] - CHILD_ORIGIN[a] + dir[a] * start;
-            double velocity = dir[a] * speed + INHERIT * event[3 + a];
+            double velocity = dir[a] * speed + INHERIT[a] * event[3 + a];
             double want = born + velocity * age;
             float got = children.record().f(childRecords, r, CgVfxRecord.POSITION + a);
             float gotV = children.record().f(childRecords, r, CgVfxRecord.VELOCITY + a);

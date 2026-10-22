@@ -74,7 +74,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
     /** The debris's events, in the order its handlers resolve; the puffer's one. */
     private static final int LANDING = 0, SPAWN = 1, DEATH = 2, LOCATION = 3, BURST = 0;
     private static final int[] COUNT_MIN = {3, 1, 1}, COUNT_MAX = {3, 3, 1};
-    private static final float[] INHERIT = {0.5f, 0f, 0f};
+    private static final float[][] INHERIT = {{0.5f, 0.2f, 0.8f}, {0f, 0f, 0f}, {0f, 0f, 0f}};
     private static final int BURST_COUNT = 2, LOCATION_CAP = CgVfxEvent.MAX_PER_FRAME;
     private static final double[] PARENT_ORIGIN = {-700.25, 70.5, 1300.75}, CHILD_ORIGIN = {-697.0, 68.5, 1302.25},
             PUFFER_ORIGIN = {-702.5, 69.0, 1298.0};
@@ -146,7 +146,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
         puffer = system.emitters().get(1);
         dust = system.emitters().get(2);
         List<CgVfxEvent> events = new ArrayList<>(debrisFile.events());
-        events.add(LANDING, CgVfxEvent.onLanding().spawn(dust, COUNT_MAX[LANDING]).inherit(INHERIT[LANDING]).maxPerFrame(PARENTS));
+        events.add(LANDING, CgVfxEvent.onLanding().spawn(dust, COUNT_MAX[LANDING]).inherit(INHERIT[LANDING][0], INHERIT[LANDING][1], INHERIT[LANDING][2]).maxPerFrame(PARENTS));
         for (int e = 0; e < 3; e++) events.set(e, events.get(e).readback(1000));
         debris = new Evented(debrisFile, events);
         if (events.get(LOCATION).trigger() != CgVfxEvent.Trigger.LOCATION || puffer.events().get(BURST).trigger() != CgVfxEvent.Trigger.BURST) {
@@ -299,7 +299,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
                 double[] event = {PUFFER_ORIGIN[0] + PUFF_FROM[0], PUFFER_ORIGIN[1] + PUFF_FROM[1], PUFFER_ORIGIN[2] + PUFF_FROM[2],
                         0, 0, 0, 0, 1, 0};
                 for (int i = 0; i < BURST_COUNT; i++, expected++) {
-                    if (!child(CgVfxEvent.childKey(first, BURST, i), burstSlot, 0f, event, byId)) return;
+                    if (!child(CgVfxEvent.childKey(first, BURST, i), burstSlot, INHERIT[SPAWN], event, byId)) return;
                 }
             }
         }
@@ -314,7 +314,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
         return (long) slot << 32 | id & 0xFFFFFFFFL;
     }
 
-    private boolean child(int key, int slot, float inherit, double[] event, Map<Long, Integer> byId) {
+    private boolean child(int key, int slot, float[] inherit, double[] event, Map<Long, Integer> byId) {
         Integer r = byId.get(slotted(slot, key));
         if (r == null) {
             fail("no child " + key + " in slot " + slot);
@@ -325,7 +325,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
     }
 
     /** Child {@code key} as {@code step_launch} launches it from the event, then drifted for its age. */
-    private void check(int key, float inherit, double[] event, int r) {
+    private void check(int key, float[] inherit, double[] event, int r) {
         // step_place's sphere: a direction drawn evenly, folded up for a hemisphere (its flags' bit 4).
         float up = rand(SHAPE, key, 0) * 2f - 1f;
         if (((int) spawn[25] & 4) != 0) up = Math.abs(up);
@@ -339,7 +339,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
         float age = layout.f(childRecords, r, CgVfxRecord.AGE);
         for (int a = 0; a < 3; a++) {
             double born = event[a] - CHILD_ORIGIN[a] + dir[a] * start;
-            double velocity = dir[a] * speed + inherit * event[3 + a];
+            double velocity = dir[a] * speed + inherit[a] * event[3 + a];
             double want = born + velocity * age;
             float got = layout.f(childRecords, r, CgVfxRecord.POSITION + a);
             float gotV = layout.f(childRecords, r, CgVfxRecord.VELOCITY + a);
