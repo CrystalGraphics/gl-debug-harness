@@ -69,6 +69,7 @@ import com.crystalgraphics.harness.scene.test.CgLightsSunScene;
 import com.crystalgraphics.harness.scene.test.CgLightsTorchScene;
 import com.crystalgraphics.harness.scene.test.CgLightsVolumeScene;
 import com.crystalgraphics.harness.scene.test.CgLightsAirScene;
+import com.crystalgraphics.harness.scene.test.CgLightsDemoBisectScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
@@ -860,6 +861,18 @@ public final class SceneRegistry {
         );
 
         reg.register(
+            SceneDescriptor.builder("lights-demo-bisect")
+                .description("The lights demo at midnight, captured with the lit air, the shadows and the transparent volume left out in turn")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.01f, 0.01f, 0.03f, 1.0f)
+                .build(),
+            () -> new CgLightsDemoBisectScene()
+        );
+
+        reg.register(
             SceneDescriptor.builder("lights-sun")
                 .description("The sun's shadows: our box shadows the host's ground, blocks the host never draws shadow our box, at noon against no sun")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
@@ -1323,7 +1336,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("vfx-trails")
-                .description("Many ki streaks: CgVfxTrail points uploaded once a frame, every strip built on the GPU")
+                .description("Many ki streaks: Cascade ribbon trails behind sources their effects move, each strip generated on the GPU")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)

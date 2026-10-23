@@ -20,9 +20,10 @@ import com.crystalgraphics.vfx.particle.renderer.CgVfxRenderers;
 import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
 
 /**
- * An emitter's renderers drawing from material definitions: a sprite, an arc, trails, a ribbon and a mesh material drawn
- * as sprites on five emitters, played {@link #EFFECTS} times. Each renderer must stay one merged draw of every instance (a particle set), and draw
- * each instance once. Scene id {@code vfx-renderers}.
+ * An emitter's renderers drawing from material definitions: a sprite, an arc, a ribbon and a mesh material drawn as
+ * sprites on four emitters, played {@link #EFFECTS} times. Each must draw each instance once; the sprite, arc and mesh
+ * material each stay one merged draw of every instance (a particle set), while a ribbon draws each instance's own
+ * generated run, as Niagara's ribbon renderer does. Scene id {@code vfx-renderers}.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-renderers"
@@ -34,11 +35,10 @@ import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
  */
 public final class CgVfxRenderersScene implements InteractiveSceneLifecycle {
 
-    private static final int EFFECTS = 100, WARM = 90, RENDERERS = 5;
+    private static final int EFFECTS = 100, WARM = 90, RENDERERS = 4, SETS = 3;
     private static final String SPRITE = "crystalgraphics:shaders/vfx/particle/sprite.shader";
     private static final String ARC = "crystalgraphics:shaders/vfx/particle/arc.shader";
-    private static final String STREAKS = "crystalgraphics:shaders/vfx/particle/streaks.shader";
-    private static final String RIBBON = "crystalgraphics:shaders/vfx/particle/ribbon.shader";
+    private static final String RIBBON = "crystalgraphics:shaders/vfx/trail/glow.shader";
     /** {@code #type spatial} under a sprite renderer: its program reads no vertex data, drawn on {@code CgMesh.quads}. */
     private static final String SPATIAL_SPRITE = "harness:shaders/vfx_spatial_sprite.shader";
     private static final CgVfxSchema SCHEMA = CgVfxSchema.of("harness:vfx_renderers");
@@ -61,13 +61,11 @@ public final class CgVfxRenderersScene implements InteractiveSceneLifecycle {
         CgVfxEmitter sprites = emitter("sprites").renderer(CgVfxRenderers.sprite("sprite")
                 .material(material("sprite", SPRITE, CgMaterialUsage.SPRITES)).bind("_Color", "user.ember").build()).build();
         CgVfxEmitter arcs = emitter("arcs").renderer(CgVfxRenderers.arc("arc").material(material("arc", ARC, CgMaterialUsage.SPRITES)).build()).build();
-        CgVfxEmitter trails = emitter("trails").trail(8).renderer(CgVfxRenderers.trails("trails")
-                .material(material("streaks", STREAKS, CgMaterialUsage.RIBBONS)).field("points", 8).build()).build();
         CgVfxEmitter ribbons = emitter("ribbons").renderer(CgVfxRenderers.ribbon("ribbon")
                 .material(material("ribbon", RIBBON, CgMaterialUsage.RIBBONS)).build()).build();
         CgVfxEmitter meshSprites = emitter("meshSprites").renderer(CgVfxRenderers.sprite("meshSprite")
                 .material(material("spatial_sprite", SPATIAL_SPRITE, CgMaterialUsage.SPRITES)).build()).build();
-        return CgVfxLook.builder(SCHEMA).emitter(sprites).emitter(arcs).emitter(trails).emitter(ribbons)
+        return CgVfxLook.builder(SCHEMA).emitter(sprites).emitter(arcs).emitter(ribbons)
                 .emitter(meshSprites).build();
     }
 
@@ -91,9 +89,9 @@ public final class CgVfxRenderersScene implements InteractiveSceneLifecycle {
         if (++frames < WARM || !running) return;
         TraceReport report = TraceReport.lastFrame();
         long sets = report.counter("vfx.draws.particle-sets"), records = report.counter("vfx.draws.particle-gpu");
-        String verdict = sets == RENDERERS && records == (long) RENDERERS * EFFECTS ? "PASS" : "FAIL";
+        String verdict = sets == SETS && records == (long) RENDERERS * EFFECTS ? "PASS" : "FAIL";
         System.out.printf("[vfx-renderers] %s: %d renderers of %d effects drew %d particle sets of %d records"
-                + " (want %d and %d)%n", verdict, RENDERERS, EFFECTS, sets, records, RENDERERS, RENDERERS * EFFECTS);
+                + " (want %d and %d)%n", verdict, RENDERERS, EFFECTS, sets, records, SETS, RENDERERS * EFFECTS);
         running = false;
     }
 

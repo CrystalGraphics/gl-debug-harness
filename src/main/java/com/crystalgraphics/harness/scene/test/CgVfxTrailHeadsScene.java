@@ -49,7 +49,7 @@ import java.util.TreeSet;
 public class CgVfxTrailHeadsScene implements InteractiveSceneLifecycle {
 
     private static final int WARM = 10, STEPS = 30, DRAIN = 40, SOURCES = 3, TRAILS = 3, MOST = 12, CAPACITY = 64;
-    private static final float TICK = CgVfxTrailHeads.SHORTEST_STEP, SPACING = 0.2f, TOLERANCE = 2e-3f;
+    private static final float TICK = 0.05f, SPACING = 0.2f, TOLERANCE = 2e-3f;
     private static final int SEED_BITS = 0x7A11;
 
     private final CgVfxEmitter source = CgVfxEmitter.builder("heads-source").state(CgVfxEmitterState.ONCE).capacity(SOURCES)
@@ -108,7 +108,7 @@ public class CgVfxTrailHeadsScene implements InteractiveSceneLifecycle {
         trailPool = CgVfxParticlePool.of(this, trail, 1);
         trailSlot = trailPool.open(trail, CAPACITY);
         trailPool.readFrom(trailSlot, sourcePool, sourceSlot);
-        heads = new CgVfxTrailHeads(renderer.trail(), CgVfxSpawnPerUnit.every(1f, SPACING), 0f, CAPACITY);
+        heads = new CgVfxTrailHeads(renderer.trail(), CgVfxSpawnPerUnit.every(1f, SPACING), 0f, CAPACITY, false);
         CgVfxRecord layout = sourcePool.record();
         ByteBuffer packed = ByteBuffer.allocateDirect(SOURCES * layout.bytes()).order(ByteOrder.nativeOrder());
         for (int id = 0; id < SOURCES; id++) {
