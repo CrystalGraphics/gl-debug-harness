@@ -888,6 +888,18 @@ public final class SceneRegistry {
         );
 
         reg.register(
+            SceneDescriptor.builder("lights-demo")
+                .description("The lights demo at midnight, every pass on, held at one moment until closed: to profile")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.01f, 0.01f, 0.03f, 1.0f)
+                .build(),
+            () -> new CgLightsDemoBisectScene(true)
+        );
+
+        reg.register(
             SceneDescriptor.builder("lights-sun")
                 .description("The sun's shadows: our box shadows the host's ground, blocks the host never draws shadow our box, at noon against no sun")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)

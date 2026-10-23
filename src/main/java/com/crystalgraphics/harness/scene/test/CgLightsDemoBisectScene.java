@@ -40,8 +40,15 @@ import java.util.List;
  * shadow off, the transparent volume off, all three off. Prints each capture's mean brightness, its share of saturated
  * pixels and the mean round the mirror ball, to tell which pass brightens the show.
  *
+ * <p>Steady ({@code lights-demo}), it draws every pass on and the show held at one moment until closed: a run to
+ * profile, the particles stepped by {@code fixedDelta}, more lights added by the demo's sweep.</p>
+ *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-demo-bisect --width=960 --height=540"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-demo --width=2560 --height=1440" \
+ *     -Dcrystalgraphics.harness.fixedDelta=0.0166667 -Dcrystalgraphics.harness.profile=600 \
+ *     -Dcrystalgraphics.harness.profile.warmup=900 -Dcrystalgraphics.trace.channels=crystalgraphics,gpu \
+ *     -Dcrystalgraphics.demo.lightsSweep=100 -Dcrystalgraphics.demo.lightsSweepKind=scatter
  * }</pre>
  */
 public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
@@ -59,6 +66,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
     private static final String[] NAMES = {"all", "no-air", "no-shadows", "no-volume", "none"};
 
     private final CgLightsDemo demo = new CgLightsDemo(CgVfx.owner("harness"));
+    private final boolean steady;
     private final Matrix4f view = new Matrix4f().lookAt(0f, 0f, 0f, (float) (X - EYE_X), (float) (GROUND + 4 - EYE_Y),
             (float) (Z - 2 - EYE_Z), 0f, 1f, 0f);
     private final Matrix4f projection = new Matrix4f(), ground = new Matrix4f();
@@ -67,6 +75,14 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
     private CgTexture2D lightmap;
     private int width, height, frame, warmAt = -1;
     private boolean running = true;
+
+    public CgLightsDemoBisectScene() {
+        this(false);
+    }
+
+    public CgLightsDemoBisectScene(boolean steady) {
+        this.steady = steady;
+    }
 
     @Override
     public void init(HarnessContext ctx) {
@@ -95,7 +111,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo info) {
         frame++;
         if (warmAt < 0 && demo.warmed()) warmAt = frame;
-        int phase = warmAt < 0 ? -1 : (frame - warmAt) / PHASE;
+        int phase = warmAt < 0 || steady ? -1 : (frame - warmAt) / PHASE;
         if (phase >= 0 && phase < PHASES.length) {
             for (int v = 0; v < VARS.length; v++) ((CgVar.Bool) CgVars.get(VARS[v])).set(PHASES[phase][v]);
         }
