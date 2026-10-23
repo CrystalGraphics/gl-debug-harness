@@ -58,6 +58,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxShapesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
+import com.crystalgraphics.harness.scene.test.CgLightsCastersScene;
 import com.crystalgraphics.harness.scene.test.CgLightsShadowScene;
 import com.crystalgraphics.harness.scene.test.CgLightsSunScene;
 import com.crystalgraphics.harness.scene.test.CgLightsTorchScene;
@@ -821,6 +822,20 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
                 .build(),
             () -> new CgLightsSunScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("lights-casters")
+                .description("Our meshes casting through their distance fields: a box over the host's ground and a ball over our slab under a low sun, against no sun")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
+                .build(),
+            () -> new CgLightsCastersScene()
         );
 
         reg.register(
