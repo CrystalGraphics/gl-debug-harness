@@ -100,7 +100,8 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   the host's ground at noon and beside a torch at night, the ground behind it darkened, the open ground unchanged
   (`docs/LIGHTS.md` §7). PASS on `gl` and `vulkan`.
   `--mode=lights-casters` is our meshes' distance fields: our box's shadow on the host's ground, our ball's on our slab,
-  the ground beside kept, and the side sun's edge across the ball steady as the camera turns half a degree. PASS on
+  the ground beside kept, every shadowed ground pixel within 3 of the exact shadow, and the side sun's edge across the
+  ball steady as the camera turns half a degree. PASS on
   `gl` and `vulkan`.
   `--mode=lights-shadow` is their shadows': a light beside a wall of blocks in a world of its own, the light it adds
   behind the wall gone and in the open the same as with `shadowed(false)`. PASS on `gl`, at G33 with TBO and on `vulkan`.

@@ -39,7 +39,9 @@ import java.util.List;
  * middle of each shadow must be dark, not only its edge; ground beside the box on the sun's and the camera's side must
  * not change, where a screen-space thickness smeared the shadow toward the camera. Each against the same frames with
  * no sun. Then under a low sun from the side, its edge across the ball's face, the camera turns half a degree: the ball's
- * shaded share must hold, where normals rebuilt from depth and held to an axis flipped whole patches of it.
+ * shaded share must hold, where normals rebuilt from depth and held to an axis flipped whole patches of it. Under both
+ * suns no shadow on the ground round the box may lie more than {@link #SPILL} pixels outside the box's and the ball's
+ * exact one, where the spatial filter once spread it.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-casters"
@@ -52,9 +54,10 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
 
     private static final int PHASE = 480, W = 320, H = 240;
     private static final int CX = -1000, CZ = 2000, GROUND = 64;
-    /** The sun's celestial angle: a morning sun, its shadows long enough to fall beside what casts them. */
-    /** A low morning sun, from the side of the ball away from the camera: its edge crosses the face the camera sees. */
+    /** Celestial angles: a morning sun, its shadows beside what casts them; then a low one whose edge crosses the ball. */
     private static final float SUN_ANGLE = 0.07f, SIDE_SUN = 0.8f;
+    /** Pixels a shadow may reach past the exact one: the sun's disc and the capture's rounding. */
+    private static final float SPILL = 3f;
     private static final double HEIGHT = 3, SLAB_TOP = 0.25;
     private static final double[] BOX = {CX + 0.5, GROUND + HEIGHT, CZ + 0.5}, BALL = {CX + 10.5, GROUND + HEIGHT, CZ + 0.5};
     private static final double EYE_X = CX + 5, EYE_Y = GROUND + 14, EYE_Z = CZ + 9;
@@ -67,6 +70,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
     private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), (float) W / H, 0.05f, 200f);
     private final float[] sun = new float[3];
     private double[] boxShadow, ballShadow, beside;
+    private float[] sideSun;
     private HarnessFboHelper target;
     private CgMaterial grey;
     private CgTexture2D lightmap;
@@ -116,6 +120,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
             stage.host().environment().sun(phase == 1 ? Float.NaN : phase >= 2 ? SIDE_SUN : SUN_ANGLE, 0, 0f, 1f);
             stage.host().textures().importedLightmap(lightmap.getId(), 16, 16);
             if (boxShadow == null && phase == 0) place(stage);
+            if (phase == 2 && sideSun == null) stage.host().environment().sunDirection(sideSun = new float[3]);
             stage.fire();
         }
         CgFrameRing.endFrame();
@@ -142,6 +147,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
         String failure = null;
         float[][] at = new float[2][3];
         float shadedNow = 0f, shadedTurned = 0f;
+        int[] spilt = new int[2];
         try {
             for (int k = 0; k < 2; k++) {
                 BufferedImage image = ImageIO.read(new File(ctx.getOutputDir(), NAMES[k] + ".png"));
@@ -149,19 +155,23 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
                 at[k][1] = patch(image, ballShadow);
                 at[k][2] = patch(image, beside);
             }
+            BufferedImage unlit = ImageIO.read(new File(ctx.getOutputDir(), NAMES[1] + ".png"));
+            spilt[0] = spilt(ImageIO.read(new File(ctx.getOutputDir(), NAMES[0] + ".png")), unlit, sun);
+            spilt[1] = spilt(ImageIO.read(new File(ctx.getOutputDir(), NAMES[2] + ".png")), unlit, sideSun);
             shadedNow = shaded(ImageIO.read(new File(ctx.getOutputDir(), NAMES[2] + ".png")), look);
             shadedTurned = shaded(ImageIO.read(new File(ctx.getOutputDir(), NAMES[3] + ".png")), turned);
         } catch (IOException e) {
             failure = "the captures did not read back: " + e.getMessage();
         }
         String readings = String.format("box's shadow %.1f vs %.1f, ball's on our slab %.1f vs %.1f, beside the box %.1f vs %.1f,"
-                + " the ball shaded %.1f%% then %.1f%% turned", at[0][0], at[1][0], at[0][1], at[1][1], at[0][2], at[1][2],
-                shadedNow * 100f, shadedTurned * 100f);
+                + " the ball shaded %.1f%% then %.1f%% turned, shadow pixels past the exact one %d and %d", at[0][0], at[1][0],
+                at[0][1], at[1][1], at[0][2], at[1][2], shadedNow * 100f, shadedTurned * 100f, spilt[0], spilt[1]);
         if (failure == null && at[0][0] > 0.8f * at[1][0]) failure = "the box's shadow is not dark through its middle: " + readings;
         else if (failure == null && at[0][1] > 0.8f * at[1][1]) failure = "the ball's shadow on our slab is not dark: " + readings;
         else if (failure == null && Math.abs(at[0][2] - at[1][2]) > 2f) failure = "the ground beside the box changed: " + readings;
         else if (failure == null && (shadedNow < 0.1f || shadedNow > 0.9f)) failure = "the side sun's edge is not across the ball: " + readings;
         else if (failure == null && Math.abs(shadedNow - shadedTurned) > 0.04f) failure = "the ball's shading jumped as the camera turned: " + readings;
+        else if (failure == null && spilt[0] + spilt[1] > 0) failure = "a shadow spread past the exact one: " + readings;
         boolean glErrors = GlErrorChecker.checkAndLog("lights-casters");
         CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
@@ -206,6 +216,75 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
             }
         }
         return n == 0 ? 0f : dark / (float) n;
+    }
+
+    /**
+     * The ground pixels round the box shadowed in {@code lit} (below 90% of {@code unlit}) more than {@link #SPILL} pixels
+     * from any pixel the box or the ball shadows exactly under {@code sun}; the ball's slab and the box itself left out.
+     */
+    private int spilt(BufferedImage lit, BufferedImage unlit, float[] sun) {
+        Matrix4f inverse = new Matrix4f(projection).mul(look).invert();
+        double bx = BOX[0] - EYE_X, by = BOX[1] - EYE_Y, bz = BOX[2] - EYE_Z, gy = GROUND - EYE_Y;
+        boolean[] ground = new boolean[W * H], exact = new boolean[W * H], seen = new boolean[W * H];
+        Vector4f near = new Vector4f(), far = new Vector4f();
+        for (int y = 0; y < H; y++) {
+            for (int x = 0; x < W; x++) {
+                float nx = (x + 0.5f) / W * 2f - 1f, ny = (H - 1 - y + 0.5f) / H * 2f - 1f;
+                inverse.transform(near.set(nx, ny, -1f, 1f));
+                inverse.transform(far.set(nx, ny, 1f, 1f));
+                double ax = near.x / near.w, ay = near.y / near.w, az = near.z / near.w;
+                double dx = far.x / far.w - ax, dy = far.y / far.w - ay, dz = far.z / far.w - az;
+                if (dy >= 0 || box(ax, ay, az, dx, dy, dz, bx, by, bz, 1.05)) continue;
+                double t = (gy - ay) / dy, px = ax + dx * t, pz = az + dz * t;
+                if (Math.abs(px - bx) > 8 || Math.abs(pz - bz) > 8) continue;
+                if (Math.abs(px - (BALL[0] - EYE_X)) < 5.5 && Math.abs(pz - (BALL[2] - EYE_Z)) < 5.5) continue;
+                int i = y * W + x;
+                ground[i] = true;
+                exact[i] = box(px, gy, pz, sun[0], sun[1], sun[2], bx, by, bz, 1.0)
+                        || ball(px, gy, pz, sun, BALL[0] - EYE_X, BALL[1] - EYE_Y, BALL[2] - EYE_Z);
+                seen[i] = grey(lit.getRGB(x, y)) < 0.9f * grey(unlit.getRGB(x, y));
+            }
+        }
+        int spilt = 0, reach = (int) Math.ceil(SPILL);
+        for (int y = 0; y < H; y++) {
+            for (int x = 0; x < W; x++) {
+                if (!seen[y * W + x] || exact[y * W + x]) continue;
+                boolean close = false;
+                for (int v = -reach; v <= reach && !close; v++) {
+                    for (int u = -reach; u <= reach && !close; u++) {
+                        int xx = x + u, yy = y + v;
+                        close = xx >= 0 && yy >= 0 && xx < W && yy < H && u * u + v * v <= SPILL * SPILL && exact[yy * W + xx];
+                    }
+                }
+                if (!close) spilt++;
+            }
+        }
+        return spilt;
+    }
+
+    private static float grey(int rgb) {
+        return ((rgb >> 16 & 0xFF) + (rgb >> 8 & 0xFF) + (rgb & 0xFF)) / 3f;
+    }
+
+    /** Whether the ray from a along d meets the unit ball at c. */
+    private static boolean ball(double ax, double ay, double az, float[] d, double cx, double cy, double cz) {
+        double ox = cx - ax, oy = cy - ay, oz = cz - az, t = ox * d[0] + oy * d[1] + oz * d[2];
+        if (t < 0) return false;
+        double qx = ox - d[0] * t, qy = oy - d[1] * t, qz = oz - d[2] * t;
+        return qx * qx + qy * qy + qz * qz < 1.0;
+    }
+
+    /** Whether the ray from a along d meets the box of half-size h at c. */
+    private static boolean box(double ax, double ay, double az, double dx, double dy, double dz, double cx, double cy, double cz, double h) {
+        double enter = 0, leave = 1e9;
+        double[] o = {ax - cx, ay - cy, az - cz}, d = {dx, dy, dz};
+        for (int c = 0; c < 3; c++) {
+            if (Math.abs(d[c]) < 1e-12) { if (Math.abs(o[c]) > h) return false; continue; }
+            double ta = (-h - o[c]) / d[c], tb = (h - o[c]) / d[c];
+            enter = Math.max(enter, Math.min(ta, tb));
+            leave = Math.min(leave, Math.max(ta, tb));
+        }
+        return enter < leave;
     }
 
     /** The mean of a 7x7 patch's channels round where {@code p} lands in a top-down capture. */
