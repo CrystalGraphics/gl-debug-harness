@@ -51,7 +51,8 @@ import java.util.Random;
  * ({@code initial_mesh_orientation} per channel in turns, {@code mesh_rotation_rate}): each particle's quaternion, as Look
  * writes it for its draws, Unreal's rotator of its rolled start plus its rate times its age. A vector field placed,
  * pivoted and turned ({@code CgVfxFieldTurn}) with tightness: each seeded particle's velocity after the step, drawn
- * toward the turned field's and pushed by it, against Java.
+ * toward the turned field's and pushed by it, against Java. Cascade's triangle: every particle inside it, and its apex
+ * weighing more than half in about a sixth of them, as three uniforms over their sum give (a quarter by area).
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-forms"
@@ -101,6 +102,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             CgUnits.rotatorToHost(0.4, 0.9, -0.6), new float[]{0.2f, -0.5f, 1.1f}, new float[]{0.2f, -0.5f, 1.1f}, new float[3]);
     /** The loop's seconds the spawn stations spawn at, and the instance's as the module stations step. */
     private static final float LOOP = 0.7f, STEP_LOOP = 1.3f;
+    /** The triangle station's height, apex angle (radians) and thickness. */
+    private static final double TRI_HEIGHT = 2.0, TRI_APEX = Math.toRadians(70), TRI_THICKNESS = 0.5;
 
     static {
         Map<String, Object> cubic = Map.of("keys", List.of(List.of(0.0, -2.0, "cubic", "break", 0.0, 6.0),
@@ -170,6 +173,9 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                         "default", List.of(0.0, 0.0, 0.0), "remap", Map.of("in", List.of(List.of(0.0, 0.0, 0.0), List.of(1.0, 1.0, 1.0)),
                                 "out", List.of(List.of(-2.0, 0.0, 1.0), List.of(2.0, 4.0, 5.0))))))));
         TARGETS.put("spawn-offset-bind", CgVfxSpawnInput.OFFSET);
+        SPAWNS.put("spawn-triangle", List.of(init(Map.of("lifetime", 3.0)), Map.of("id", "shape",
+                "module", "crystalgraphics:shape_location", "inputs", Map.of("shape", "triangle", "triangle_height", TRI_HEIGHT,
+                        "triangle_angle", TRI_APEX, "triangle_thickness", TRI_THICKNESS))));
         // On a cylinder's edge, its half height out from its middle: a height by the loop.
         SPAWNS.put("spawn-height-loop", List.of(init(Map.of("lifetime", 3.0)), Map.of("id", "shape",
                 "module", "crystalgraphics:shape_location", "inputs", Map.of("shape", "cylinder", "cylinder_radius", 1.0,
@@ -316,7 +322,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             CgVfxSpawnInput target = TARGETS.get(spawn.getKey());
             CgVfxSpawnForm form = emitter.spawnForms().stream().filter(x -> x.target() == target).findFirst().orElse(null);
             if (target != null && form == null) fail(spawn.getKey() + " compiled no " + target + " spawn form");
-            if (target == null && emitter.sockets() == null && emitter.meshRotation() == null) {
+            if (target == null && emitter.sockets() == null && emitter.meshRotation() == null && !spawn.getKey().equals("spawn-triangle")) {
                 fail(spawn.getKey() + " compiled no skeleton points and no mesh orientation");
             }
             spawnForms.add(form);
@@ -493,7 +499,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         CgVfxEmitter emitter = emitters.get(e);
         CgVfxSpawnForm form = spawnForms.get(e - FORMS.size() - 1);
         if (form == null) {
-            if (emitter.meshRotation() != null) compareOrientation(e);
+            if (emitter.name().equals("forms-spawn-triangle")) compareTriangle(e);
+            else if (emitter.meshRotation() != null) compareOrientation(e);
             else compareSockets(e);
             return;
         }
@@ -606,6 +613,36 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 return;
             }
             checked++;
+        }
+    }
+
+    /**
+     * Every particle of the triangle station: inside it (its corner weights, read back from its place, none below 0; its
+     * thickness along y), and its apex's weight above a half in about a sixth of them, Cascade's sum of three uniforms.
+     */
+    private void compareTriangle(int e) {
+        ByteBuffer records = read.get(e);
+        CgVfxRecord layout = pools.get(e).record();
+        double hx = TRI_HEIGHT / 2, base = TRI_HEIGHT * Math.tan(TRI_APEX / 2), slack = 1e-4;
+        int heavy = 0, n = 0;
+        for (int r = 0; r < PARTICLES; r++) {
+            int id = layout.i(records, r, CgVfxRecord.ID);
+            if (layout.f(records, r, CgVfxRecord.LIFE) == 0f || id < 0 || id >= PARTICLES) continue;
+            double x = layout.f(records, r, CgVfxRecord.POSITION), y = layout.f(records, r, CgVfxRecord.POSITION + 1);
+            double z = layout.f(records, r, CgVfxRecord.POSITION + 2);
+            double apex = (x / hx + 1) / 2, left = (1 - apex + z / base) / 2, right = (1 - apex - z / base) / 2;
+            if (apex < -slack || left < -slack || right < -slack || Math.abs(y) > TRI_THICKNESS / 2 + slack) {
+                fail("spawn-triangle: particle " + id + " at " + x + ", " + y + ", " + z + " is outside its triangle");
+                return;
+            }
+            if (apex > 0.5) heavy++;
+            n++;
+            checked++;
+        }
+        double share = n == 0 ? 0 : (double) heavy / n;
+        // 1/6 against an area's 1/4: binomial spread at 512 is about 0.017.
+        if (n < PARTICLES || Math.abs(share - 1.0 / 6) > 0.05) {
+            fail("spawn-triangle: " + n + " read back, the apex over half in " + share + " of them, Cascade's sum gives 1/6");
         }
     }
 
