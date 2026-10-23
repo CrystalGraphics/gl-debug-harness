@@ -43,6 +43,7 @@ import java.util.List;
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-lights"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-lights" -Dcrystalgraphics.compute.tier=G33
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-lights --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-lights" -Dcrystalgraphics.harness.vfx.lights.mesh=true   // meshes beside the light
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-lights" -Dcrystalgraphics.harness.vfx.lights=10000  *         -Dcrystalgraphics.harness.profile=300 -Dcrystalgraphics.trace.channels=crystalgraphics,gpu   // the cost at 10,000
  * }</pre>
  *
@@ -55,6 +56,8 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
     private static final boolean PROFILED = Integer.getInteger("crystalgraphics.harness.vfx.lights") != null;
     /** Spawned at a rate, as fireflies are, rather than in one burst: {@code -Dcrystalgraphics.harness.vfx.lights.rate=true}. */
     private static final boolean RATE = Boolean.getBoolean("crystalgraphics.harness.vfx.lights.rate");
+    /** Embers drawn as meshes beside their light, a mesh renderer and a light on one emitter. */
+    private static final boolean MESH = Boolean.getBoolean("crystalgraphics.harness.vfx.lights.mesh");
     private static final float SHARE = 0.5f, RADIUS_SCALE = 12f, EXPONENT = 8f, TOLERANCE = 1e-3f;
     private static final float[] COLOR_SCALE = {1f, 0.5f, 0.25f};
     private static final CgVfxSchema SCHEMA = CgVfxSchema.of("harness:vfx_lights");
@@ -79,7 +82,9 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
                 .light(RADIUS_SCALE, EXPONENT, CgVfxDrawnChannel.over(CgKeyframes.constant(COLOR_SCALE[0])),
                         CgVfxDrawnChannel.over(CgKeyframes.constant(COLOR_SCALE[1])),
                         CgVfxDrawnChannel.over(CgKeyframes.constant(COLOR_SCALE[2])), CgVfxDrawnChannel.over(BRIGHTNESS))
-                .renderer(CgVfxRenderers.sprite("ember").material(CgMaterialDefinition.of("harness:materials/vfx_lights_ember",
+                .renderer(MESH ? CgVfxRenderers.mesh("ember").material(CgMaterialDefinition.of("harness:materials/vfx_lights_ring",
+                        "crystalgraphics:shaders/vfx/particle/ring.shader").usage(CgMaterialUsage.MESH_PARTICLES).build()).build()
+                        : CgVfxRenderers.sprite("ember").material(CgMaterialDefinition.of("harness:materials/vfx_lights_ember",
                         "crystalgraphics:shaders/vfx/particle/spark.shader").blend(CgBlendMode.ADDITIVE).usage(CgMaterialUsage.SPRITES)
                         .build()).build())
                 .renderer(CgVfxRenderers.light("glow").field("spawn_fraction", (double) SHARE)
