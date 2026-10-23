@@ -51,7 +51,9 @@ import java.util.Random;
  * ({@code initial_mesh_orientation} per channel in turns, {@code mesh_rotation_rate}): each particle's quaternion, as Look
  * writes it for its draws, Unreal's rotator of its rolled start plus its rate times its age. A vector field placed,
  * pivoted and turned ({@code CgVfxFieldTurn}) with tightness: each seeded particle's velocity after the step, drawn
- * toward the turned field's and pushed by it, against Java. Cascade's triangle: every particle inside it, and its apex
+ * toward the turned field's and pushed by it, against Java. A point attractor that lasts and one that does not (Cascade's
+ * {@code bAffectBaseVelocity}): both move a particle alike over the step, the first keeping the velocity it built and
+ * the second leaving it as seeded. Cascade's triangle: every particle inside it, and its apex
  * weighing more than half in about a sixth of them, as three uniforms over their sum give (a quarter by area).
  *
  * <pre>{@code
@@ -103,6 +105,9 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     /** The loop's seconds the spawn stations spawn at, and the instance's as the module stations step. */
     private static final float LOOP = 0.7f, STEP_LOOP = 1.3f;
     /** The triangle station's height, apex angle (radians) and thickness. */
+    /** The attractor stations' centre from the source (the seeded particles sit there), radius and strength. */
+    private static final double[] ATTRACT_AT = {2.0, 0.0, 0.0};
+    private static final double ATTRACT_RADIUS = 10.0, ATTRACT_STRENGTH = 3.0;
     private static final double TRI_HEIGHT = 2.0, TRI_APEX = Math.toRadians(70), TRI_THICKNESS = 0.5;
 
     static {
@@ -242,6 +247,10 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     private final List<CgRequest> requests = new ArrayList<>();
     /** Each particle's seeded age, life and velocity, by its id. */
     private final float[][] seeded = new float[PARTICLES][];
+    /** The stations seeded with particles: the module forms, the field and the attractors; spawn stations after. */
+    private int seededStations;
+    /** The momentary attractor's pools' owner: its station shares the lasting one's shape, and each station steps its own pool. */
+    private final Object momentaryOwner = new Object();
     private int frame, checked;
     private float worst;
     private String failure;
@@ -274,6 +283,17 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         emitters.add(fielded);
         CgVfxParticlePool.prepare(fielded);
         read.add(null);
+        for (boolean lasting : new boolean[]{true, false}) {
+            Map<String, Object> tree = new LinkedHashMap<>(still);
+            tree.put("particle_update", List.of(Map.of("id", "pull", "module", "crystalgraphics:point_attractor", "inputs", Map.of(
+                    "position", List.of(ATTRACT_AT[0], ATTRACT_AT[1], ATTRACT_AT[2]), "radius", ATTRACT_RADIUS,
+                    "strength", ATTRACT_STRENGTH, "falloff", 0.0, "affect_base_velocity", lasting))));
+            CgVfxEmitter pulled = CgVfxEmitterAssets.compile(lasting ? "forms-attract-lasting" : "forms-attract-momentary", tree, null);
+            emitters.add(pulled);
+            CgVfxParticlePool.prepare(pulled);
+            read.add(null);
+        }
+        seededStations = emitters.size();
         for (Map.Entry<String, List<Object>> spawn : SPAWNS.entrySet()) {
             Map<String, Object> tree = new LinkedHashMap<>();
             tree.put("_v", 1);
@@ -352,7 +372,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                     pool.beginStep(DT, 0f, 0f, 0f);
                     pool.instance(slots.get(e), SEED_BITS, 1f, Float.NaN, origin());
                     // A spawn station's particles: one burst at the step's start, at the loop's LOOP seconds.
-                    if (e > FORMS.size()) pool.spawn(slots.get(e), 0, PARTICLES, PARTICLES, 0f, DT, 0f, 0f, 0f, 0f, 0f, 0f, LOOP, LOOP);
+                    if (e >= seededStations) pool.spawn(slots.get(e), 0, PARTICLES, PARTICLES, 0f, DT, 0f, 0f, 0f, 0f, 0f, 0f, LOOP, LOOP);
                     pool.endStep();
                 }
                 CgVfxParticlePool.record(rec, pools);
@@ -377,6 +397,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             for (int e = 0; e < emitters.size(); e++) {
                 if (e < FORMS.size()) compare(e);
                 else if (e == FORMS.size()) compareField(e);
+                else if (e < seededStations) compareAttract(e);
                 else compareSpawn(e);
             }
             compared = true;
@@ -384,16 +405,17 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         if (compared || frame > DRAIN) {
             report();
             CgVfxParticlePool.release(this);
+            CgVfxParticlePool.release(momentaryOwner);
             running = false;
         }
     }
 
     private void seed(CgRecording rec) {
         for (CgVfxEmitter emitter : emitters) {
-            CgVfxParticlePool pool = CgVfxParticlePool.of(this, emitter);
+            CgVfxParticlePool pool = CgVfxParticlePool.of(emitter.name().endsWith("momentary") ? momentaryOwner : this, emitter);
             if (pools.contains(pool)) fail(emitter.name() + " shares a pool with another form");
             int slot = pool.open(emitter, PARTICLES);
-            if (pools.size() > FORMS.size()) {
+            if (pools.size() >= seededStations) {
                 pools.add(pool);
                 slots.add(slot);
                 continue;
@@ -485,6 +507,38 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         }
     }
 
+    /**
+     * Every particle of an attractor station, seeded at the source with the pull exactly (strength, 0, 0) there: its
+     * place after the step its seeded velocity plus the pull's step, times the step, at both; its velocity that too where
+     * the pull lasts, and as seeded where it does not.
+     */
+    private void compareAttract(int e) {
+        boolean lasting = emitters.get(e).name().endsWith("lasting");
+        ByteBuffer records = read.get(e);
+        CgVfxRecord layout = pools.get(e).record();
+        float pull = (float) ATTRACT_STRENGTH * DT;
+        for (int r = 0; r < PARTICLES; r++) {
+            int id = layout.i(records, r, CgVfxRecord.ID);
+            if (layout.f(records, r, CgVfxRecord.LIFE) == 0f || id < 0 || id >= PARTICLES) continue;
+            float[] s = seeded[id];
+            for (int c = 0; c < 3; c++) {
+                float moved = s[2 + c] + (c == 0 ? pull : 0f);
+                float[] want = {moved * DT, lasting ? moved : s[2 + c]};
+                float[] got = {layout.f(records, r, CgVfxRecord.POSITION + c), layout.f(records, r, CgVfxRecord.VELOCITY + c)};
+                for (int k = 0; k < 2; k++) {
+                    float off = Math.abs(got[k] - want[k]) / (TOLERANCE * (1f + Math.abs(want[k])));
+                    worst = Math.max(worst, off);
+                    if (!(off <= 1f)) {
+                        fail(emitters.get(e).name() + ": particle " + id + "'s " + (k == 0 ? "place" : "velocity") + " lane " + c
+                                + " is " + got[k] + ", Java gives " + want[k]);
+                        return;
+                    }
+                }
+            }
+            checked++;
+        }
+    }
+
     /** {@code q}'s turn of {@code v} into {@code out}: {@code fx_field_turn}. */
     private static void turn(float[] q, float[] v, float[] out) {
         float cx = q[1] * v[2] - q[2] * v[1] + q[3] * v[0], cy = q[2] * v[0] - q[0] * v[2] + q[3] * v[1];
@@ -497,7 +551,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     /** Every particle of spawn station {@code e}: its life, size, rotation, velocity or place, against the form's Java evaluation. */
     private void compareSpawn(int e) {
         CgVfxEmitter emitter = emitters.get(e);
-        CgVfxSpawnForm form = spawnForms.get(e - FORMS.size() - 1);
+        CgVfxSpawnForm form = spawnForms.get(e - seededStations);
         if (form == null) {
             if (emitter.name().equals("forms-spawn-triangle")) compareTriangle(e);
             else if (emitter.meshRotation() != null) compareOrientation(e);
@@ -731,7 +785,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         } else if (failure != null) {
             System.out.println("[vfx-forms] FAIL on " + on + ": " + failure);
         } else {
-            System.out.println("[vfx-forms] PASS on " + on + ": " + FORMS.size() + " module forms, a turned field, " + SPAWNS.size() + " spawn forms, " + checked
+            System.out.println("[vfx-forms] PASS on " + on + ": " + FORMS.size() + " module forms, a turned field, a lasting and a momentary attractor, " + SPAWNS.size() + " spawn forms, " + checked
                     + " particles, every lane the form's Java evaluation (worst share of the tolerance " + worst + ")");
         }
     }
