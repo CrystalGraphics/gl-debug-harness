@@ -4,7 +4,7 @@
 
 #include "crystalgraphics:shaders/lib/lights.glsl"
 
-struct CgLight { vec4 positionRadius; vec4 colorExponent; vec4 spotCos; vec4 segmentCone; vec4 ambient; };
+struct CgLight { vec4 positionRadius; vec4 colorExponent; vec4 spotCos; vec4 segmentCone; vec4 ambient; vec4 air; };
 
 Properties {
     _Samples ("Sample points a light", int) = 1

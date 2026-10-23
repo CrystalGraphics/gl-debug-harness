@@ -104,6 +104,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   bobbing as Minecraft's walking camera, under a lamp of ours at night, and from eye height across our slab), and the
   side sun's edge across the ball steady as the camera turns half a degree. PASS on
   `gl` and `vulkan`.
+  `--mode=lights-air-quality` measures the lit air's look rather than gating it: the lights demo's searchlight in its
+  haze, its base's per-pixel deviation over 30 frames with the history on and off, the same six blocks from the live
+  demo's searchlight, and its beam over the haze side-on from 10 and 40 blocks; run it with `fixedDelta`.
   `--mode=lights-shadow` is their shadows': a light beside a wall of blocks in a world of its own, the light it adds
   behind the wall gone and in the open the same as with `shadowed(false)`. PASS on `gl`, at G33 with TBO and on `vulkan`.
   `--mode=vfx-renderers` is an emitter's renderers': a sprite, an arc, trails, a ribbon and a `#type spatial`

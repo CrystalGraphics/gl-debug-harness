@@ -69,6 +69,7 @@ import com.crystalgraphics.harness.scene.test.CgLightsSunScene;
 import com.crystalgraphics.harness.scene.test.CgLightsTorchScene;
 import com.crystalgraphics.harness.scene.test.CgLightsVolumeScene;
 import com.crystalgraphics.harness.scene.test.CgLightsAirScene;
+import com.crystalgraphics.harness.scene.test.CgLightsAirQualityScene;
 import com.crystalgraphics.harness.scene.test.CgLightsDemoBisectScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
@@ -858,6 +859,20 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
                 .build(),
             () -> new CgLightsAirScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("lights-air-quality")
+                .description("How the lit air looks, as numbers: the lights demo's searchlight in its haze, its base's frame-to-frame jitter and its beam side-on from 10 and 40 blocks")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(640)
+                .defaultHeight(360)
+                .clearColor(0.01f, 0.01f, 0.02f, 1.0f)
+                .build(),
+            () -> new CgLightsAirQualityScene()
         );
 
         reg.register(
