@@ -21,6 +21,7 @@ import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
 import com.crystalgraphics.harness.scene.test.CgVfxCascadeCollideScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSpawnFromScene;
 import com.crystalgraphics.harness.scene.test.CgVfxMeshFacingScene;
+import com.crystalgraphics.harness.scene.test.CgVfxMeshSectionsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxCollideScene;
 import com.crystalgraphics.harness.scene.test.CgVfxEventsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSequenceScene;
@@ -483,6 +484,20 @@ public final class SceneRegistry {
                 .clearColor(0f, 0f, 0f, 1.0f)
                 .build(),
             () -> new CgVfxSortGroupScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-mesh-sections")
+                .description("A mesh renderer's material_overrides: each section with its override, one past them with the renderer's own")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(120)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgVfxMeshSectionsScene()
         );
 
         reg.register(
