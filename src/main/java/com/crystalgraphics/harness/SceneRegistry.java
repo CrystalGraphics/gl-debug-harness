@@ -19,6 +19,8 @@ import com.crystalgraphics.harness.scene.test.CgComputeCheckTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuBudgetTestScene;
 import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
 import com.crystalgraphics.harness.scene.test.CgVfxCascadeCollideScene;
+import com.crystalgraphics.harness.scene.test.CgVfxRibbonsScene;
+import com.crystalgraphics.harness.scene.test.CgVfxTrailHeadsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSpawnFromScene;
 import com.crystalgraphics.harness.scene.test.CgVfxMeshFacingScene;
 import com.crystalgraphics.harness.scene.test.CgVfxMeshSectionsScene;
@@ -61,9 +63,12 @@ import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
 import com.crystalgraphics.harness.scene.test.CgLightsCastersScene;
+import com.crystalgraphics.harness.scene.test.CgLightsShadowsBenchScene;
 import com.crystalgraphics.harness.scene.test.CgLightsShadowScene;
 import com.crystalgraphics.harness.scene.test.CgLightsSunScene;
 import com.crystalgraphics.harness.scene.test.CgLightsTorchScene;
+import com.crystalgraphics.harness.scene.test.CgLightsVolumeScene;
+import com.crystalgraphics.harness.scene.test.CgLightsAirScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
@@ -827,6 +832,34 @@ public final class SceneRegistry {
         );
 
         reg.register(
+            SceneDescriptor.builder("lights-volume")
+                .description("The world lights on transparent surfaces: two glass panes by a light, the one in the open lit by the translucency lighting volume, the one behind a wall not")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
+                .build(),
+            () -> new CgLightsVolumeScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("lights-air")
+                .description("The world lights in the air: a light in a haze beside a tall wall, the air by it glowing and the air in the wall's shadow not")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
+                .build(),
+            () -> new CgLightsAirScene()
+        );
+
+        reg.register(
             SceneDescriptor.builder("lights-sun")
                 .description("The sun's shadows: our box shadows the host's ground, blocks the host never draws shadow our box, at noon against no sun")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
@@ -852,6 +885,18 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
                 .build(),
             () -> new CgLightsCastersScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("lights-shadows-bench")
+                .description("The world shadows' cost: the shadows demo on the host's ground under the sun, the camera over a shadow")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.55f, 0.7f, 1.0f, 1.0f)
+                .build(),
+            () -> new CgLightsShadowsBenchScene()
         );
 
         reg.register(
@@ -950,6 +995,34 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVfxSpawnFromScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-ribbons")
+                .description("The ribbon generation: Niagara's ribbon, a shaped one broken by its link gap and Cascade's trail in one pool, the packed run and draw counts held to a Java twin of every stage")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgVfxRibbonsScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-trail-heads")
+                .description("Trails behind another emitter's particles, their heads worked out on the GPU: three trails on three moving particles held to a Java twin of Cascade's trail spawning")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgVfxTrailHeadsScene()
         );
 
         reg.register(
