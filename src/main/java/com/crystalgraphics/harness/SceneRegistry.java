@@ -20,6 +20,7 @@ import com.crystalgraphics.harness.scene.test.CgGpuBudgetTestScene;
 import com.crystalgraphics.harness.scene.test.CgReadbackTestScene;
 import com.crystalgraphics.harness.scene.test.CgVfxCascadeCollideScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSpawnFromScene;
+import com.crystalgraphics.harness.scene.test.CgVfxMeshFacingScene;
 import com.crystalgraphics.harness.scene.test.CgVfxCollideScene;
 import com.crystalgraphics.harness.scene.test.CgVfxEventsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSequenceScene;
@@ -934,6 +935,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVfxSpawnFromScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-mesh-facing")
+                .description("Mesh particles facing: Niagara's modes and locked axis, Cascade's ups, rolls and pre-rotations, each mesh's turn against Java")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgVfxMeshFacingScene()
         );
 
         reg.register(

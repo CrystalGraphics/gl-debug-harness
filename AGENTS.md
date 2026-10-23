@@ -71,6 +71,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   rolled per particle against Java to 1e-4 with its turn scaled, freezing after 3 collisions, halting after a count rolled
   from 1 to 2 and falling through, and killing at the first contact past a delay of half its life. PASS at G43, G40, G33
   and on `vulkan`.
+  `--mode=vfx-mesh-facing` is mesh particles' facing (`CgVfxMeshFacing`): seven facings in one pool, Niagara's modes and
+  locked axis and Cascade's ups, rolls and pre-rotations, each mesh's axes against Java, and the camera-position mesh's x
+  on the eye. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
   `--mode=vfx-spawn-from` is particles born on another emitter's (`CgVfxSpawnFrom`): three sources at tier 0 publishing
   seeded particles, each read by an emitter at tier 1 bursting once; a random reader on still sources, every one exactly
   on a source particle; a sequential reader taking each moving source particle's half velocity once; an empty source's
