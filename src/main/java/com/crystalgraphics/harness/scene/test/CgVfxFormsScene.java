@@ -108,6 +108,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     /** The attractor stations' centre from the source (the seeded particles sit there), radius and strength. */
     private static final double[] ATTRACT_AT = {2.0, 0.0, 0.0};
     private static final double ATTRACT_RADIUS = 10.0, ATTRACT_STRENGTH = 3.0;
+    /** The inverse-square station's radius: inside the seeded particles' distance, so they feel the square's fall. */
+    private static final double GRAVITY_RADIUS = 1.0;
     private static final double TRI_HEIGHT = 2.0, TRI_APEX = Math.toRadians(70), TRI_THICKNESS = 0.5;
 
     static {
@@ -250,7 +252,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     /** The stations seeded with particles: the module forms, the field and the attractors; spawn stations after. */
     private int seededStations;
     /** The momentary attractor's pools' owner: its station shares the lasting one's shape, and each station steps its own pool. */
-    private final Object momentaryOwner = new Object();
+    private final Object momentaryOwner = new Object(), gravityOwner = new Object();
     private int frame, checked;
     private float worst;
     private String failure;
@@ -283,12 +285,14 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         emitters.add(fielded);
         CgVfxParticlePool.prepare(fielded);
         read.add(null);
-        for (boolean lasting : new boolean[]{true, false}) {
+        for (String law : List.of("lasting", "momentary", "gravity")) {
             Map<String, Object> tree = new LinkedHashMap<>(still);
-            tree.put("particle_update", List.of(Map.of("id", "pull", "module", "crystalgraphics:point_attractor", "inputs", Map.of(
-                    "position", List.of(ATTRACT_AT[0], ATTRACT_AT[1], ATTRACT_AT[2]), "radius", ATTRACT_RADIUS,
-                    "strength", ATTRACT_STRENGTH, "falloff", 0.0, "affect_base_velocity", lasting))));
-            CgVfxEmitter pulled = CgVfxEmitterAssets.compile(lasting ? "forms-attract-lasting" : "forms-attract-momentary", tree, null);
+            Map<String, Object> pull = new LinkedHashMap<>(Map.of("position", List.of(ATTRACT_AT[0], ATTRACT_AT[1], ATTRACT_AT[2]),
+                    "radius", law.equals("gravity") ? GRAVITY_RADIUS : ATTRACT_RADIUS, "strength", ATTRACT_STRENGTH, "falloff", 0.0,
+                    "affect_base_velocity", !law.equals("momentary")));
+            if (law.equals("gravity")) pull.put("law", "inverse_square");
+            tree.put("particle_update", List.of(Map.of("id", "pull", "module", "crystalgraphics:point_attractor", "inputs", pull)));
+            CgVfxEmitter pulled = CgVfxEmitterAssets.compile("forms-attract-" + law, tree, null);
             emitters.add(pulled);
             CgVfxParticlePool.prepare(pulled);
             read.add(null);
@@ -406,13 +410,15 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             report();
             CgVfxParticlePool.release(this);
             CgVfxParticlePool.release(momentaryOwner);
+            CgVfxParticlePool.release(gravityOwner);
             running = false;
         }
     }
 
     private void seed(CgRecording rec) {
         for (CgVfxEmitter emitter : emitters) {
-            CgVfxParticlePool pool = CgVfxParticlePool.of(emitter.name().endsWith("momentary") ? momentaryOwner : this, emitter);
+            CgVfxParticlePool pool = CgVfxParticlePool.of(emitter.name().endsWith("momentary") ? momentaryOwner
+                    : emitter.name().endsWith("gravity") ? gravityOwner : this, emitter);
             if (pools.contains(pool)) fail(emitter.name() + " shares a pool with another form");
             int slot = pool.open(emitter, PARTICLES);
             if (pools.size() >= seededStations) {
@@ -510,13 +516,15 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     /**
      * Every particle of an attractor station, seeded at the source with the pull exactly (strength, 0, 0) there: its
      * place after the step its seeded velocity plus the pull's step, times the step, at both; its velocity that too where
-     * the pull lasts, and as seeded where it does not.
+     * the pull lasts, and as seeded where it does not. The inverse-square pull is the strength times (r / d)^2 there.
      */
     private void compareAttract(int e) {
-        boolean lasting = emitters.get(e).name().endsWith("lasting");
+        boolean lasting = !emitters.get(e).name().endsWith("momentary");
+        boolean gravity = emitters.get(e).name().endsWith("gravity");
         ByteBuffer records = read.get(e);
         CgVfxRecord layout = pools.get(e).record();
-        float pull = (float) ATTRACT_STRENGTH * DT;
+        double d = Math.sqrt(ATTRACT_AT[0] * ATTRACT_AT[0] + ATTRACT_AT[1] * ATTRACT_AT[1] + ATTRACT_AT[2] * ATTRACT_AT[2]);
+        float pull = (float) (ATTRACT_STRENGTH * (gravity ? Math.min(1.0, GRAVITY_RADIUS * GRAVITY_RADIUS / (d * d)) : 1.0)) * DT;
         for (int r = 0; r < PARTICLES; r++) {
             int id = layout.i(records, r, CgVfxRecord.ID);
             if (layout.f(records, r, CgVfxRecord.LIFE) == 0f || id < 0 || id >= PARTICLES) continue;
@@ -785,7 +793,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         } else if (failure != null) {
             System.out.println("[vfx-forms] FAIL on " + on + ": " + failure);
         } else {
-            System.out.println("[vfx-forms] PASS on " + on + ": " + FORMS.size() + " module forms, a turned field, a lasting and a momentary attractor, " + SPAWNS.size() + " spawn forms, " + checked
+            System.out.println("[vfx-forms] PASS on " + on + ": " + FORMS.size() + " module forms, a turned field, lasting, momentary and inverse-square attractors, " + SPAWNS.size() + " spawn forms, " + checked
                     + " particles, every lane the form's Java evaluation (worst share of the tolerance " + worst + ")");
         }
     }
