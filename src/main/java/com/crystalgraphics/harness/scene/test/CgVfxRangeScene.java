@@ -47,7 +47,8 @@ import java.util.Random;
  * The gate for Range (plan vfx-gpu §13.4): a pool's particles culled against a view, grouped by slot and written as the
  * records a look reads, checked against the same cull and {@code CgVfxSystem.writeRecords}' maths in Java; and as the
  * object records a mesh per particle reads, against {@code CgVfxFrame.particleMeshes}' transform. A depth pyramid
- * holds a wall over the left half of the view, so what hides behind it is culled too, and slot 0 sorts far to near. Four slots,
+ * holds a wall over the left half of the view, so what hides behind it is culled too, and slot 0 sorts far to near,
+ * slot 3 by distance from the eye and slot 4 newest first (Cascade's Age_NewestFirst: oldest drawn first). Four slots,
  * one closed between them; one in front of the camera, one across the frustum's edge, one behind it. The pool steps once,
  * so the records Range reads are the Step kernel's; the reference is worked from those records, read back. A pool of
  * another shape ranges ahead of it, so its slots, keys and records sit past that pool's in the shared buffers. Slot 0's
@@ -75,9 +76,9 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private static final float DT = 1f / 60f;
     private static final double CAMERA_X = 105.5, CAMERA_Y = 64.25, CAMERA_Z = -30.75;
     /** Per slot: capacity, particles seeded, origin from the camera, spread; slot 1 closes before the step. */
-    private static final int[] CAPACITY = {2000, 500, 1500, 800}, SEEDED = {1800, 0, 1400, 700};
-    private static final float[][] ORIGIN = {{0f, 0f, -20f}, {0f, 0f, -5f}, {0f, 0f, 15f}, {-16f, 2f, -15f}};
-    private static final float[] SPREAD = {12f, 1f, 5f, 7f};
+    private static final int[] CAPACITY = {2000, 500, 1500, 800, 600}, SEEDED = {1800, 0, 1400, 700, 500};
+    private static final float[][] ORIGIN = {{0f, 0f, -20f}, {0f, 0f, -5f}, {0f, 0f, 15f}, {-16f, 2f, -15f}, {3f, -1f, -10f}};
+    private static final float[] SPREAD = {12f, 1f, 5f, 7f, 2f};
     /** Words of a drawn record: place, motion, state, light, color, scale and age. */
     private static final int DRAWN_FLOATS = 24, DRAWN_BYTES = DRAWN_FLOATS * 4, OBJECT_FLOATS = 48;
     private static final int TEXELS = CgVfxGpuEmitter.CURVE_TEXELS, STARTS = 8 * TEXELS;
@@ -87,7 +88,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private static final int PYRAMID = 64;
     private static final float WALL = 25f, FAR = 1e9f;
     /** The slot that sorts far to near; the slot culled as one sphere about its source, and that sphere's radius. */
-    private static final int SORTED = 0, SOURCE = 3;
+    private static final int SORTED = 0, BY_DISTANCE = 3, SOURCE = 3, BY_AGE = 4;
     private static final float SOURCE_REACH = 3f;
     /** The pool ranged ahead: another shape, a capacity no multiple of Range's alignment, and its particles seeded. */
     private static final CgVfxEmitter LEAD = CgVfxExplosion.INK;
@@ -120,6 +121,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     private float[] radius;
     private ByteBuffer records, drawnParts, visible, drawn, order, objects;
     private final Matrix4f model = new Matrix4f(), turned = new Matrix4f(), normal = new Matrix4f();
+    private int distanceChecked, ageChecked;
     private int frame, checkedDrawn, culled, occluded, sourceKept, timedFrom = -1, slowest, between, fastest;
     private float worst, worstRow, worstObject;
     private String failure;
@@ -244,7 +246,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         pool.record(rec);
 
         CgGraphTexture pyramid = pyramid(rec);
-        range = CgVfxRange.of(pool).sorted(SORTED);
+        range = CgVfxRange.of(pool).sorted(SORTED).sorted(BY_DISTANCE, CgVfxRange.Sort.VIEW_DISTANCE)
+                .sorted(BY_AGE, CgVfxRange.Sort.NEWEST_FIRST);
         range.objects();
         CgVfxRange.record(rec, view, pyramid);
         slotFirst = range.visibleWord(0);
@@ -373,17 +376,26 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
                     else between++;
                 }
                 checkObject(d, r);
-                if (s == SORTED) {
-                    int depth = depthKey(r, s);
-                    if (k > 0 && depth > lastDepth + 1) fail("slot " + s + " draws particle " + r + " at depth " + depth
+                if (s == SORTED || s == BY_DISTANCE) {
+                    int depth = s == SORTED ? depthKey(r, s) : distanceKey(r, s);
+                    if (k > 0 && depth > lastDepth + 1) fail("slot " + s + " draws particle " + r + " at " + depth
                             + " after one at " + lastDepth + ": not far to near");
                     lastDepth = depth;
+                    if (s == BY_DISTANCE) distanceChecked++;
+                } else if (s == BY_AGE) {
+                    ageChecked++;
+                    int id = pool.record().i(records, r, CgVfxRecord.ID) & 0xFFFF;
+                    if (k > 0 && id < lastDepth) fail("slot " + s + " draws spawn " + id + " after spawn " + lastDepth + ": not oldest first");
+                    lastDepth = id;
                 }
                 checkedDrawn++;
             }
         }
         for (int r = 0; r < live; r++) {
             if (mustDraw[r] && !drawnOnce[r]) fail("particle " + r + " is inside the view and not drawn");
+        }
+        if (distanceChecked < 100 || ageChecked < 100) {
+            fail("the distance and age orders were checked on " + distanceChecked + " and " + ageChecked + " drawn, too few to show them");
         }
     }
 
@@ -462,6 +474,16 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
 
     private static int texel(float ndc) {
         return (int) Math.max(0f, Math.min((float) Math.floor((ndc * 0.5f + 0.5f) * PYRAMID), PYRAMID - 1));
+    }
+
+    /** Range's distance key: the distance from the eye in 16 bits, logarithmic as the depth key. */
+    private int distanceKey(int r, int slot) {
+        float cx = ORIGIN[slot][0] + pool.record().f(records, r, CgVfxRecord.POSITION);
+        float cy = ORIGIN[slot][1] + pool.record().f(records, r, CgVfxRecord.POSITION + 1);
+        float cz = ORIGIN[slot][2] + pool.record().f(records, r, CgVfxRecord.POSITION + 2);
+        float d = Math.max((float) Math.sqrt(cx * cx + cy * cy + cz * cz), 1f / 64f);
+        float log = (float) (Math.log(d) / Math.log(2));
+        return (int) (Math.max(0f, Math.min((log + 6f) / 16f, 1f)) * 65535f);
     }
 
     /** Range's view depth key: 16 bits, logarithmic from 1/64 to 1024 blocks. */
