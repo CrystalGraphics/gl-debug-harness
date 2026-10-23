@@ -131,6 +131,7 @@ public class CgVfxTrailHeadsScene implements InteractiveSceneLifecycle {
             trailPool.spawnTrail(trailSlot, heads.rowFirst(r), heads.rowCount(r), w, r * CgVfxTrailSource.ROW_WORDS, 0f);
         }
         trailPool.trailTable(trailSlot, heads.minIds(), 0, heads.refitWords(), 0);
+        heads.stepped();
         trailPool.endStep();
         CgVfxParticlePool.record(rec, List.of(sourcePool, trailPool));
     }
