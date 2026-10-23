@@ -27,14 +27,16 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 /**
  * How the lit air looks, as numbers: the lights demo's searchlight ({@code CgLightsDemo}) in its haze, a measurement
  * rather than a gate. Near its source, how much each pixel changes frame to frame with the air's history on and off;
  * side-on to the beam, how much it adds to the haze seen from 10 blocks and from 40, which the physics says should
- * barely differ; then the whole demo playing, six blocks from one of its searchlights' base, history on and off, where
- * what the show's own motion changes counts in both.
+ * barely differ; looking down the beam from just behind its source, as a player standing by it does; then the whole
+ * demo playing, six blocks from one of its searchlights' base, history on and off, where what the show's own motion
+ * changes counts in both.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-air-quality" -Dcrystalgraphics.harness.fixedDelta=0.0166667
@@ -51,10 +53,15 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
     private static final Vector3d SOURCE = new Vector3d(0, GROUND + 3, 0);
     private static final Vector3d DIR = new Vector3d(1, -0.3, 0).normalize();
     /** Where the jitter is read (a block along the beam) and the beam read side-on (eight along). */
-    private static final Vector3d BASE = new Vector3d(DIR).mul(1).add(SOURCE), ALONG = new Vector3d(DIR).mul(8).add(SOURCE);
+    private static final Vector3d BASE = new Vector3d(DIR).mul(1).add(SOURCE), SIDE = new Vector3d(DIR).mul(8).add(SOURCE);
     private static final String HISTORY = "crystalgraphics.world.lightsAirHistory", AIR = "crystalgraphics.world.lightsAir";
     private static final String[] NAMES = {"jitter-history", "jitter-middles", "near-air", "near-none", "far-air", "far-none",
-            "demo-history", "demo-middles"};
+            "along-history", "along-middles", "demo-history", "demo-middles"};
+    /** The phases photographed as a series, and the ones lighting froxel middles alone. */
+    private static final int ALONG = 6, DEMO = 8;
+    /** Looking down the beam: from a block and a half behind the source and a block and a half up, at six along. */
+    private static final Vector3d BEHIND = new Vector3d(DIR).mul(-1.5).add(SOURCE).add(0, 1.5, 0),
+            DOWN_BEAM = new Vector3d(DIR).mul(6).add(SOURCE);
     /** The demo's left searchlight (CgLightsDemo.searchlights: 15 west, 12 south, 3 up of where it plays), and a block
      *  along the way it points at the start. */
     private static final Vector3d DEMO_BASE = new Vector3d(-15, GROUND + 3, 12).add(new Vector3d(0.5, -0.3, -0.8).normalize());
@@ -87,11 +94,11 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo info) {
         int phase = frame / PHASE, at = frame % PHASE;
         // The demo's phases wait for its programs: the frame before them is drawn again, uncounted, until they are ready.
-        boolean waiting = phase == 6 && demoFrom < 0 && !demo.warmed();
+        boolean waiting = phase == DEMO && demoFrom < 0 && !demo.warmed();
         if (waiting) {
-            phase = 5;
+            phase = DEMO - 1;
             at = 0;
-        } else if (phase == 6 && demoFrom < 0) {
+        } else if (phase == DEMO && demoFrom < 0) {
             demoFrom = frame;
             CgWorldRenderer.get().media().remove(haze);
         }
@@ -103,14 +110,9 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
             running = false;
             return;
         }
-        ((CgVar.Bool) CgVars.get(HISTORY)).set(phase != 1 && phase != 7);
+        ((CgVar.Bool) CgVars.get(HISTORY)).set(phase != 1 && phase != ALONG + 1 && phase != DEMO + 1);
         ((CgVar.Bool) CgVars.get(AIR)).set(phase != 3 && phase != 5);
-        // The jitter from six blocks off the base, side-on; the beam side-on from 10 and 40 blocks.
-        Vector3d on = phase >= 6 ? DEMO_BASE : phase < 2 ? BASE : ALONG;
-        double away = phase < 2 || phase >= 6 ? 6 : phase < 4 ? 10 : 40;
-        if (phase >= 6) eye.set(on.x + away, on.y + 1, on.z);
-        else eye.set(on.x, on.y + 1, on.z + away);
-        look.setLookAt(0f, 0f, 0f, (float) (on.x - eye.x), (float) (on.y - eye.y), (float) (on.z - eye.z), 0f, 1f, 0f);
+        Vector3d on = camera(phase);
         CgWorldRenderer renderer = CgWorldRenderer.get();
         target.bind();
         target.clear(0.01f, 0.01f, 0.02f, 1f);
@@ -118,7 +120,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
         renderer.draw(cube, grey).at(0, GROUND - 0.5, 0).transform(new Matrix4f().scale(120f, 1f, 120f)).submit();
         if (waiting) {
             demo.warmed();
-        } else if (phase >= 6) {
+        } else if (phase >= DEMO) {
             demo.submit(renderer, 0, GROUND, 0, SHOW_AT + (frame - demoFrom) / 60.0);
         } else {
             renderer.lights().add(SOURCE.x, SOURCE.y, SOURCE.z, 45f, 0xFFFFF4E0, 4f * (float) Math.PI * 144f, 0f)
@@ -129,16 +131,40 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
             stage.fire();
         }
         CgFrameRing.endFrame();
-        if ((phase < 2 || phase >= 6) && at >= SETTLE) target.captureToFile(ctx.getOutputDir(), NAMES[phase] + "-" + (at - SETTLE) + ".png");
-        else if (phase >= 2 && at == PHASE - 1) target.captureToFile(ctx.getOutputDir(), NAMES[phase] + ".png");
+        if (series(phase) && at >= SETTLE) target.captureToFile(ctx.getOutputDir(), NAMES[phase] + "-" + (at - SETTLE) + ".png");
+        else if (!series(phase) && at == PHASE - 1) target.captureToFile(ctx.getOutputDir(), NAMES[phase] + ".png");
         target.unbind();
+    }
+
+    private static boolean series(int phase) {
+        return phase < 2 || phase >= ALONG;
+    }
+
+    /**
+     * Places {@link #eye} and {@link #look} for {@code phase} and answers what it looks at: six blocks off the base,
+     * side-on; the beam side-on from 10 and 40 blocks; down the beam from behind its source; six off the demo's.
+     */
+    private Vector3d camera(int phase) {
+        Vector3d on;
+        if (phase == ALONG || phase == ALONG + 1) {
+            on = DOWN_BEAM;
+            eye.set(BEHIND);
+        } else if (phase >= DEMO) {
+            on = DEMO_BASE;
+            eye.set(on.x + 6, on.y + 1, on.z);
+        } else {
+            on = phase < 2 ? BASE : SIDE;
+            eye.set(on.x, on.y + 1, on.z + (phase < 2 ? 6 : phase < 4 ? 10 : 40));
+        }
+        look.setLookAt(0f, 0f, 0f, (float) (on.x - eye.x), (float) (on.y - eye.y), (float) (on.z - eye.z), 0f, 1f, 0f);
+        return on;
     }
 
     private void report(HarnessContext ctx) {
         try {
-            for (int p = 0; p < 2; p++) jitter(ctx, p, BASE, false);
-            for (int p = 6; p < 8; p++) jitter(ctx, p, DEMO_BASE, true);
-            float nearBeam = beam(ctx, 2, 10), farBeam = beam(ctx, 4, 40);
+            for (int p = 0; p < 2; p++) jitter(ctx, p);
+            for (int p = ALONG; p < NAMES.length; p++) jitter(ctx, p);
+            float nearBeam = beam(ctx, 2), farBeam = beam(ctx, 4);
             System.out.printf("[lights-air-quality] the beam over the haze side-on: %.1f from 10 blocks, %.1f from 40 (%.0f%%)%n",
                     nearBeam, farBeam, 100f * farBeam / Math.max(nearBeam, 1e-3f));
         } catch (IOException e) {
@@ -146,13 +172,10 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
         }
     }
 
-    /** Each pixel round the base: its deviation over the series. */
-    private void jitter(HarnessContext ctx, int phase, Vector3d base, boolean fromSide) throws IOException {
-        if (fromSide) eye.set(base.x + 6, base.y + 1, base.z);
-        else eye.set(base.x, base.y + 1, base.z + 6);
-        look.setLookAt(0f, 0f, 0f, (float) (base.x - eye.x), (float) (base.y - eye.y), (float) (base.z - eye.z), 0f, 1f, 0f);
-        int[] c = project(base);
-        int r = 60, side = 2 * r + 1;
+    /** Each pixel round what the phase looks at: its deviation over the series. */
+    private void jitter(HarnessContext ctx, int phase) throws IOException {
+        int[] c = project(camera(phase));
+        int r = phase == ALONG || phase == ALONG + 1 ? 150 : 60, side = 2 * r + 1;
         double[] sum = new double[side * side], sq = new double[side * side];
         for (int k = 0; k < SERIES; k++) {
             BufferedImage image = ImageIO.read(new File(ctx.getOutputDir(), NAMES[phase] + "-" + k + ".png"));
@@ -165,22 +188,23 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
                 }
             }
         }
-        double meanDev = 0, maxDev = 0, mean = 0;
+        double meanDev = 0, mean = 0;
+        double[] devs = new double[sum.length];
         for (int i = 0; i < sum.length; i++) {
-            double m = sum[i] / SERIES, dev = Math.sqrt(Math.max(sq[i] / SERIES - m * m, 0));
-            meanDev += dev;
-            maxDev = Math.max(maxDev, dev);
+            double m = sum[i] / SERIES;
+            devs[i] = Math.sqrt(Math.max(sq[i] / SERIES - m * m, 0));
+            meanDev += devs[i];
             mean += m;
         }
-        System.out.printf("[lights-air-quality] %-15s round the base: brightness %.1f, deviation frame to frame %.2f mean, %.2f largest%n",
-                NAMES[phase], mean / sum.length, meanDev / sum.length, maxDev);
+        Arrays.sort(devs);
+        System.out.printf("[lights-air-quality] %-15s brightness %.1f, deviation frame to frame %.2f mean, %.2f at the 99th"
+                + " percentile, %.2f largest%n", NAMES[phase], mean / sum.length, meanDev / sum.length,
+                devs[(int) (devs.length * 0.99)], devs[devs.length - 1]);
     }
 
     /** The beam's brightness over the haze's alone, side-on at {@code away} blocks: the middle 5x5 of the beam. */
-    private float beam(HarnessContext ctx, int phase, double away) throws IOException {
-        eye.set(ALONG.x, ALONG.y + 1, ALONG.z + away);
-        look.setLookAt(0f, 0f, 0f, (float) (ALONG.x - eye.x), (float) (ALONG.y - eye.y), (float) (ALONG.z - eye.z), 0f, 1f, 0f);
-        int[] c = project(ALONG);
+    private float beam(HarnessContext ctx, int phase) throws IOException {
+        int[] c = project(camera(phase));
         BufferedImage lit = ImageIO.read(new File(ctx.getOutputDir(), NAMES[phase] + ".png"));
         BufferedImage none = ImageIO.read(new File(ctx.getOutputDir(), NAMES[phase + 1] + ".png"));
         float sum = 0f;

@@ -44,7 +44,7 @@ import java.util.List;
  */
 public class CgLightsAirScene implements InteractiveSceneLifecycle {
 
-    private static final int PHASE = 120, W = 320, H = 240;
+    private static final int PHASE = 240, W = 320, H = 240;
     private static final int CX = -1000, CZ = 2000, GROUND = 64;
     private static final double LIGHT_X = CX - 3.5, LIGHT_Y = GROUND + 2.5, LIGHT_Z = CZ + 0.5;
     /** Where the eye looks down past the light's side of the wall, and past the other side. */
