@@ -196,7 +196,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         CgRecording rec = new CgRecording();
         requests.add(rec.readback(lights.count(), 0, 4, data -> count = copy(data)));
         requests.add(rec.readback(lights.list(), 0, (long) (CPU + KERNEL) * CgWorldLights.FLOATS * 4, data -> list = copy(data)));
-        requests.add(rec.readback(lights.cells(), 0, n * 8L, data -> cells = copy(data)));
+        requests.add(rec.readback(lights.cells(), 0, n * 16L, data -> cells = copy(data)));
         requests.add(rec.readback(lights.indices(), 0, (long) n * CgWorldLights.PER_CELL * 4, data -> indices = copy(data)));
         CgComputePass pass = rec.compute("lights-grid.falloff");
         pass.dispatch(falloff, FALLOFF_LIGHTS * SAMPLES).bind("LIGHTS", falloffLightBuffer).bind("SAMPLES", sampleBuffer)
@@ -225,9 +225,10 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
             // The block and sky light at the light: the harness has no level, so full.
             want[16] = 15f;
             want[17] = 15f;
-            // Cast shadows unless told otherwise, and shine in the air at their intensity.
+            // Cast shadows unless told otherwise, shine in the air at their intensity, and are sampled.
             want[19] = 1f;
             want[20] = 1f;
+            want[22] = 1f;
             if (i % 3 == 1) {
                 // SpotLightComponent.cpp:49-55's clamp, as CgWorldLights.spot does it.
                 double inner = Math.toRadians(Math.max(0f, Math.min(89f, cpuSpot[i * 5 + 3])));
@@ -293,14 +294,16 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
                         if (gap < -BORDER * r * r && cone > 0) must.add(i);
                         else if (gap <= BORDER * r * r) may.add(i);
                     }
-                    int got = cells.getInt(e * 8), from = cells.getInt(e * 8 + 4);
+                    int got = cells.getInt(e * 16), from = cells.getInt(e * 16 + 4);
+                    int ends12 = cells.getInt(e * 16 + 8), ends34 = cells.getInt(e * 16 + 12);
+                    int[] runStarts = {0, ends12 & 0xFFFF, ends12 >>> 16, ends34 & 0xFFFF, ends34 >>> 16, got};
                     int[] indexes = new int[got];
                     for (int k = 0; k < got; k++) indexes[k] = indices.getInt((from + k) * 4);
                     cellsChecked++;
                     if (must.size() > per) dense++;
-                    if (!sameCell(indexes, must, may)) {
-                        fail("cell (" + x + ", " + y + ", " + z + ") lists " + Arrays.toString(indexes) + ", not " + must
-                                + (may.isEmpty() ? "" : " with any of " + may));
+                    if (!sameCell(indexes, runStarts, must, may)) {
+                        fail("cell (" + x + ", " + y + ", " + z + ") lists " + Arrays.toString(indexes) + " in runs from "
+                                + Arrays.toString(runStarts) + ", not " + must + (may.isEmpty() ? "" : " with any of " + may));
                         return;
                     }
                 }
@@ -309,12 +312,18 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         if (dense == 0) fail("no cell holds over " + per + " lights: the cluster is not dense enough to test a long list");
     }
 
-    /** Whether a cell's list is its lights in index order, every one, borderline ones either way. */
-    private static boolean sameCell(int[] got, List<Integer> must, List<Integer> may) {
-        int last = -1;
-        for (int g : got) {
-            if (g <= last) return false;
-            last = g;
+    /**
+     * Whether a cell's list is its lights, every one, borderline ones either way: in index order within each light's run
+     * (lights.glsl's CG_LIGHT_RUN), the runs in order, each starting where the cell's header says.
+     */
+    private boolean sameCell(int[] got, int[] runStarts, List<Integer> must, List<Integer> may) {
+        long last = -1;
+        for (int k = 0; k < got.length; k++) {
+            int g = got[k], run = run(g);
+            if (k < runStarts[run] || k >= runStarts[run + 1]) return false;
+            long key = (long) run << 32 | g;
+            if (key <= last) return false;
+            last = key;
             if (!must.contains(g) && !may.contains(g)) return false;
         }
         // Every light it must hold is there.
@@ -468,6 +477,15 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         if (z <= 0) return 0f;
         if (z >= CgWorldLights.SLICES) return 2.0e6f;
         return (float) ((Math.pow(2, z / zParams[2]) - zParams[1]) / zParams[0]);
+    }
+
+    /** lights.glsl's CG_LIGHT_RUN, from light i's words: Minecraft's, sampled, then whether it is in the air. */
+    private int run(int i) {
+        float shadow = light(i, 19);
+        if (shadow > 1.5f) return 4;
+        boolean air = light(i, 20) > 0f;
+        if (shadow > 0.5f || light(i, 22) > 0.5f) return air ? 2 : 3;
+        return air ? 1 : 0;
     }
 
     private float light(int i, int word) {

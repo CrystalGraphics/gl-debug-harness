@@ -41,7 +41,11 @@ import java.util.List;
  * pixels and the mean round the mirror ball, to tell which pass brightens the show.
  *
  * <p>Steady ({@code lights-demo}), it draws every pass on and the show held at one moment until closed: a run to
- * profile, the particles stepped by {@code fixedDelta}, more lights added by the demo's sweep.</p>
+ * profile, the particles stepped by {@code fixedDelta}, more lights added by the demo's sweep.
+ * {@code -Dcrystalgraphics.harness.lightsDemo.capture=<frame>} writes the picture that many frames after the show
+ * starts, {@code steady-<frame>.png}, to compare a change against. Steady, the show starts at frame
+ * {@link #STEADY_START} (or once warm, if later), so its particles and the frame index the shadows' noise is keyed by
+ * are the same in every run.</p>
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-demo-bisect --width=960 --height=540"
@@ -64,6 +68,8 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
     private static final boolean[][] PHASES = {{true, true, true}, {false, true, true}, {true, false, true},
             {true, true, false}, {false, false, false}};
     private static final String[] NAMES = {"all", "no-air", "no-shadows", "no-volume", "none"};
+    private static final int CAPTURE = Integer.getInteger("crystalgraphics.harness.lightsDemo.capture", -1);
+    private static final int STEADY_START = 600;
 
     private final CgLightsDemo demo = new CgLightsDemo(CgVfx.owner("harness"));
     private final boolean steady;
@@ -110,7 +116,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo info) {
         frame++;
-        if (warmAt < 0 && demo.warmed()) warmAt = frame;
+        if (warmAt < 0 && demo.warmed() && (!steady || frame >= STEADY_START)) warmAt = frame;
         int phase = warmAt < 0 || steady ? -1 : (frame - warmAt) / PHASE;
         if (phase >= 0 && phase < PHASES.length) {
             for (int v = 0; v < VARS.length; v++) ((CgVar.Bool) CgVars.get(VARS[v])).set(PHASES[phase][v]);
@@ -138,6 +144,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
         if (phase >= 0 && phase < PHASES.length && (frame - warmAt) % PHASE == PHASE - 1) {
             target.captureToFile(ctx.getOutputDir(), NAMES[phase] + ".png");
         }
+        if (steady && warmAt >= 0 && frame - warmAt == CAPTURE) target.captureToFile(ctx.getOutputDir(), "steady-" + CAPTURE + ".png");
         target.unbind();
         if (phase == PHASES.length) {
             for (String v : VARS) ((CgVar.Bool) CgVars.get(v)).set(true);
