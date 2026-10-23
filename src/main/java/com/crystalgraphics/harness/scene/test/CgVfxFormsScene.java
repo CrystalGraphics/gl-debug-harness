@@ -24,6 +24,7 @@ import com.crystalgraphics.vfx.particle.form.CgVfxSpawnForm;
 import com.crystalgraphics.vfx.particle.form.CgVfxSpawnInput;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
+import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxShapeCoalescing;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
 
 import java.nio.ByteBuffer;
@@ -259,7 +260,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     /** The stations seeded with particles: the module forms, the field and the attractors; spawn stations after. */
     private int seededStations;
     /** The momentary attractor's pools' owner: its station shares the lasting one's shape, and each station steps its own pool. */
-    private final Object momentaryOwner = new Object(), gravityOwner = new Object();
+    /** A pool owner a station: stations whose shapes coalescing makes one still step and read back apart. */
+    private final List<Object> owners = new ArrayList<>();
     private int frame, checked;
     private float worst;
     private String failure;
@@ -278,7 +280,6 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             CgVfxEmitter emitter = CgVfxEmitterAssets.compile("forms-" + form.getKey(), tree, null);
             if (emitter.moduleForms().size() != 1) fail(form.getKey() + " compiled " + emitter.moduleForms().size() + " forms");
             emitters.add(emitter);
-            CgVfxParticlePool.prepare(emitter);
             read.add(null);
         }
         Map<String, Object> still = new LinkedHashMap<>();
@@ -290,7 +291,6 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 CgBox.of(FIELD_HALF[0], FIELD_HALF[1], FIELD_HALF[2]), FIELD_AT[0], FIELD_AT[1], FIELD_AT[2], FIELD_STRENGTH, 1f,
                 FIELD_TIGHTNESS, FIELD_TURN)).build();
         emitters.add(fielded);
-        CgVfxParticlePool.prepare(fielded);
         read.add(null);
         for (String law : List.of("lasting", "momentary", "gravity")) {
             Map<String, Object> tree = new LinkedHashMap<>(still);
@@ -301,7 +301,6 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             tree.put("particle_update", List.of(Map.of("id", "pull", "module", "crystalgraphics:point_attractor", "inputs", pull)));
             CgVfxEmitter pulled = CgVfxEmitterAssets.compile("forms-attract-" + law, tree, null);
             emitters.add(pulled);
-            CgVfxParticlePool.prepare(pulled);
             read.add(null);
         }
         Map<String, Object> carried = new LinkedHashMap<>(still);
@@ -309,7 +308,6 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 Map.of("scale", List.of((double) CARRY_SCALE[0], (double) CARRY_SCALE[1], (double) CARRY_SCALE[2])))));
         CgVfxEmitter carrier = CgVfxEmitterAssets.compile("forms-source-movement", carried, null);
         emitters.add(carrier);
-        CgVfxParticlePool.prepare(carrier);
         read.add(null);
         seededStations = emitters.size();
         for (Map.Entry<String, List<Object>> spawn : SPAWNS.entrySet()) {
@@ -369,7 +367,6 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             }
             spawnForms.add(form);
             emitters.add(emitter);
-            CgVfxParticlePool.prepare(emitter);
             read.add(null);
         }
         Random random = new Random(1201);
@@ -379,6 +376,10 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             seeded[id] = new float[]{age, life, (random.nextFloat() * 2f - 1f) * 3f, (random.nextFloat() * 2f - 1f) * 3f,
                     (random.nextFloat() * 2f - 1f) * 3f};
         }
+        // Prepared as a bundle's systems are: included first, so under -Dcrystalgraphics.vfx.poolBudget=0 each station's
+        // definition plays raised into its group's forms, which must draw what its own do.
+        CgVfxShapeCoalescing.loaded().include(emitters);
+        for (CgVfxEmitter emitter : emitters) CgVfxParticlePool.prepare(emitter);
     }
 
     @Override
@@ -428,17 +429,16 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         }
         if (compared || frame > DRAIN) {
             report();
-            CgVfxParticlePool.release(this);
-            CgVfxParticlePool.release(momentaryOwner);
-            CgVfxParticlePool.release(gravityOwner);
+            for (Object owner : owners) CgVfxParticlePool.release(owner);
             running = false;
         }
     }
 
     private void seed(CgRecording rec) {
         for (CgVfxEmitter emitter : emitters) {
-            CgVfxParticlePool pool = CgVfxParticlePool.of(emitter.name().endsWith("momentary") ? momentaryOwner
-                    : emitter.name().endsWith("gravity") ? gravityOwner : this, emitter);
+            Object owner = new Object();
+            owners.add(owner);
+            CgVfxParticlePool pool = CgVfxParticlePool.of(owner, emitter);
             if (pools.contains(pool)) fail(emitter.name() + " shares a pool with another form");
             int slot = pool.open(emitter, PARTICLES);
             if (pools.size() >= seededStations) {
