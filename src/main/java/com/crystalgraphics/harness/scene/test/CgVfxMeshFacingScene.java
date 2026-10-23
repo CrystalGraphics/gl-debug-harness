@@ -79,7 +79,8 @@ public class CgVfxMeshFacingScene implements InteractiveSceneLifecycle {
                 "pre_rotation", Map.of("range", List.of(List.of(0.0, -0.5, 0.0), List.of(1.0, 0.5, 3.0)), "per_channel", true)));
         station("velocity-camera-up", Map.of("facing", "velocity", "facing_up", "camera", "roll_about", "camera"),
                 List.of(0.3, 1.5708, -0.2), null);
-        station("camera-plane", Map.of("facing", "camera_plane"));
+        station("camera-plane", Map.of("facing", "camera_plane",
+                "pre_rotation", Map.of("pick", List.of(List.of(0.4, 0.0, 0.0), List.of(0.0, 1.2, 0.3))))); 
         station("camera-plane-world-up", Map.of("facing", "camera_plane", "facing_up", "world"), null, List.of(2.0, 1.0, 0.5));
         station("locked-axis", Map.of("facing", "camera_position", "roll_about", "facing",
                 "locked_axis", Map.of("axis", List.of(0.3, 1.0, 0.2), "space", "world")));
