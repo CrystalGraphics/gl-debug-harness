@@ -110,6 +110,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     private static final double ATTRACT_RADIUS = 10.0, ATTRACT_STRENGTH = 3.0;
     /** The inverse-square station's radius: inside the seeded particles' distance, so they feel the square's fall. */
     private static final double GRAVITY_RADIUS = 1.0;
+    /** The source-movement station's scale, and how far its source moves over the step. */
+    private static final float[] CARRY_SCALE = {1f, 0.5f, 2f}, CARRIED = {0.4f, -0.3f, 0.25f};
     private static final double TRI_HEIGHT = 2.0, TRI_APEX = Math.toRadians(70), TRI_THICKNESS = 0.5;
 
     static {
@@ -297,6 +299,13 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             CgVfxParticlePool.prepare(pulled);
             read.add(null);
         }
+        Map<String, Object> carried = new LinkedHashMap<>(still);
+        carried.put("particle_update", List.of(Map.of("id", "carry", "module", "crystalgraphics:source_movement", "inputs",
+                Map.of("scale", List.of((double) CARRY_SCALE[0], (double) CARRY_SCALE[1], (double) CARRY_SCALE[2])))));
+        CgVfxEmitter carrier = CgVfxEmitterAssets.compile("forms-source-movement", carried, null);
+        emitters.add(carrier);
+        CgVfxParticlePool.prepare(carrier);
+        read.add(null);
         seededStations = emitters.size();
         for (Map.Entry<String, List<Object>> spawn : SPAWNS.entrySet()) {
             Map<String, Object> tree = new LinkedHashMap<>();
@@ -374,7 +383,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 for (int e = 0; e < pools.size(); e++) {
                     CgVfxParticlePool pool = pools.get(e);
                     pool.beginStep(DT, 0f, 0f, 0f);
-                    pool.instance(slots.get(e), SEED_BITS, 1f, Float.NaN, origin());
+                    pool.instance(slots.get(e), SEED_BITS, 1f, Float.NaN,
+                            emitters.get(e).name().equals("forms-source-movement") ? moved() : origin());
                     // A spawn station's particles: one burst at the step's start, at the loop's LOOP seconds.
                     if (e >= seededStations) pool.spawn(slots.get(e), 0, PARTICLES, PARTICLES, 0f, DT, 0f, 0f, 0f, 0f, 0f, 0f, LOOP, LOOP);
                     pool.endStep();
@@ -401,6 +411,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             for (int e = 0; e < emitters.size(); e++) {
                 if (e < FORMS.size()) compare(e);
                 else if (e == FORMS.size()) compareField(e);
+                else if (emitters.get(e).name().equals("forms-source-movement")) compareCarried(e);
                 else if (e < seededStations) compareAttract(e);
                 else compareSpawn(e);
             }
@@ -744,6 +755,50 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     private static float length(CgVfxRecord layout, ByteBuffer records, int r, int at) {
         float x = layout.f(records, r, at), y = layout.f(records, r, at + 1), z = layout.f(records, r, at + 2);
         return (float) Math.sqrt(x * x + y * y + z * z);
+    }
+
+    /** {@link #origin}, its source moved {@link #CARRIED} over the step. */
+    private static CgVfxInstanceView moved() {
+        CgVfxInstanceView at = origin();
+        return new CgVfxInstanceView() {
+            public double originX() { return at.originX(); }
+            public double originY() { return at.originY(); }
+            public double originZ() { return at.originZ(); }
+            public float time() { return 0f; }
+            public float sourceX() { return 0f; }
+            public float sourceY() { return 0f; }
+            public float sourceZ() { return 0f; }
+            public float fromX() { return -CARRIED[0]; }
+            public float fromY() { return -CARRIED[1]; }
+            public float fromZ() { return -CARRIED[2]; }
+        };
+    }
+
+    /**
+     * Every particle of the source-movement station: its place its seeded velocity times the step, plus the source's
+     * movement times the scale where it has lived past two steps (Cascade's). Those within a step of that age are left out.
+     */
+    private void compareCarried(int e) {
+        ByteBuffer records = read.get(e);
+        CgVfxRecord layout = pools.get(e).record();
+        for (int r = 0; r < PARTICLES; r++) {
+            int id = layout.i(records, r, CgVfxRecord.ID);
+            if (layout.f(records, r, CgVfxRecord.LIFE) == 0f || id < 0 || id >= PARTICLES) continue;
+            float[] s = seeded[id];
+            if (Math.abs(s[0] - 2f * DT) < 2f * DT) continue;
+            boolean carries = s[0] > 2f * DT;
+            for (int c = 0; c < 3; c++) {
+                float want = s[2 + c] * DT + (carries ? CARRY_SCALE[c] * CARRIED[c] : 0f);
+                float got = layout.f(records, r, CgVfxRecord.POSITION + c);
+                float off = Math.abs(got - want) / (TOLERANCE * (1f + Math.abs(want)));
+                worst = Math.max(worst, off);
+                if (!(off <= 1f)) {
+                    fail(emitters.get(e).name() + ": particle " + id + "'s place lane " + c + " is " + got + ", Java gives " + want);
+                    return;
+                }
+            }
+            checked++;
+        }
     }
 
     private static CgVfxInstanceView origin() {
