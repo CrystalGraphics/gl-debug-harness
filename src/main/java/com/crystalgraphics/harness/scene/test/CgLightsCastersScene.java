@@ -62,8 +62,11 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
     private static final int CX = -1000, CZ = 2000, GROUND = 64;
     /** Celestial angles: a morning sun, its shadows beside what casts them; then a low one whose edge crosses the ball. */
     private static final float SUN_ANGLE = 0.07f, SIDE_SUN = 0.8f;
-    /** Pixels a shadow may reach past the exact one: the sun's disc and the capture's rounding. */
-    private static final float SPILL = 3f;
+    /**
+     * Pixels a shadow may reach past the exact one: the sun's disc and the capture's rounding, and a 2x2 sample's two
+     * pixels (crystalgraphics.world.lightsDownsample's default).
+     */
+    private static final float SPILL = 5f;
     private static final double HEIGHT = 3, SLAB_TOP = 0.25;
     private static final double[] BOX = {CX + 0.5, GROUND + HEIGHT, CZ + 0.5}, BALL = {CX + 10.5, GROUND + HEIGHT, CZ + 0.5};
     private static final double EYE_X = CX + 5, EYE_Y = GROUND + 14, EYE_Z = CZ + 9;

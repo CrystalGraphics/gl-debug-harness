@@ -71,7 +71,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
     private ByteBuffer count, list, cells, indices;
     private double eyeX, eyeY, eyeZ;
     private int gridX, gridY, frame, checked, cellsChecked, dense;
-    private float[] rays, zParams;
+    private float[] rays, zParams, airSpread;
     private float tileU, tileV;
     private final Matrix4f toView = new Matrix4f();
     private String failure;
@@ -187,6 +187,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         gridX = lights.gridX();
         gridY = lights.gridY();
         rays = lights.rays().clone();
+        airSpread = lights.airSpread().clone();
         zParams = lights.zParams().clone();
         tileU = lights.tileU();
         tileV = lights.tileV();
@@ -285,7 +286,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
                         float[] at = {view[i * 3], view[i * 3 + 1], view[i * 3 + 2], light(i, 3)};
                         int drawn = drawn(at, spot, i * 4);
                         if (drawn < 0) continue;
-                        int cone = spot[i * 4 + 3] > -1.5f ? cone(at, spot, i * 4, box) : 1;
+                        int cone = spot[i * 4 + 3] > -1.5f ? cone(at, spot, i * 4, box, margin(box)) : 1;
                         if (drawn == 0) cone = Math.min(cone, 0);
                         if (cone < 0) continue;
                         float r = at[3], gap = gap(box, at[0], at[1], at[2]) - r * r;
@@ -325,13 +326,19 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         return true;
     }
 
+    /** How far past its cone a spot is listed at this cell: lights.glsl's margin, at the cell's far depth. */
+    private float margin(float[] box) {
+        return Math.max(box[5] - box[2], 0f) * airSpread[0] + airSpread[1];
+    }
+
     /**
-     * A spot against a cell's bounding sphere, IntersectConeWithSphere: -1 outside, 0 within rounding of its edge, 1
-     * inside; then {@code at} (view position and radius) moved and shrunk to the smallest sphere round its cone.
+     * A spot against a cell's bounding sphere grown by {@code margin}, IntersectConeWithSphere: -1 outside, 0 within
+     * rounding of its edge, 1 inside; then {@code at} (view position and radius) moved and shrunk to the smallest sphere
+     * round its cone, grown by the margin (lights.glsl's cg_light_reaches_by).
      */
-    private static int cone(float[] at, float[] spot, int s, float[] box) {
+    private static int cone(float[] at, float[] spot, int s, float[] box, float margin) {
         float c = spot[s + 3], sin = (float) Math.sqrt(Math.max(1f - c * c, 0f));
-        float r = (float) Math.sqrt(box[3] * box[3] + box[4] * box[4] + box[5] * box[5]);
+        float r = (float) Math.sqrt(box[3] * box[3] + box[4] * box[4] + box[5] * box[5]) + margin;
         float tx = box[0] - at[0], ty = box[1] - at[1], tz = box[2] - at[2];
         float along = tx * spot[s] + ty * spot[s + 1] + tz * spot[s + 2];
         float closest = c * (float) Math.sqrt(Math.max(tx * tx + ty * ty + tz * tz - along * along, 0f)) - along * sin;
@@ -346,6 +353,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
             at[3] /= 2f * c;
             for (int k = 0; k < 3; k++) at[k] += spot[s + k] * at[3];
         }
+        at[3] += margin;
         return result;
     }
 

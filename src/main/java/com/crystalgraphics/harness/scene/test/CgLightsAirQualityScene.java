@@ -56,7 +56,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
     private static final Vector3d BASE = new Vector3d(DIR).mul(1).add(SOURCE), SIDE = new Vector3d(DIR).mul(8).add(SOURCE);
     private static final String HISTORY = "crystalgraphics.world.lightsAirHistory", AIR = "crystalgraphics.world.lightsAir";
     private static final String[] NAMES = {"jitter-history", "jitter-middles", "near-air", "near-none", "far-air", "far-none",
-            "along-history", "along-middles", "demo-history", "demo-middles"};
+            "along-history", "along-middles", "demo-history", "demo-middles", "ball-history", "ball-middles"};
     /** The phases photographed as a series, and the ones lighting froxel middles alone. */
     private static final int ALONG = 6, DEMO = 8;
     /** Looking down the beam: from a block and a half behind the source and a block and a half up, at six along. */
@@ -65,6 +65,8 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
     /** The demo's left searchlight (CgLightsDemo.searchlights: 15 west, 12 south, 3 up of where it plays), and a block
      *  along the way it points at the start. */
     private static final Vector3d DEMO_BASE = new Vector3d(-15, GROUND + 3, 12).add(new Vector3d(0.5, -0.3, -0.8).normalize());
+    /** The demo's mirror ball (CgLightsDemo.mirrorBall: ten up, two north), its sixteen spots all at its middle. */
+    private static final Vector3d BALL = new Vector3d(0, GROUND + 10, -2);
     private static final double SHOW_AT = 30.0;
     /** The searchlight's VolumetricScatteringIntensity (-Dcrystalgraphics.harness.airQuality.scattering): the demo's 8. */
     private static final float SCATTERING = Float.parseFloat(System.getProperty("crystalgraphics.harness.airQuality.scattering", "8"));
@@ -111,6 +113,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
             return;
         }
         ((CgVar.Bool) CgVars.get(HISTORY)).set(phase != 1 && phase != ALONG + 1 && phase != DEMO + 1);
+        if (phase >= DEMO + 2) ((CgVar.Bool) CgVars.get(HISTORY)).set(phase == DEMO + 2);
         ((CgVar.Bool) CgVars.get(AIR)).set(phase != 3 && phase != 5);
         Vector3d on = camera(phase);
         CgWorldRenderer renderer = CgWorldRenderer.get();
@@ -149,6 +152,10 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
         if (phase == ALONG || phase == ALONG + 1) {
             on = DOWN_BEAM;
             eye.set(BEHIND);
+        } else if (phase >= DEMO + 2) {
+            // Above and beside the mirror ball, looking down at it: where a player saw its glow cut into the grid's tiles.
+            on = BALL;
+            eye.set(on.x + 2, on.y + 3, on.z + 3);
         } else if (phase >= DEMO) {
             on = DEMO_BASE;
             eye.set(on.x + 6, on.y + 1, on.z);
