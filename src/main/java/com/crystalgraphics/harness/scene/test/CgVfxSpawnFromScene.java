@@ -66,6 +66,12 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
     private final CgVfxEmitter[] readers = new CgVfxEmitter[GROUPS];
     private final CgVfxParticlePool[] sourcePools = new CgVfxParticlePool[GROUPS], readerPools = new CgVfxParticlePool[GROUPS];
     private final int[] sourceSlots = new int[GROUPS], readerSlots = new int[GROUPS];
+    /** An emitter born on its own particles: half its capacity seeded, half spawned on them at the second step. */
+    private final CgVfxEmitter itself = CgVfxEmitter.builder("spawn-from-itself").state(CgVfxEmitterState.ONCE).capacity(N)
+            .speed(0f, 0f).life(100f, 100f).size(0.1f, 0.1f, 1f).publishes(true)
+            .spawnFrom(CgVfxSpawnFrom.ofItself(CgVfxSpawnFrom.Selection.RANDOM)).build();
+    private CgVfxParticlePool itselfPool;
+    private int itselfSlot;
     private final List<CgVfxParticlePool> distinct = new ArrayList<>();
     private final Map<CgVfxParticlePool, ByteBuffer> records = new IdentityHashMap<>();
     private final Map<CgVfxParticlePool, Integer> live = new IdentityHashMap<>();
@@ -99,6 +105,7 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
             CgVfxParticlePool.prepare(sources[g]);
             CgVfxParticlePool.prepare(readers[g], 1);
         }
+        CgVfxParticlePool.prepare(itself);
     }
 
     @Override
@@ -138,6 +145,10 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
             readerPools[g].readFrom(readerSlots[g], sourcePools[g], sourceSlots[g]);
             if (!distinct.contains(readerPools[g])) distinct.add(readerPools[g]);
         }
+        itselfPool = CgVfxParticlePool.of(this, itself);
+        itselfSlot = itselfPool.open(itself, N);
+        itselfPool.readFrom(itselfSlot, itselfPool, itselfSlot);
+        distinct.add(itselfPool);
         Random random = new Random(1203);
         for (int id = 0; id < N; id++) {
             places[id] = new float[]{random.nextFloat() * 8f - 4f, random.nextFloat() * 3f, random.nextFloat() * 8f - 4f};
@@ -160,6 +171,13 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
             }
             pool.seed(rec, packed, at);
         }
+        CgVfxRecord layout = itselfPool.record();
+        ByteBuffer packed = ByteBuffer.allocateDirect(N / 2 * layout.bytes()).order(ByteOrder.nativeOrder());
+        for (int id = 0; id < N / 2; id++) {
+            float[] p = places[id];
+            layout.put(packed, id, p[0], p[1], p[2], 0f, 0f, 0f, 0f, 100f, 0.1f, 0.5f, id, itselfSlot);
+        }
+        itselfPool.seed(rec, packed, N / 2);
     }
 
     /** Every slot stepped; the readers burst on the first. */
@@ -172,6 +190,11 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
                     pool.instance(readerSlots[g], SEED_BITS + g, 1f, Float.NaN, ORIGIN);
                     if (first) pool.spawn(readerSlots[g], 0, N);
                 }
+            }
+            if (pool == itselfPool) {
+                pool.instance(itselfSlot, SEED_BITS + GROUPS, 1f, Float.NaN, ORIGIN);
+                // The second step: the first has published the seeded half.
+                if (frame == WARM + 2) pool.spawn(itselfSlot, 0, N / 2);
             }
             pool.endStep();
         }
@@ -208,6 +231,35 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
         moving();
         empty();
         follow();
+        itself();
+    }
+
+    /**
+     * The emitter born on its own particles: all {@code N} alive, each on one of the seeded half's places, the spawned
+     * half doubling several of them.
+     */
+    private void itself() {
+        CgVfxRecord layout = itselfPool.record();
+        ByteBuffer data = records.get(itselfPool);
+        float[][] seededPlaces = Arrays.copyOf(places, N / 2);
+        int[] on = new int[N / 2];
+        int alive = 0;
+        for (int r = 0; r < live.get(itselfPool); r++) {
+            if (layout.i(data, r, CgVfxRecord.SLOT) != itselfSlot) continue;
+            alive++;
+            float[] at = vector(layout, data, r, CgVfxRecord.POSITION);
+            int place = nearest(seededPlaces, at);
+            if (place < 0) {
+                fail("a particle born on its own emitter's is at " + text(at) + ", on none of them");
+                return;
+            }
+            on[place]++;
+            checked++;
+        }
+        int shared = 0;
+        for (int n : on) if (n > 1) shared++;
+        if (alive != N) fail(alive + " particles born on their own emitter's alive, not " + N);
+        else if (shared < 4) fail("the particles born on their own emitter's share " + shared + " of its places");
     }
 
     /**
@@ -346,7 +398,7 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
         } else {
             System.out.println("[vfx-spawn-from] PASS on " + on + ": " + checked + " particles: random on still sources to "
                     + TOLERANCE + ", sequential taking each moving source's half velocity once, an empty source's at the"
-                    + " origin, followers on their sources");
+                    + " origin, followers on their sources, an emitter on its own");
         }
     }
 
