@@ -20,6 +20,7 @@ import com.crystalgraphics.vfx.particle.spawn.CgVfxSpawnFrom;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -36,6 +37,9 @@ import java.util.Set;
  *   <li><b>Sequential</b> from moving particles, inheriting half their velocity: as many as the source holds, each
  *       source particle's half velocity taken once.</li>
  *   <li><b>Empty</b>: a source with no particle leaves each where its emitter put it, at the origin.</li>
+ *   <li><b>Follow</b> (Cascade's {@code LocationEmitterDirect}): each reader on the moving source particle of its own id
+ *       every step, its place, velocity, age and life the source's at the end; a reader whose source died, gone with
+ *       it.</li>
  * </ul>
  *
  * <pre>{@code
@@ -52,14 +56,16 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
     private static final int WARM = 10, STEPS = 6, DRAIN = 40;
     private static final float DT = 1f / 60f;
     private static final int N = 48, SEED_BITS = 0x5F12;
-    private static final int STILL = 0, MOVING = 1, EMPTY = 2;
-    private static final String[] NAMES = {"still", "moving", "empty"};
+    private static final int STILL = 0, MOVING = 1, EMPTY = 2, FOLLOW = 3, GROUPS = 4;
+    private static final String[] NAMES = {"still", "moving", "empty", "follow"};
+    /** A followed particle of each four lives this long, dying at the third step: its reader with it. */
+    private static final float SHORT_LIFE = 2.5f * (1f / 60f);
     private static final float INHERIT = 0.5f, TOLERANCE = 1e-4f;
 
-    private final CgVfxEmitter[] sources = new CgVfxEmitter[3];
-    private final CgVfxEmitter[] readers = new CgVfxEmitter[3];
-    private final CgVfxParticlePool[] sourcePools = new CgVfxParticlePool[3], readerPools = new CgVfxParticlePool[3];
-    private final int[] sourceSlots = new int[3], readerSlots = new int[3];
+    private final CgVfxEmitter[] sources = new CgVfxEmitter[GROUPS];
+    private final CgVfxEmitter[] readers = new CgVfxEmitter[GROUPS];
+    private final CgVfxParticlePool[] sourcePools = new CgVfxParticlePool[GROUPS], readerPools = new CgVfxParticlePool[GROUPS];
+    private final int[] sourceSlots = new int[GROUPS], readerSlots = new int[GROUPS];
     private final List<CgVfxParticlePool> distinct = new ArrayList<>();
     private final Map<CgVfxParticlePool, ByteBuffer> records = new IdentityHashMap<>();
     private final Map<CgVfxParticlePool, Integer> live = new IdentityHashMap<>();
@@ -71,7 +77,7 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
     private boolean compared, running = true;
 
     public CgVfxSpawnFromScene() {
-        for (int g = 0; g < 3; g++) {
+        for (int g = 0; g < GROUPS; g++) {
             sources[g] = CgVfxEmitter.builder("spawn-from-source-" + NAMES[g]).state(CgVfxEmitterState.ONCE).capacity(N)
                     .life(100f, 100f).size(0.1f, 0.1f, 1f).publishes(true).build();
         }
@@ -79,6 +85,7 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
         readers[MOVING] = reader(NAMES[MOVING], CgVfxSpawnFrom.of("moving", CgVfxSpawnFrom.Selection.SEQUENTIAL)
                 .inherit(INHERIT, 0f));
         readers[EMPTY] = reader(NAMES[EMPTY], CgVfxSpawnFrom.of("empty", CgVfxSpawnFrom.Selection.RANDOM));
+        readers[FOLLOW] = reader(NAMES[FOLLOW], CgVfxSpawnFrom.following("follow"));
     }
 
     private static CgVfxEmitter reader(String name, CgVfxSpawnFrom from) {
@@ -88,7 +95,7 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        for (int g = 0; g < 3; g++) {
+        for (int g = 0; g < GROUPS; g++) {
             CgVfxParticlePool.prepare(sources[g]);
             CgVfxParticlePool.prepare(readers[g], 1);
         }
@@ -120,12 +127,12 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
     }
 
     private void seed(CgRecording rec) {
-        for (int g = 0; g < 3; g++) {
+        for (int g = 0; g < GROUPS; g++) {
             sourcePools[g] = CgVfxParticlePool.of(this, sources[g]);
             sourceSlots[g] = sourcePools[g].open(sources[g], N);
             if (!distinct.contains(sourcePools[g])) distinct.add(sourcePools[g]);
         }
-        for (int g = 0; g < 3; g++) {
+        for (int g = 0; g < GROUPS; g++) {
             readerPools[g] = CgVfxParticlePool.of(this, readers[g], 1);
             readerSlots[g] = readerPools[g].open(readers[g], N);
             readerPools[g].readFrom(readerSlots[g], sourcePools[g], sourceSlots[g]);
@@ -140,13 +147,15 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
         for (int g = 0; g < 3; g++) if (!seeded.contains(sourcePools[g])) seeded.add(sourcePools[g]);
         for (CgVfxParticlePool pool : seeded) {
             CgVfxRecord layout = pool.record();
-            ByteBuffer packed = ByteBuffer.allocateDirect(2 * N * layout.bytes()).order(ByteOrder.nativeOrder());
+            ByteBuffer packed = ByteBuffer.allocateDirect(3 * N * layout.bytes()).order(ByteOrder.nativeOrder());
             int at = 0;
-            for (int g : new int[]{STILL, MOVING}) {
+            for (int g : new int[]{STILL, MOVING, FOLLOW}) {
                 if (sourcePools[g] != pool) continue;
                 for (int id = 0; id < N; id++, at++) {
-                    float[] p = places[id], v = g == MOVING ? velocities[id] : new float[3];
-                    layout.put(packed, at, p[0], p[1], p[2], v[0], v[1], v[2], 0f, 100f, 0.1f, 0.5f, id, sourceSlots[g]);
+                    float[] p = places[id], v = g == STILL ? new float[3] : velocities[id];
+                    float age = g == FOLLOW ? 0.01f * id : 0f, life = g == FOLLOW && id % 4 == 0 ? SHORT_LIFE : 100f;
+                    if (g == FOLLOW && id % 4 == 0) age = 0f;
+                    layout.put(packed, at, p[0], p[1], p[2], v[0], v[1], v[2], age, life, 0.1f, 0.5f, id, sourceSlots[g]);
                 }
             }
             pool.seed(rec, packed, at);
@@ -157,7 +166,7 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
     private void step(CgRecording rec, boolean first) {
         for (CgVfxParticlePool pool : distinct) {
             pool.beginStep(DT, 0f, 0f, 0f);
-            for (int g = 0; g < 3; g++) {
+            for (int g = 0; g < GROUPS; g++) {
                 if (sourcePools[g] == pool) pool.instance(sourceSlots[g], SEED_BITS, 1f, Float.NaN, ORIGIN);
                 if (readerPools[g] == pool) {
                     pool.instance(readerSlots[g], SEED_BITS + g, 1f, Float.NaN, ORIGIN);
@@ -177,15 +186,20 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
         }
     }
 
-    /** Group {@code g}'s reader records at the end. */
+    /** Group {@code g}'s reader records at the end, all {@code N} of them alive. */
     private List<Integer> rows(int g) {
+        return rows(g, N);
+    }
+
+    /** Group {@code g}'s reader records at the end, {@code alive} of them. */
+    private List<Integer> rows(int g, int alive) {
         CgVfxParticlePool pool = readerPools[g];
         ByteBuffer data = records.get(pool);
         List<Integer> rows = new ArrayList<>();
         for (int r = 0; r < live.get(pool); r++) {
             if (pool.record().i(data, r, CgVfxRecord.SLOT) == readerSlots[g]) rows.add(r);
         }
-        if (rows.size() != N) fail(rows.size() + " " + NAMES[g] + " readers alive, not " + N);
+        if (rows.size() != alive) fail(rows.size() + " " + NAMES[g] + " readers alive, not " + alive);
         return rows;
     }
 
@@ -193,6 +207,38 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
         still();
         moving();
         empty();
+        follow();
+    }
+
+    /**
+     * Each follower on the source particle of its id: its place, velocity, age and life the source's after the last step;
+     * every fourth source died at the third step, and its follower with it.
+     */
+    private void follow() {
+        CgVfxParticlePool sp = sourcePools[FOLLOW];
+        CgVfxRecord sl = sp.record(), rl = readerPools[FOLLOW].record();
+        ByteBuffer sd = records.get(sp), rd = records.get(readerPools[FOLLOW]);
+        int[] source = new int[N];
+        Arrays.fill(source, -1);
+        for (int r = 0; r < live.get(sp); r++) {
+            if (sl.i(sd, r, CgVfxRecord.SLOT) == sourceSlots[FOLLOW]) source[sl.i(sd, r, CgVfxRecord.ID)] = r;
+        }
+        for (int r : rows(FOLLOW, N - N / 4)) {
+            int id = rl.i(rd, r, CgVfxRecord.ID), s = id >= 0 && id < N ? source[id] : -1;
+            if (s < 0) {
+                fail("follower " + id + " outlived its source");
+                return;
+            }
+            for (int w : new int[]{CgVfxRecord.POSITION, CgVfxRecord.POSITION + 1, CgVfxRecord.POSITION + 2, CgVfxRecord.VELOCITY,
+                    CgVfxRecord.VELOCITY + 1, CgVfxRecord.VELOCITY + 2, CgVfxRecord.AGE, CgVfxRecord.LIFE}) {
+                float got = rl.f(rd, r, w), want = sl.f(sd, s, w);
+                if (Math.abs(got - want) > TOLERANCE * (1f + Math.abs(want))) {
+                    fail("follower " + id + "'s word " + w + " is " + got + ", its source's " + want);
+                    return;
+                }
+            }
+            checked++;
+        }
     }
 
     /** Each where a still source particle is; at least a quarter of them used. */
@@ -300,7 +346,7 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
         } else {
             System.out.println("[vfx-spawn-from] PASS on " + on + ": " + checked + " particles: random on still sources to "
                     + TOLERANCE + ", sequential taking each moving source's half velocity once, an empty source's at the"
-                    + " origin");
+                    + " origin, followers on their sources");
         }
     }
 
