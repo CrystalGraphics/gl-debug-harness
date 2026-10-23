@@ -87,6 +87,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     private static final double[] TURN_FROM = {0.0, 0.0, 0.0}, TURN_TO = {0.25, 0.5, 1.0}, TURN_RATE = {0.0, 0.125, 0.5};
     /** The orientation station's rate added after its multiplier, radians a second, on roll; its size's range over life. */
     private static final double TURN_ADDED = 1.3;
+    /** A spin rate by the loop's seconds, through zero: its sign must survive. */
+    private static final Map<String, Object> SPIN_SECONDS = Map.of("keys", List.of(List.of(0.0, -3.0), List.of(1.6, 4.0, "linear")));
     private static final float[] ROLL_FROM = {0.5f, 0.5f, 0.5f}, ROLL_TO = {1.5f, 2f, 2.5f};
     /** Its user parameter {@code Length} as the instance gives it, which its mesh scale binds through a remap of 0..10 to 0..5. */
     private static final float[] LENGTH = {3f, 4f, 6f};
@@ -195,6 +197,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 "module", "crystalgraphics:initial_mesh_orientation", "inputs", Map.of("rotation",
                         Map.of("curves", List.of(seconds, cubic, linear), "by", "loop")))));
         SPAWNS.put("spawn-turn-rate-pick", List.of(init(Map.of("lifetime", 3.0))));
+        // A sprite's spin rate by the loop, Cascade's RotationRate at the emitter's time, its sign kept.
+        SPAWNS.put("spawn-spin-rate-loop", List.of(init(Map.of("lifetime", 3.0))));
         // A light's radius scale by the loop, Cascade's RadiusScale at the emitter's time, and an exponent rolled at birth.
         SPAWNS.put("spawn-light-loop", List.of(init(Map.of("lifetime", 3.0))));
         SPAWNS.put("spawn-light-range", List.of(init(Map.of("lifetime", 3.0))));
@@ -213,6 +217,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         TARGETS.put("spawn-light-range", CgVfxSpawnInput.LIGHT_EXPONENT);
         TARGETS.put("spawn-turn-loop", CgVfxSpawnInput.MESH_ORIENTATION);
         TARGETS.put("spawn-turn-rate-pick", CgVfxSpawnInput.MESH_ROTATION_RATE);
+        TARGETS.put("spawn-spin-rate-loop", CgVfxSpawnInput.SPRITE_ROTATION_RATE);
         TARGETS.put("spawn-color-loop", CgVfxSpawnInput.COLOR);
         TARGETS.put("spawn-scale-fn", CgVfxSpawnInput.MESH_SCALE);
         TARGETS.put("spawn-life-pick", CgVfxSpawnInput.LIFETIME);
@@ -321,6 +326,10 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             if (LIGHTS.containsKey(spawn.getKey())) {
                 tree.put("particle_update", List.of(Map.of("id", "light", "module", "crystalgraphics:light_attributes",
                         "inputs", LIGHTS.get(spawn.getKey()))));
+            }
+            if (spawn.getKey().equals("spawn-spin-rate-loop")) {
+                tree.put("particle_update", List.of(Map.of("id", "spin_rate", "module", "crystalgraphics:sprite_rotation_rate",
+                        "inputs", Map.of("rate", Map.of("curve", SPIN_SECONDS, "by", "loop")))));
             }
             if (spawn.getKey().equals("spawn-turn-rate-pick")) {
                 tree.put("particle_update", List.of(Map.of("id", "rotation_rate", "module", "crystalgraphics:mesh_rotation_rate",
@@ -596,6 +605,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 case MESH_SCALE -> layout.word(CgVfxRecord.Tail.SCALE);
                 case MESH_ORIENTATION -> layout.word(CgVfxRecord.Tail.TURN);
                 case MESH_ROTATION_RATE -> layout.word(CgVfxRecord.Tail.TURN_RATE);
+                case SPRITE_ROTATION_RATE -> CgVfxRecord.SPIN_RATE;
                 case LIGHT_RADIUS -> layout.word(CgVfxRecord.Tail.LIGHT);
                 case LIGHT_EXPONENT -> layout.word(CgVfxRecord.Tail.LIGHT) + 1;
                 case ORBIT_OFFSET -> layout.word(CgVfxRecord.Tail.ORBIT);
