@@ -107,7 +107,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   `--mode=lights-demo` is the lights demo to profile: every pass on, the show held at one moment, running until
   closed; with `-Dcrystalgraphics.demo.lightsSweep=<n>` and `.lightsSweepKind=exact|shadowed|scatter` the demo adds n
   lights of that kind over its arena, to measure what a light costs each pass
-  (`plan/crystalgraphics/lights-300fps-notes.md`).
+  (`plan/crystalgraphics/lights-300fps-notes.md`). `-Dcrystalgraphics.harness.lightsDemo.look=down` stands at eye height
+  looking straight down at the lit floor, every pixel lit ground, the show's dearest frame; `.downAt=<x>,<z>` says where
+  (inside the carousel unless given; `-20,-12` under a firework).
   `--mode=lights-air-quality` measures the lit air's look rather than gating it: the lights demo's searchlight in its
   haze, its base's per-pixel deviation over 30 frames with the history on and off, the same six blocks from the live
   demo's searchlight, and its beam over the haze side-on from 10 and 40 blocks; run it with `fixedDelta`.

@@ -59,7 +59,15 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
 
     private static final int PHASE = 180, GROUND = 64;
     private static final double SHOW_AT = 4.0;
-    private static final double X = 0, Z = 0, EYE_X = 0, EYE_Y = GROUND + 4, EYE_Z = 24;
+    /**
+     * {@code -Dcrystalgraphics.harness.lightsDemo.look=down}: standing at a player's eye height looking steeply down at
+     * the lit floor, inside the carousel unless {@code .downAt=<x>,<z>} says where. Every pixel is lit ground, which is
+     * what the show costs most.
+     */
+    private static final boolean DOWN = "down".equals(System.getProperty("crystalgraphics.harness.lightsDemo.look"));
+    private static final String[] DOWN_AT = System.getProperty("crystalgraphics.harness.lightsDemo.downAt", "0,5").split(",");
+    private static final double X = 0, Z = 0, EYE_X = DOWN ? Double.parseDouble(DOWN_AT[0]) : 0, EYE_Y = GROUND + (DOWN ? 1.62 : 4),
+            EYE_Z = DOWN ? Double.parseDouble(DOWN_AT[1]) : 24;
     /** The mirror ball: CgLightsDemo's, ten blocks over the arena's middle and two behind it. */
     private static final double[] BALL = {X, GROUND + 10, Z - 2};
     private static final String[] VARS = {"crystalgraphics.world.lightsAir", "crystalgraphics.world.lightsShadows",
@@ -73,8 +81,10 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
 
     private final CgLightsDemo demo = new CgLightsDemo(CgVfx.owner("harness"));
     private final boolean steady;
-    private final Matrix4f view = new Matrix4f().lookAt(0f, 0f, 0f, (float) (X - EYE_X), (float) (GROUND + 4 - EYE_Y),
-            (float) (Z - 2 - EYE_Z), 0f, 1f, 0f);
+    private final Matrix4f view = DOWN
+            ? new Matrix4f().lookAt(0f, 0f, 0f, 0f, (float) (GROUND - EYE_Y), -0.5f, 0f, 1f, 0f)
+            : new Matrix4f().lookAt(0f, 0f, 0f, (float) (X - EYE_X), (float) (GROUND + 4 - EYE_Y), (float) (Z - 2 - EYE_Z),
+                    0f, 1f, 0f);
     private final Matrix4f projection = new Matrix4f(), ground = new Matrix4f();
     private HarnessFboHelper target;
     private CgMaterial floor;
