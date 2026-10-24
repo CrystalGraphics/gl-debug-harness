@@ -177,7 +177,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
         }
         int allSlots = 0;
         for (int w : words) allSlots = Math.max(allSlots, w + 1);
-        requests.add(rec.readback(pool.live(), 0, 4, data -> live = data.getInt(0)));
+        requests.add(rec.readback(pool.liveBuffer(), pool.liveOffset(), 4, data -> live = data.getInt(0)));
         requests.add(rec.readback(pool.records(), 0, (long) pool.storage() * pool.record().bytes(), data -> records = copy(data)));
         requests.add(rec.readback(pool.drawn(), 0, (long) pool.storage() * CgVfxRecord.DRAWN_BYTES,
                 data -> drawnParts = copy(data)));

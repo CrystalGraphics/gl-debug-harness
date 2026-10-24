@@ -215,12 +215,12 @@ public class CgVfxBeamsScene implements InteractiveSceneLifecycle {
                 rec.update(cases, 0, p.custom.duplicate());
                 CgComputePass pass = rec.compute("vfx-beams." + p.name);
                 pass.dispatch(kernels.kernel("Points"), p.pool.storage() * STRIDE).bind("RECORDS", p.pool.records())
-                        .bind("LIVE", p.pool.live()).bind("TABLE", p.pool.beamTable()).bind("RUNS", p.pool.beamRuns())
+                        .bind("LIVE", p.pool.liveBuffer(), p.pool.liveOffset(), 16).bind("TABLE", p.pool.beamTable()).bind("RUNS", p.pool.beamRuns())
                         .bind("CASES", cases).bind("POINTS", out).set("_RecordVectors", p.pool.record().vectors())
                         .set("_Stride", STRIDE).set("_NoisePoints", p.points);
                 pass.end();
                 requests.add(rec.readback(out, 0, (long) p.pool.storage() * STRIDE * 16, data -> p.drawn = copy(data)));
-                requests.add(rec.readback(p.pool.live(), 0, 4, data -> p.live = data.getInt(0)));
+                requests.add(rec.readback(p.pool.liveBuffer(), p.pool.liveOffset(), 4, data -> p.live = data.getInt(0)));
                 requests.add(rec.readback(p.pool.records(), 0, (long) p.pool.storage() * p.pool.record().bytes(),
                         data -> p.records = copy(data)));
                 requests.add(rec.readback(p.pool.beamRuns(), 0, p.pool.beamRuns().size(), data -> p.runs = copy(data)));

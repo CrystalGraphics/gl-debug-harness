@@ -129,10 +129,10 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
             if (frame == FILL) seed(rec);
             if (frame > FILL) step(rec);
             if (frame == FILL + STEPS + 1) {
-                requests.add(rec.readback(parents.live(), 0, 4, data -> parentLive = data.getInt(0)));
+                requests.add(rec.readback(parents.liveBuffer(), parents.liveOffset(), 4, data -> parentLive = data.getInt(0)));
                 requests.add(rec.readback(parents.records(), 0, (long) parents.storage() * parents.record().bytes(),
                         data -> parentRecords = copy(data)));
-                requests.add(rec.readback(children.live(), 0, 4, data -> childLive = data.getInt(0)));
+                requests.add(rec.readback(children.liveBuffer(), children.liveOffset(), 4, data -> childLive = data.getInt(0)));
                 requests.add(rec.readback(children.records(), 0, (long) children.storage() * children.record().bytes(),
                         data -> childRecords = copy(data)));
             }

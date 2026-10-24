@@ -179,7 +179,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
             if (frame == 1) seed(rec);
             else step(rec);
             if (frame == STEPS + 1) {
-                requests.add(rec.readback(children.live(), 0, 4, data -> childLive = data.getInt(0)));
+                requests.add(rec.readback(children.liveBuffer(), children.liveOffset(), 4, data -> childLive = data.getInt(0)));
                 requests.add(rec.readback(children.records(), 0, (long) children.storage() * children.record().bytes(),
                         data -> childRecords = copy(data)));
             }

@@ -148,7 +148,7 @@ public class CgVfxTrailHeadsScene implements InteractiveSceneLifecycle {
     };
 
     private void readBack(CgRecording rec) {
-        requests.add(rec.readback(trailPool.live(), 0, 4, d -> live = d.getInt(0)));
+        requests.add(rec.readback(trailPool.liveBuffer(), trailPool.liveOffset(), 4, d -> live = d.getInt(0)));
         requests.add(rec.readback(trailPool.records(), 0, (long) trailPool.storage() * trailPool.record().bytes(), d -> records = copy(d)));
         requests.add(rec.readback(trailPool.heads(), 0, trailPool.heads().size(), d -> headWords = copy(d)));
     }

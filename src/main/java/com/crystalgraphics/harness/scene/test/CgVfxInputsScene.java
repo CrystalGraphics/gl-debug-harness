@@ -178,7 +178,7 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
             if (frame == STEPS + 1) {
                 for (int p = 0; p < 3; p++) {
                     int at = p;
-                    requests.add(rec.readback(pools[p].live(), 0, 4, data -> live[at] = data.getInt(0)));
+                    requests.add(rec.readback(pools[p].liveBuffer(), pools[p].liveOffset(), 4, data -> live[at] = data.getInt(0)));
                     requests.add(rec.readback(pools[p].records(), 0, (long) pools[p].storage() * pools[p].record().bytes(),
                             data -> records[at] = copy(data)));
                 }

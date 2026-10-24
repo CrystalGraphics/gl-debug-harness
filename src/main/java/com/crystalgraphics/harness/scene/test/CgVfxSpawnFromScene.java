@@ -203,7 +203,7 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
 
     private void readBack(CgRecording rec) {
         for (CgVfxParticlePool pool : distinct) {
-            requests.add(rec.readback(pool.live(), 0, 4, data -> live.put(pool, data.getInt(0))));
+            requests.add(rec.readback(pool.liveBuffer(), pool.liveOffset(), 4, data -> live.put(pool, data.getInt(0))));
             requests.add(rec.readback(pool.records(), 0, (long) pool.storage() * pool.record().bytes(),
                     data -> records.put(pool, copy(data))));
         }

@@ -261,8 +261,8 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         }
         // Slot 0 is open and first in its pool's list: its base is where the pool's records start.
         int storage = pool.storage(), end = range.base(0) + pool.capacity();
-        requests.add(rec.readback(pool.live(), 0, 4, data -> live = data.getInt(0)));
-        requests.add(rec.readback(lead.live(), 0, 4, data -> leadLive = data.getInt(0)));
+        requests.add(rec.readback(pool.liveBuffer(), pool.liveOffset(), 4, data -> live = data.getInt(0)));
+        requests.add(rec.readback(lead.liveBuffer(), lead.liveOffset(), 4, data -> leadLive = data.getInt(0)));
         requests.add(rec.readback(pool.records(), 0, (long) storage * pool.record().bytes(), data -> records = copy(data)));
         requests.add(rec.readback(pool.drawn(), 0, (long) storage * CgVfxRecord.DRAWN_BYTES, data -> drawnParts = copy(data)));
         requests.add(rec.readback(range.visible(), 0, (allSlots + 1) * 4L, data -> visible = copy(data)));

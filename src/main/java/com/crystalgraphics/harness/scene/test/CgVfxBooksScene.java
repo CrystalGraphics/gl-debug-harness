@@ -142,7 +142,7 @@ public final class CgVfxBooksScene implements InteractiveSceneLifecycle {
                 r.records = ByteBuffer.allocate(0);
                 continue;
             }
-            requests.add(stage.recording().readback(pool.live(), 0, 4, data -> r.live = data.getInt(0)));
+            requests.add(stage.recording().readback(pool.liveBuffer(), pool.liveOffset(), 4, data -> r.live = data.getInt(0)));
             requests.add(stage.recording().readback(pool.records(), 0, (long) pool.storage() * r.layout.bytes(),
                     data -> r.records = copy(data)));
         }

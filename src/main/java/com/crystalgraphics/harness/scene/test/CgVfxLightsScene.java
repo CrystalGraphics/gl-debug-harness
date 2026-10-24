@@ -141,7 +141,7 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
         requests.add(rec.readback(pool.records(), 0, (long) pool.storage() * pool.record().bytes(), d -> records = copy(d)));
         requests.add(rec.readback(pool.drawn(), 0, (long) pool.storage() * pool.shape().drawnStride() * CgVfxRecord.DRAWN_BYTES,
                 d -> drawn = copy(d)));
-        requests.add(rec.readback(pool.live(), 0, 4, d -> live = copy(d)));
+        requests.add(rec.readback(pool.liveBuffer(), pool.liveOffset(), 4, d -> live = copy(d)));
         requests.add(rec.readback(lights.list(), 0, (long) Math.min(PARTICLES, CgWorldLights.CAPACITY) * CgWorldLights.FLOATS * 4, d -> list = copy(d)));
         requests.add(rec.readback(lights.count(), 0, 4, d -> count = copy(d)));
         CgImmediate.execute(rec);
