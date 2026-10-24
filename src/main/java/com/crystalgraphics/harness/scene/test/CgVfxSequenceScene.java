@@ -13,7 +13,7 @@ import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
-import com.crystalgraphics.vfx.CgVfxScalability;
+import com.crystalgraphics.vfx.scalability.CgVfxScalability;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.look.CgVfxKit;
 import com.crystalgraphics.vfx.look.CgVfxLook;
