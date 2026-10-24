@@ -77,6 +77,9 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
             {true, true, false}, {false, false, false}};
     private static final String[] NAMES = {"all", "no-air", "no-shadows", "no-volume", "none"};
     private static final int CAPTURE = Integer.getInteger("crystalgraphics.harness.lightsDemo.capture", -1);
+    /** {@code .sway=<degrees>}: the view turning that far either way about a second, as a player's hand on the mouse. */
+    private static final float SWAY = (float) Math.toRadians(Double.parseDouble(
+            System.getProperty("crystalgraphics.harness.lightsDemo.sway", "0")));
     private static final int STEADY_START = 600;
 
     private final CgLightsDemo demo = new CgLightsDemo(CgVfx.owner("harness"));
@@ -85,7 +88,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
             ? new Matrix4f().lookAt(0f, 0f, 0f, 0f, (float) (GROUND - EYE_Y), -0.5f, 0f, 1f, 0f)
             : new Matrix4f().lookAt(0f, 0f, 0f, (float) (X - EYE_X), (float) (GROUND + 4 - EYE_Y), (float) (Z - 2 - EYE_Z),
                     0f, 1f, 0f);
-    private final Matrix4f projection = new Matrix4f(), ground = new Matrix4f();
+    private final Matrix4f projection = new Matrix4f(), ground = new Matrix4f(), swayed = new Matrix4f();
     private HarnessFboHelper target;
     private CgMaterial floor;
     private CgTexture2D lightmap;
@@ -134,6 +137,8 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
         projection.setPerspective((float) Math.toRadians(70), (float) width / height, 0.05f, 400f);
         target.bind();
         target.clear(0.01f, 0.01f, 0.03f, 1f);
+        Matrix4f view = SWAY == 0f ? this.view
+                : swayed.rotationY(SWAY * (float) Math.sin(frame * 2.0 * Math.PI / 60.0)).mul(this.view);
         CgPassConstants host = new CgPassConstants();
         host.view.set(view);
         host.projection.set(projection);

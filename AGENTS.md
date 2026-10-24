@@ -109,7 +109,8 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   lights of that kind over its arena, to measure what a light costs each pass
   (`plan/crystalgraphics/lights-300fps-notes.md`). `-Dcrystalgraphics.harness.lightsDemo.look=down` stands at eye height
   looking straight down at the lit floor, every pixel lit ground, the show's dearest frame; `.downAt=<x>,<z>` says where
-  (inside the carousel unless given; `-20,-12` under a firework).
+  (inside the carousel unless given; `-20,-12` under a firework); `.sway=<degrees>` turns the view that far either way
+  about a second, as a hand on the mouse (MegaLights' temporal pass costs the same still or swaying).
   `--mode=lights-air-quality` measures the lit air's look rather than gating it: the lights demo's searchlight in its
   haze, its base's per-pixel deviation over 30 frames with the history on and off, the same six blocks from the live
   demo's searchlight, and its beam over the haze side-on from 10 and 40 blocks; run it with `fixedDelta`.
