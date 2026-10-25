@@ -34,7 +34,9 @@ import java.util.List;
  * Drawn with the translucency lighting volume, then without it ({@code crystalgraphics.world.lightsVolume}), then with
  * no light. The pane in the open must be brighter with the volume; the one behind the wall, which the light's ray
  * cannot reach, no brighter. Beside the open pane two {@code "Lighting" = "Surface"} panes, one's normal toward the
- * light and one's away: the volume's direction must light the first above the second.
+ * light and one's away: the volume's direction must light the first above the second. A pane carrying its own lighting
+ * shows the light it is handed ({@code CG_DRAW_POINT_LIGHT_*}): found, at its distance, with its radius, while there is
+ * a light, and none in the dark.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-volume"
@@ -52,6 +54,9 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
     private static final double[] BEHIND = {CX + 4.5, GROUND + 1, CZ + 0.5}, OPEN = {LIGHT_X, GROUND + 1, CZ + 8.5};
     /** The Surface-lit panes either side of the open one, their normals toward the light (-z) and away. */
     private static final double[] FACING = {LIGHT_X - 2.5, GROUND + 1, CZ + 8.5}, AWAY = {LIGHT_X + 2.5, GROUND + 1, CZ + 8.5};
+    /** The pane handed the light, 9.55 blocks from it. */
+    private static final double[] HANDED = {CX + 1.5, GROUND + 1, CZ + 8.5};
+    private static final float LIGHT_RADIUS = 16f;
     private static final double EYE_X = CX + 0.5, EYE_Y = GROUND + 16, EYE_Z = CZ + 14;
     private static final String VOLUME = "crystalgraphics.world.lightsVolume";
     private static final String[] NAMES = {"volume", "no-volume", "dark"};
@@ -61,7 +66,7 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
             (float) (CZ + 3 - EYE_Z), 0f, 1f, 0f);
     private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), (float) W / H, 0.05f, 200f);
     private HarnessFboHelper target;
-    private CgMaterial grey, glass, surface;
+    private CgMaterial grey, glass, surface, handed;
     private int frame;
     private boolean running = true;
 
@@ -72,6 +77,7 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         glass = CgMaterial.load("assets/harness/shader/forward_transparent_test.shader");
         surface = CgMaterial.load("assets/harness/shader/surface_lit_pane.shader");
+        handed = CgMaterial.load("assets/harness/shader/handed_lights_pane.shader");
         target = HarnessFboHelper.create(W, H, true);
     }
 
@@ -94,7 +100,8 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
             renderer.draw(cube, surface).at(pane[0], pane[1], pane[2]).transform(new Matrix4f().scale(2f, 0.1f, 2f))
                     .custom(0, 0.5f, 0.5f, 0.5f, 0.9f).custom(1, 0f, 0f, pane == FACING ? -1f : 1f, 0f).submit();
         }
-        if (phase < 2) renderer.lights().add(LIGHT_X, LIGHT_Y, LIGHT_Z, 16f, 0xFFFFE0C0, 600f, 0f);
+        renderer.draw(cube, handed).at(HANDED[0], HANDED[1], HANDED[2]).transform(new Matrix4f().scale(2f, 0.1f, 2f)).submit();
+        if (phase < 2) renderer.lights().add(LIGHT_X, LIGHT_Y, LIGHT_Z, LIGHT_RADIUS, 0xFFFFE0C0, 600f, 0f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
             stage.host().set(0f, W, H, target.getFboId()).view().set(EYE_X, EYE_Y, EYE_Z, look, projection);
             stage.fire();
@@ -112,6 +119,7 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
     private void report(HarnessContext ctx) {
         String failure = null;
         float[][] at = new float[3][4];
+        int[][] shown = new int[3][];
         try {
             for (int k = 0; k < 3; k++) {
                 BufferedImage image = ImageIO.read(new File(ctx.getOutputDir(), NAMES[k] + ".png"));
@@ -119,6 +127,7 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
                 at[k][1] = patch(image, BEHIND);
                 at[k][2] = patch(image, FACING);
                 at[k][3] = patch(image, AWAY);
+                shown[k] = texel(image, HANDED);
             }
         } catch (IOException e) {
             failure = "the captures did not read back: " + e.getMessage();
@@ -131,6 +140,17 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
         else if (failure == null && behind > 0.15f * open + 2f) failure = "the volume lights the pane behind the wall: " + readings;
         else if (failure == null && at[0][2] - at[0][3] < 8f) failure = "the volume's direction lights the Surface pane facing"
                 + " the light no more than the one facing away: " + readings;
+        if (failure == null) {
+            double dx = HANDED[0] - LIGHT_X, dy = HANDED[1] - LIGHT_Y, dz = HANDED[2] - LIGHT_Z;
+            int[] want = {255, (int) Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz) / 16.0 * 255.0),
+                    Math.round(LIGHT_RADIUS / 32f * 255f)};
+            readings += String.format("; the handed pane %s lit, %s dark, wanted %s", rgb(shown[0]), rgb(shown[2]), rgb(want));
+            for (int c = 0; c < 3 && failure == null; c++) {
+                if (Math.abs(shown[0][c] - want[c]) > 6 || Math.abs(shown[1][c] - want[c]) > 6 || shown[2][c] > 6) {
+                    failure = "the pane handed the light does not show it: " + readings;
+                }
+            }
+        }
         boolean glErrors = GlErrorChecker.checkAndLog("lights-volume");
         CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
@@ -140,6 +160,26 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
         else if ("recording".equals(on)) failure = null;
         if (failure != null) System.out.println("[lights-volume] FAIL on " + on + ": " + failure);
         else System.out.println("[lights-volume] PASS on " + on + ": " + readings);
+    }
+
+    private static String rgb(int[] c) {
+        return "(" + c[0] + ", " + c[1] + ", " + c[2] + ")";
+    }
+
+    /** The red, green and blue where {@code p} lands in the capture. */
+    private int[] texel(BufferedImage image, double[] p) {
+        int[] xy = screen(p);
+        int rgb = image.getRGB(xy[0], xy[1]);
+        return new int[]{rgb >> 16 & 0xFF, rgb >> 8 & 0xFF, rgb & 0xFF};
+    }
+
+    /** Where {@code p} lands in the capture. */
+    private int[] screen(double[] p) {
+        Vector4f clip = new Vector4f((float) (p[0] - EYE_X), (float) (p[1] - EYE_Y), (float) (p[2] - EYE_Z), 1f);
+        look.transform(clip);
+        projection.transform(clip);
+        int x = (int) ((clip.x / clip.w * 0.5f + 0.5f) * W), y = H - 1 - (int) ((clip.y / clip.w * 0.5f + 0.5f) * H);
+        return new int[]{Math.max(0, Math.min(W - 1, x)), Math.max(0, Math.min(H - 1, y))};
     }
 
     /** The mean of a 7x7 patch's channels round where {@code p} lands in the capture. */
