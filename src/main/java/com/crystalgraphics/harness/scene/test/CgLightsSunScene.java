@@ -38,7 +38,8 @@ import java.util.List;
  * two boxes of ours, at noon. One floats over the ground: its shadow must darken the ground under it, our object casting
  * on Minecraft's world. One sits under a roof of blocks above the view, off screen, which only the voxel world holds
  * (a block on screen is in the host's depth): its top must darken, blocks casting on our object. Ground in the open and the floating box's own top must not change. Each against
- * the same frames with no sun.
+ * the same frames with no sun. Two panes composing their own shadow show the sun's visibility they are handed
+ * ({@code CG_DIRECTIONAL_SHADOW}): the one under the floating box dark, the one in the open lit, both lit with no sun.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-sun"
@@ -55,6 +56,8 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
     /** Ground under the floating box, just inside its footprint's near edge; ground in the open; the two box tops. */
     private static final double[] UNDER = {CX + 0.5, GROUND, CZ + 1.1}, OPEN = {CX - 4, GROUND, CZ + 5},
             ROOFED_TOP = {CX + 10.5, GROUND + 1.5, CZ + 0.5}, FLOATING_TOP = {CX + 0.5, GROUND + 3.5, CZ + 0.5};
+    /** The panes handed the sun: under the floating box, clear of UNDER's line of sight, and in the open. */
+    private static final double[] SHADED_PANE = {CX + 0.5, GROUND + 0.3, CZ + 0.3}, OPEN_PANE = {CX - 2, GROUND + 0.3, CZ + 7};
     private static final String[] NAMES = {"sun", "no-sun"};
 
     private final World world = new World();
@@ -62,7 +65,7 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
             (float) (CZ - EYE_Z), 0f, 1f, 0f);
     private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), (float) W / H, 0.05f, 200f);
     private HarnessFboHelper target;
-    private CgMaterial grey;
+    private CgMaterial grey, handed;
     private CgTexture2D lightmap;
     private int frame;
     private boolean running = true;
@@ -72,6 +75,7 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
         CgPlatform.provide(CgLevels.SERVICE, CgLevels.single(world, CgEntityQuery.NONE));
         CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
+        handed = CgMaterial.load("assets/harness/shader/handed_sun_pane.shader");
         target = HarnessFboHelper.create(W, H, true);
         // Minecraft's lightmap, shaped: brighter with block light and with sky light, a sky light of 6 darker than 15.
         ByteBuffer texels = ByteBuffer.allocateDirect(16 * 16 * 4).order(ByteOrder.nativeOrder());
@@ -106,6 +110,9 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
         // Ours: one floating over the ground, one under the roof of blocks.
         renderer.draw(cube, grey).at(CX + 0.5, GROUND + 2.5, CZ + 0.5).transform(new Matrix4f().scale(2f)).submit();
         renderer.draw(cube, grey).at(CX + 10.5, GROUND + 1, CZ + 0.5).submit();
+        for (double[] pane : new double[][]{SHADED_PANE, OPEN_PANE}) {
+            renderer.draw(cube, handed).at(pane[0], pane[1], pane[2]).transform(new Matrix4f().scale(1f, 0.05f, 1f)).submit();
+        }
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
             stage.host().set(0f, W, H, target.getFboId()).view().set(EYE_X, EYE_Y, EYE_Z, look, projection);
             stage.host().environment().sun(phase == 0 ? 0f : Float.NaN, 0, 0f, 1f);
@@ -123,7 +130,7 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
 
     private void report(HarnessContext ctx) {
         String failure = null;
-        float[][] at = new float[2][4];
+        float[][] at = new float[2][6];
         try {
             for (int k = 0; k < 2; k++) {
                 BufferedImage image = ImageIO.read(new File(ctx.getOutputDir(), NAMES[k] + ".png"));
@@ -131,16 +138,22 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
                 at[k][1] = patch(image, OPEN);
                 at[k][2] = patch(image, ROOFED_TOP);
                 at[k][3] = patch(image, FLOATING_TOP);
+                at[k][4] = patch(image, SHADED_PANE);
+                at[k][5] = patch(image, OPEN_PANE);
             }
         } catch (IOException e) {
             failure = "the captures did not read back: " + e.getMessage();
         }
         String readings = String.format("under %.1f vs %.1f, open %.1f vs %.1f, roofed top %.1f vs %.1f, floating top %.1f vs %.1f",
-                at[0][0], at[1][0], at[0][1], at[1][1], at[0][2], at[1][2], at[0][3], at[1][3]);
+                at[0][0], at[1][0], at[0][1], at[1][1], at[0][2], at[1][2], at[0][3], at[1][3])
+                + String.format("; handed panes shaded %.1f vs %.1f, open %.1f vs %.1f", at[0][4], at[1][4], at[0][5], at[1][5]);
         if (failure == null && at[0][0] > 0.8f * at[1][0]) failure = "our box's shadow does not darken the ground: " + readings;
         else if (failure == null && at[0][2] > 0.8f * at[1][2]) failure = "the roof of blocks does not darken our box: " + readings;
         else if (failure == null && Math.abs(at[0][1] - at[1][1]) > 2f) failure = "the open ground changed: " + readings;
         else if (failure == null && Math.abs(at[0][3] - at[1][3]) > 3f) failure = "the sunlit box top changed: " + readings;
+        else if (failure == null && (at[0][4] > 40f || at[0][5] < 200f || at[1][4] < 200f || at[1][5] < 200f)) {
+            failure = "the sun's visibility handed to a pane is wrong: " + readings;
+        }
         boolean glErrors = GlErrorChecker.checkAndLog("lights-sun");
         CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
