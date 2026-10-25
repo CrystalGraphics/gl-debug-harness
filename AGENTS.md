@@ -170,8 +170,8 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   a playing system prints `[vfx-nova] <system> took a newer definition`, in place or restarted at its age.
   `--mode=vfx-prefab` is a `CgVfxPrefab`'s: 458 nodes a ball each, a subtree cut by an opacity of 0 and a
   chain dimmed by 0.2, every check a pixel, and `evaluate()` timed (about 8 µs, at most 50); PASS on `gl`, `mac41` and
-  `vulkan`. `--mode=post-transitions` is the post stack's transitions: a `CgPostMaterial` at weights 1, 0.5 and 0, a
-  fade halfway to red in the composite's blend form (HDR scene off) and copy form (on), and a 1 s crossfade read a
+  `vulkan`. `--mode=post-transitions` is the post stack's transitions: a `CgPostMaterial` at weights 1, 0.5 and 0, one of
+  three passes through targets at half and a quarter size, a fade halfway to red in the composite's blend form (HDR scene off) and copy form (on), and a 1 s crossfade read a
   quarter in and after, each firing's middle pixel checked; PASS on `gl`, `mac41` and `vulkan`. `--mode=vfx-shapes` is
   the particle frame at a move's scale, a measurement rather than a gate: 30 emitters each its own shape (30 pools, few
   particles each, `.vfx.shapes=<n>` for another count); profile it on `gl` and `vulkan` (validation off) and compare

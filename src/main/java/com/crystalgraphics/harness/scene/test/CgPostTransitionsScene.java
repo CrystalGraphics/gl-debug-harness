@@ -27,6 +27,8 @@ import java.util.List;
  * G0.10's gate, the post stack's transitions, each firing a cleared target checked at its middle:
  * <ul>
  *   <li>a post material ({@link CgPostMaterial}) inverting the picture at weights 1, 0.5 and 0;</li>
+ *   <li>a post material of three passes, two into targets at half and a quarter size, each reading the one before at
+ *       its size;</li>
  *   <li>a fade ({@link CgPostSettings#fade}) halfway to red, with the HDR scene off (the composite's blend form) and on
  *       (its copy form);</li>
  *   <li>a crossfade ({@link CgPostStack#crossfade}) of 1 s from one colour into another: three quarters the old a
@@ -65,6 +67,12 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
             check("a post material at weight 0.5", fire(A, 0f), 0.5f, 0.5f, 0.5f);
             invert.weight(0f);
             check("a post material at weight 0", fire(A, 0f), A[0], A[1], A[2]);
+            on.close();
+
+            CgPostMaterial chain = CgPostMaterial.of("harness:shader/post_chain.shader", CgPostPoint.AFTER_COMPOSITE);
+            on = CgPostStack.get().add(chain);
+            check("a post material of three passes", fire(A, 0f), A[0] * 0.5f + 0.25f, A[1] * 0.5f + 0.25f,
+                    A[2] * 0.5f + 0.25f);
             on.close();
 
             CgPostVolume red = CgPostStack.get().volume(100, new CgPostSettings().fade(0xFFFF0000, 0.5f));
@@ -141,7 +149,7 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
         } else if (failure != null) {
             System.out.println("[post-transitions] FAIL on " + on + ": " + failure);
         } else {
-            System.out.println("[post-transitions] PASS on " + on + ": a post material by its weight, a fade in either "
+            System.out.println("[post-transitions] PASS on " + on + ": a post material by its weight and through three passes, a fade in either "
                     + "composite form, and a cut's held frame crossfaded out");
         }
     }
