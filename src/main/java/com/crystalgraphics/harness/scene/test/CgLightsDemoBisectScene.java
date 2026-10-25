@@ -70,6 +70,11 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
             EYE_Z = DOWN ? Double.parseDouble(DOWN_AT[1]) : 24;
     /** The mirror ball: CgLightsDemo's, ten blocks over the arena's middle and two behind it. */
     private static final double[] BALL = {X, GROUND + 10, Z - 2};
+    /**
+     * {@code .yawPitch=<yaw>,<pitch>} with {@code look=down}: the camera turned as Minecraft's F3 reads it (yaw 0 toward
+     * +z, -90 toward +x; pitch down from level), for a view a player stood in; absent, straight down.
+     */
+    private static final String YAW_PITCH = System.getProperty("crystalgraphics.harness.lightsDemo.yawPitch", "");
     private static final String[] VARS = {"crystalgraphics.world.lightsAir", "crystalgraphics.world.lightsShadows",
             "crystalgraphics.world.lightsVolume"};
     /** Per phase, which of VARS are on. */
@@ -84,8 +89,8 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
 
     private final CgLightsDemo demo = new CgLightsDemo(CgVfx.owner("harness"));
     private final boolean steady;
-    private final Matrix4f view = DOWN
-            ? new Matrix4f().lookAt(0f, 0f, 0f, 0f, (float) (GROUND - EYE_Y), -0.5f, 0f, 1f, 0f)
+    private final Matrix4f view = DOWN && !YAW_PITCH.isEmpty() ? turned(YAW_PITCH)
+            : DOWN ? new Matrix4f().lookAt(0f, 0f, 0f, 0f, (float) (GROUND - EYE_Y), -0.5f, 0f, 1f, 0f)
             : new Matrix4f().lookAt(0f, 0f, 0f, (float) (X - EYE_X), (float) (GROUND + 4 - EYE_Y), (float) (Z - 2 - EYE_Z),
                     0f, 1f, 0f);
     private final Matrix4f projection = new Matrix4f(), ground = new Matrix4f(), swayed = new Matrix4f();
@@ -101,6 +106,15 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
 
     public CgLightsDemoBisectScene(boolean steady) {
         this.steady = steady;
+    }
+
+    /** The view along Minecraft's yaw and pitch, in degrees: its Entity.calculateViewVector. */
+    private static Matrix4f turned(String yawPitch) {
+        String[] parts = yawPitch.split(",");
+        double yaw = Math.toRadians(Double.parseDouble(parts[0])), pitch = Math.toRadians(Double.parseDouble(parts[1]));
+        float x = (float) (-Math.sin(yaw) * Math.cos(pitch)), y = (float) -Math.sin(pitch),
+                z = (float) (Math.cos(yaw) * Math.cos(pitch));
+        return new Matrix4f().lookAt(0f, 0f, 0f, x, y, z, 0f, 1f, 0f);
     }
 
     @Override
