@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.tool;
 
+import com.crystalgraphics.api.material.CgParameterCollections;
 import com.crystalgraphics.api.material.CgRenderPassVariant;
 import com.crystalgraphics.api.shader.CgShaderPreprocessor;
 import com.crystalgraphics.api.shader.CgShaderStages;
@@ -148,6 +149,12 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
         int previousVao = CgGL.glGetInteger(CgGL.GL_VERTEX_ARRAY_BINDING);
         if (vao != 0) CgGL.glBindVertexArray(vao);
         try {
+            // A staged kit's collections, as its load declares them: its ports read CG_GLOBAL_* names.
+            for (String namespace : namespaces()) {
+                for (File root : CgIO.overrideRoots()) {
+                    CgParameterCollections.declareAll(namespace, root.toPath().resolve("assets").resolve(namespace).resolve("parameters"));
+                }
+            }
             for (String namespace : namespaces()) {
                 for (String path : shippedShaderPaths(namespace)) {
                     if (DOCUMENTATION_ONLY.contains(path)) {
@@ -221,14 +228,12 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
 
         staticChecks(path, parsed, body);
 
-        // Driver compile: every keyword combination, the empty one being the base variant.
+        // Driver compile: the keyword sets keywordSets picks, the empty one being the base variant.
         // Each is a separately compiled program, so they are separate checks.
         List<String> features = parsed.featureNames();
-        List<Set<String>> keywordSets = new ArrayList<>();
-        for (int mask = 0; mask < 1 << features.size(); mask++) {
-            Set<String> set = new LinkedHashSet<>();
-            for (int i = 0; i < features.size(); i++) if ((mask & 1 << i) != 0) set.add(features.get(i));
-            keywordSets.add(set);
+        List<Set<String>> keywordSets = keywordSets(features);
+        if (features.size() > EVERY_SET_UP_TO) {
+            body.add("  " + keywordSets.size() + " of " + (1 << features.size()) + " keyword sets: none, each, each pair, all");
         }
 
         CgMaterialShader asset;
@@ -384,8 +389,25 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
         }
     }
 
+    /** Past this many keywords, every set is too many programs to compile (2^16 a shader at the cap). */
+    private static final int EVERY_SET_UP_TO = 8;
+
+    /**
+     * Every keyword set up to {@link #EVERY_SET_UP_TO} keywords; past it none, each alone, each pair and all, which
+     * still catches two keywords that clash.
+     */
     private static List<Set<String>> keywordSets(List<String> features) {
         List<Set<String>> sets = new ArrayList<>();
+        int n = features.size();
+        if (n > EVERY_SET_UP_TO) {
+            sets.add(new LinkedHashSet<>());
+            for (int i = 0; i < n; i++) {
+                sets.add(new LinkedHashSet<>(List.of(features.get(i))));
+                for (int j = i + 1; j < n; j++) sets.add(new LinkedHashSet<>(List.of(features.get(i), features.get(j))));
+            }
+            sets.add(new LinkedHashSet<>(features));
+            return sets;
+        }
         for (int mask = 0; mask < 1 << features.size(); mask++) {
             Set<String> set = new LinkedHashSet<>();
             for (int i = 0; i < features.size(); i++) if ((mask & 1 << i) != 0) set.add(features.get(i));
