@@ -33,7 +33,8 @@ import java.util.List;
  * light, and two lit glass panes over the floor, each 8 blocks from the light: one in the open, one behind the wall.
  * Drawn with the translucency lighting volume, then without it ({@code crystalgraphics.world.lightsVolume}), then with
  * no light. The pane in the open must be brighter with the volume; the one behind the wall, which the light's ray
- * cannot reach, no brighter.
+ * cannot reach, no brighter. Beside the open pane two {@code "Lighting" = "Surface"} panes, one's normal toward the
+ * light and one's away: the volume's direction must light the first above the second.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-volume"
@@ -49,6 +50,8 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
     private static final double LIGHT_X = CX - 3.5, LIGHT_Y = GROUND + 2.5, LIGHT_Z = CZ + 0.5;
     /** The panes, a block over the floor: 8 blocks from the light across the wall, and 8 along it in the open. */
     private static final double[] BEHIND = {CX + 4.5, GROUND + 1, CZ + 0.5}, OPEN = {LIGHT_X, GROUND + 1, CZ + 8.5};
+    /** The Surface-lit panes either side of the open one, their normals toward the light (-z) and away. */
+    private static final double[] FACING = {LIGHT_X - 2.5, GROUND + 1, CZ + 8.5}, AWAY = {LIGHT_X + 2.5, GROUND + 1, CZ + 8.5};
     private static final double EYE_X = CX + 0.5, EYE_Y = GROUND + 16, EYE_Z = CZ + 14;
     private static final String VOLUME = "crystalgraphics.world.lightsVolume";
     private static final String[] NAMES = {"volume", "no-volume", "dark"};
@@ -58,7 +61,7 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
             (float) (CZ + 3 - EYE_Z), 0f, 1f, 0f);
     private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), (float) W / H, 0.05f, 200f);
     private HarnessFboHelper target;
-    private CgMaterial grey, glass;
+    private CgMaterial grey, glass, surface;
     private int frame;
     private boolean running = true;
 
@@ -68,6 +71,7 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
         CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         glass = CgMaterial.load("assets/harness/shader/forward_transparent_test.shader");
+        surface = CgMaterial.load("assets/harness/shader/surface_lit_pane.shader");
         target = HarnessFboHelper.create(W, H, true);
     }
 
@@ -86,6 +90,10 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
             renderer.draw(cube, glass).at(pane[0], pane[1], pane[2]).transform(new Matrix4f().scale(2f, 0.1f, 2f))
                     .custom(0, 0.5f, 0.5f, 0.5f, 1.8f).submit();
         }
+        for (double[] pane : new double[][]{FACING, AWAY}) {
+            renderer.draw(cube, surface).at(pane[0], pane[1], pane[2]).transform(new Matrix4f().scale(2f, 0.1f, 2f))
+                    .custom(0, 0.5f, 0.5f, 0.5f, 0.9f).custom(1, 0f, 0f, pane == FACING ? -1f : 1f, 0f).submit();
+        }
         if (phase < 2) renderer.lights().add(LIGHT_X, LIGHT_Y, LIGHT_Z, 16f, 0xFFFFE0C0, 600f, 0f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
             stage.host().set(0f, W, H, target.getFboId()).view().set(EYE_X, EYE_Y, EYE_Z, look, projection);
@@ -103,21 +111,26 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
 
     private void report(HarnessContext ctx) {
         String failure = null;
-        float[][] at = new float[3][2];
+        float[][] at = new float[3][4];
         try {
             for (int k = 0; k < 3; k++) {
                 BufferedImage image = ImageIO.read(new File(ctx.getOutputDir(), NAMES[k] + ".png"));
                 at[k][0] = patch(image, OPEN);
                 at[k][1] = patch(image, BEHIND);
+                at[k][2] = patch(image, FACING);
+                at[k][3] = patch(image, AWAY);
             }
         } catch (IOException e) {
             failure = "the captures did not read back: " + e.getMessage();
         }
         float open = at[0][0] - at[1][0], behind = at[0][1] - at[1][1];
         String readings = String.format("the pane in the open %.1f with the volume, %.1f without, %.1f dark; behind the wall"
-                + " %.1f, %.1f, %.1f", at[0][0], at[1][0], at[2][0], at[0][1], at[1][1], at[2][1]);
+                + " %.1f, %.1f, %.1f; the Surface panes facing the light %.1f and away %.1f with the volume, %.1f and %.1f"
+                + " without", at[0][0], at[1][0], at[2][0], at[0][1], at[1][1], at[2][1], at[0][2], at[0][3], at[1][2], at[1][3]);
         if (failure == null && open < 8f) failure = "the volume lights the pane in the open too little: " + readings;
         else if (failure == null && behind > 0.15f * open + 2f) failure = "the volume lights the pane behind the wall: " + readings;
+        else if (failure == null && at[0][2] - at[0][3] < 8f) failure = "the volume's direction lights the Surface pane facing"
+                + " the light no more than the one facing away: " + readings;
         boolean glErrors = GlErrorChecker.checkAndLog("lights-volume");
         CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
