@@ -196,16 +196,23 @@ final class HarnessParticleProbe implements AutoCloseable {
             for (int id : beforeLive.keySet()) if (!live.containsKey(id)) died++;
         }
         float minSize = Float.MAX_VALUE, maxSize = 0f, minLeft = Float.MAX_VALUE;
+        float[] lo = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}, hi = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
         for (float[] p : live.values()) {
             minSize = Math.min(minSize, p[5]);
             maxSize = Math.max(maxSize, p[5]);
             minLeft = Math.min(minLeft, p[4] - p[3]);
+            for (int a = 0; a < 3; a++) {
+                lo[a] = Math.min(lo[a], p[a]);
+                hi[a] = Math.max(hi[a], p[a]);
+            }
         }
+        String box = live.isEmpty() ? "" : String.format(", from origin (%.2f, %.2f, %.2f)..(%.2f, %.2f, %.2f)",
+                lo[0], lo[1], lo[2], hi[0], hi[1], hi[2]);
         System.out.printf("[probe] %s f=%d slot %d: live %d (born %d, died %d), drawn %d (kept %d, new %d, dropped %d%s),"
-                        + " moved %.4f, aged %.4f, size %.3f..%.3f, least life left %.3f%n",
+                        + " moved %.4f, aged %.4f, size %.3f..%.3f, least life left %.3f%s%n",
                 s.label, s.frame, s.slot, live.size(), born, died, drawn.size(), kept, before == null ? 0 : drawn.size() - kept,
                 before == null ? 0 : before.size() - kept, unknown > 0 ? ", " + unknown + " not in the slot, by slot " + foreign : "",
-                moved, aged, live.isEmpty() ? 0f : minSize, maxSize, live.isEmpty() ? 0f : minLeft);
+                moved, aged, live.isEmpty() ? 0f : minSize, maxSize, live.isEmpty() ? 0f : minLeft, box);
         lastDrawn.put(s.label, drawn);
         lastLive.put(s.label, live);
         if (++logged == frames * labels.size()) System.out.println("[probe] done");
