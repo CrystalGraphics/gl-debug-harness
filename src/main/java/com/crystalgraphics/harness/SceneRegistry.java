@@ -53,6 +53,7 @@ import com.crystalgraphics.harness.scene.test.CgPostTransitionsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrefabScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBooksScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrepareScene;
+import com.crystalgraphics.harness.scene.test.CgVfxKitPlayScene;
 import com.crystalgraphics.harness.scene.test.CgVfxNovaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBenchArenaScene;
 import com.crystalgraphics.harness.scene.test.CgKitShadingScene;
@@ -1395,6 +1396,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxNovaScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-kit-play")
+                .description("A kit's systems played from its files by id once their bundle is READY (Kakarot's Kamehameha by default): no compile, sync load or texture load after, each holding particles")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxKitPlayScene()
         );
 
         reg.register(
