@@ -120,6 +120,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   material drawn as sprites (no vertex data) from material definitions over 100 effects, each renderer one particle
   set of every instance; PASS at G43, G40, G33 and on
   `vulkan`.
+  `--mode=vfx-kit-play` plays a kit's systems from its files by id (Kakarot's Kamehameha unless
+  `-Dcrystalgraphics.harness.kit.systems` names others) and PASSes once each holds particles with no compile, sync
+  load or texture load after its bundle is ready. `--mode=vfx-kamehameha` is the same Kamehameha for watching: a station
+  per system, N/Shift+N between them, M the row, R replay, the HUD naming the system and its beat in the game.
   `--mode=kit-shading` is a kit's shading models drawing: its `shading.yaml` registered under
   `-Dcrystalgraphics.harness.kit.namespace`, the material `.kit.material` compiled from the kit folder `.kit` through its
   parent chain and drawn, its model's keyword on, no GL error; the kit's files reached with `-Pharness.assetRoots` (a root

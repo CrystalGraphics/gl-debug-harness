@@ -53,6 +53,7 @@ import com.crystalgraphics.harness.scene.test.CgPostTransitionsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrefabScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBooksScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrepareScene;
+import com.crystalgraphics.harness.scene.test.CgVfxKamehamehaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxKitPlayScene;
 import com.crystalgraphics.harness.scene.test.CgVfxNovaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBenchArenaScene;
@@ -1408,6 +1409,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxKitPlayScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-kamehameha")
+                .description("Kakarot's Kamehameha from its kit: the battle path's eight systems at stations, N/Shift+N to fly between them, M the row, R replay; the HUD names each")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxKamehamehaScene()
         );
 
         reg.register(

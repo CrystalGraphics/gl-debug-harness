@@ -184,8 +184,10 @@ tasks.register<JavaExec>("runHarness") {
         .forEach { systemProperty(it, System.getProperty(it)) }
 
     // The format's example kits, each a resource root, where the private plan/ repository is checked out:
-    // vfx-nova plays the Nova Cannon's from there.
-    val exampleRoots = listOf(rootProject.file("plan/crystalgraphics/vfx-aaa/examples/novamod"))
+    // vfx-nova plays the Nova Cannon's from there; vfx-kamehameha the games' kits, through local/kitroot's
+    // assets/<kit> links to the built kits.
+    val exampleRoots = listOf(rootProject.file("plan/crystalgraphics/vfx-aaa/examples/novamod"),
+            rootProject.file("plan/crystalgraphics/vfx-aaa/local/kitroot"))
         .filter { it.isDirectory }
 
     // Assets are read from the source trees with no setup: CgIO maps each project on the classpath back to
