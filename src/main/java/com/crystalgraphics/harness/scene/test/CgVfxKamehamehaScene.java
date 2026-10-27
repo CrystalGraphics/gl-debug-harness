@@ -90,6 +90,8 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
     /** The station framed, -1 for every lane. */
     private int station = -1;
     private String failure;
+    /** {@code crystalgraphics.harness.probe}'s, else null. */
+    private HarnessParticleProbe probe;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -97,6 +99,7 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
         camera.setMoveSpeed(10f);
         font = CgFont.load(HarnessFontUtil.LATIN_FONT, CgFontStyle.REGULAR, 48);
         kit = HarnessKitSystems.load(vfx, "kakarot_kit", KIT, systems());
+        probe = HarnessParticleProbe.fromProperties(vfx);
         overview();
     }
 
@@ -129,6 +132,7 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
     private void play(int i) {
         playing[i] = vfx.spawn(kit.ref(i), 0.0, HEIGHT, z(i)).ground(0f);
         plays[i]++;
+        if (probe != null) probe.watch(STATIONS.get(i).title(), playing[i]);
     }
 
     private static double z(int i) {
@@ -188,6 +192,7 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
 
     @Override
     public void dispose() {
+        if (probe != null) probe.close();
         vfx.delete();
         stage.delete();
         if (font != null) font.dispose();
