@@ -79,6 +79,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     "from", "bone", "bone", "hand_r", "location", List.of(10.0, 0.0, -10.0)), false),
             new ChargeBeat(SKILL + "Cpl001/Particles/PS_skill_Cpl001_kameha_s_charge_01_00_lp", 17f, Map.of("name", "kame_loop",
                     "from", "bone", "bone", "hand_r"), true));
+    /** Goku's Blueprint: its mesh node names his mesh's materials, one a slot, in slot order. */
+    private static final String GOKU_PREFAB = "prefabs/Blueprints/Character/C001A/AT_Character_cpl001_BP.yaml";
+    /** The namespace the kit's materials name their shading models by ({@code kakarot:cell_tone}). */
+    private static final String SHADING = "kakarot";
     /** The charge montage's clips: its start, then its loop for as long as it is held. */
     private static final String CHARGE_START = "SKL001_Bgn_01ST", CHARGE_LOOP = "SKL001_Bgn_02LP";
     /** The camera at Minecraft's walk, metres a second: the harness's 0.25 crawls between bodies metres tall. */
@@ -97,6 +101,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         /** K's charge playing: one system a beat, null before its frame; NaN timeline seconds when not charging. */
         final CgVfxSystemInstance<?>[] charge = new CgVfxSystemInstance<?>[CHARGE.size()];
         double chargedAt = Double.NaN;
+        /** Its slots' kit materials by id, from its prefab, or empty; whether they are set on its instance yet. */
+        List<String> kitMaterials = List.of();
+        boolean dressed;
         /** The clip it played before K charged, played again on release. */
         int before;
         int clip;
@@ -244,7 +251,15 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         List<String> systems = new ArrayList<>();
         for (ChargeBeat beat : CHARGE) systems.add(beat.system());
         Path kitFolder = Paths.get(root + KIT_ROOT);
-        if (Files.isDirectory(kitFolder)) kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, systems);
+        if (Files.isDirectory(kitFolder)) {
+            List<String> materials = List.of();
+            for (Actor actor : actors) {
+                if (!actor.name.equals("Goku")) continue;
+                actor.kitMaterials = prefabMaterials(kitFolder.resolve(GOKU_PREFAB), actor.instance.materialSlots());
+                materials = actor.kitMaterials;
+            }
+            kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, systems, materials, SHADING);
+        }
         submit = CgWorld.client().schedule().add(CgTickGroup.SUBMIT, "harness:skinned-play", this::submit);
         ctx.getCamera3D().moveCamera(2f, 3f, 6f);
         ctx.getCamera3D().setPitch(-10f);
@@ -271,13 +286,46 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
     }
 
+    /**
+     * The materials a prefab's first mesh names, one a slot in slot order: Unreal's component materials as the kit
+     * exported them. Empty where it has none or not one for each of {@code slots}.
+     */
+    private static List<String> prefabMaterials(Path prefab, int slots) {
+        if (!Files.isRegularFile(prefab)) return List.of();
+        try {
+            Map<?, ?> tree = (Map<?, ?>) CgAssetYaml.read(Files.readString(prefab));
+            for (Object node : (List<?>) tree.get("nodes")) {
+                if (!(((Map<?, ?>) node).get("meshes") instanceof List<?> meshes) || meshes.isEmpty()) continue;
+                List<String> ids = new ArrayList<>();
+                for (Object id : (List<?>) ((Map<?, ?>) meshes.get(0)).get("materials")) ids.add(String.valueOf(id));
+                if (ids.size() == slots) return ids;
+                LOGGER.warn("[skinned-play] {} names {} materials for {} slots: drawn plain", prefab, ids.size(), slots);
+                return List.of();
+            }
+            return List.of();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     /** In SUBMIT, after POSE wrote this frame's palettes. */
     private void submit(float dt) {
         CgWorldRenderer world = CgWorldRenderer.get();
         for (Actor actor : actors) {
-            if (kit != null && kit.ready()) actor.tickCharge(kit);
+            if (kit != null && kit.ready()) {
+                actor.tickCharge(kit);
+                if (!actor.dressed && !actor.kitMaterials.isEmpty()) {
+                    for (int s = 0; s < actor.kitMaterials.size(); s++) actor.instance.material(s, CgMaterial.of(kit.material(s).get()));
+                    actor.dressed = true;
+                    LOGGER.info("[skinned-play] {}: drawn in its {} kit materials", actor.name, actor.kitMaterials.size());
+                }
+            }
             if (actor.instance.palette() < 0) continue;
-            world.draw(actor.instance, material).pad(actor.height * 50f).custom(0, actor.r, actor.g, actor.b, 1f).submit();
+            if (actor.dressed) {
+                world.draw(actor.instance);
+            } else {
+                world.draw(actor.instance, material).pad(actor.height * 50f).custom(0, actor.r, actor.g, actor.b, 1f).submit();
+            }
         }
     }
 
