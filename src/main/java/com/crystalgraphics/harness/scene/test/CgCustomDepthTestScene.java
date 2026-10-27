@@ -48,8 +48,12 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
     private CgMaterial wall, skin;
     private CgMesh quad;
     private HarnessFboHelper target;
-    private CgRenderStage.Registration reader;
+    /** The near cube's front face, where {@code WORLD_NORMALS_READ} must have the opaque pass write +Z at eye depth 4.5. */
+    private static final int NX = 275, NY = 64;
+
+    private CgRenderStage.Registration asking, reader;
     private volatile byte[] stencil;
+    private volatile float[] normal;
     private boolean armed, running = true;
     private int frame;
 
@@ -66,12 +70,21 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
         });
         target = HarnessFboHelper.create(W, H, true);
         CgWorldRenderer.get().install();
+        asking = CgRenderStage.WORLD_OPAQUE.register(0, stage -> stage.resources().put(CgFrameKeys.WORLD_NORMALS_READ, Boolean.TRUE));
         reader = CgRenderStage.WORLD_TRANSPARENT.register(CgWorldRenderer.ORDER + 1, stage -> {
             CgGraphTexture mask = stage.resources().get(CgFrameKeys.CUSTOM_DEPTH);
-            if (!armed || mask == null) return;
+            CgGraphTexture normals = stage.resources().get(CgFrameKeys.WORLD_NORMALS);
+            if (!armed || mask == null || normals == null) return;
             armed = false;
-            stage.recording().readback(mask, 0, 0, 0, W, H, CgCustomDepthTestScene.this::read);
+            stage.recording().readback(normals, 0, NX, NY, 1, 1, this::readNormal);
+            stage.recording().readback(mask, 0, 0, 0, W, H, this::read);
         });
+    }
+
+    private void readNormal(ByteBuffer data) {
+        float[] out = new float[4];
+        for (int c = 0; c < 4; c++) out[c] = Float.float16ToFloat(data.getShort(c * 2));
+        normal = out;
     }
 
     private void read(ByteBuffer data) {
@@ -82,7 +95,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo info) {
-        if (stencil != null || frame > GIVE_UP) {
+        if (stencil != null && normal != null || frame > GIVE_UP) {
             report();
             running = false;
             return;
@@ -123,6 +136,14 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
                 System.out.printf("[custom-depth]   %s at (%d, %d): 0x%02X, expected 0x%02X%n", NAMES[k], x, y, got, EXPECTED[k]);
                 if (got != EXPECTED[k] && fail == null) fail = NAMES[k] + " read 0x" + Integer.toHexString(got);
             }
+            if (normal == null) {
+                if (fail == null) fail = "WORLD_NORMALS never came back";
+            } else {
+                System.out.printf("[custom-depth]   world normal at (%d, %d): (%.3f, %.3f, %.3f) eye %.2f, expected (0.5, 0.5, 1) eye 4.5%n",
+                        NX, NY, normal[0], normal[1], normal[2], normal[3]);
+                boolean plusZ = Math.abs(normal[0] - 0.5f) < 0.01f && Math.abs(normal[1] - 0.5f) < 0.01f && normal[2] > 0.99f;
+                if (fail == null && (!plusZ || Math.abs(normal[3] - 4.5f) > 0.05f)) fail = "the near cube's world normal";
+            }
         }
         System.out.println(fail == null ? "[custom-depth] PASS on " + on : "[custom-depth] FAIL on " + on + ": " + fail);
     }
@@ -133,6 +154,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
+        asking.close();
         reader.close();
         quad.release();
         target.delete();
