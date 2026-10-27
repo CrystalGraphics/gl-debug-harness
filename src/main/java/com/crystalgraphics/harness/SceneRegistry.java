@@ -14,6 +14,7 @@ import com.crystalgraphics.harness.scene.test.CgAsyncComputeTestScene;
 import com.crystalgraphics.harness.scene.test.CgUploadStressScene;
 import com.crystalgraphics.harness.scene.test.CgGpuGroupsTestScene;
 import com.crystalgraphics.harness.scene.test.CgOverdrawTestScene;
+import com.crystalgraphics.harness.scene.test.CgCustomDepthTestScene;
 import com.crystalgraphics.harness.scene.test.CgDistortionTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeCheckTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuBudgetTestScene;
@@ -1200,6 +1201,20 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
                 .build(),
             () -> new CgOverdrawTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("custom-depth")
+                .description("aaa-milestones OL2: CustomDepth and CustomStencil, a hidden cube still written, a partial mask over a full one, a skinned quad, each stencil byte read back exactly")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
+                .build(),
+            () -> new CgCustomDepthTestScene()
         );
 
         reg.register(
