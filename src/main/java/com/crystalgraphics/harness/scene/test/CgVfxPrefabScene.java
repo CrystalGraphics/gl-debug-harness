@@ -30,8 +30,9 @@ import java.util.List;
 
 /**
  * G0.9's gate, prefab node trees: a 458-node prefab (a root, a pivot and 19 chains of 24) drawn through one effect, a
- * ball a node. Chain {@value #CUT} is cut at node {@value #CUT_AT} by an opacity of 0, so it and every node under it
- * draw nothing; chain {@value #DIM}'s head is at 0.2, so the whole chain dims; the rest draw whole. Also times
+ * ball a node. Chain {@value #CUT}'s node {@value #CUT_AT} is at an opacity of 0, so it draws nothing and every node
+ * under it whole; chain {@value #DIM}'s head is at 0.2, so it alone dims: a node's opacity is its own (aaa-design C5,
+ * B9). The rest draw whole. Also times
  * {@link CgVfxPrefabInstance#evaluate()}, which must take a few microseconds.
  *
  * <p>Prints {@code [vfx-prefab] PASS} or {@code FAIL}; run it on {@code gl}, {@code mac41} and {@code vulkan}.</p>
@@ -100,7 +101,7 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
         vfx.play(new Model(CgVfxLook.builder(SCHEMA).with(prefab.kit()).build(), instance));
         float micros = time(instance);
 
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
+        HarnessFboHelper target = HarnessFboHelper.create(w, h, true);   // the world lights' pyramid reads its depth
         target.bind();
         try {
             target.clear(0f, 0f, 0f, 1f);
@@ -159,18 +160,20 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
             System.out.println("[vfx-prefab] FAIL: the capture could not be read: " + e);
             return;
         }
-        int full = red(picture, 1, 12), dim = red(picture, DIM, 12), before = red(picture, CUT, CUT_AT - 1);
-        int cut = red(picture, CUT, CUT_AT), after = red(picture, CUT, LENGTH - 1);
+        int full = red(picture, 1, 12), dim = red(picture, DIM, 0), underDim = red(picture, DIM, 12);
+        int before = red(picture, CUT, CUT_AT - 1), cut = red(picture, CUT, CUT_AT), after = red(picture, CUT, LENGTH - 1);
         String fault = full < 150 ? "a whole chain's node reads " + full
-                : dim <= 20 || dim >= full - 20 ? "the dimmed chain reads " + dim + " beside " + full
+                : dim <= 20 || dim >= full - 20 ? "the dimmed head reads " + dim + " beside " + full
+                : underDim < full - 5 ? "a node under the dimmed head reads " + underDim + ": it inherited"
                 : before < full - 5 ? "the node above the cut reads " + before
-                : cut > 5 || after > 5 ? "the cut subtree reads " + cut + " and " + after : null;
+                : cut > 5 ? "the cut node reads " + cut
+                : after < full - 5 ? "a node under the cut reads " + after + ": it inherited" : null;
         if (fault != null) {
             System.out.println("[vfx-prefab] FAIL on " + on + ": " + fault);
             return;
         }
         System.out.println("[vfx-prefab] PASS on " + on + ": " + nodes + " nodes evaluated in " + micros
-                + " us; a node's opacity hides its subtree and dims every node under it");
+                + " us; a node's opacity is its own, its children drawn at theirs");
     }
 
     /** The red of chain {@code c}'s node {@code k}, at its centre. */
