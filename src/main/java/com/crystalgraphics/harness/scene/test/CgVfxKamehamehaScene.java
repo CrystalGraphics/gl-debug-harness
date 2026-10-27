@@ -21,9 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Kakarot's Kamehameha played from its kit: the battle path's eight systems, a station each in a row, each played again
- * as it ends, on the showcase's floor under its sky. N flies to the next station, Shift+N the one before, M back to the
- * row; R plays every system again at once. The HUD names the station, its system and its beat in the game, and what
+ * Kakarot's Kamehameha played from its kit: the battle path's eight systems, each in its own lane side by side so a beam
+ * runs past no other station, each played again as it ends, on the showcase's floor under its sky. N flies to the next
+ * station, Shift+N the one before, M back to every lane; R plays every system again at once. The HUD names the station, its system and its beat in the game, and what
  * it is showing. Scene id {@code vfx-kamehameha}.
  *
  * <pre>{@code
@@ -42,8 +42,10 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
     /** From the harness's working directory, {@code gl-debug-harness/}. */
     private static final Path KIT = Paths.get("../plan/crystalgraphics/vfx-aaa/local/examples/kakarot_kit");
     private static final String PARTICLES = "Art/EFF/e/skill/a/Cpl001/Particles/";
-    /** Blocks between stations along x. */
+    /** Blocks between lanes along z; each system faces +x, down its lane. */
     private static final float SPACING = 8f;
+    /** The cameras' yaw, looking down the lanes along +x: the first lane on the left. */
+    private static final float DOWN_THE_LANES = -90f;
     /** Where a station's system plays above the floor, and its label above that. */
     private static final float HEIGHT = 1.5f, LABEL = 4.5f;
 
@@ -85,7 +87,7 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
     private CgFont font;
     private Camera3D camera;
     private boolean shift, started;
-    /** The station framed, -1 for the row. */
+    /** The station framed, -1 for every lane. */
     private int station = -1;
     private String failure;
 
@@ -118,33 +120,33 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
         vfx.update(CgVfxDemoControls.get().time(frame.getElapsedTime()));
         vfx.submit(world);
         for (int i = 0; i < STATIONS.size(); i++) {
-            world.text(STATIONS.get(i).title()).at(x(i), LABEL, 0.0).height(0.4f).font(font).stroke(0.06f, 0xFF000000).submit();
+            world.text(STATIONS.get(i).title()).at(0.0, LABEL, z(i)).height(0.4f).font(font).stroke(0.06f, 0xFF000000).submit();
         }
         stage.submitStage(world, 0.0, 0.0, 0.0, camera.getPosX(), camera.getPosY(), camera.getPosZ());
         HarnessWorld.fire(ctx, camera.getViewMatrix(), ctx.getProjection());
     }
 
     private void play(int i) {
-        playing[i] = vfx.spawn(kit.ref(i), x(i), HEIGHT, 0.0).ground(0f);
+        playing[i] = vfx.spawn(kit.ref(i), 0.0, HEIGHT, z(i)).ground(0f);
         plays[i]++;
     }
 
-    private static double x(int i) {
+    private static double z(int i) {
         return i * SPACING;
     }
 
-    /** The whole row from in front. */
+    /** Every lane from behind their start, looking down them. */
     private void overview() {
         station = -1;
-        camera.moveCamera((float) x(STATIONS.size() - 1) / 2f, 6f, 34f);
-        camera.setYaw(0f);
-        camera.setPitch(-8f);
+        camera.moveCamera(-30f, 14f, (float) z(STATIONS.size() - 1) / 2f);
+        camera.setYaw(DOWN_THE_LANES);
+        camera.setPitch(-20f);
     }
 
     private void frame(int i) {
         station = Math.floorMod(i, STATIONS.size());
-        camera.moveCamera((float) x(station), 3f, 9f);
-        camera.setYaw(0f);
+        camera.moveCamera(-9f, 3f, (float) z(station));
+        camera.setYaw(DOWN_THE_LANES);
         camera.setPitch(-9f);
     }
 
@@ -168,11 +170,11 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
     @Override
     public String hudLine() {
         StringBuilder hud = new StringBuilder(CgVfxDemoControls.get().hudLines(false));
-        hud.append("\nN / Shift+N: station   M: the row   R: play all again");
+        hud.append("\nN / Shift+N: station   M: every lane   R: play all again");
         if (failure != null) return hud.append("\nthe kit failed to load: see the log").toString();
         if (!started) return hud.append("\nloading the kit's systems...").toString();
-        if (station < 0) return hud.append("\nthe row: Kakarot's Kamehameha, the battle path's ").append(STATIONS.size())
-                .append(" systems, left to right").toString();
+        if (station < 0) return hud.append("\nevery lane: Kakarot's Kamehameha, the battle path's ").append(STATIONS.size())
+                .append(" systems, a lane each, left to right").toString();
         Station s = STATIONS.get(station);
         CgVfxSystemInstance<?> p = playing[station];
         boolean particles = false;
