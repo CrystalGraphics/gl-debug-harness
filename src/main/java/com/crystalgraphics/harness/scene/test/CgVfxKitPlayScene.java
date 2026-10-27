@@ -10,9 +10,12 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxSystem;
+import com.crystalgraphics.vfx.system.CgVfxSystemDefinition;
 import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
 import com.crystalgraphics.vfx.system.CgVfxSystemPreparer;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +30,8 @@ import java.util.List;
  * // another kit: its folder and namespace, and ids under its vfx/systems without .yaml
  * ... -Dcrystalgraphics.harness.kit=<folder> -Dcrystalgraphics.harness.kit.namespace=spzero_kit \
  *     -Dcrystalgraphics.harness.kit.systems=<id>,<id>
+ * // each renderer's material parameters as bound, for comparing against a capture (HarnessMaterialDump)
+ * ... -Dcrystalgraphics.harness.kit.dump=<file.tsv>
  * }</pre>
  *
  * <ul>
@@ -78,6 +83,7 @@ public final class CgVfxKitPlayScene implements InteractiveSceneLifecycle {
             }
             loadFrames++;
             if (kit.ready()) {
+                dump();
                 waits = CgMaterialShader.compileWaits();
                 syncs = CgVfxAssets.instance().syncLoads();
                 textures = CgTextureAbstract.loads();
@@ -118,6 +124,24 @@ public final class CgVfxKitPlayScene implements InteractiveSceneLifecycle {
                 + compiles + " compile waits, " + syncLoads + " sync loads, " + textureLoads + " texture loads"
                 + (validation > 0 ? ", " + validation + " Vulkan validation errors" : "")
                 + (silent.isEmpty() ? "" : "; never held a particle: " + silent) + alive);
+    }
+
+    /** Under {@code crystalgraphics.harness.kit.dump}, every renderer's material parameters to that file. */
+    private void dump() {
+        String out = System.getProperty("crystalgraphics.harness.kit.dump");
+        if (out == null) return;
+        List<String> ids = new ArrayList<>();
+        List<CgVfxSystemDefinition> systems = new ArrayList<>();
+        for (int i = 0; i < kit.size(); i++) {
+            ids.add(kit.id(i));
+            systems.add(kit.ref(i).loaded());
+        }
+        try {
+            HarnessMaterialDump.write(Paths.get(out), ids, systems);
+            System.out.println("[vfx-kit-play] material parameters written to " + Paths.get(out).toAbsolutePath());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static String device() {
