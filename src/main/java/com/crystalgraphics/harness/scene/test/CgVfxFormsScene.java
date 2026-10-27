@@ -396,7 +396,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                     pool.instance(slots.get(e), SEED_BITS, 1f, Float.NaN,
                             emitters.get(e).name().equals("forms-source-movement") ? moved() : origin());
                     // A spawn station's particles: one burst at the step's start, at the loop's LOOP seconds.
-                    if (e >= seededStations) pool.spawn(slots.get(e), 0, PARTICLES, PARTICLES, 0f, DT, 0f, 0f, 0f, 0f, 0f, 0f, LOOP, LOOP);
+                    if (e >= seededStations) pool.spawn(slots.get(e), 0, PARTICLES, PARTICLES, 0f, DT, 0f, 0f, 0f, 0f, 0f, 0f, LOOP, LOOP, 0f);
                     pool.endStep();
                 }
                 CgVfxParticlePool.record(rec, pools);

@@ -241,7 +241,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
         int n = frame - 2;
         if (n < BURST_STEPS) {
             puffers.spawn(pufferSlot, n * CANDIDATES, CANDIDATES, BURSTS, 0f, DT, PUFF_FROM[0], PUFF_FROM[1], PUFF_FROM[2],
-                    PUFF_FROM[0], PUFF_FROM[1], PUFF_FROM[2], 0f, 0f);
+                    PUFF_FROM[0], PUFF_FROM[1], PUFF_FROM[2], 0f, 0f, 0f);
         }
         puffers.endStep();
         children.beginStep(DT, 0f, 0f, 0f);
