@@ -8,11 +8,13 @@ import com.crystalgraphics.api.animation.CgSkeleton;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
 import com.crystalgraphics.api.mesh.CgSkeletalMesh;
+import com.crystalgraphics.demo.CgVfxShowcase;
 import com.crystalgraphics.frame.CgTickFunction;
 import com.crystalgraphics.frame.CgTickGroup;
 import com.crystalgraphics.frame.CgWorld;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
+import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
@@ -21,6 +23,7 @@ import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxOwner;
 import com.crystalgraphics.vfx.effect.beam.CgEnergyWave;
+import com.crystalgraphics.vfx.look.CgVfxLook;
 import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -51,6 +54,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private static final CgVfxOwner VFX = CgVfx.owner("harness");
     private static final String KIT = "plan/crystalgraphics/vfx-aaa/local/examples/kakarot_kit/models/Art/";
     private static final float FADE = 0.25f, FRAME = 1f / 30f;
+    /** K's look at a 1.9-block character: the stock wave is sized for a player's beam, its ball wider than Goku. */
+    private static final float WAVE_SCALE = 0.15f, HUMAN = 1.9f;
+    /** The camera at Minecraft's walk, metres a second: the harness's 0.25 crawls between bodies metres tall. */
+    private static final float WALK = 4.3f;
     private static final float[] RATES = {0.1f, 0.25f, 0.5f, 1f, 1.5f, 2f};
 
     /** One skinned mesh on the floor, its clips, and the one playing. */
@@ -64,6 +71,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         final float height, r, g, b;
         /** The right hand's bone name, what K's charge rides. */
         final String hand;
+        /** The Kamehameha scaled to this actor's height. */
+        final CgVfxLook wave;
         CgVfxSystemInstance<CgEnergyWave> charge;
         int clip;
         int rate = 3;
@@ -94,6 +103,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             this.height = height;
             instance.place(x, 0.0, z, transform);
             this.hand = rightHand(mesh);
+            this.wave = CgEnergyWave.kamehameha().derive().scaled(WAVE_SCALE * height / HUMAN).build();
             this.r = (rgb >> 16 & 0xFF) / 255f;
             this.g = (rgb >> 8 & 0xFF) / 255f;
             this.b = (rgb & 0xFF) / 255f;
@@ -125,6 +135,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     }
 
     private final List<Actor> actors = new ArrayList<>();
+    /** The showcase's floor and sky. */
+    private final CgVfxShowcase stage = new CgVfxShowcase();
     private int selected;
     private CgMaterial material;
     private CgTickFunction submit;
@@ -172,6 +184,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         submit = CgWorld.client().schedule().add(CgTickGroup.SUBMIT, "harness:skinned-play", this::submit);
         ctx.getCamera3D().moveCamera(2f, 3f, 6f);
         ctx.getCamera3D().setPitch(-10f);
+        ctx.getCamera3D().setMoveSpeed(WALK);
     }
 
     /** In SUBMIT, after POSE wrote this frame's palettes. */
@@ -185,6 +198,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
+        Camera3D camera = ctx.getCamera3D();
+        stage.submitStage(CgWorldRenderer.get(), 0.0, 0.0, 0.0, camera.getPosX(), camera.getPosY(), camera.getPosZ());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }
 
@@ -212,7 +227,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     actor.charge = null;
                 } else {
                     // A Kamehameha's charge riding the hand as posed each frame: a socket by its bone's name
-                    actor.charge = VFX.play(CgEnergyWave.instance(CgEnergyWave.kamehameha(), actor.x, 1.0, actor.z)
+                    actor.charge = VFX.play(CgEnergyWave.instance(actor.wave, actor.x, 1.0, actor.z)
                             .follow(instance, actor.hand).set(CgEnergyWave.RELEASE, Float.POSITIVE_INFINITY));
                 }
             }
@@ -238,6 +253,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             if (actor.charge != null) actor.charge.kill();
             animation.remove(actor.instance);
         }
+        stage.delete();
     }
 
     @Override public boolean isRunning()                { return true; }
