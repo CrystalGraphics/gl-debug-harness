@@ -541,20 +541,24 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private void pollInput() {
         HarnessWindow.pollEvents();
+        List<CgSystemInput.Keyboard.Event> keys;
         if (UNATTENDED) {
+            // Live input is dropped; scripted presses are the run's own, so they still reach the scene.
             HarnessWindow.drainMouse();
             HarnessWindow.drainKeyboard();
-            return;
-        }
-        for (CgSystemInput.Mouse.Event event : HarnessWindow.drainMouse()) {
-            for (CgSystemInput.Mouse listener : mouseListeners) {
-                if (!listener.consumeMouseEvent(event)) break;
+            keys = withScriptedKeys(List.of());
+        } else {
+            for (CgSystemInput.Mouse.Event event : HarnessWindow.drainMouse()) {
+                for (CgSystemInput.Mouse listener : mouseListeners) {
+                    if (!listener.consumeMouseEvent(event)) break;
+                }
             }
+            keys = withScriptedKeys(HarnessWindow.drainKeyboard());
         }
 
         // Every scene's keyboard events pass the global binding below, whether or not the scene listens:
         // it has to work in every scene or it is a binding nobody can rely on.
-        for (CgSystemInput.Keyboard.Event event : withScriptedKeys(HarnessWindow.drainKeyboard())) {
+        for (CgSystemInput.Keyboard.Event event : keys) {
             // Ctrl+R: re-read every asset from disk -- textures, shaders, materials, and whatever the
             // extensions and reload listeners keep.
             //

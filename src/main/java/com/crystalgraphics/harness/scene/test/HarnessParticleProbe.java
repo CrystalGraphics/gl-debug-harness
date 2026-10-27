@@ -41,6 +41,9 @@ import java.util.Set;
  */
 final class HarnessParticleProbe implements AutoCloseable {
 
+    /** The probe's name for every emitter of the watched systems: whether each is submitted and kept, logged on change. */
+    static final String EVERY = "*";
+
     private final CgVfxSystem vfx;
     private final String emitter;
     private final int frames;
@@ -74,7 +77,7 @@ final class HarnessParticleProbe implements AutoCloseable {
 
     /** Watches {@code system}'s emitter of the probe's name under {@code label}, replacing what that label watched. */
     void watch(String label, CgVfxSystemInstance<?> system) {
-        if (system.emitter(emitter) == null) return;
+        if (!EVERY.equals(emitter) && system.emitter(emitter) == null) return;
         int at = labels.indexOf(label);
         if (at >= 0) systems.set(at, system);
         else {
@@ -89,6 +92,10 @@ final class HarnessParticleProbe implements AutoCloseable {
             return;
         }
         if (recorded >= frames) return;
+        if (EVERY.equals(emitter)) {
+            recordEvery(frame);
+            return;
+        }
         boolean any = false;
         for (int i = 0; i < systems.size(); i++) {
             CgVfxEmitterInstance instance = systems.get(i).emitter(emitter);
@@ -108,6 +115,39 @@ final class HarnessParticleProbe implements AutoCloseable {
             any = true;
         }
         if (any) recorded++;
+    }
+
+    /**
+     * Under {@link #EVERY}: each emitter of every watched system, whether this frame submits it (its books say it may
+     * hold particles) and how many particles Range kept for it, logged when either changes.
+     */
+    private void recordEvery(CgStageFrame frame) {
+        int at = recorded++;
+        for (int i = 0; i < systems.size(); i++) {
+            CgVfxSystemInstance<?> system = systems.get(i);
+            for (int e = 0; e < system.emitters(); e++) {
+                CgVfxEmitterInstance instance = system.emitter(e);
+                String key = labels.get(i) + "/" + e + " " + instance.emitter().name();
+                boolean submitted = instance.mayHaveParticles();
+                CgVfxParticlePool pool = vfx.pool(instance);
+                if (pool == null || pool.records() == null) {
+                    every(key, at, submitted, -1);
+                    continue;
+                }
+                CgVfxRange range = CgVfxRange.of(pool);
+                frame.recording().readback(range.visible(), range.visibleWord(vfx.slot(instance)) * 4L, 4,
+                        d -> every(key, at, submitted, d.getInt(0)));
+            }
+        }
+        if (recorded == frames) System.out.println("[probe] done");
+    }
+
+    private final Map<String, String> lastEvery = new HashMap<>();
+
+    private void every(String key, int frame, boolean submitted, int visible) {
+        String state = (submitted ? "submitted" : "skipped") + ", " + (visible < 0 ? "no slot" : visible + " kept");
+        String was = lastEvery.put(key, state);
+        if (!state.equals(was)) System.out.println("[probe] f=" + frame + " " + key + ": " + state + (was == null ? "" : " (was " + was + ")"));
     }
 
     private void report(Snapshot s) {
