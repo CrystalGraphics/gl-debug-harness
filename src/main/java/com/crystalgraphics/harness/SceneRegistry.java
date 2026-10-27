@@ -42,6 +42,8 @@ import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuCullTestScene;
 import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
+import com.crystalgraphics.harness.scene.test.CgSkinnedBenchScene;
+import com.crystalgraphics.harness.scene.test.CgSkinnedMeshTestScene;
 import com.crystalgraphics.harness.scene.test.CgMultiDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgCookedTextureTestScene;
 import com.crystalgraphics.harness.scene.test.CgSamplerBindingTestScene;
@@ -353,6 +355,30 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgIndirectDrawTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("skinned-mesh")
+                .description("B2: a bar of three bones bent at both joints, skinned on the GPU from a palette beside its CPU-skinned twin (CgSkinning); positions and normals must match")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(640)
+                .defaultHeight(320)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgSkinnedMeshTestScene()
+        );
+
+        reg.register(SceneDescriptor.builder("skinned-bench")
+                .description("B2: what skinning costs a pass: 200 dense bars bending from palettes each frame, or (skinned.static=true) their CPU-skinned twins as static meshes")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsDepthBuffer(true)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgSkinnedBenchScene()
         );
 
         reg.register(

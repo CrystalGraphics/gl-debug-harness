@@ -50,6 +50,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   level by level in one texture, each level reading the one above through a level view, every texel checked against
   Java. `--mode=raster-layers` is raster passes into array layers: 2 to 5 layers of one array drawn each frame and
   summed through a `sampler2DArray`, every layer and the sum checked, the array on one storage throughout.
+  `--mode=skinned-mesh` is skinned meshes': a bar of three bones bent at both joints, skinned on the GPU from a
+  palette beside its CPU-skinned twin (`CgSkinning`), positions and normals matched; PASS at G43, G40, G33 (TBO too)
+  and on `vulkan`. `--mode=skinned-bench` is its cost, profiled with `.skinned.static=true` as the static comparison.
   `--mode=vfx-hashes` is the spawn hash's: `fx_rand` bit for bit against the Java an emitter's books draw by, PASS at
   every forced tier and on `vulkan`.
   `--mode=vfx-world` is the world on the GPU's (X4): a world of its own behind `CgWorldQuery` in the voxel window,
