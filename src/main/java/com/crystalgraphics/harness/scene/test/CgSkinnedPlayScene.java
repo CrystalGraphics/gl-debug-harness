@@ -222,7 +222,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 } else {
                     // A Kamehameha's charge riding the hand as posed each frame: a socket by its bone's name
                     actor.charge = VFX.play(CgEnergyWave.instance(actor.wave, actor.x, 1.0, actor.z)
-                            .follow(instance, actor.hand).set(CgEnergyWave.RELEASE, Float.POSITIVE_INFINITY));
+                            .follow(instance.attachment(actor.hand)).set(CgEnergyWave.RELEASE, Float.POSITIVE_INFINITY));
                 }
             }
             default -> {
