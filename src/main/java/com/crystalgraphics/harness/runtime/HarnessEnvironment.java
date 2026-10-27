@@ -38,7 +38,7 @@ public final class HarnessEnvironment {
     private static final String FLOOR_SHADER = "crystalgraphics:shaders/demo/editor_grid.shader";
     private static final Matrix4fc SKY_SCALE = new Matrix4f().scale(600f);
     /** Metres the grid fades out by, from a quarter of it; the plane spans past it, so its edge never shows. */
-    private static final float FLOOR_FADE = 500f;
+    private static final float FLOOR_FADE = 100f;
     /** Day to night in about 0.4 s, as VFX Lab eases it. */
     private static final float NIGHT_RATE = 2.5f;
 
