@@ -5,7 +5,6 @@ import com.crystalgraphics.animation.CgAnimation;
 import com.crystalgraphics.api.animation.CgAnimSection;
 import com.crystalgraphics.api.animation.CgAnimSequence;
 import com.crystalgraphics.api.animation.CgSkeletonDefinition;
-import com.crystalgraphics.api.animation.CgSocket;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
 import com.crystalgraphics.api.mesh.CgSkeletalMesh;
@@ -20,10 +19,17 @@ import com.crystalgraphics.object.value.CgUnits;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.sequence.CgSequenceDefinition;
+import com.crystalgraphics.sequence.CgSequencePlayer;
+import com.crystalgraphics.sequence.CgSequenceRole;
+import com.crystalgraphics.sequence.CgSequenceSkeletal;
+import com.crystalgraphics.sequence.CgSequenceSpawned;
+import com.crystalgraphics.sequence.CgSequencer;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxOwner;
-import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
+import com.crystalgraphics.vfx.system.CgVfxSystemSpawner;
+import com.crystalgraphics.world.CgAttachment;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
@@ -48,8 +54,9 @@ import java.util.Map;
  *   <li>Tab picks Goku or Kurama; N and B its next and previous clip, cross-fading over 0.25 s.</li>
  *   <li>P pauses and plays; {@code ,} and {@code .} step a frame back and on (a seek: the pose playing reaches);
  *       I and O play slower and faster; R restarts the clip.</li>
- *   <li>K on Goku charges Kakarot's Kamehameha: the charge montage's clips, and the kit's start flash, charge and charge
- *       loop, each on the bone and frame the game's notifies place it; K again lets go.</li>
+ *   <li>K on Goku plays Kakarot's Kamehameha: the kit's charge and shot montages played through the client world's
+ *       {@link CgSequencer}, Goku their caster, their clips on his montage slot and their systems on his sockets, each on
+ *       its tick. K charges (the loop held), K again fires (the shot's loop held), K again ends the shot.</li>
  *   <li>{@code crystalgraphics.harness.skinned.goku} (the kit's {@code Cpl001p1c01s1.glb}) and {@code .goku.clips}
  *       (its {@code ANM/cpl/C001A/BTL/SKL} folder); {@code .kurama} (NSUNS4's {@code 5nrvbod2.glb}). One that is
  *       missing is left out.</li>
@@ -64,33 +71,19 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** Goku's sockets: the kit's skeleton asset, in its units.yaml's units. */
     private static final String GOKU_SKELETON = "skeletons/Art/MDL/Cpl/Cpl001/Model/Cpl001p1_Skeleton.yaml";
     private static final float FADE = 0.25f, FRAME = 1f / 30f;
-    /**
-     * K's charge: the kit's systems, each on the bone and offset its notify attaches it at in the charge montage, at
-     * its frame (30 a second; {@code CgVfxKamehamehaScene}'s stations). The offsets are Unreal's, in the kit's units.
-     */
-    private record ChargeBeat(String system, float frame, Map<String, Object> socket, boolean loops) {
-    }
-
-    private static final String SKILL = "Art/EFF/e/skill/a/";
-    private static final List<ChargeBeat> CHARGE = List.of(
-            new ChargeBeat(SKILL + "cmn/Particles/PS_skill_cmn_start_01_00", 0f, Map.of("name", "kame_start", "from", "bone",
-                    "bone", "pelvis", "rotation", Map.of("pitch", -90.0, "yaw", 0.0, "roll", 0.0)), false),
-            new ChargeBeat(SKILL + "Cpl001/Particles/PS_skill_Cpl001_kameha_s_charge_01_00", 8f, Map.of("name", "kame_charge",
-                    "from", "bone", "bone", "hand_r", "location", List.of(10.0, 0.0, -10.0)), false),
-            new ChargeBeat(SKILL + "Cpl001/Particles/PS_skill_Cpl001_kameha_s_charge_01_00_lp", 17f, Map.of("name", "kame_loop",
-                    "from", "bone", "bone", "hand_r"), true));
+    /** K's Kamehameha: the kit's charge and shot montages, sequences; the shot's loop ends at its {@code End} section. */
+    private static final String CHARGE = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_01",
+            SHOT = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_02", SHOT_END = "End";
     /** Goku's Blueprint: its mesh node names his mesh's materials, one a slot, in slot order. */
     private static final String GOKU_PREFAB = "prefabs/Blueprints/Character/C001A/AT_Character_cpl001_BP.yaml";
     /** The namespace the kit's materials name their shading models by ({@code kakarot:cell_tone}). */
     private static final String SHADING = "kakarot";
-    /** The charge montage's clips: its start, then its loop for as long as it is held. */
-    private static final String CHARGE_START = "SKL001_Bgn_01ST", CHARGE_LOOP = "SKL001_Bgn_02LP";
     /** The camera at Minecraft's walk, metres a second: the harness's 0.25 crawls between bodies metres tall. */
     private static final float WALK = 4.3f;
     private static final float[] RATES = {0.1f, 0.25f, 0.5f, 1f, 1.5f, 2f};
 
-    /** One skinned mesh on the floor, its clips, and the one playing. */
-    private static final class Actor {
+    /** One skinned mesh on the floor, its clips, and the one playing; a sequence's role, its clips by their id's last segment. */
+    private static final class Actor implements CgSequenceRole, CgSequenceSkeletal {
         final String name;
         final CgSkeletalMesh mesh;
         final List<CgAnimSequence> clips;
@@ -98,14 +91,13 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         final double x, z;
         final Matrix4f transform = new Matrix4f();
         final float height, r, g, b;
-        /** K's charge playing: one system a beat, null before its frame; NaN timeline seconds when not charging. */
-        final CgVfxSystemInstance<?>[] charge = new CgVfxSystemInstance<?>[CHARGE.size()];
-        double chargedAt = Double.NaN;
+        /** Whether it is the kit's Goku, the montages' caster; the montage playing on it, or null, and K's stage. */
+        boolean kit;
+        CgSequencePlayer move;
+        Stage stage = Stage.IDLE;
         /** Its slots' kit materials by id, from its prefab, or empty; whether they are set on its instance yet. */
         List<String> kitMaterials = List.of();
         boolean dressed;
-        /** The clip it played before K charged, played again on release. */
-        int before;
         int clip;
         int rate = 3;
 
@@ -143,67 +135,101 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     .easeIn(old.isEmpty() ? 0f : FADE).build());
         }
 
-        /** The clip whose name holds {@code part}, or -1. */
-        int clip(String part) {
-            for (int i = 0; i < clips.size(); i++) if (clips.get(i).name().contains(part)) return i;
-            return -1;
-        }
-
-        /** Whether it carries the kit's charge: its clips and the sockets its beats ride. */
-        boolean charges() {
-            if (clip(CHARGE_START) < 0 || clip(CHARGE_LOOP) < 0) return false;
-            for (ChargeBeat beat : CHARGE) if (mesh.socket((String) beat.socket().get("name")) == null) return false;
-            return true;
-        }
-
-        /** The charge montage from now: its start clip, then its loop held. */
-        void charge() {
-            before = clip;
-            CgAnimSequence start = clips.get(clip(CHARGE_START)), loop = clips.get(clip = clip(CHARGE_LOOP));
-            double now = instance.time();
-            instance.clear();
-            instance.play(CgAnimSection.of(start).at(now).until(now + start.duration()).build());
-            instance.play(CgAnimSection.of(loop).at(now + start.duration()).until(Double.POSITIVE_INFINITY).build());
-            chargedAt = now;
-        }
-
-        /** Each beat's system once its frame is reached, a loop's again as it ends; on the timeline, as a notify. */
-        void tickCharge(HarnessKitSystems systems) {
-            if (Double.isNaN(chargedAt)) return;
-            double into = instance.time() - chargedAt;
-            for (int i = 0; i < CHARGE.size(); i++) {
-                ChargeBeat beat = CHARGE.get(i);
-                boolean due = charge[i] == null ? into >= beat.frame() * FRAME
-                        : beat.loops() && charge[i].state() == CgVfxSystemInstance.State.DEAD;
-                if (!due) continue;
-                boolean first = charge[i] == null;
-                charge[i] = VFX.system().spawn(systems.ref(i), x, 1.0, z)
-                        .follow(instance.attachment((String) beat.socket().get("name")));
-                if (first) LOGGER.info("[skinned-play] {}: {} at frame {}, on {}", name, systems.id(i), beat.frame(), beat.socket().get("bone"));
-            }
-        }
-
-        /** Ends the charge: every system it played, and back to the clip it left. */
+        /** Ends the montage playing: its clips leave the slot and its systems despawn at the sequencer's next evaluation. */
         void release() {
-            for (int i = 0; i < charge.length; i++) {
-                if (charge[i] != null) charge[i].kill();
-                charge[i] = null;
-            }
-            chargedAt = Double.NaN;
+            if (move != null) move.stop();
+            move = null;
+            stage = Stage.IDLE;
         }
 
         String line() {
+            if (move != null) {
+                return String.format(Locale.ROOT, "%s: %s, %s at %.2f s", name, stage.name().toLowerCase(Locale.ROOT),
+                        move.definition().id(), move.seconds());
+            }
             CgAnimSequence s = clips.get(clip);
             CgAnimSection playing = instance.sections().get(instance.sections().size() - 1);
             return String.format(Locale.ROOT, "%s: clip %d/%d %s, %.2f / %.2f s at %.2fx%s", name, clip + 1, clips.size(),
                     s.name(), playing.animationTime(instance.time()), s.duration(), RATES[rate],
                     instance.playing() ? "" : " (paused)");
         }
+
+        @Override
+        public CgAnimInstance instance() {
+            return instance;
+        }
+
+        @Override
+        public CgAnimSequence clip(String id) {
+            String last = id.substring(id.lastIndexOf('/') + 1);
+            for (CgAnimSequence c : clips) if (c.name().contains(last)) return c;
+            return null;
+        }
+
+        @Override
+        public CgAttachment attachment(String socket) {
+            return instance.attachment(socket == null ? "" : socket);   // an unknown name answers where it stands
+        }
+
+        @Override
+        public int slot(String name) {
+            return -1;
+        }
+
+        @Override
+        public void set(int slot, float[] values, int mask) {
+        }
+
+        @Override
+        public void get(int slot, float[] out) {
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
     }
 
+    /**
+     * A montage's skill camera, taking its rig's slots and moving nothing: cameras are SQ10b's, and this scene's camera
+     * is the user's.
+     */
+    private static final class HeldCamera implements CgSequenceSpawned {
+        private final List<String> slots = new ArrayList<>();
+        private final List<float[]> values = new ArrayList<>();
+
+        @Override
+        public int slot(String name) {
+            int i = slots.indexOf(name);
+            if (i >= 0) return i;
+            slots.add(name);
+            values.add(new float[4]);
+            return slots.size() - 1;
+        }
+
+        @Override
+        public void set(int slot, float[] v, int mask) {
+            float[] to = values.get(slot);
+            for (int i = 0; i < 4 && i < v.length; i++) if ((mask & 1 << i) != 0) to[i] = v[i];
+        }
+
+        @Override
+        public void get(int slot, float[] out) {
+            System.arraycopy(values.get(slot), 0, out, 0, Math.min(4, out.length));
+        }
+
+        @Override
+        public void destroy(boolean graceful) {
+        }
+    }
+
+    /** K's stages: the charge held, the shot's loop held, the shot's end playing out. */
+    private enum Stage { IDLE, CHARGING, FIRING, ENDING }
+
     private final List<Actor> actors = new ArrayList<>();
-    /** The kit's charge systems, one a {@link #CHARGE} beat; null without the kit. */
+    /** Goku's materials and the charge montage; null without the kit. */
     private HarnessKitSystems kit;
+    private CgSequencer sequencer;
     private int selected;
     private CgMaterial material;
     private CgTickFunction submit;
@@ -229,7 +255,11 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     }
                 }
             }
-            if (!clips.isEmpty()) actors.add(new Actor("Goku", mesh, clips, -2.0, -6.0, 1.9f, 0xFFF0A040));
+            if (!clips.isEmpty()) {
+                Actor actor = new Actor("Goku", mesh, clips, -2.0, -6.0, 1.9f, 0xFFF0A040);
+                actor.kit = true;
+                actors.add(actor);
+            }
         } else {
             LOGGER.warn("[skinned-play] no Goku at {}", goku);
         }
@@ -246,10 +276,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             animation.add(actor.instance);
             actor.play(0);
             LOGGER.info("[skinned-play] {}: {} bones, {} clips{}", actor.name, actor.mesh.skeleton().boneCount(),
-                    actor.clips.size(), actor.charges() ? ", K charges the kit's Kamehameha" : "");
+                    actor.clips.size(), actor.kit ? ", K charges the kit's Kamehameha" : "");
         }
-        List<String> systems = new ArrayList<>();
-        for (ChargeBeat beat : CHARGE) systems.add(beat.system());
         Path kitFolder = Paths.get(root + KIT_ROOT);
         if (Files.isDirectory(kitFolder)) {
             List<String> materials = List.of();
@@ -258,29 +286,27 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 actor.kitMaterials = prefabMaterials(kitFolder.resolve(GOKU_PREFAB), actor.instance.materialSlots());
                 materials = actor.kitMaterials;
             }
-            kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, systems, materials, SHADING);
+            kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT), SHADING);
         }
-        submit = CgWorld.client().schedule().add(CgTickGroup.SUBMIT, "harness:skinned-play", this::submit);
+        CgWorld client = CgWorld.client();
+        sequencer = client.subsystem(CgSequencer.class);
+        if (sequencer == null) sequencer = client.add(new CgSequencer());
+        sequencer.spawner("system", new CgVfxSystemSpawner(VFX.system()));
+        sequencer.spawner("camera", (p, s, at) -> new HeldCamera());
+        submit = client.schedule().add(CgTickGroup.SUBMIT, "harness:skinned-play", this::submit);
         ctx.getCamera3D().moveCamera(2f, 3f, 6f);
         ctx.getCamera3D().setPitch(-10f);
         ctx.getCamera3D().setMoveSpeed(WALK);
     }
 
-    /**
-     * {@code mesh} with Goku's skeleton asset's sockets and the charge montage's attach points, both in the kit's units,
-     * where the kit at {@code kit} has them.
-     */
+    /** {@code mesh} with Goku's skeleton asset's sockets in the kit's units, where the kit at {@code kit} has them. */
     private static CgSkeletalMesh withKitSockets(CgSkeletalMesh mesh, String kit) {
         Path skeleton = Paths.get(kit, GOKU_SKELETON), units = Paths.get(kit, "units.yaml");
         if (!Files.isRegularFile(skeleton) || !Files.isRegularFile(units)) return mesh;
         try {
             CgUnits kitUnits = CgUnits.of(((Map<?, ?>) CgAssetYaml.read(Files.readString(units))).get("units"), CgUnits.HOST);
             Map<?, ?> tree = (Map<?, ?>) CgAssetYaml.read(Files.readString(skeleton));
-            List<CgSocket> sockets = new ArrayList<>(CgSkeletonDefinition.compile(GOKU_SKELETON, tree, kitUnits).socketsOn(mesh.skeleton()));
-            List<Map<String, Object>> beats = new ArrayList<>();
-            for (ChargeBeat beat : CHARGE) beats.add(beat.socket());
-            sockets.addAll(CgSkeletonDefinition.compile("charge montage", Map.of("sockets", beats), kitUnits).socketsOn(mesh.skeleton()));
-            return mesh.withSockets(sockets);
+            return mesh.withSockets(CgSkeletonDefinition.compile(GOKU_SKELETON, tree, kitUnits).socketsOn(mesh.skeleton()));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -312,8 +338,11 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private void submit(float dt) {
         CgWorldRenderer world = CgWorldRenderer.get();
         for (Actor actor : actors) {
+            if (actor.stage == Stage.ENDING && actor.move.finished()) {
+                actor.release();
+                LOGGER.info("[skinned-play] {}: the shot played out", actor.name);
+            }
             if (kit != null && kit.ready()) {
-                actor.tickCharge(kit);
                 if (!actor.dressed && !actor.kitMaterials.isEmpty()) {
                     for (int s = 0; s < actor.kitMaterials.size(); s++) actor.instance.material(s, CgMaterial.of(kit.material(s).get()));
                     actor.dressed = true;
@@ -352,18 +381,34 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             case CgKeyCodes.KEY_PERIOD -> instance.playing(false).seek(instance.time() + FRAME);
             case CgKeyCodes.KEY_I -> instance.rate(RATES[actor.rate = Math.max(0, actor.rate - 1)]);
             case CgKeyCodes.KEY_O -> instance.rate(RATES[actor.rate = Math.min(RATES.length - 1, actor.rate + 1)]);
-            case CgKeyCodes.KEY_K -> {
-                if (!Double.isNaN(actor.chargedAt)) {
-                    actor.release();
-                    actor.play(actor.before);
-                } else if (actor.charges() && kit != null && kit.ready()) {
-                    actor.charge();
-                }
-            }
+            case CgKeyCodes.KEY_K -> kamehameha(actor);
             default -> {
             }
         }
         return true;
+    }
+
+    /** K: the charge, then the shot (its loop held), then the shot's end; the end plays out and lets go by itself. */
+    private void kamehameha(Actor actor) {
+        if (!actor.kit || kit == null || !kit.ready()) return;
+        switch (actor.stage) {
+            case IDLE -> {
+                actor.move = sequencer.play(kit.sequence(0).get(), Map.of("caster", actor));
+                actor.stage = Stage.CHARGING;
+            }
+            case CHARGING -> {
+                actor.move.stop();
+                actor.move = sequencer.play(kit.sequence(1).get(), Map.of("caster", actor));
+                actor.stage = Stage.FIRING;
+            }
+            case FIRING -> {
+                CgSequenceDefinition shot = actor.move.definition();
+                actor.move.jumpTo(shot.seconds(shot.compositeSection(SHOT_END).from()));   // Montage_JumpToSection
+                actor.stage = Stage.ENDING;
+            }
+            case ENDING -> actor.release();
+        }
+        LOGGER.info("[skinned-play] {}: {} ({})", actor.name, actor.stage, actor.move == null ? "let go" : actor.move.definition().id());
     }
 
     @Override
@@ -371,9 +416,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (actors.isEmpty()) return "skinned-play: no meshes found (see the scene's javadoc for the paths)";
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < actors.size(); i++) sb.append(i == selected ? "> " : "  ").append(actors.get(i).line()).append('\n');
-        sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart  K charge (Goku: the kit's Kamehameha)  F9 night");
-        if (kit != null && kit.failed()) sb.append("\nthe kit's charge failed to load: see the log");
-        else if (kit != null && !kit.ready()) sb.append("\nloading the kit's charge...");
+        sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart  K Kamehameha: charge, fire, end (Goku)  F9 night");
+        if (kit != null && kit.failed()) sb.append("\nthe kit failed to load: ").append(kit.failures());
+        else if (kit != null && !kit.ready()) sb.append("\nloading the kit...");
         return sb.toString();
     }
 
