@@ -387,7 +387,6 @@ public final class SceneRegistry {
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsDepthBuffer(true)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgSkinnedPlayScene()
         );

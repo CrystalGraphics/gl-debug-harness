@@ -42,6 +42,7 @@ import com.crystalgraphics.harness.runtime.MotionProbe;
 import com.crystalgraphics.harness.runtime.OverlayCaptureOrchestrator;
 import com.crystalgraphics.harness.runtime.OverlayPipeline;
 import com.crystalgraphics.harness.runtime.ResizeHandler;
+import com.crystalgraphics.harness.runtime.HarnessEnvironment;
 import com.crystalgraphics.harness.runtime.WorldPassCoordinator;
 import com.crystalgraphics.harness.scheduler.TaskScheduler;
 import com.crystalgraphics.harness.util.HarnessProjectionUtil;
@@ -276,6 +277,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     "WorldSettings must be set on HarnessContext before running an interactive scene");
         }
         worldPassCoordinator = new WorldPassCoordinator(new FloorRenderer(), worldSettings);
+        HarnessEnvironment.INSTANCE.enabled(scene.uses3DCamera() && (scene.editorEnvironment() || HarnessEnvironment.FORCED));
 
         // ── Create runtime service collaborators ──
         frameClock = new FrameClock();
@@ -404,6 +406,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             if (scene.uses3DCamera() && !inputPauseHandler.isPaused() && !shown && !UNATTENDED) {
                 camera.update(frameClock.getDeltaTime());
             }
+
+            HarnessEnvironment.INSTANCE.tick(frameClock.getDeltaTime());
 
             // 5. Fire any scheduled tasks that are due (even when paused)
             try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.scheduler")) {
@@ -599,6 +603,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_H && !isCtrlDown()
                     && letters) {
                 CgWorldRenderer.get().halfResolution(!CgWorldRenderer.get().halfResolution());
+            }
+            // F9: day and night under VFX Lab's sky, where the scene plays under it.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F9 && HarnessEnvironment.INSTANCE.enabled()) {
+                HarnessEnvironment.INSTANCE.toggleNight();
             }
             // J: the distortion target at half size, or at full size to compare.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_J && !isCtrlDown()

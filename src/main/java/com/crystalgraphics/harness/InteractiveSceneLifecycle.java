@@ -98,4 +98,12 @@ public interface InteractiveSceneLifecycle extends HarnessSceneLifecycle {
     default String hudLine() {
         return null;
     }
+
+    /**
+     * Whether it plays under VFX Lab's sky and floor ({@code HarnessEnvironment}, F9 day and night) rather than the
+     * harness's clear colour and floor. Off for a gate, whose pixels are checked against the plain ones.
+     */
+    default boolean editorEnvironment() {
+        return false;
+    }
 }

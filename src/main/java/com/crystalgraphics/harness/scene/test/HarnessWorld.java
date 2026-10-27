@@ -2,6 +2,7 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.harness.camera.HarnessCameraShake;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.harness.runtime.HarnessEnvironment;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
@@ -27,6 +28,7 @@ public final class HarnessWorld {
     /** Fires {@code WORLD_OPAQUE} then {@code WORLD_TRANSPARENT}: the camera at the origin, {@code view} whole. */
     public static void fire(HarnessContext ctx, Matrix4fc view, Matrix4fc projection) {
         CgWorldRenderer.get().install();
+        HarnessEnvironment.INSTANCE.submit(ctx.getCamera3D());
         HarnessCameraShake.INSTANCE.apply(VIEW.set(view), PROJECTION.set(projection));
         for (CgRenderStage stage : WORLD) {
             stage.host().set(0f, ctx.getScreenWidth(), ctx.getScreenHeight(), ctx.getTargetFramebuffer())

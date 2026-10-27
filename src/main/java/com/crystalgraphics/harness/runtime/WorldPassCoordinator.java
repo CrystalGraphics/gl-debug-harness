@@ -106,7 +106,7 @@ public final class WorldPassCoordinator {
 
         // Render floor plane before scene content so 3D objects composite
         // over the floor rather than over the raw sky clear color.
-        if (uses3DCamera && WorldConfig.RENDER_FLOOR) {
+        if (uses3DCamera && WorldConfig.RENDER_FLOOR && !HarnessEnvironment.INSTANCE.enabled()) {
             renderFloor(ctx, camera);
         }
     }

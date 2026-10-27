@@ -688,6 +688,7 @@ The interactive runner sequences these steps every frame:
 | H | Half-resolution draws on or off (`CgWorldRenderer.halfResolution`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
 | J | The distortion target at half size or full size (`CgWorldRenderer.distortionScale`): the hazes' bend at a quarter of the pixels, or a pixel per texel to compare |
 | F6 | The VFX Lab window on the harness's desktop, when CrystalGUI is on the classpath (`HarnessDesktop`) |
+| F9 | Day or night, under VFX Lab's sky and floor (`HarnessEnvironment`): a scene opts in with `editorEnvironment()`, any scene with `-Dcrystalgraphics.harness.environment=editor`. Off by default, since gates check pixels against the plain clear colour and floor |
 
 ### HUD Display
 

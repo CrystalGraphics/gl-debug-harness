@@ -8,13 +8,11 @@ import com.crystalgraphics.api.animation.CgSkeleton;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
 import com.crystalgraphics.api.mesh.CgSkeletalMesh;
-import com.crystalgraphics.demo.CgVfxShowcase;
 import com.crystalgraphics.frame.CgTickFunction;
 import com.crystalgraphics.frame.CgTickGroup;
 import com.crystalgraphics.frame.CgWorld;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
-import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
@@ -135,8 +133,6 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     }
 
     private final List<Actor> actors = new ArrayList<>();
-    /** The showcase's floor and sky. */
-    private final CgVfxShowcase stage = new CgVfxShowcase();
     private int selected;
     private CgMaterial material;
     private CgTickFunction submit;
@@ -198,8 +194,6 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        Camera3D camera = ctx.getCamera3D();
-        stage.submitStage(CgWorldRenderer.get(), 0.0, 0.0, 0.0, camera.getPosX(), camera.getPosY(), camera.getPosZ());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }
 
@@ -253,10 +247,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             if (actor.charge != null) actor.charge.kill();
             animation.remove(actor.instance);
         }
-        stage.delete();
     }
 
     @Override public boolean isRunning()                { return true; }
     @Override public boolean uses3DCamera()             { return true; }
     @Override public boolean shouldShutdownOnComplete() { return false; }
+    @Override public boolean editorEnvironment()        { return true; }
 }
