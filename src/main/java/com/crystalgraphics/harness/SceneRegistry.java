@@ -44,6 +44,7 @@ import com.crystalgraphics.harness.scene.test.CgGpuCullTestScene;
 import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgSkinnedBenchScene;
 import com.crystalgraphics.harness.scene.test.CgSkinnedMeshTestScene;
+import com.crystalgraphics.harness.scene.test.CgSkinnedPlayScene;
 import com.crystalgraphics.harness.scene.test.CgMultiDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgCookedTextureTestScene;
 import com.crystalgraphics.harness.scene.test.CgSamplerBindingTestScene;
@@ -379,6 +380,16 @@ public final class SceneRegistry {
                 .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
                 .build(),
             () -> new CgSkinnedBenchScene()
+        );
+
+        reg.register(SceneDescriptor.builder("skinned-play")
+                .description("Goku and Kurama playing their clips, posed by CgAnimation and skinned on the GPU: Tab actor, N/B clip, P pause, , . frame, I/O rate, R restart")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsDepthBuffer(true)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgSkinnedPlayScene()
         );
 
         reg.register(

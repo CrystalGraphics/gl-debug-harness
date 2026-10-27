@@ -53,6 +53,8 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   `--mode=skinned-mesh` is skinned meshes': a bar of three bones bent at both joints, skinned on the GPU from a
   palette beside its CPU-skinned twin (`CgSkinning`), positions and normals matched; PASS at G43, G40, G33 (TBO too)
   and on `vulkan`. `--mode=skinned-bench` is its cost, profiled with `.skinned.static=true` as the static comparison.
+  `--mode=skinned-play` is to look at and play with: Goku (the kit) and Kurama (NSUNS4) playing their clips through
+  `CgAnimation`; Tab picks one, N/B change clip with a cross-fade, P pauses, `,` `.` step a frame, I/O change rate.
   `--mode=vfx-hashes` is the spawn hash's: `fx_rand` bit for bit against the Java an emitter's books draw by, PASS at
   every forced tier and on `vulkan`.
   `--mode=vfx-world` is the world on the GPU's (X4): a world of its own behind `CgWorldQuery` in the voxel window,
