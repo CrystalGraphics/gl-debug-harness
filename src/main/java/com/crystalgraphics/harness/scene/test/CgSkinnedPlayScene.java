@@ -5,15 +5,18 @@ import com.crystalgraphics.animation.CgAnimation;
 import com.crystalgraphics.api.animation.CgAnimSection;
 import com.crystalgraphics.api.animation.CgAnimSequence;
 import com.crystalgraphics.api.animation.CgSkeleton;
+import com.crystalgraphics.api.animation.CgSkeletonDefinition;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
 import com.crystalgraphics.api.mesh.CgSkeletalMesh;
+import com.crystalgraphics.asset.codec.CgAssetYaml;
 import com.crystalgraphics.frame.CgTickFunction;
 import com.crystalgraphics.frame.CgTickGroup;
 import com.crystalgraphics.frame.CgWorld;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.object.value.CgUnits;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
@@ -28,10 +31,16 @@ import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Skinned meshes playing their clips, to look at and play with: Kakarot's Goku and his move clips, and Kurama with
@@ -50,7 +59,12 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
     private static final Logger LOGGER = LogManager.getLogger(CgSkinnedPlayScene.class);
     private static final CgVfxOwner VFX = CgVfx.owner("harness");
-    private static final String KIT = "plan/crystalgraphics/vfx-aaa/local/examples/kakarot_kit/models/Art/";
+    private static final String KIT_ROOT = "plan/crystalgraphics/vfx-aaa/local/examples/kakarot_kit/";
+    private static final String KIT = KIT_ROOT + "models/Art/";
+    /** Goku's sockets: the kit's skeleton asset, in its units.yaml's units. */
+    private static final String GOKU_SKELETON = "skeletons/Art/MDL/Cpl/Cpl001/Model/Cpl001p1_Skeleton.yaml";
+    /** In front of the cupped right palm, where the game's ball sits ({@code Cpl001p1_Skeleton}). */
+    private static final String KAMEHA_SOCKET = "hand_r_kameha_socket_02";
     private static final float FADE = 0.25f, FRAME = 1f / 30f;
     /** K's look at a 1.9-block character: the stock wave is sized for a player's beam, its ball wider than Goku. */
     private static final float WAVE_SCALE = 0.15f, HUMAN = 1.9f;
@@ -67,7 +81,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         final double x, z;
         final Matrix4f transform = new Matrix4f();
         final float height, r, g, b;
-        /** The right hand's bone name, what K's charge rides. */
+        /** What K's charge rides: the game's Kamehameha socket where the skeleton has one, else the right hand's bone. */
         final String hand;
         /** The Kamehameha scaled to this actor's height. */
         final CgVfxLook wave;
@@ -100,7 +114,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     (float) -(box.minZ() + box.maxZ()) / 2f);
             this.height = height;
             instance.place(x, 0.0, z, transform);
-            this.hand = rightHand(mesh);
+            this.hand = mesh.socket(KAMEHA_SOCKET) != null ? KAMEHA_SOCKET : rightHand(mesh);
             this.wave = CgEnergyWave.kamehameha().derive().scaled(WAVE_SCALE * height / HUMAN).build();
             this.r = (rgb >> 16 & 0xFF) / 255f;
             this.g = (rgb >> 8 & 0xFF) / 255f;
@@ -147,7 +161,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         String kurama = System.getProperty("crystalgraphics.harness.skinned.kurama", "X:/research/nsuns4/assets/5nrtspl1_extra/puppets/5nrvbod2.glb");
 
         if (new File(goku).isFile()) {
-            CgSkeletalMesh mesh = CgMeshLoader.skeletal(goku);
+            CgSkeletalMesh mesh = withKitSockets(CgMeshLoader.skeletal(goku), root + KIT_ROOT);
             List<CgAnimSequence> clips = new ArrayList<>(mesh.sequences());
             File[] files = new File(gokuClips).listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".glb"));
             if (files != null) {
@@ -181,6 +195,20 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         ctx.getCamera3D().moveCamera(2f, 3f, 6f);
         ctx.getCamera3D().setPitch(-10f);
         ctx.getCamera3D().setMoveSpeed(WALK);
+    }
+
+    /** {@code mesh} with Goku's skeleton asset's sockets, where the kit at {@code kit} has it. */
+    private static CgSkeletalMesh withKitSockets(CgSkeletalMesh mesh, String kit) {
+        Path skeleton = Paths.get(kit, GOKU_SKELETON), units = Paths.get(kit, "units.yaml");
+        if (!Files.isRegularFile(skeleton) || !Files.isRegularFile(units)) return mesh;
+        try {
+            Map<?, ?> unitsTree = (Map<?, ?>) CgAssetYaml.read(Files.readString(units));
+            Map<?, ?> tree = (Map<?, ?>) CgAssetYaml.read(Files.readString(skeleton));
+            CgSkeletonDefinition d = CgSkeletonDefinition.compile(GOKU_SKELETON, tree, CgUnits.of(unitsTree.get("units"), CgUnits.HOST));
+            return mesh.withSockets(d.socketsOn(mesh.skeleton()));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     /** In SUBMIT, after POSE wrote this frame's palettes. */
