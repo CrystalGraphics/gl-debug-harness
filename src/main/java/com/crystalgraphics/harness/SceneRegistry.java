@@ -58,6 +58,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxBooksScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrepareScene;
 import com.crystalgraphics.harness.scene.test.CgVfxKamehamehaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxKitPlayScene;
+import com.crystalgraphics.harness.scene.test.CgSequenceSpawnScene;
 import com.crystalgraphics.harness.scene.test.CgVfxNovaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBenchArenaScene;
 import com.crystalgraphics.harness.scene.test.CgKitShadingScene;
@@ -1433,6 +1434,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxNovaScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("sequence-spawn")
+                .description("A sequence played from its files, its systems, prefabs and post volumes spawned by the engine (the Nova Cannon by default): each system on its ticks, nothing loaded while playing, the sequencer's worst frame")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgSequenceSpawnScene()
         );
 
         reg.register(
