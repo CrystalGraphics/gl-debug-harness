@@ -4,6 +4,7 @@ import com.crystalgraphics.animation.CgAnimInstance;
 import com.crystalgraphics.animation.CgAnimation;
 import com.crystalgraphics.api.animation.CgAnimSection;
 import com.crystalgraphics.api.animation.CgAnimSequence;
+import com.crystalgraphics.api.animation.CgSkeleton;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
 import com.crystalgraphics.api.mesh.CgSkeletalMesh;
@@ -17,6 +18,10 @@ import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.shape.bounds.CgAABB;
+import com.crystalgraphics.vfx.CgVfx;
+import com.crystalgraphics.vfx.CgVfxOwner;
+import com.crystalgraphics.vfx.effect.beam.CgEnergyWave;
+import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
@@ -43,6 +48,7 @@ import java.util.Locale;
 public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard {
 
     private static final Logger LOGGER = LogManager.getLogger(CgSkinnedPlayScene.class);
+    private static final CgVfxOwner VFX = CgVfx.owner("harness");
     private static final String KIT = "plan/crystalgraphics/vfx-aaa/local/examples/kakarot_kit/models/Art/";
     private static final float FADE = 0.25f, FRAME = 1f / 30f;
     private static final float[] RATES = {0.1f, 0.25f, 0.5f, 1f, 1.5f, 2f};
@@ -56,8 +62,23 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         final double x, z;
         final Matrix4f transform = new Matrix4f();
         final float height, r, g, b;
+        /** The right hand's bone name, what K's charge rides. */
+        final String hand;
+        CgVfxSystemInstance<CgEnergyWave> charge;
         int clip;
         int rate = 3;
+
+        /** The bone a right hand is on: the first whose name says hand and right, else the root. */
+        private static String rightHand(CgSkeletalMesh mesh) {
+            CgSkeleton s = mesh.skeleton();
+            for (int b = 0; b < s.boneCount(); b++) {
+                String n = s.name(b).toLowerCase(Locale.ROOT);
+                if (n.contains("hand") && (n.endsWith("_r") || n.startsWith("r_") || n.contains("right") || n.contains("_r_"))) {
+                    return s.name(b);
+                }
+            }
+            return s.name(0);
+        }
 
         Actor(String name, CgSkeletalMesh mesh, List<CgAnimSequence> clips, double x, double z, float height, int rgb) {
             this.name = name;
@@ -71,6 +92,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             transform.scaling(scale).translate((float) -(box.minX() + box.maxX()) / 2f, (float) -box.minY(),
                     (float) -(box.minZ() + box.maxZ()) / 2f);
             this.height = height;
+            instance.place(x, 0.0, z, transform);
+            this.hand = rightHand(mesh);
             this.r = (rgb >> 16 & 0xFF) / 255f;
             this.g = (rgb >> 8 & 0xFF) / 255f;
             this.b = (rgb & 0xFF) / 255f;
@@ -143,7 +166,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         for (Actor actor : actors) {
             animation.add(actor.instance);
             actor.play(0);
-            LOGGER.info("[skinned-play] {}: {} bones, {} clips", actor.name, actor.mesh.skeleton().boneCount(), actor.clips.size());
+            LOGGER.info("[skinned-play] {}: {} bones, {} clips, K's charge on {}", actor.name, actor.mesh.skeleton().boneCount(),
+                    actor.clips.size(), actor.hand);
         }
         submit = CgWorld.client().schedule().add(CgTickGroup.SUBMIT, "harness:skinned-play", this::submit);
         ctx.getCamera3D().moveCamera(2f, 3f, 6f);
@@ -155,8 +179,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         CgWorldRenderer world = CgWorldRenderer.get();
         for (Actor actor : actors) {
             if (actor.instance.palette() < 0) continue;
-            world.draw(actor.mesh.mesh(), material).bones(actor.instance.palette()).at(actor.x, 0.0, actor.z)
-                    .transform(actor.transform).pad(actor.height * 50f).custom(0, actor.r, actor.g, actor.b, 1f).submit();
+            world.draw(actor.instance, material).pad(actor.height * 50f).custom(0, actor.r, actor.g, actor.b, 1f).submit();
         }
     }
 
@@ -183,6 +206,16 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             case CgKeyCodes.KEY_PERIOD -> instance.playing(false).seek(instance.time() + FRAME);
             case CgKeyCodes.KEY_I -> instance.rate(RATES[actor.rate = Math.max(0, actor.rate - 1)]);
             case CgKeyCodes.KEY_O -> instance.rate(RATES[actor.rate = Math.min(RATES.length - 1, actor.rate + 1)]);
+            case CgKeyCodes.KEY_K -> {
+                if (actor.charge != null) {
+                    actor.charge.kill();
+                    actor.charge = null;
+                } else {
+                    // A Kamehameha's charge riding the hand as posed each frame: a socket by its bone's name
+                    actor.charge = VFX.play(CgEnergyWave.instance(CgEnergyWave.kamehameha(), actor.x, 1.0, actor.z)
+                            .follow(instance, actor.hand).set(CgEnergyWave.RELEASE, Float.POSITIVE_INFINITY));
+                }
+            }
             default -> {
             }
         }
@@ -194,14 +227,17 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (actors.isEmpty()) return "skinned-play: no meshes found (see the scene's javadoc for the paths)";
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < actors.size(); i++) sb.append(i == selected ? "> " : "  ").append(actors.get(i).line()).append('\n');
-        return sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart").toString();
+        return sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart  K charge on its right hand").toString();
     }
 
     @Override
     public void dispose() {
         if (submit != null) submit.close();
         CgAnimation animation = CgAnimation.client();
-        for (Actor actor : actors) animation.remove(actor.instance);
+        for (Actor actor : actors) {
+            if (actor.charge != null) actor.charge.kill();
+            animation.remove(actor.instance);
+        }
     }
 
     @Override public boolean isRunning()                { return true; }
