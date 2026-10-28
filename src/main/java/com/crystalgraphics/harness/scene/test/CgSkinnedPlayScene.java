@@ -281,6 +281,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private SkinnedOutlineCheck outlineCheck;
     /** The outline's pass, and which of its edge tests U shows: all, then depth, normal and ID alone. */
     private CgMaterial outlinePass;
+    /** Under {@code -Dcrystalgraphics.harness.skinnedPlay.cut=true}: frames since Goku's cut was played unattended, or -1. */
+    private int cutFrames = Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.cut") ? 0 : -1, cutRuns, cutStart;
     private int outlineTests;
     private static final String[] OUTLINE_TESTS = {"all tests", "depth alone", "normal alone", "ID alone"};
     /** The outline's order among post materials: first, below any volume's priority. */
@@ -611,6 +613,31 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             case CgKeyCodes.KEY_O -> instance.rate(RATES[actor.rate = Math.min(RATES.length - 1, actor.rate + 1)]);
             case CgKeyCodes.KEY_K -> kamehameha(actor);
             case CgKeyCodes.KEY_X -> cut(actor);
+        if (cutFrames >= 0 && kit != null && kit.ready()) cutCheck();
+    }
+
+    /** The cut played twice, unattended, 300 frames after the kit is ready: the move's light and plays logged each second. */
+    private void cutCheck() {
+        Actor goku = null;
+        for (Actor a : actors) if (a.kit) goku = a;
+        if (goku == null) return;
+        int frame = cutFrames++;
+        // Warmed first: the frame after a cold start spans the pipelines' builds, and the whole cut with it.
+        if (frame == 300 || frame > 300 && cutRuns == 1 && goku.move == null) {
+            cutRuns++;
+            cut(goku);
+            cutStart = frame;
+        }
+        if (frame < 300 || (frame - cutStart) % 60 != 1 && goku.move != null) return;
+        CgDirectionalLights.Light light = CgDirectionalLights.get().active(1f);
+        System.out.println("[skinned-play] cut " + cutRuns + " at " + (goku.move == null ? "its end" : String.format("%.2f s", goku.move.seconds()))
+                + ": " + sequencer.players().size() + " plays; directional light " + (light == null ? "the sun"
+                : "priority " + light.priority() + ", travelling (" + light.dx() + ", " + light.dy() + ", " + light.dz() + "), colour ("
+                + light.red() + ", " + light.green() + ", " + light.blue() + ")"));
+        if (goku.move == null && cutRuns == 2) {
+            System.out.println("[skinned-play] cut done");
+            cutFrames = -1;
+        }
             case CgKeyCodes.KEY_V -> bystander = !bystander;
             case CgKeyCodes.KEY_E -> stage(!(stage != null && stage.on()));
             case CgKeyCodes.KEY_U -> {
