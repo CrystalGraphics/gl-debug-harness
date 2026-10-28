@@ -99,6 +99,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private static final String CUT = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_Cut";
     /** The cut's camera animation: what its {@code camera_animation} section plays on the viewer's camera. */
     private static final String CUT_CAMERA = "kakarot_kit:Art/ANM/cpl/C001A/BTL/SKL/C001A_S_SKL001_Cam";
+    /** E's stage: Kakarot's ocean arena's post materials (KakarotStageFixture), loaded after Goku's. */
+    private static final String STAGE_CHARA = "kakarot_kit:Art/BG/Area02/PostProcess/Area02_CharaColor",
+            STAGE_POST = "kakarot_kit:Art/BG/Area02/PostProcess/Area02_PostProcess";
     /** Goku's Blueprint: its mesh node names his mesh's materials, one a slot, in slot order. */
     private static final String GOKU_PREFAB = "prefabs/Blueprints/Character/C001A/AT_Character_cpl001_BP.yaml";
     /** The namespace the kit's materials name their shading models by ({@code kakarot:cell_tone}). */
@@ -283,6 +286,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** The outline's order among post materials: first, below any volume's priority. */
     private static final int OUTLINE_ORDER = -1_000_000;
     private boolean kitFailureLogged;
+    /** E: the ocean arena's post chain, once the kit is ready; where its two materials sit in the kit's list. */
+    @Nullable
+    private KakarotStageFixture stage;
+    private int stageMaterials = -1;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -346,6 +353,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     actor.outlineBlock = null;
                 }
             }
+            stageMaterials = materials.size();
+            materials = new ArrayList<>(materials);
+            materials.add(STAGE_CHARA);
+            materials.add(STAGE_POST);
             kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT, CUT_CAMERA), SHADING);
         }
         CgWorld client = CgWorld.client();
@@ -601,6 +612,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             case CgKeyCodes.KEY_K -> kamehameha(actor);
             case CgKeyCodes.KEY_X -> cut(actor);
             case CgKeyCodes.KEY_V -> bystander = !bystander;
+            case CgKeyCodes.KEY_E -> stage(!(stage != null && stage.on()));
             case CgKeyCodes.KEY_U -> {
                 if (outlinePass == null) break;
                 outlineTests = (outlineTests + 1) % OUTLINE_TESTS.length;
@@ -636,6 +648,14 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         LOGGER.info("[skinned-play] {}: {} ({})", actor.name, actor.stage, actor.move == null ? "let go" : actor.move.definition().id());
     }
 
+    /** E: the ocean arena's post chain on or off. */
+    private void stage(boolean on) {
+        if (kit == null || !kit.ready() || stageMaterials < 0) return;
+        if (stage == null) stage = new KakarotStageFixture(kit.material(stageMaterials).get(), kit.material(stageMaterials + 1).get());
+        stage.on(on);
+        LOGGER.info("[skinned-play] the ocean arena's post chain {}", on ? "on" : "off");
+    }
+
     /** X: the cut from the start, whatever was playing; it plays out and lets go by itself. */
     private void cut(Actor actor) {
         if (!actor.kit || kit == null || !kit.ready()) return;
@@ -653,6 +673,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart  F9 night\n");
         sb.append("K Kamehameha: charge, fire, end (Goku)  X its cut\n");
         sb.append("V ").append(bystander ? "a bystander (the cut's camera not yours)" : "in the cut");
+        sb.append("  E stage: ").append(stage != null && stage.on() ? "ocean arena" : "none");
         if (outlinePass != null) sb.append("\nU outline: ").append(OUTLINE_TESTS[outlineTests]);
         if (kit != null && kit.failed()) sb.append("\nthe kit failed to load: ").append(kit.failures());
         else if (kit != null && !kit.ready()) sb.append("\nloading the kit...");
@@ -663,6 +684,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     public void dispose() {
         if (submit != null) submit.close();
         if (outline != null) outline.close();
+        if (stage != null) stage.on(false);
         CgAnimation animation = CgAnimation.client();
         for (Actor actor : actors) {
             actor.release();
