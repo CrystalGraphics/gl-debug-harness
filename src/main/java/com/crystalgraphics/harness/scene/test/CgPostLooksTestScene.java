@@ -12,6 +12,7 @@ import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.look.CgFilmLut;
 import com.crystalgraphics.render.post.volume.CgImpact;
 import com.crystalgraphics.render.post.volume.CgPostSettings;
 import com.crystalgraphics.render.post.volume.CgPostVolume;
@@ -33,7 +34,8 @@ import java.util.function.Consumer;
  * drawn once plain and once per look, each look set by a {@link CgPostVolume}. Checked from the pixels: a volume at
  * weight 0, one out of reach and a flash with the player's flashes at 0 change nothing; a flash brightens, a vignette
  * darkens the corners, an inverted impact frame is the negative, chromatic aberration moves edges, focus lines darken,
- * a drawn frame fills the glowing ball and not the wall; and a volume of higher priority overrides a lower one exactly.
+ * a drawn frame fills the glowing ball and not the wall; a volume of higher priority overrides a lower one exactly; and
+ * Unreal 4.21's tonemapper draws each pixel as the CPU's bake of its table reads it.
  *
  * <p>Prints {@code [post-looks] PASS} or {@code FAIL}; on Vulkan a validation error fails it. Captures land in its
  * output directory by look.</p>
@@ -91,6 +93,13 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         BufferedImage chromatic = draw(ctx, world, "chromatic", v -> v.add(post.volume(0, new CgPostSettings().chromatic(5f))));   // Unreal's percent, its usual most
         BufferedImage linear = draw(ctx, world, "copy-form", v -> v.add(post.volume(0, new CgPostSettings().vignette(0.0001f))));
         if (changed(chromatic, linear) < 50) failures.add("chromatic aberration moved " + changed(chromatic, linear) + " pixels");
+        // Unreal 4.21's tonemapper: each pixel as the CPU's bake of the same table reads it from the untoned picture.
+        CgPostSettings stage = new CgPostSettings().tonemap().filmHeal(0.18f);
+        BufferedImage toned = draw(ctx, world, "tonemap", v -> v.add(post.volume(0, stage)));
+        float[] table = new float[CgFilmLut.CELLS * 3];
+        CgFilmLut.bake(stage, table);
+        toneWorst = toneError(linear, toned, table);
+        if (toneWorst > 3) failures.add("the tonemapper: a pixel " + toneWorst + " codes from the CPU's table");
         BufferedImage lines = draw(ctx, world, "lines", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.LINES, 1f))));
         if (!(mean(lines, 0, 0, W, H) < mean(base, 0, 0, W, H) * 0.95f)) {
             failures.add("focus lines: mean " + mean(lines, 0, 0, W, H) + " against " + mean(base, 0, 0, W, H));
@@ -142,6 +151,34 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         if (n > 0) failures.add(what + " changed " + n + " pixels");
     }
 
+    /** The tonemapper's worst pixel against the CPU's table, in codes: for the verdict. */
+    private static double toneWorst;
+
+    /**
+     * The most any of every 7th pixel of {@code toned} is from {@code plain}'s decoded through {@code table}, in codes.
+     * A pixel near white is skipped: under the HDR scene, its untoned value was rolled off from past white.
+     */
+    private static double toneError(BufferedImage plain, BufferedImage toned, float[] table) {
+        double worst = 0;
+        double[] want = new double[3];
+        for (int y = 0; y < plain.getHeight(); y += 7) {
+            for (int x = 0; x < plain.getWidth(); x += 7) {
+                int p = plain.getRGB(x, y), t = toned.getRGB(x, y);
+                if ((p >> 16 & 0xFF) > 245 || (p >> 8 & 0xFF) > 245 || (p & 0xFF) > 245) continue;
+                CgFilmLut.tonemap(table, decode(p >> 16 & 0xFF), decode(p >> 8 & 0xFF), decode(p & 0xFF), want);
+                worst = Math.max(worst, Math.abs((t >> 16 & 0xFF) - want[0] * 255));
+                worst = Math.max(worst, Math.abs((t >> 8 & 0xFF) - want[1] * 255));
+                worst = Math.max(worst, Math.abs((t & 0xFF) - want[2] * 255));
+            }
+        }
+        return worst;
+    }
+
+    private static double decode(int code) {
+        double c = code / 255.0;
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
     private static int changed(BufferedImage a, BufferedImage b) {
         int n = 0;
         for (int y = 0; y < a.getHeight(); y++) for (int x = 0; x < a.getWidth(); x++) if (a.getRGB(x, y) != b.getRGB(x, y)) n++;
@@ -175,7 +212,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         } else {
             System.out.println("[post-looks] PASS on " + on + ": weight 0, out of reach and flashes 0 change nothing; "
                     + "flash, vignette, invert, aberration and focus lines each show; a drawn frame's subject is the glow; "
-                    + "priority overrides");
+                    + "priority overrides; the tonemapper within " + String.format("%.2f", toneWorst) + " codes of the CPU's table");
         }
     }
 
