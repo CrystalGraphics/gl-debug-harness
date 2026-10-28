@@ -6,6 +6,7 @@ import com.crystalgraphics.api.animation.CgAnimSection;
 import com.crystalgraphics.api.animation.CgAnimSequence;
 import com.crystalgraphics.api.animation.CgSkeletonDefinition;
 import com.crystalgraphics.api.material.CgMaterial;
+import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
 import com.crystalgraphics.api.mesh.CgSkeletalMesh;
 import com.crystalgraphics.asset.codec.CgAssetYaml;
@@ -25,6 +26,7 @@ import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencePlayer;
+import com.crystalgraphics.sequence.binding.CgRoleOutline;
 import com.crystalgraphics.sequence.binding.CgSequenceRole;
 import com.crystalgraphics.sequence.animation.CgSequenceSkeletal;
 import com.crystalgraphics.sequence.spawn.CgSequenceSpawned;
@@ -76,7 +78,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private static final String GOKU_SKELETON = "skeletons/Art/MDL/Cpl/Cpl001/Model/Cpl001p1_Skeleton.yaml";
     private static final float FADE = 0.25f, FRAME = 1f / 30f;
     /** K's Kamehameha: the kit's charge and shot montages, sequences; the shot's loop ends at its {@code End} section. */
-    private static final String CHARGE = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_01",
+    /** Kakarot's names for a role's outline slot: its materials' type, and the battle outline's colour for type 1. */
+    private static final String OUTLINE_TYPE = "OutlineColorType", OUTLINE_TYPE_COLOUR = "TypeColor1";
+    private static final String CHARGE ="kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_01",
             SHOT = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_02", SHOT_END = "End";
     /** Kakarot's battle outline, its renderer's pass as a post material, and the stencil it outlines Goku by. */
     private static final String BATTLE_OUTLINE = "kakarot_kit:Renderer/BattleOutline";
@@ -105,6 +109,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         /** Its slots' kit materials by id, from its prefab, or empty; whether they are set on its instance yet. */
         List<String> kitMaterials = List.of();
         boolean dressed;
+        /** The material contract's {@code outline} slot, once its kit materials and the outline are set; or null. */
+        CgRoleOutline outline;
         int clip;
         int rate = 3;
 
@@ -180,15 +186,17 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
         @Override
         public int slot(String name) {
-            return -1;
+            return outline == null ? -1 : outline.slot(name);
         }
 
         @Override
         public void set(int slot, float[] values, int mask) {
+            outline.set(slot, values, mask);
         }
 
         @Override
         public void get(int slot, float[] out) {
+            outline.get(slot, out);
         }
 
         @Override
@@ -384,8 +392,13 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                         CgPostMaterial battle = CgPostMaterial.of(pass, CgPostPoint.AFTER_WORLD, 0);
                         outline = CgPostStack.get().add(battle);
                         LOGGER.info("[skinned-play] {}: outlined by {}", actor.name, BATTLE_OUTLINE);
+                        // The contract's outline colour in Goku's type slot, 1: the battle's first member (OL6)
+                        List<CgMaterialDefinition> worn = new ArrayList<>();
+                        for (int s = 0; s < actor.kitMaterials.size(); s++) worn.add(kit.material(s).get());
+                        actor.outline = new CgRoleOutline(actor.instance, worn, battle, 1, OUTLINE_TYPE, OUTLINE_TYPE_COLOUR);
                         if (checking) {
-                            outlineCheck = new SkinnedOutlineCheck(battle, List.of(actor.instance), actor.x, actor.z, actor.height);
+                            outlineCheck = new SkinnedOutlineCheck(battle, List.of(actor.instance), actor.x, actor.z, actor.height,
+                                    keyed -> sequencer.play(keyed, Map.of("caster", actor)));
                         }
                     }
                 }

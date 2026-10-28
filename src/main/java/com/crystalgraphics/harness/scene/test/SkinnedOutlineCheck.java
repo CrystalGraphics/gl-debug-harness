@@ -4,6 +4,9 @@ import com.crystalgraphics.animation.CgAnimInstance;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.shader.CgShaderBindings;
 import com.crystalgraphics.api.texture.CgTextureType;
+import com.crystalgraphics.asset.codec.CgAssetYaml;
+import com.crystalgraphics.asset.kind.CgSequenceKinds;
+import com.crystalgraphics.asset.tree.CgAssetData;
 import com.crystalgraphics.gl.buffer.CgReadback;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
@@ -14,10 +17,14 @@ import com.crystalgraphics.render.post.CgPostMaterial;
 import com.crystalgraphics.render.stage.CgFrameKeys;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.sequence.CgSequencePlayer;
+import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * OL5's gate in {@code skinned-play} ({@code -Dcrystalgraphics.harness.skinnedPlay.outlineCheck=true}, with
@@ -29,7 +36,17 @@ final class SkinnedOutlineCheck {
 
     /** Frames each phase is held before its picture is read: the outline's properties land at the next record. */
     private static final int SETTLE = 3;
-    private static final String[] PHASES = {"whole", "none", "no depth test", "no normal test", "no ID test"};
+    private static final String[] PHASES = {"whole", "none", "no depth test", "no normal test", "no ID test", "keyed",
+            "restored"};
+    private static final int KEYED = 5, RESTORED = 6;
+    /**
+     * The kit's {@code ATAnimNotifyState_OutlineColor} section, keyed red (as {@code AM_C002C_S_SKL003_Cut}'s), on the
+     * caster for two seconds.
+     */
+    private static final String KEYED_RED = "_v: 1\ntick_resolution: 30\ndisplay_rate: 30\nrange: [0, 60]\n"
+            + "roles:\n  - { id: r1, name: caster, kind: caster, seed: true }\ntracks:\n"
+            + "  - { id: t1, kind: material, binding: { role: caster }, sections: [ { id: s1, range: [0, 60],"
+            + " completion: restore_state, colours: { outline: { keys: [[0, [1.0, 0.0, 0.0, 1.0], constant]] } } } ] }\n";
 
     private final CgPostMaterial outline;
     private final CgMaterial pass;
@@ -46,7 +63,12 @@ final class SkinnedOutlineCheck {
     /** Where the camera stands: close, since the game's normal test fades out by 5 m (OUTLINE.md, F(d)). */
     private final float eyeX, eyeY, eyeZ;
 
-    SkinnedOutlineCheck(CgPostMaterial outline, List<CgAnimInstance> held, double x, double z, float height) {
+    private final Function<CgSequenceDefinition, CgSequencePlayer> play;
+    private CgSequencePlayer keyed;
+
+    SkinnedOutlineCheck(CgPostMaterial outline, List<CgAnimInstance> held, double x, double z, float height,
+                        Function<CgSequenceDefinition, CgSequencePlayer> play) {
+        this.play = play;
         this.eyeX = (float) x;
         this.eyeY = height * 0.7f;
         this.eyeZ = (float) z + 1.8f;
@@ -87,6 +109,7 @@ final class SkinnedOutlineCheck {
             enter(0);
             return;
         }
+        if (phase == RESTORED && !keyed.finished()) return;
         if (--wait > 0) return;
         if (pictures[phase] == null && wait == 0) {
             int at = phase, fb = ctx.getTargetFramebuffer();
@@ -104,6 +127,12 @@ final class SkinnedOutlineCheck {
         wait = SETTLE;
         outline.weight(next == 1 ? 0f : 1f);
         tests(pass, next != 2, next != 3, next != 4);
+        if (next == KEYED) keyed = play.apply(compile(KEYED_RED));
+    }
+
+    private static CgSequenceDefinition compile(String yaml) {
+        return CgSequenceDefinition.COMPILER.compile(CgAssetData.of("harness:outline_keyed", CgSequenceKinds.SEQUENCE,
+                (Map<?, ?>) CgAssetYaml.read(yaml), null), (kind, id) -> null);
     }
 
     /**
@@ -160,9 +189,21 @@ final class SkinnedOutlineCheck {
         else if (fail == null && offStencil > 0) fail = offStencil + " outline pixels off Goku's stencil";
         else if (fail == null && lighter > counts[0] / 100) fail = lighter + " outline pixels lighter than the scene";
         // The normal test is not held to it: it fades out by 5 m, and at this camera depth and ID edges cover its own
-        for (int p = 2; p < PHASES.length && fail == null; p++) {
+        for (int p = 2; p < KEYED && fail == null; p++) {
             if (p != 3 && counts[p] >= counts[0]) fail = "turning off the " + PHASES[p].substring(3) + " changed nothing: it draws no edge";
         }
+        // The keyed colour: the whole outline's pixels drawn red over the section; after it, the outline as it was
+        int red = 0, changed = 0;
+        for (int i = 0; i < w * h; i++) {
+            if (differs(pictures[RESTORED], pictures[0], i)) changed++;
+            if (!differs(pictures[0], none, i)) continue;
+            int r = pictures[KEYED][i * 4] & 0xFF, g = pictures[KEYED][i * 4 + 1] & 0xFF, b = pictures[KEYED][i * 4 + 2] & 0xFF;
+            if (r > 2 * g + 20 && r > 2 * b + 20) red++;
+        }
+        System.out.printf("[skinned-play] outline keyed red: %d of %d outline pixels red; %d pixels unlike the outline after"
+                + " the section%n", red, counts[0], changed);
+        if (fail == null && red < counts[0] / 2) fail = "a keyed outline colour drew " + red + " of " + counts[0] + " pixels red";
+        else if (fail == null && changed > counts[0] / 100) fail = changed + " pixels unlike the outline after its section ended";
         System.out.println(fail == null ? "[skinned-play] outline PASS on " + on : "[skinned-play] outline FAIL on " + on + ": " + fail);
     }
 
