@@ -25,9 +25,15 @@ import com.crystalgraphics.vfx.particle.gpu.CgVfxEventRows;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxGpuEmitter;
 import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
 import com.crystalgraphics.vfx.prefab.CgVfxPrefab;
+import com.crystalgraphics.asset.codec.CgAssetYaml;
+import com.crystalgraphics.asset.kind.CgSequenceKinds;
+import com.crystalgraphics.asset.load.CgAssetCompiler;
+import com.crystalgraphics.asset.tree.CgAssetData;
+import com.crystalgraphics.object.CgType;
+import com.crystalgraphics.object.value.CgUnits;
+import com.crystalgraphics.sequence.CgSequenceDefinition;
+import com.crystalgraphics.vfx.sequence.CgVfxClipBake;
 import com.crystalgraphics.vfx.sequence.CgVfxNodeClip;
-import com.crystalgraphics.vfx.sequence.CgVfxNodeClip.Channel;
-import com.crystalgraphics.vfx.sequence.CgVfxNodeClip.Interp;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -44,9 +50,9 @@ import com.crystalgraphics.vfx.system.CgVfxSystemDefinition;
 import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
 
 /**
- * G2.1's gate, particle-played clips: one {@code SEQUENCE} particle plays a clip whose hub turns about z in steps (90
- * degrees from frame 15, 180 from frame 45) and whose tip, two of the particle's sizes out, draws a part and fades out
- * on frame 66. Three frames are photographed: the part is where its node is at each, and gone once faded. An event at
+ * The gate of particle-played clips: one {@code SEQUENCE} particle plays a clip baked from a sequence file, whose hub
+ * turns about z in steps (90 degrees from frame 15, 180 from frame 45) and whose tip, two of the particle's sizes out,
+ * draws a part and fades out on frame 66. Three frames are photographed: the part is where its node is at each, and gone once faded. An event at
  * the tip reports where it fired, the node's +Y its normal. The clip's burst and stream spawn children at the tip, which
  * a force pushes along x; each child's death spawns two grandchildren. Every child's and grandchild's row is checked
  * against Java: its id (a child's key, a grandchild's), where it was born, how far the force carried it.
@@ -78,9 +84,17 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
     private final CgVfxEmitter middle = CgVfxEmitter.builder("sequence-middle").capacity(64).life(0.5f, 0.5f)
             .speed(0f, 0f).module(new CgVfxModule.Force(FORCE, 0f, 0f))
             .event(CgVfxEvent.onDeath().spawn(leaf, LEAVES).maxPerFrame(64).readback(64)).build();
-    private final CgVfxNodeClip clip = CgVfxNodeClip.of(prefab, 90)
-            .channel("hub", Channel.ROTATION_Z, Interp.CONSTANT, 0, 0f, 15, 90f, 45, 180f)
-            .channel("tip", Channel.OPACITY, Interp.CONSTANT, 0, 1f, 66, 0f)
+    /** The clip's channels, from a sequence file: the hub's steps and the tip's fade. */
+    private static final String SEQUENCE = "_v: 1\ntick_resolution: 30\ndisplay_rate: 30\nrange: [0, 90]\n"
+            + "spawnables:\n  - { id: s1, name: gate, prefab: harness:sequence_gate }\n"
+            + "tracks:\n"
+            + "  - { id: t1, kind: transform, binding: { spawnable: s1, node: hub }, sections: [ { id: a, range: [0, 90],"
+            + " rotation: { z: { keys: [[0, 0.0, constant], [15, 1.5707964, constant], [45, 3.1415927, constant]] } } } ] }\n"
+            + "  - { id: t2, kind: property, binding: { spawnable: s1, node: tip }, property: opacity, sections: [ { id: b,"
+            + " range: [0, 90], value: { keys: [[0, 1.0, constant], [66, 0.0, constant]] } } ] }\n";
+    /** Rotations as radians, intrinsic x, y, z, in the host's axes. */
+    private static final CgUnits ANGLES = CgUnits.of(Map.of("angles", "radians", "rotation", Map.of("order", "xyz", "intrinsic", true)), CgUnits.HOST);
+    private final CgVfxNodeClip clip = CgVfxClipBake.builder("sequence-root", sequence())
             .burst("tip", middle, 30, BURST)
             .stream("tip", middle, 50, 69, 14f)
             .build();
@@ -88,6 +102,22 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
     private final CgVfxEmitter root = CgVfxEmitter.builder("sequence-root").sequence(clip).state(CgVfxEmitterState.ONCE)
             .capacity(1).burst(0f, 1).life(3f, 3f).size(SIZE, SIZE).speed(0f, 0f).opacity(CgKeyframes.constant(1f))
             .event(CgVfxEvent.onAge(1f).at(tip).readback(4)).build();
+
+    private CgSequenceDefinition sequence() {
+        CgAssetCompiler.Dependencies deps = new CgAssetCompiler.Dependencies() {
+            @Override
+            public Object definition(CgType kind, String id) {
+                return id.equals(prefab.id()) ? prefab : null;
+            }
+
+            @Override
+            public CgUnits units() {
+                return ANGLES;
+            }
+        };
+        return CgSequenceDefinition.COMPILER.compile(CgAssetData.of("harness:sequence_gate", CgSequenceKinds.SEQUENCE,
+                (Map<?, ?>) CgAssetYaml.read(SEQUENCE), null), deps);
+    }
 
     private final CgVfxSystem vfx = new CgVfxSystem();
     private final CgVfxEventListener listener = this::heard;

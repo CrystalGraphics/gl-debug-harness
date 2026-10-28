@@ -1,5 +1,12 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.animation.CgAnimInstance;
+import com.crystalgraphics.api.animation.CgAnimSequence;
+import com.crystalgraphics.api.animation.CgSkeleton;
+import com.crystalgraphics.api.mesh.CgMesh;
+import com.crystalgraphics.api.mesh.CgSkeletalMesh;
+import com.crystalgraphics.api.vertex.CgVertexFormat;
+import com.crystalgraphics.asset.kind.CgBodyKinds;
 import com.crystalgraphics.asset.kind.CgParticleKinds;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.asset.load.CgAssetRef;
@@ -22,21 +29,25 @@ import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.sequence.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.CgSequenceRole;
+import com.crystalgraphics.sequence.CgSequenceSkeletal;
 import com.crystalgraphics.sequence.CgSequenceSpawned;
 import com.crystalgraphics.sequence.CgSequenceSystem;
 import com.crystalgraphics.sequence.CgSequencer;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.prefab.CgVfxPrefabAssets;
+import com.crystalgraphics.vfx.prefab.CgVfxPrefabPreparer;
 import com.crystalgraphics.vfx.prefab.CgVfxPrefabSpawner;
 import com.crystalgraphics.vfx.system.CgVfxSystemAssets;
 import com.crystalgraphics.vfx.system.CgVfxSystemPreparer;
 import com.crystalgraphics.vfx.system.CgVfxSystemSpawner;
 import com.crystalgraphics.world.CgAttachment;
+import org.joml.Vector3f;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -105,6 +116,7 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
         registry.scan(namespace, kit, CgAssetSource.DEV);
         CgVfxAssets assets = new CgVfxAssets(registry);
         assets.preparer(CgParticleKinds.SYSTEM, new CgVfxSystemPreparer(() -> vfx));
+        assets.preparer(CgBodyKinds.PREFAB, new CgVfxPrefabPreparer(() -> vfx));
         CgVfxAssets.install(assets);
         ref = assets.declare(CgSequenceKinds.SEQUENCE, sequenceId);
         handle = assets.load(List.of(ref), CgLoadPriority.MOVE);
@@ -137,7 +149,8 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
         }
         spawnedThisFrame = 0;
         long t0 = System.nanoTime();
-        sequencer.evaluate(frame.getDeltaTime());
+        // Its first frame plays from tick 0: the frame's delta is the load's.
+        sequencer.evaluate(frames == 0 ? 0f : frame.getDeltaTime());
         long cost = System.nanoTime() - t0;
         if (cost > worstNanos && frames > 0) {
             worstNanos = cost;
@@ -218,7 +231,7 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
         Watched(String name, CgSequenceSystem system) {
             this.name = name;
             this.system = system;
-            spawnedThisFrame++;
+            if (name.indexOf('/') < 0) spawnedThisFrame++;
         }
 
         private void note(String what) {
@@ -263,10 +276,43 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
             system.destroy(graceful);
             note(graceful ? "despawned" : "despawned at once");
         }
+
+        @Override public CgSequenceSystem emitter(String handle) {
+            CgSequenceSystem e = system.emitter(handle);
+            return e == null ? null : new Watched(name + "/" + handle, e);
+        }
     }
 
-    /** The caster: at the origin facing +x, every socket at chest height; any slot taken and kept. */
-    private static final class Caster extends Fixture implements CgSequenceRole {
+    /**
+     * The caster: at the origin facing +x, every socket at chest height; any slot taken and kept; any clip played, a
+     * still one of a bone, as the player's own animations stand in for whatever animates the player.
+     */
+    private static final class Caster extends Fixture implements CgSequenceRole, CgSequenceSkeletal {
+        private final CgAnimInstance body = new CgAnimInstance(bone());
+        private final Map<String, CgAnimSequence> clips = new HashMap<>();
+
+        private static CgSkeletalMesh bone() {
+            CgSkeleton skeleton = CgSkeleton.builder().bone("root", null, new Vector3f()).build();
+            CgMesh triangle = CgMesh.build(CgVertexFormat.SKINNED, m -> {
+                int a = m.vertex().position(0, 0, 0).normal(0, 0, 1).uv(0, 0).bone(0, 1f).end();
+                int b = m.vertex().position(1, 0, 0).normal(0, 0, 1).uv(1, 0).bone(0, 1f).end();
+                int c = m.vertex().position(0, 1, 0).normal(0, 0, 1).uv(0, 1).bone(0, 1f).end();
+                m.triangle(a, b, c);
+            });
+            return CgSkeletalMesh.builder(triangle, skeleton).build();
+        }
+
+        @Override
+        public CgAnimInstance instance() {
+            return body;
+        }
+
+        @Override
+        public CgAnimSequence clip(String id) {
+            return clips.computeIfAbsent(id, k -> CgAnimSequence.builder(k, 30, 1)
+                    .track("root", new float[3], new float[] {0, 0, 0, 1}, new float[] {1, 1, 1}).build());
+        }
+
         @Override
         public CgAttachment attachment(String socket) {
             return (point, turn) -> {
