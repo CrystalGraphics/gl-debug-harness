@@ -88,7 +88,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         if (Math.abs(mean(invert, 0, 0, W, H) - negative) > 8f) {
             failures.add("an inverted impact frame: mean " + mean(invert, 0, 0, W, H) + " against " + negative);
         }
-        BufferedImage chromatic = draw(ctx, world, "chromatic", v -> v.add(post.volume(0, new CgPostSettings().chromatic(1f))));
+        BufferedImage chromatic = draw(ctx, world, "chromatic", v -> v.add(post.volume(0, new CgPostSettings().chromatic(5f))));   // Unreal's percent, its usual most
         BufferedImage linear = draw(ctx, world, "copy-form", v -> v.add(post.volume(0, new CgPostSettings().vignette(0.0001f))));
         if (changed(chromatic, linear) < 50) failures.add("chromatic aberration moved " + changed(chromatic, linear) + " pixels");
         BufferedImage lines = draw(ctx, world, "lines", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.LINES, 1f))));
