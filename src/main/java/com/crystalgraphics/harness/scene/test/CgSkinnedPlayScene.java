@@ -40,6 +40,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -78,13 +79,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private static final String GOKU_SKELETON = "skeletons/Art/MDL/Cpl/Cpl001/Model/Cpl001p1_Skeleton.yaml";
     private static final float FADE = 0.25f, FRAME = 1f / 30f;
     /** K's Kamehameha: the kit's charge and shot montages, sequences; the shot's loop ends at its {@code End} section. */
-    /** Kakarot's names for a role's outline slot: its materials' type, and the battle outline's colour for type 1. */
-    private static final String OUTLINE_TYPE = "OutlineColorType", OUTLINE_TYPE_COLOUR = "TypeColor1";
     private static final String CHARGE ="kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_01",
             SHOT = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_02", SHOT_END = "End";
-    /** Kakarot's battle outline, its renderer's pass as a post material, and the stencil it outlines Goku by. */
-    private static final String BATTLE_OUTLINE = "kakarot_kit:Renderer/BattleOutline";
-    private static final int GOKU_STENCIL = 1;
     /** Goku's Blueprint: its mesh node names his mesh's materials, one a slot, in slot order. */
     private static final String GOKU_PREFAB = "prefabs/Blueprints/Character/C001A/AT_Character_cpl001_BP.yaml";
     /** The namespace the kit's materials name their shading models by ({@code kakarot:cell_tone}). */
@@ -111,6 +107,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         boolean dressed;
         /** The material contract's {@code outline} slot, once its kit materials and the outline are set; or null. */
         CgRoleOutline outline;
+        /** Its cast entry's {@code outline} block: stencil, post, colour slots; or null where it has none. */
+        @Nullable
+        Map<?, ?> outlineBlock;
         int clip;
         int rate = 3;
 
@@ -309,7 +308,13 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 if (!actor.name.equals("Goku")) continue;
                 actor.kitMaterials = prefabMaterials(kitFolder.resolve(GOKU_PREFAB), actor.instance.materialSlots());
                 materials = new ArrayList<>(actor.kitMaterials);
-                materials.add(BATTLE_OUTLINE);   // last: kit.material(slots)
+                actor.outlineBlock = castOutline(kitFolder.resolve("cast.yaml"), actor.name);
+                if (actor.outlineBlock != null && actor.outlineBlock.get("post") instanceof String post) {
+                    materials.add(post);   // last: kit.material(slots)
+                } else {
+                    LOGGER.warn("[skinned-play] {}'s cast entry has no outline with a post: not outlined", actor.name);
+                    actor.outlineBlock = null;
+                }
             }
             kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT), SHADING);
         }
@@ -359,6 +364,18 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
     }
 
+    /** The {@code outline} block of cast member {@code name} (the rig's, `spec/bodies.md`), or null where it has none. */
+    @Nullable
+    private static Map<?, ?> castOutline(Path cast, String name) {
+        if (!Files.isRegularFile(cast)) return null;
+        try {
+            Object entry = ((Map<?, ?>) CgAssetYaml.read(Files.readString(cast))).get(name);
+            return entry instanceof Map<?, ?> m && m.get("outline") instanceof Map<?, ?> outline ? outline : null;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     /** In SUBMIT, after POSE wrote this frame's palettes. */
     private void submit(float dt) {
         CgWorldRenderer world = CgWorldRenderer.get();
@@ -376,9 +393,12 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     for (int s = 0; s < actor.kitMaterials.size(); s++) actor.instance.material(s, CgMaterial.of(kit.material(s).get()));
                     actor.dressed = true;
                     LOGGER.info("[skinned-play] {}: drawn in its {} kit materials", actor.name, actor.kitMaterials.size());
-                    // Kakarot's battle outline: its renderer's pass over the characters, Goku's stencil 1 (OL5).
-                    actor.instance.customDepth(GOKU_STENCIL, 0xFF);
-                    if (outline == null) {
+                    // His cast entry's outline: the stencil its post reads him by, the post, his colour slot (OL5, OL6)
+                    Map<?, ?> block = actor.outlineBlock;
+                    if (block != null && block.get("custom_depth_stencil_value") instanceof Number stencil) {
+                        actor.instance.customDepth(stencil.intValue(), 0xFF);
+                    }
+                    if (outline == null && block != null) {
                         CgMaterial pass = CgMaterial.of(kit.material(actor.kitMaterials.size()).get());
                         boolean checking = Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.outlineCheck");
                         if (Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.skinnedPlay.outlineYellow",
@@ -391,11 +411,15 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                         outlinePass = pass;
                         CgPostMaterial battle = CgPostMaterial.of(pass, CgPostPoint.AFTER_WORLD, 0);
                         outline = CgPostStack.get().add(battle);
-                        LOGGER.info("[skinned-play] {}: outlined by {}", actor.name, BATTLE_OUTLINE);
-                        // The contract's outline colour in Goku's type slot, 1: the battle's first member (OL6)
-                        List<CgMaterialDefinition> worn = new ArrayList<>();
-                        for (int s = 0; s < actor.kitMaterials.size(); s++) worn.add(kit.material(s).get());
-                        actor.outline = new CgRoleOutline(actor.instance, worn, battle, 1, OUTLINE_TYPE, OUTLINE_TYPE_COLOUR);
+                        LOGGER.info("[skinned-play] {}: outlined by {}", actor.name, block.get("post"));
+                        // The contract's outline colour in his slot, 1: the battle's first member, as gameplay would give
+                        if (block.get("slot_parameter") instanceof String parameter
+                                && block.get("slot_colours") instanceof List<?> colours && !colours.isEmpty()) {
+                            List<CgMaterialDefinition> worn = new ArrayList<>();
+                            for (int s = 0; s < actor.kitMaterials.size(); s++) worn.add(kit.material(s).get());
+                            actor.outline = new CgRoleOutline(actor.instance, worn, battle, 1, parameter,
+                                    String.valueOf(colours.get(0)));
+                        }
                         if (checking) {
                             outlineCheck = new SkinnedOutlineCheck(battle, List.of(actor.instance), actor.x, actor.z, actor.height,
                                     keyed -> sequencer.play(keyed, Map.of("caster", actor)));

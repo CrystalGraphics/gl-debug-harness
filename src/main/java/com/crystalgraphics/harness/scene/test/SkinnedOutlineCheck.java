@@ -40,8 +40,8 @@ final class SkinnedOutlineCheck {
             "restored"};
     private static final int KEYED = 5, RESTORED = 6;
     /**
-     * The kit's {@code ATAnimNotifyState_OutlineColor} section, keyed red (as {@code AM_C002C_S_SKL003_Cut}'s), on the
-     * caster for two seconds.
+     * An {@code ATAnimNotifyState_OutlineColor} section with {@code SetColor} on and {@code Restore} on, in the kit's
+     * form, keyed red on the caster for two seconds. No kit move keys one today: each of its 108 has {@code SetColor} off.
      */
     private static final String KEYED_RED = "_v: 1\ntick_resolution: 30\ndisplay_rate: 30\nrange: [0, 60]\n"
             + "roles:\n  - { id: r1, name: caster, kind: caster, seed: true }\ntracks:\n"
