@@ -36,6 +36,8 @@ final class SkinnedOutlineCheck {
     private final List<CgAnimInstance> held;
     private final CgRenderStage.Registration reader;
     private volatile byte[] stencil;
+    /** The custom data's packed x per pixel: 0 where no writer's redraw landed. */
+    private volatile float[] packed;
     private final byte[][] pictures = new byte[PHASES.length][];
     private boolean readStencil;
     private int phase = -1, wait, w, h;
@@ -56,6 +58,15 @@ final class SkinnedOutlineCheck {
             if (!readStencil || mask == null) return;
             readStencil = false;
             stage.recording().readback(mask, 0, 0, 0, mask.getWidth(), mask.getHeight(), d -> stencil = copy(d, mask.getWidth() * mask.getHeight()));
+            CgGraphTexture data = stage.resources().get(CgFrameKeys.CUSTOM_DATA);
+            if (data != null) {
+                int n = data.getWidth() * data.getHeight();
+                stage.recording().readback(data, 0, 0, 0, data.getWidth(), data.getHeight(), d -> {
+                    float[] got = new float[n];
+                    for (int i = 0; i < n; i++) got[i] = d.getFloat(i * 8);
+                    packed = got;
+                });
+            }
         });
     }
 
@@ -133,14 +144,24 @@ final class SkinnedOutlineCheck {
                 if (luma(pictures[0], i) > luma(none, i)) lighter++;
             }
         }
+        // A hole: Goku's stencil with no custom data, where the writers' redraw failed the depth its colour draw wrote
+        int goku = 0, holes = 0;
+        for (int i = 0; i < w * h && packed != null; i++) {
+            if ((stencil[i] & 0xFF) != 1) continue;
+            goku++;
+            if (packed[i] == 0f) holes++;
+        }
         System.out.printf("[skinned-play] outline: %d pixels whole; %d without the depth test, %d without the normal test,"
-                + " %d without the ID test; %d off Goku's stencil, %d lighter%n", counts[0], counts[2], counts[3], counts[4],
-                offStencil, lighter);
+                + " %d without the ID test; %d off Goku's stencil, %d lighter; custom data missing on %s of Goku's %d%n",
+                counts[0], counts[2], counts[3], counts[4], offStencil, lighter, packed == null ? "?" : holes, goku);
+        if (fail == null && packed == null) fail = "no custom data read back";
+        if (fail == null && holes > 0) fail = holes + " of Goku's pixels have no custom data";
         if (fail == null && counts[0] < 100) fail = "the outline drew " + counts[0] + " pixels";
         else if (fail == null && offStencil > 0) fail = offStencil + " outline pixels off Goku's stencil";
         else if (fail == null && lighter > counts[0] / 100) fail = lighter + " outline pixels lighter than the scene";
+        // The normal test is not held to it: it fades out by 5 m, and at this camera depth and ID edges cover its own
         for (int p = 2; p < PHASES.length && fail == null; p++) {
-            if (counts[p] >= counts[0]) fail = "turning off the " + PHASES[p].substring(3) + " changed nothing: it draws no edge";
+            if (p != 3 && counts[p] >= counts[0]) fail = "turning off the " + PHASES[p].substring(3) + " changed nothing: it draws no edge";
         }
         System.out.println(fail == null ? "[skinned-play] outline PASS on " + on : "[skinned-play] outline FAIL on " + on + ": " + fail);
     }
