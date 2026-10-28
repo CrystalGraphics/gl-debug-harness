@@ -53,6 +53,7 @@ import com.crystalgraphics.harness.runtime.FrameBench;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 
 import com.sun.management.ThreadMXBean;
+import org.joml.Matrix4f;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -178,6 +179,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private static final int RECORD_FROM = Integer.getInteger("crystalgraphics.harness.record", 0);
     private static final int ALLOCATION_SAMPLE = 30;
     private final CgGlRecording recording = new CgGlRecording();
+    /** The scene's own world view this frame, where it has one ({@code InteractiveSceneLifecycle.worldView}). */
+    private final Matrix4f worldView = new Matrix4f(), worldProjection = new Matrix4f();
     private long directAllocated, recordedAllocated;
     private int directFrames, recordedFrames;
     /**
@@ -437,7 +440,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 RenderPassState.beginWorldPass();
 
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.worldPass")) {
-                    worldPassCoordinator.executeWorldPass(ctx, camera, scene.uses3DCamera());
+                    boolean own = scene.worldView(ctx, worldView, worldProjection);
+                    worldPassCoordinator.executeWorldPass(own ? worldView : camera.getViewMatrix(),
+                            own ? worldProjection : ctx.getProjection(), scene.uses3DCamera());
                 }
 
                 // Text context

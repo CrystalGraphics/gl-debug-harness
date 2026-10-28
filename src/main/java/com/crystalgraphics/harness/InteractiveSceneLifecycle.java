@@ -2,6 +2,7 @@ package com.crystalgraphics.harness;
 
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.CgPlatform;
+import org.joml.Matrix4f;
 
 /**
  * Extended lifecycle contract for interactive scenes with continuous render loops.
@@ -104,6 +105,26 @@ public interface InteractiveSceneLifecycle extends HarnessSceneLifecycle {
      * harness's clear colour and floor. Off for a gate, whose pixels are checked against the plain ones.
      */
     default boolean editorEnvironment() {
+        return false;
+    }
+
+    /**
+     * The view this frame's world is drawn from when it is not the harness camera's (a cutscene's camera): asked before
+     * the world pass, which then draws the floor from it, so the floor's depth is the world's. False for the harness
+     * camera.
+     *
+     * <pre>{@code
+     * @Override public boolean worldView(HarnessContext ctx, Matrix4f view, Matrix4f projection) {
+     *     if (!cut.playing()) return false;
+     *     view.set(cut.view());
+     *     projection.set(cut.projection(ctx.getProjection()));
+     *     return true;
+     * }
+     * }</pre>
+     *
+     * The scene draws with the same pair in {@code render}: the runner hands it nothing back.
+     */
+    default boolean worldView(HarnessContext ctx, Matrix4f view, Matrix4f projection) {
         return false;
     }
 }

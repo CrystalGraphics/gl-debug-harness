@@ -495,6 +495,8 @@ public interface InteractiveSceneLifecycle extends HarnessSceneLifecycle {
     boolean uses3DCamera();           // True enables camera, floor, HUD
     boolean shouldShutdownOnComplete(); // True exits the program when done
     default String hudLine() { return null; } // The scene's switches, shown under the HUD's own lines
+    default boolean worldView(HarnessContext ctx, Matrix4f view, Matrix4f projection) { return false; }
+                                      // A cutscene's camera: the floor is drawn from it, so its depth is the world's
 }
 ```
 

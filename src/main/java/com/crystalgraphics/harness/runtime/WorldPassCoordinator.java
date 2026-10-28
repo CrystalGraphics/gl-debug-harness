@@ -2,12 +2,11 @@ package com.crystalgraphics.harness.runtime;
 
 import com.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.platform.gl.CgGL;
-import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.camera.FloorRenderer;
-import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.config.WorldConfig;
 import com.crystalgraphics.harness.config.WorldSettings;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fc;
 
 import java.util.logging.Logger;
 
@@ -93,12 +92,13 @@ public final class WorldPassCoordinator {
      * {@link RenderPassState#beginWorldPass()}
      * before this method to set the required GL state (depth ON, blend OFF).</p>
      *
-     * @param ctx          the harness context (provides viewport dimensions)
-     * @param camera       the 3D camera (provides view matrix for floor rendering)
+     * @param view         the view the scene draws its world with this frame: the 3D camera's, or the scene's own
+     *                     ({@code InteractiveSceneLifecycle.worldView}), so the floor's depth matches the world's
+     * @param projection   that view's projection
      * @param uses3DCamera whether the active scene uses the 3D camera system;
      *                     if false, only the sky clear is performed
      */
-    public void executeWorldPass(HarnessContext ctx, Camera3D camera, boolean uses3DCamera) {
+    public void executeWorldPass(Matrix4fc view, Matrix4fc projection, boolean uses3DCamera) {
         // Clear framebuffer with sky color from resolved world settings
         CgGL.glClearColor(worldSettings.getSkyR(), worldSettings.getSkyG(),
                 worldSettings.getSkyB(), 1.0f);
@@ -107,7 +107,7 @@ public final class WorldPassCoordinator {
         // Render floor plane before scene content so 3D objects composite
         // over the floor rather than over the raw sky clear color.
         if (uses3DCamera && WorldConfig.RENDER_FLOOR && !HarnessEnvironment.INSTANCE.enabled()) {
-            renderFloor(ctx, camera);
+            renderFloor(view, projection);
         }
     }
 
@@ -118,17 +118,14 @@ public final class WorldPassCoordinator {
      * viewport aspect ratio) and camera view matrix, then passes the column-major
      * float[16] to the floor renderer.</p>
      *
-     * @param ctx    the harness context (provides viewport dimensions for aspect ratio)
-     * @param camera the 3D camera (provides the view matrix)
+     * @param view       the view matrix
+     * @param projection the projection
      */
-    private void renderFloor(HarnessContext ctx, Camera3D camera) {
-        Matrix4f projection = ctx.getProjection();
-        Matrix4f viewMatrix = camera.getViewMatrix();
-
+    private void renderFloor(Matrix4fc view, Matrix4fc projection) {
         // MVP = projection * view (no model transform for floor — it sits at world origin)
         Matrix4f mvp = new Matrix4f();
-        projection.mul(viewMatrix, mvp);
-        
+        projection.mul(view, mvp);
+
         floorRenderer.render(mvp);
     }
 

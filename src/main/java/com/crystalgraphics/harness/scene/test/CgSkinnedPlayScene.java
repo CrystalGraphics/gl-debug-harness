@@ -596,18 +596,31 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         return kit != null && id.equals(CUT_CAMERA) && kit.sequence(3).ready() ? kit.sequence(3).get() : null;
     }
 
+    /** The camera system's pose while it controls the view, so the runner's floor is drawn from it too. */
+    @Override
+    public boolean worldView(HarnessContext ctx, Matrix4f outView, Matrix4f outProjection) {
+        cut = cameras != null && cameras.controls();
+        if (!cut) return false;
+        // The camera system's pose: its eye, its turn's forward and up, its horizontal FOV over the projection's aspect.
+        CgCameraPose pose = cameras.pose();
+        pose.rotation().transform(forward.set(1, 0, 0));
+        pose.rotation().transform(up.set(0, 1, 0));
+        eye.set((float) pose.location().x, (float) pose.location().y, (float) pose.location().z);
+        view.setLookAt(eye.x, eye.y, eye.z, eye.x + forward.x, eye.y + forward.y, eye.z + forward.z, up.x, up.y, up.z);
+        Matrix4f base = ctx.getProjection();
+        float m00 = (float) (1 / Math.tan(Math.toRadians(pose.fov()) / 2));
+        projection.set(base).m00(m00).m11(m00 * base.m11() / base.m00());
+        outView.set(view);
+        outProjection.set(projection);
+        return true;
+    }
+
+    /** Whether this frame draws from the camera system's pose, as {@link #worldView} found it. */
+    private boolean cut;
+
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        if (cameras != null && cameras.controls()) {
-            // The camera system's pose: its eye, its turn's forward and up, its horizontal FOV over the projection's aspect.
-            CgCameraPose pose = cameras.pose();
-            pose.rotation().transform(forward.set(1, 0, 0));
-            pose.rotation().transform(up.set(0, 1, 0));
-            eye.set((float) pose.location().x, (float) pose.location().y, (float) pose.location().z);
-            view.setLookAt(eye.x, eye.y, eye.z, eye.x + forward.x, eye.y + forward.y, eye.z + forward.z, up.x, up.y, up.z);
-            Matrix4f base = ctx.getProjection();
-            float m00 = (float) (1 / Math.tan(Math.toRadians(pose.fov()) / 2));
-            projection.set(base).m00(m00).m11(m00 * base.m11() / base.m00());
+        if (cut) {
             HarnessWorld.fire(ctx, view, projection);
         } else {
             HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
