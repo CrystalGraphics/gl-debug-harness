@@ -649,7 +649,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (actors.isEmpty()) return "skinned-play: no meshes found (see the scene's javadoc for the paths)";
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < actors.size(); i++) sb.append(i == selected ? "> " : "  ").append(actors.get(i).line()).append('\n');
-        sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart  K Kamehameha: charge, fire, end (Goku)  X its cut  V " + (bystander ? "a bystander (the cut's camera not yours)" : "in the cut") + "  F9 night");
+        sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart  F9 night\n");
+        sb.append("K Kamehameha: charge, fire, end (Goku)  X its cut\n");
+        sb.append("V ").append(bystander ? "a bystander (the cut's camera not yours)" : "in the cut");
         if (outlinePass != null) sb.append("\nU outline: ").append(OUTLINE_TESTS[outlineTests]);
         if (kit != null && kit.failed()) sb.append("\nthe kit failed to load: ").append(kit.failures());
         else if (kit != null && !kit.ready()) sb.append("\nloading the kit...");
