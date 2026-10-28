@@ -65,7 +65,9 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
     private CgPostMaterial probe;
     private boolean wasHdr;
     private volatile byte[] stencil;
-    private volatile float[] normal, data;
+    private volatile float[] normal, data, hiddenData;
+    /** The hidden cube's pixel, behind the wall: its custom data must read 0. */
+    private static final int HX = 90, HY = 120;
     private volatile byte[] near, background;
     private boolean armed, running = true;
     private int frame;
@@ -97,6 +99,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
             if (!armed || mask == null || normals == null || custom == null) return;
             stage.recording().readback(normals, 0, NX, NY, 1, 1, this::readNormal);
             stage.recording().readback(custom, 0, NX, NY, 1, 1, d -> data = new float[]{d.getFloat(0), d.getFloat(4)});
+            stage.recording().readback(custom, 0, HX, HY, 1, 1, d -> hiddenData = new float[]{d.getFloat(0), d.getFloat(4)});
             stage.recording().readback(mask, 0, 0, 0, W, H, this::read);
         });
     }
@@ -130,7 +133,8 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
         CgWorldRenderer world = CgWorldRenderer.get();
         CgMesh cube = CgMeshShapes.cube();
         world.draw(cube, wall).at(-3, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).submit();
-        world.draw(cube, wall).at(-2.5, 0, -8).customDepth(3, 0xFF).submit();
+        // A writer of custom data hidden by the wall: CustomDepth takes it, the custom data must not.
+        world.draw(cube, writer).at(-2.5, 0, -8).customDepth(3, 0xFF).submit();
         world.draw(cube, writer).at(2.5, -1.2, -5).customDepth(0x0F, 0xFF).submit();
         // One material with the near cube: opaque draws sort by material first, then front to back, and the partial
         // mask's result depends on which draws first.
@@ -184,6 +188,11 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
                 System.out.printf("[custom-depth]   custom data at (%d, %d): (%.0f, %.0f), expected (%.0f, %.0f)%n", NX, NY,
                         data[0], data[1], DATA_X, DATA_Y);
                 if (fail == null && (data[0] != DATA_X || data[1] != DATA_Y)) fail = "the near cube's custom data";
+                System.out.printf("[custom-depth]   custom data behind the wall at (%d, %d): (%.0f, %.0f), expected (0, 0)%n", HX, HY,
+                        hiddenData == null ? -1f : hiddenData[0], hiddenData == null ? -1f : hiddenData[1]);
+                if (fail == null && (hiddenData == null || hiddenData[0] != 0f || hiddenData[1] != 0f)) {
+                    fail = "a hidden writer's custom data shows through the wall";
+                }
                 fail = probed("near cube", near, PROBE_NEAR, fail);
                 fail = probed("background", background, PROBE_BACKGROUND, fail);
             }

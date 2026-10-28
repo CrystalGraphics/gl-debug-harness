@@ -211,6 +211,11 @@ tasks.register<JavaExec>("runHarness") {
         val roots = listOfNotNull(chosen) + extraRoots.map { it.absolutePath }
         systemProperty("crystalgraphics.resourceOverrideDirs", roots.joinToString(File.pathSeparator))
     }
+    // The built kits are thousands of folders, seconds to watch at every launch: read, not watched (Ctrl+R reloads).
+    val kitRoot = rootProject.file("plan/crystalgraphics/vfx-aaa/local/kitroot")
+    if (kitRoot.isDirectory && System.getProperty("crystalgraphics.hotReload.unwatched") == null) {
+        systemProperty("crystalgraphics.hotReload.unwatched", kitRoot.absolutePath)
+    }
 
     // The scene, for a caller that cannot pass `--args` -- a task in another build can only
     // `dependsOn` this one, so a consumer including CrystalGUI has no other way to pick a scene.
