@@ -27,6 +27,7 @@ import com.crystalgraphics.render.post.CgPostMaterial;
 import com.crystalgraphics.render.post.CgPostPoint;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.volume.CgPostVolumeSpawner;
+import com.crystalgraphics.render.stage.CgDirectionalLights;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
@@ -102,6 +103,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** E's stage: Kakarot's ocean arena's post materials (KakarotStageFixture), loaded after Goku's. */
     private static final String STAGE_CHARA = "kakarot_kit:Art/BG/Area02/PostProcess/Area02_CharaColor",
             STAGE_POST = "kakarot_kit:Art/BG/Area02/PostProcess/Area02_PostProcess";
+    /** K's and X's darkening: the Kamehameha's action defaults (KakarotSkillDarken) and the material they play. */
+    private static final String SKILL_ACTION = "roles/Blueprints/Character/C001A/BTL/SKL/BP_C001A_S_SKL001_Action.action.yaml",
+            SKILL_DARKEN = "kakarot_kit:MasterMaterials/AT_Materials/PE_DarkenInTheGround";
     /** Goku's Blueprint: its mesh node names his mesh's materials, one a slot, in slot order. */
     private static final String GOKU_PREFAB = "prefabs/Blueprints/Character/C001A/AT_Character_cpl001_BP.yaml";
     /** The namespace the kit's materials name their shading models by ({@code kakarot:cell_tone}). */
@@ -292,6 +296,19 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     @Nullable
     private KakarotStageFixture stage;
     private int stageMaterials = -1;
+    /**
+     * The ocean arena's directional light, the battle capture's (5440): what Kakarot's cel shading is lit by outside a
+     * move's own light, which wins at priority 1. Unreal's (6.797, 5.941, 4.574) travelling along -(0.5567, -0.3214,
+     * 0.766), in the host's axes; at 6.8 it outshines the host's sun at the same priority.
+     */
+    @Nullable
+    private CgDirectionalLights.Light stageLight;
+    /** The skill's darkening, once the kit is ready; null where the action has none. */
+    @Nullable
+    private KakarotSkillDarken darken;
+    private boolean darkenTried;
+    @Nullable
+    private Path skillAction;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -359,6 +376,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             materials = new ArrayList<>(materials);
             materials.add(STAGE_CHARA);
             materials.add(STAGE_POST);
+            materials.add(SKILL_DARKEN);
+            skillAction = kitFolder.resolve(SKILL_ACTION);
             kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT, CUT_CAMERA), SHADING);
         }
         CgWorld client = CgWorld.client();
@@ -380,6 +399,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         CgPostVolumeSpawner.install(sequencer, cameras);   // the cut's post volumes: its camera's, in its view alone
         cameras.involved(owner -> current == null || !current.bystander);
         submit = client.schedule().add(CgTickGroup.SUBMIT, "harness:skinned-play", this::submit);
+        stageLight = CgDirectionalLights.get().add(0).colour(1f, 5.941f / 6.797f, 4.574f / 6.797f, 6.797f)
+                .travel(-0.5567f, -0.766f, 0.3214f);
         ctx.getCamera3D().moveCamera(2f, 3f, 6f);
         ctx.getCamera3D().setPitch(-10f);
         ctx.getCamera3D().setMoveSpeed(WALK);
@@ -546,6 +567,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     }
                 }
             }
+            if (actor.kit && kit != null && kit.ready()) darken(dt, actor.move != null);
             if (actor.instance.palette() < 0) continue;
             if (actor.dressed) {
                 world.draw(actor.instance);
@@ -675,6 +697,19 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         LOGGER.info("[skinned-play] {}: {} ({})", actor.name, actor.stage, actor.move == null ? "let go" : actor.move.definition().id());
     }
 
+    /** The skill's darkening, made at the kit's first ready frame, toward on while the actor's move plays. */
+    private void darken(float dt, boolean running) {
+        if (!darkenTried) {
+            darkenTried = true;
+            try {
+                darken = KakarotSkillDarken.of(skillAction, kit.material(stageMaterials + 2).get());
+            } catch (IOException e) {
+                LOGGER.warn("[skinned-play] the skill's action file did not read: {}", e.toString());
+            }
+        }
+        if (darken != null) darken.update(dt, running);
+    }
+
     /** E: the ocean arena's post chain on or off. */
     private void stage(boolean on) {
         if (kit == null || !kit.ready() || stageMaterials < 0) return;
@@ -712,6 +747,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (submit != null) submit.close();
         if (outline != null) outline.close();
         if (stage != null) stage.on(false);
+        if (darken != null) darken.close();
+        if (stageLight != null) stageLight.close();
         CgAnimation animation = CgAnimation.client();
         for (Actor actor : actors) {
             actor.release();
