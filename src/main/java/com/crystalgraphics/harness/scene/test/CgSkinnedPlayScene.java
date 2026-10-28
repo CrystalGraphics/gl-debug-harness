@@ -10,10 +10,13 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
 import com.crystalgraphics.api.mesh.CgSkeletalMesh;
 import com.crystalgraphics.asset.codec.CgAssetYaml;
+import com.crystalgraphics.camera.CgCameraPose;
+import com.crystalgraphics.camera.CgCameraSystem;
 import com.crystalgraphics.frame.CgTickFunction;
 import com.crystalgraphics.frame.CgTickGroup;
 import com.crystalgraphics.frame.CgWorld;
 import com.crystalgraphics.harness.FrameInfo;
+import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.object.value.CgQuantity;
@@ -32,8 +35,8 @@ import com.crystalgraphics.sequence.binding.CgRoleOutline;
 import com.crystalgraphics.sequence.binding.CgRoleRim;
 import com.crystalgraphics.sequence.binding.CgSequenceRole;
 import com.crystalgraphics.sequence.animation.CgSequenceSkeletal;
-import com.crystalgraphics.sequence.spawn.CgSequenceSpawned;
 import com.crystalgraphics.sequence.CgSequencer;
+import com.crystalgraphics.sequence.camera.CgCameraAnimationEvaluator;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxOwner;
@@ -41,7 +44,9 @@ import com.crystalgraphics.vfx.system.CgVfxSystemSpawner;
 import com.crystalgraphics.world.CgAttachment;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
 import java.io.File;
@@ -92,6 +97,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             SHOT = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_02", SHOT_END = "End";
     /** X's cut: the Kamehameha's cinematic montage, its face picked by Goku's form (SQ8). */
     private static final String CUT = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_Cut";
+    /** The cut's camera animation: what its {@code camera_animation} section plays on the viewer's camera. */
+    private static final String CUT_CAMERA = "kakarot_kit:Art/ANM/cpl/C001A/BTL/SKL/C001A_S_SKL001_Cam";
     /** Goku's Blueprint: its mesh node names his mesh's materials, one a slot, in slot order. */
     private static final String GOKU_PREFAB = "prefabs/Blueprints/Character/C001A/AT_Character_cpl001_BP.yaml";
     /** The namespace the kit's materials name their shading models by ({@code kakarot:cell_tone}). */
@@ -208,6 +215,13 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             };
         }
 
+        /** Its prefab's {@code Mesh} node: the skinned mesh's own origin and turn, below the capsule's centre. */
+        @Override
+        @Nullable
+        public CgAttachment node(String name) {
+            return name.equals("Mesh") ? instance.attachment("") : null;
+        }
+
         @Override
         public int slot(String name) {
             // The outline's slot is 0, the rim's follow it
@@ -235,45 +249,25 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
     }
 
-    /**
-     * A montage's skill camera, taking its rig's slots and moving nothing: cameras are SQ10b's, and this scene's camera
-     * is the user's.
-     */
-    private static final class HeldCamera implements CgSequenceSpawned {
-        private final List<String> slots = new ArrayList<>();
-        private final List<float[]> values = new ArrayList<>();
-
-        @Override
-        public int slot(String name) {
-            int i = slots.indexOf(name);
-            if (i >= 0) return i;
-            slots.add(name);
-            values.add(new float[4]);
-            return slots.size() - 1;
-        }
-
-        @Override
-        public void set(int slot, float[] v, int mask) {
-            float[] to = values.get(slot);
-            for (int i = 0; i < 4 && i < v.length; i++) if ((mask & 1 << i) != 0) to[i] = v[i];
-        }
-
-        @Override
-        public void get(int slot, float[] out) {
-            System.arraycopy(values.get(slot), 0, out, 0, Math.min(4, out.length));
-        }
-
-        @Override
-        public void destroy(boolean graceful) {
-        }
-    }
-
     /** K's stages: the charge held, the shot's loop held, the shot's end playing out. */
     private enum Stage { IDLE, CHARGING, FIRING, ENDING }
 
     private final List<Actor> actors = new ArrayList<>();
     /** Goku's materials and the charge montage; null without the kit. */
     private HarnessKitSystems kit;
+    /** The scene shown now, across a re-entry that keeps the client world's sequencer and camera system. */
+    @Nullable
+    private static CgSkinnedPlayScene current;
+    @Nullable
+    private static CgSequencer cameraSequencer;
+    @Nullable
+    private CgCameraSystem cameras;
+    private HarnessContext ctx;
+    /** V: watch as a viewer the cut does not involve, its camera and its post not taken. */
+    private boolean bystander;
+    private final Matrix4f view = new Matrix4f(), projection = new Matrix4f();
+    private final Matrix3f basis = new Matrix3f();
+    private final Vector3f forward = new Vector3f(), right = new Vector3f(), up = new Vector3f(), eye = new Vector3f();
     private CgSequencer sequencer;
     private int selected;
     private CgMaterial material;
@@ -350,14 +344,26 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     actor.outlineBlock = null;
                 }
             }
-            kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT), SHADING);
+            kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT, CUT_CAMERA), SHADING);
         }
         CgWorld client = CgWorld.client();
         sequencer = client.subsystem(CgSequencer.class);
         if (sequencer == null) sequencer = client.add(new CgSequencer());
         sequencer.spawner("system", new CgVfxSystemSpawner(VFX.system()));
-        sequencer.spawner("camera", (p, s, at) -> new HeldCamera());
-        CgPostVolumeSpawner.install(sequencer);   // the cut's post volumes
+        current = this;
+        cameras = client.subsystem(CgCameraSystem.class);
+        if (cameras == null) cameras = client.add(new CgCameraSystem());
+        cameras.host(pose -> {
+            if (current != null) current.hostPose(pose);
+        });
+        // Once a sequencer: the scene shown now answers its camera sequences.
+        if (cameraSequencer != sequencer) {
+            CgCameraAnimationEvaluator.install(sequencer, cameras, id -> current == null ? null : current.cameraSequence(id));
+            cameraSequencer = sequencer;
+        }
+        this.ctx = ctx;
+        CgPostVolumeSpawner.install(sequencer, cameras);   // the cut's post volumes: its camera's, in its view alone
+        cameras.involved(owner -> current == null || !current.bystander);
         submit = client.schedule().add(CgTickGroup.SUBMIT, "harness:skinned-play", this::submit);
         ctx.getCamera3D().moveCamera(2f, 3f, 6f);
         ctx.getCamera3D().setPitch(-10f);
@@ -535,9 +541,41 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
     }
 
+    /** The harness camera as the camera system's host: its eye, its look and the projection's horizontal FOV. */
+    private void hostPose(CgCameraPose out) {
+        Camera3D cam = ctx.getCamera3D();
+        cam.getViewMatrix();   // its look, current
+        Vector3f look = cam.getLookVector();
+        forward.set(look).normalize();
+        right.set(forward).cross(0, 1, 0).normalize();
+        up.set(right).cross(forward).normalize();
+        // The pose's turn takes +x to its forward and +y to its up; +z is then their cross, its right.
+        basis.set(forward.x, forward.y, forward.z, up.x, up.y, up.z, right.x, right.y, right.z);
+        out.location(cam.getPosX(), cam.getPosY(), cam.getPosZ()).fov((float) Math.toDegrees(2 * Math.atan(1 / ctx.getProjection().m00())));
+        out.rotation().setFromNormalized(basis);
+    }
+
+    @Nullable
+    private CgSequenceDefinition cameraSequence(String id) {
+        return kit != null && id.equals(CUT_CAMERA) && kit.sequence(3).ready() ? kit.sequence(3).get() : null;
+    }
+
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
+        if (cameras != null && cameras.controls()) {
+            // The camera system's pose: its eye, its turn's forward and up, its horizontal FOV over the projection's aspect.
+            CgCameraPose pose = cameras.pose();
+            pose.rotation().transform(forward.set(1, 0, 0));
+            pose.rotation().transform(up.set(0, 1, 0));
+            eye.set((float) pose.location().x, (float) pose.location().y, (float) pose.location().z);
+            view.setLookAt(eye.x, eye.y, eye.z, eye.x + forward.x, eye.y + forward.y, eye.z + forward.z, up.x, up.y, up.z);
+            Matrix4f base = ctx.getProjection();
+            float m00 = (float) (1 / Math.tan(Math.toRadians(pose.fov()) / 2));
+            projection.set(base).m00(m00).m11(m00 * base.m11() / base.m00());
+            HarnessWorld.fire(ctx, view, projection);
+        } else {
+            HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
+        }
         if (outlineCheck != null) outlineCheck.frame(ctx);
     }
 
@@ -561,6 +599,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             case CgKeyCodes.KEY_O -> instance.rate(RATES[actor.rate = Math.min(RATES.length - 1, actor.rate + 1)]);
             case CgKeyCodes.KEY_K -> kamehameha(actor);
             case CgKeyCodes.KEY_X -> cut(actor);
+            case CgKeyCodes.KEY_V -> bystander = !bystander;
             case CgKeyCodes.KEY_U -> {
                 if (outlinePass == null) break;
                 outlineTests = (outlineTests + 1) % OUTLINE_TESTS.length;
@@ -610,7 +649,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (actors.isEmpty()) return "skinned-play: no meshes found (see the scene's javadoc for the paths)";
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < actors.size(); i++) sb.append(i == selected ? "> " : "  ").append(actors.get(i).line()).append('\n');
-        sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart  K Kamehameha: charge, fire, end (Goku)  X its cut  F9 night");
+        sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart  K Kamehameha: charge, fire, end (Goku)  X its cut  V " + (bystander ? "a bystander (the cut's camera not yours)" : "in the cut") + "  F9 night");
         if (outlinePass != null) sb.append("\nU outline: ").append(OUTLINE_TESTS[outlineTests]);
         if (kit != null && kit.failed()) sb.append("\nthe kit failed to load: ").append(kit.failures());
         else if (kit != null && !kit.ready()) sb.append("\nloading the kit...");
