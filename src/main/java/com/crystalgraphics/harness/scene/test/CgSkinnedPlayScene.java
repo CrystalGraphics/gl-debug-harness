@@ -79,9 +79,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** Goku's sockets: the kit's skeleton asset, in its units.yaml's units. */
     private static final String GOKU_SKELETON = "skeletons/Art/MDL/Cpl/Cpl001/Model/Cpl001p1_Skeleton.yaml";
     private static final float FADE = 0.25f, FRAME = 1f / 30f;
-    /** Kakarot's face layers (AB_C000): FacialSlot over facialbase, the lip-sync pose over fbLowerFace. */
-    private static final String FACE_SLOT = "FacialSlot", FACE_BRANCH = "facialbase", LIP_SLOT = "LipSlot",
-            LIP_BRANCH = "fbLowerFace";
+    /** Kakarot's face layer (AB_C000): FacialSlot over facialbase. */
+    private static final String FACE_SLOT = "FacialSlot", FACE_BRANCH = "facialbase";
     /** Seconds of timeline the blinks are laid over; the face loops alone after. */
     private static final double BLINKS_FOR = 600.0;
     private static final long BLINK_SEED = 0x6B616B61L;
@@ -340,13 +339,12 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /**
      * Goku's AnimBP face (AB_C000), from the FCE clips under {@code fce}: his face montage on FacialSlot over facialbase
      * (depth 1), its blink played in its place every {@link #blinkInterval} seconds with the face replayed after, as
-     * OnMontageEnded does; and the lip-sync blend space's neutral sample, LIP_Close, over fbLowerFace, curves from the
-     * base. A move's FacialSlot section plays over the face.
+     * OnMontageEnded does. A move's FacialSlot section plays over the face. No lip-sync layer: fbLowerFace's weight is
+     * 0 in battle, where no voice has lip data.
      */
     private static void dressFace(Actor actor, CgSkeletalMesh mesh, String fce) {
         String name = System.getProperty("crystalgraphics.harness.skinned.goku.face", "C001A_FCE_Battle");
-        File face = new File(fce + name + ".glb"), blink = new File(fce + name + "_blink.glb"),
-                lips = new File(fce + "LIP/C001A_LIP_Close.glb");
+        File face = new File(fce + name + ".glb"), blink = new File(fce + name + "_blink.glb");
         if (!face.isFile() || mesh.skeleton().indexOfIgnoringCase(FACE_BRANCH) < 0) {
             LOGGER.warn("[skinned-play] Goku's face clip {} is missing: his face is the body's", face);
             return;
@@ -368,13 +366,6 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
         layer.play(CgAnimSection.of(faceClip).at(from).until(Double.POSITIVE_INFINITY).loop().build());
         LOGGER.info("[skinned-play] Goku's face: {} on {}{}", faceClip.name(), FACE_SLOT, blink.isFile() ? ", blinking" : "");
-        if (lips.isFile() && mesh.skeleton().indexOfIgnoringCase(LIP_BRANCH) >= 0) {
-            CgAnimSequence close = CgMeshLoader.sequences(lips.getPath()).get(0);
-            actor.instance.layer(LIP_SLOT, LIP_BRANCH, 1).curvesFromBase()
-                    .play(CgAnimSection.of(close).until(Double.POSITIVE_INFINITY).loop().build());
-        } else {
-            LOGGER.warn("[skinned-play] Goku's lips {} are missing: his mouth is the face's", lips);
-        }
     }
 
     /** Kakarot's next blink, in seconds: 15 times the mean of 20 uniform draws, 7.5 s on average (its facial tick). */
