@@ -8,6 +8,7 @@ import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
 import com.crystalgraphics.harness.scene.test.CgHdrSceneTestScene;
 import com.crystalgraphics.harness.scene.test.CgMrtEmissionTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLayersTestScene;
+import com.crystalgraphics.harness.scene.test.CgPostCaptureScene;
 import com.crystalgraphics.harness.scene.test.CgPostLooksTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostEffectsTestScene;
 import com.crystalgraphics.harness.scene.test.CgAsyncComputeTestScene;
@@ -667,6 +668,18 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgPostLooksTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("post-capture")
+                .description("A kit sequence's post spawnables played over a game capture's frame before its post, at the captured tick, scored against the frame after it")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgPostCaptureScene()
         );
 
         reg.register(

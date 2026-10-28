@@ -282,6 +282,10 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
             system.detach();
         }
 
+        @Override public void update() {
+            system.update();
+        }
+
         @Override public boolean active() {
             return system.active();
         }
@@ -305,7 +309,7 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
      * The caster: at the origin facing +x, every socket at chest height; any slot taken and kept; any clip played, a
      * still one of a bone, as the player's own animations stand in for whatever animates the player.
      */
-    private static final class Caster extends Fixture implements CgSequenceRole, CgSequenceSkeletal {
+    static final class Caster extends Fixture implements CgSequenceRole, CgSequenceSkeletal {
         private final CgAnimInstance body = new CgAnimInstance(bone());
         private final Map<String, CgAnimSequence> clips = new HashMap<>();
 
@@ -344,7 +348,7 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
     }
 
     /** A target taking any slot: what this scene stands in for. */
-    private static class Fixture implements CgSequenceSpawned {
+    static class Fixture implements CgSequenceSpawned {
         private final List<String> slots = new ArrayList<>();
         private final List<float[]> values = new ArrayList<>();
 
