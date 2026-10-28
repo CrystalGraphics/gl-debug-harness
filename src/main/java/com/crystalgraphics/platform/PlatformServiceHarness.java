@@ -1,5 +1,6 @@
 package com.crystalgraphics.platform;
 
+import com.crystalgraphics.platform.world.CgWorldBegin;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.lwjgl3.GlfwInputService;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLBackend;
@@ -52,7 +53,12 @@ public final class PlatformServiceHarness implements CgPlatformService {
     // ── Singleton ─────────────────────────────────────────────────────────────
     private static PlatformServiceHarness INSTANCE;
     
-    public static void init() { if (INSTANCE != null) return; INSTANCE = new PlatformServiceHarness();}
+    public static void init() {
+        if (INSTANCE != null) return;
+        INSTANCE = new PlatformServiceHarness();
+        // No camera hook: the world's frame runs at the first opaque firing, after the scene's own logic, as before.
+        CgWorldBegin.atStage();
+    }
     public static PlatformServiceHarness getInstance() { if (INSTANCE == null) init(); return INSTANCE;}
     
     // ── Services ─────────────────────────────────────────────────────────────
