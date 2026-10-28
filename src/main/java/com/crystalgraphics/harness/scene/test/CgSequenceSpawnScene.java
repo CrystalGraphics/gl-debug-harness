@@ -97,7 +97,9 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
     private long waits, syncs, textures, worstNanos;
     private float worstTick;
     /** The Nova Cannon's gate: each system's first activation and its first deactivation after, in ticks. */
-    private final float[] on = {-1, -1}, off = {-1, -1};
+    private final float[] on = {-1, -1}, off = {-1, -1}, onFrom = {-1, -1}, offFrom = {-1, -1};
+    /** The tick the frame being evaluated started from: what a switch's frame covered, with the tick it ended at. */
+    private float frameFrom;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -148,6 +150,7 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
             start();
         }
         spawnedThisFrame = 0;
+        frameFrom = frames == 0 ? 0f : tick();
         long t0 = System.nanoTime();
         // Its first frame plays from tick 0: the frame's delta is the load's.
         sequencer.evaluate(frames == 0 ? 0f : frame.getDeltaTime());
@@ -207,8 +210,10 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
         if (!sequenceId.equals(NOVA)) {
             System.out.println(TAG + sequenceId + " on " + device() + ": " + summary);
         } else {
-            boolean charge = on[0] >= 0 && on[0] <= 1 && off[0] >= 42 && off[0] <= 45;
-            boolean beam = on[1] >= 40 && on[1] <= 41 && off[1] >= 90 && off[1] <= 91;
+            // Each switch in the frame whose span crossed its key: the charge's deactivate at 42 or its section's end
+            // at 44, so a long frame is never a miss.
+            boolean charge = on[0] >= 0 && crossed(onFrom[0], on[0], 0, 1) && crossed(offFrom[0], off[0], 42, 44);
+            boolean beam = on[1] >= 0 && crossed(onFrom[1], on[1], 40, 41) && crossed(offFrom[1], off[1], 90, 91);
             // A post volume's look keywords are not warmed yet (the composite's variant compiles as it first applies):
             // compile waits are reported, not gated, until post volumes from spawnables prepare.
             boolean pass = charge && beam && syncLoads == 0 && textureLoads == 0 && validation == 0;
@@ -216,6 +221,11 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
                     + off[0] + "], the beam over [" + on[1] + ", " + off[1] + "]; " + summary);
         }
         running = false;
+    }
+
+    /** Whether a frame from {@code from} to {@code to} overlaps ticks {@code a} to {@code b}. */
+    private static boolean crossed(float from, float to, float a, float b) {
+        return from <= b && to >= a;
     }
 
     private static String device() {
@@ -239,8 +249,14 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
             timeline.add(String.format("tick %6.1f  %-8s %s", t, name, what));
             int i = "charge".equals(name) ? 0 : "beam".equals(name) ? 1 : -1;
             if (i < 0) return;
-            if (what.startsWith("activate") && on[i] < 0) on[i] = t;
-            if (what.equals("deactivate") && on[i] >= 0 && off[i] < 0) off[i] = t;
+            if (what.startsWith("activate") && on[i] < 0) {
+                on[i] = t;
+                onFrom[i] = frameFrom;
+            }
+            if (what.equals("deactivate") && on[i] >= 0 && off[i] < 0) {
+                off[i] = t;
+                offFrom[i] = frameFrom;
+            }
         }
 
         @Override public void activate(boolean reset) {
