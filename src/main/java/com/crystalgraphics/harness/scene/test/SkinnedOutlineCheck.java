@@ -8,6 +8,7 @@ import com.crystalgraphics.asset.codec.CgAssetYaml;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.asset.tree.CgAssetData;
 import com.crystalgraphics.gl.buffer.CgReadback;
+import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.platform.PlatformServiceHarness;
@@ -65,6 +66,7 @@ final class SkinnedOutlineCheck {
 
     /** Where the camera stands: close, since the game's normal test fades out by 5 m (OUTLINE.md, F(d)). */
     private final float eyeX, eyeY, eyeZ;
+    private float posedY;
 
     private final Function<CgSequenceDefinition, CgSequencePlayer> play;
     private CgSequencePlayer keyed;
@@ -116,12 +118,13 @@ final class SkinnedOutlineCheck {
         if (phase < 0) {
             if (++steady < SETTLE) return;
             for (CgAnimInstance instance : held) instance.playing(false);
-            ctx.getCamera3D().moveCamera(eyeX, eyeY, eyeZ);
-            ctx.getCamera3D().setYaw(0f);
-            ctx.getCamera3D().setPitch(-5f);
+            pose(ctx);
             enter(0);
             return;
         }
+        // Held every frame: the camera takes mouse and keys each frame, so a stray delta would move what is compared.
+        if (!posed(ctx)) wait = SETTLE;
+        pose(ctx);
         if (phase == RESTORED && !keyed.finished()) return;
         if (--wait > 0) return;
         if (pictures[phase] == null && wait == 0) {
@@ -133,6 +136,19 @@ final class SkinnedOutlineCheck {
         if (pictures[phase] == null) return;
         if (phase + 1 < PHASES.length) enter(phase + 1);
         else if (stencil != null) report();
+    }
+
+    private void pose(HarnessContext ctx) {
+        ctx.getCamera3D().moveCamera(eyeX, eyeY, eyeZ);
+        ctx.getCamera3D().setYaw(0f);
+        ctx.getCamera3D().setPitch(-5f);
+        posedY = ctx.getCamera3D().getPosY();   // the camera's own floor may lift it
+    }
+
+    /** Whether this frame was drawn from the check's eye. */
+    private boolean posed(HarnessContext ctx) {
+        Camera3D c = ctx.getCamera3D();
+        return c.getPosX() == eyeX && c.getPosY() == posedY && c.getPosZ() == eyeZ && c.getYaw() == 0f && c.getPitch() == -5f;
     }
 
     private void enter(int next) {
@@ -197,6 +213,8 @@ final class SkinnedOutlineCheck {
                 + " %d without the ID test; %d off Goku's stencil, %d lighter; custom data missing on %s of Goku's %d%n",
                 counts[0], counts[2], counts[3], counts[4], offStencil, lighter, packed == null ? "?" : holes, goku);
         if (fail == null && packed == null) fail = "no custom data read back";
+        // Framed from 1.8 m, Goku covers about a tenth of the frame; much less and the edges compared are few.
+        if (fail == null && goku < w * h / 20) fail = "Goku covers " + goku + " pixels of " + w * h + ": not framed";
         if (fail == null && holes > 0) fail = holes + " of Goku's pixels have no custom data";
         if (fail == null && counts[0] < 100) fail = "the outline drew " + counts[0] + " pixels";
         else if (fail == null && offStencil > 0) fail = offStencil + " outline pixels off Goku's stencil";
