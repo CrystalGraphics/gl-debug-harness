@@ -1,12 +1,12 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.animation.CgAnimInstance;
+import com.crystalgraphics.animation.CgAnimLayer;
 import com.crystalgraphics.animation.CgAnimation;
 import com.crystalgraphics.api.animation.CgAnimSection;
 import com.crystalgraphics.api.animation.CgAnimSequence;
 import com.crystalgraphics.api.animation.CgSkeletonDefinition;
 import com.crystalgraphics.api.material.CgMaterial;
-import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
 import com.crystalgraphics.api.mesh.CgSkeletalMesh;
 import com.crystalgraphics.asset.codec.CgAssetYaml;
@@ -52,6 +52,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Random;
 
 /**
  * Skinned meshes playing their clips, to look at and play with: Kakarot's Goku and his move clips, and Kurama with
@@ -78,6 +79,12 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** Goku's sockets: the kit's skeleton asset, in its units.yaml's units. */
     private static final String GOKU_SKELETON = "skeletons/Art/MDL/Cpl/Cpl001/Model/Cpl001p1_Skeleton.yaml";
     private static final float FADE = 0.25f, FRAME = 1f / 30f;
+    /** Kakarot's face layers (AB_C000): FacialSlot over facialbase, the lip-sync pose over fbLowerFace. */
+    private static final String FACE_SLOT = "FacialSlot", FACE_BRANCH = "facialbase", LIP_SLOT = "LipSlot",
+            LIP_BRANCH = "fbLowerFace";
+    /** Seconds of timeline the blinks are laid over; the face loops alone after. */
+    private static final double BLINKS_FOR = 600.0;
+    private static final long BLINK_SEED = 0x6B616B61L;
     /** K's Kamehameha: the kit's charge and shot montages, sequences; the shot's loop ends at its {@code End} section. */
     private static final String CHARGE ="kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_01",
             SHOT = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_02", SHOT_END = "End";
@@ -282,6 +289,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 Actor actor = new Actor("Goku", mesh, clips, -2.0, -6.0, 1.9f, 0xFFF0A040);
                 actor.kit = true;
                 actors.add(actor);
+                dressFace(actor, mesh, root + KIT + "ANM/cpl/C001A/FCE/");
             }
         } else {
             LOGGER.warn("[skinned-play] no Goku at {}", goku);
@@ -327,6 +335,53 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         ctx.getCamera3D().moveCamera(2f, 3f, 6f);
         ctx.getCamera3D().setPitch(-10f);
         ctx.getCamera3D().setMoveSpeed(WALK);
+    }
+
+    /**
+     * Goku's AnimBP face (AB_C000), from the FCE clips under {@code fce}: his face montage on FacialSlot over facialbase
+     * (depth 1), its blink played in its place every {@link #blinkInterval} seconds with the face replayed after, as
+     * OnMontageEnded does; and the lip-sync blend space's neutral sample, LIP_Close, over fbLowerFace, curves from the
+     * base. A move's FacialSlot section plays over the face.
+     */
+    private static void dressFace(Actor actor, CgSkeletalMesh mesh, String fce) {
+        String name = System.getProperty("crystalgraphics.harness.skinned.goku.face", "C001A_FCE_Battle");
+        File face = new File(fce + name + ".glb"), blink = new File(fce + name + "_blink.glb"),
+                lips = new File(fce + "LIP/C001A_LIP_Close.glb");
+        if (!face.isFile() || mesh.skeleton().indexOfIgnoringCase(FACE_BRANCH) < 0) {
+            LOGGER.warn("[skinned-play] Goku's face clip {} is missing: his face is the body's", face);
+            return;
+        }
+        CgAnimSequence faceClip = CgMeshLoader.sequences(face.getPath()).get(0);
+        CgAnimLayer layer = actor.instance.layer(FACE_SLOT, FACE_BRANCH, 1);
+        double from = 0;
+        if (blink.isFile()) {
+            // Laid out on the timeline from a fixed seed rather than switched per frame, so a seek replays it exactly.
+            // The timer restarts as a blink starts, so blinks are an interval apart start to start.
+            CgAnimSequence blinkClip = CgMeshLoader.sequences(blink.getPath()).get(0);
+            double length = blinkClip.duration();
+            Random rng = new Random(BLINK_SEED);
+            for (double at = blinkInterval(rng); at + length <= BLINKS_FOR; at += Math.max(length, blinkInterval(rng))) {
+                layer.play(CgAnimSection.of(faceClip).at(from).until(at).loop().build());
+                layer.play(CgAnimSection.of(blinkClip).at(at).until(at + length).build());
+                from = at + length;
+            }
+        }
+        layer.play(CgAnimSection.of(faceClip).at(from).until(Double.POSITIVE_INFINITY).loop().build());
+        LOGGER.info("[skinned-play] Goku's face: {} on {}{}", faceClip.name(), FACE_SLOT, blink.isFile() ? ", blinking" : "");
+        if (lips.isFile() && mesh.skeleton().indexOfIgnoringCase(LIP_BRANCH) >= 0) {
+            CgAnimSequence close = CgMeshLoader.sequences(lips.getPath()).get(0);
+            actor.instance.layer(LIP_SLOT, LIP_BRANCH, 1).curvesFromBase()
+                    .play(CgAnimSection.of(close).until(Double.POSITIVE_INFINITY).loop().build());
+        } else {
+            LOGGER.warn("[skinned-play] Goku's lips {} are missing: his mouth is the face's", lips);
+        }
+    }
+
+    /** Kakarot's next blink, in seconds: 15 times the mean of 20 uniform draws, 7.5 s on average (its facial tick). */
+    private static double blinkInterval(Random rng) {
+        double sum = 0;
+        for (int i = 0; i < 20; i++) sum += rng.nextDouble();
+        return 15.0 * sum / 20;
     }
 
     /** {@code mesh} with Goku's skeleton asset's sockets in the kit's units, where the kit at {@code kit} has them. */
@@ -390,7 +445,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             }
             if (kit != null && kit.ready()) {
                 if (!actor.dressed && !actor.kitMaterials.isEmpty()) {
-                    for (int s = 0; s < actor.kitMaterials.size(); s++) actor.instance.material(s, CgMaterial.of(kit.material(s).get()));
+                    // His own copies (Unreal's dynamic material instances): what his clips' curves and his outline slot set
+                    for (int s = 0; s < actor.kitMaterials.size(); s++) actor.instance.material(s, kit.material(s).get());
                     actor.dressed = true;
                     LOGGER.info("[skinned-play] {}: drawn in its {} kit materials", actor.name, actor.kitMaterials.size());
                     // His cast entry's outline: the stencil its post reads him by, the post, his colour slot (OL5, OL6)
@@ -415,10 +471,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                         // The contract's outline colour in his slot, 1: the battle's first member, as gameplay would give
                         if (block.get("slot_parameter") instanceof String parameter
                                 && block.get("slot_colours") instanceof List<?> colours && !colours.isEmpty()) {
-                            List<CgMaterialDefinition> worn = new ArrayList<>();
-                            for (int s = 0; s < actor.kitMaterials.size(); s++) worn.add(kit.material(s).get());
-                            actor.outline = new CgRoleOutline(actor.instance, worn, battle, 1, parameter,
-                                    String.valueOf(colours.get(0)));
+                            actor.outline = new CgRoleOutline(actor.instance, battle, 1, parameter, String.valueOf(colours.get(0)));
                         }
                         if (checking) {
                             outlineCheck = new SkinnedOutlineCheck(battle, List.of(actor.instance), actor.x, actor.z, actor.height,
