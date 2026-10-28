@@ -21,6 +21,7 @@ import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -36,6 +37,8 @@ final class SkinnedOutlineCheck {
 
     /** Frames each phase is held before its picture is read: the outline's properties land at the next record. */
     private static final int SETTLE = 3;
+    /** Frames the viewport has kept its size: the phases start once it has for {@link #SETTLE}. */
+    private int steady;
     private static final String[] PHASES = {"whole", "none", "no depth test", "no normal test", "no ID test", "keyed",
             "restored"};
     private static final int KEYED = 5, RESTORED = 6;
@@ -99,13 +102,23 @@ final class SkinnedOutlineCheck {
     /** After the frame drew: holds Goku, steps the phases, reads each picture, and reports once all came back. */
     void frame(HarnessContext ctx) {
         if (done) return;
+        // A window still taking its size (Vulkan's swapchain, a maximise) would compare pictures of different frames.
+        if (ctx.getScreenWidth() != w || ctx.getScreenHeight() != h) {
+            if (phase >= 0) System.out.println("[skinned-play] outline check: the window resized, started again");
+            w = ctx.getScreenWidth();
+            h = ctx.getScreenHeight();
+            steady = 0;
+            phase = -1;
+            Arrays.fill(pictures, null);
+            stencil = null;
+            return;
+        }
         if (phase < 0) {
+            if (++steady < SETTLE) return;
             for (CgAnimInstance instance : held) instance.playing(false);
             ctx.getCamera3D().moveCamera(eyeX, eyeY, eyeZ);
             ctx.getCamera3D().setYaw(0f);
             ctx.getCamera3D().setPitch(-5f);
-            w = ctx.getScreenWidth();
-            h = ctx.getScreenHeight();
             enter(0);
             return;
         }
