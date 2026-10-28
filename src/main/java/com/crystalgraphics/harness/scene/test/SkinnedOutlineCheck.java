@@ -29,8 +29,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * OL5's gate in {@code skinned-play} ({@code -Dcrystalgraphics.harness.skinnedPlay.outlineCheck=true}, with
- * {@code -Dcrystalgraphics.harness.mainTarget=true}): Kakarot's battle outline on Goku held still, the picture read back
+ * OL5's gate in {@code skinned-play} ({@code -Dcrystalgraphics.harness.skinnedPlay.outlineCheck=true}, never with
+ * {@code -Dcrystalgraphics.harness.mainTarget=false}): Kakarot's battle outline on Goku held still, the picture read back
  * with the outline whole, without it, and with each of its three edge tests off in turn, and Goku's CustomStencil. Every
  * pixel the outline changes must be Goku's (stencil 1) and darker, and each test must draw some of it.
  */

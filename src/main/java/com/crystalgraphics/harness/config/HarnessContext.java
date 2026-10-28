@@ -261,7 +261,7 @@ public final class HarnessContext {
 
     /**
      * The framebuffer every scene draws into, as a Minecraft host names its main target to the render stages: the
-     * window's own, 0, or the runner's main target under {@code -Dcrystalgraphics.harness.mainTarget=true}. Stated
+     * runner's main target, or the window's own, 0, under {@code -Dcrystalgraphics.harness.mainTarget=false}. Stated
      * here, never read back from GL.
      */
     public int getTargetFramebuffer() { return targetFramebuffer; }

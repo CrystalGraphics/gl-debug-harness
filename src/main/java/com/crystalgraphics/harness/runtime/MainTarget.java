@@ -8,15 +8,17 @@ import com.crystalgraphics.platform.gl.CgGL;
 /**
  * The interactive runner's main target, as Minecraft draws its world into one: the world pass and the scene draw into
  * a framebuffer of the window's size, blitted into the window before the overlays. What only a framebuffer of our own
- * takes -- a second colour attachment beside it, the world's merged emission -- then runs as it does in the game.
+ * takes -- the normal target the world lights read, the world's merged emission -- then runs as it does in the game.
+ * RGBA8 as Minecraft's: with {@code GL_FRAMEBUFFER_SRGB} off, the window's sRGB backbuffer takes its bytes unchanged.
  *
  * <pre>{@code
- * -Dcrystalgraphics.harness.mainTarget=true     // off: every scene draws into the window's own, 0
+ * -Dcrystalgraphics.harness.mainTarget=false    // every scene draws into the window's own, 0: the lights then rebuild
+ *                                               // our surfaces' normals from depth, as Minecraft's blocks
  * }</pre>
  */
 public final class MainTarget {
 
-    public static final boolean ON = Boolean.getBoolean("crystalgraphics.harness.mainTarget");
+    public static final boolean ON = Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.mainTarget", "true"));
 
     private static final CgFrameBufferFormat FORMAT = CgFrameBufferFormat.builder("harness_main")
             .color(0, CgTextureType.RGBA8).depth(CgTextureType.DEPTH24_STENCIL8).build();
