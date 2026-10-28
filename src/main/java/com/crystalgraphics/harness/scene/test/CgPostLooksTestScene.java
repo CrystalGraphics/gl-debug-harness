@@ -12,9 +12,12 @@ import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.look.CgColorGrade;
 import com.crystalgraphics.render.post.look.CgFilmLut;
 import com.crystalgraphics.render.post.volume.CgImpact;
 import com.crystalgraphics.render.post.volume.CgPostSettings;
+import com.crystalgraphics.render.post.volume.CgPostSettings.Control;
+import com.crystalgraphics.render.post.volume.CgPostSettings.Region;
 import com.crystalgraphics.render.post.volume.CgPostVolume;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
@@ -35,7 +38,8 @@ import java.util.function.Consumer;
  * weight 0, one out of reach and a flash with the player's flashes at 0 change nothing; a flash brightens, a vignette
  * darkens the corners, an inverted impact frame is the negative, chromatic aberration moves edges, focus lines darken,
  * a drawn frame fills the glowing ball and not the wall; a volume of higher priority overrides a lower one exactly; and
- * Unreal 4.21's tonemapper draws each pixel as the CPU's bake of its table reads it.
+ * Unreal 4.21's tonemapper draws each pixel as the CPU's bake of its table reads it, Unreal's colour grading each as
+ * the CPU grades it, and a neutral grade changes nothing.
  *
  * <p>Prints {@code [post-looks] PASS} or {@code FAIL}; on Vulkan a validation error fails it. Captures land in its
  * output directory by look.</p>
@@ -100,6 +104,17 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         CgFilmLut.bake(stage, table);
         toneWorst = toneError(linear, toned, table);
         if (toneWorst > 3) failures.add("the tonemapper: a pixel " + toneWorst + " codes from the CPU's table");
+        // Unreal's colour grading: each pixel as the CPU grades the untoned picture, then tinted.
+        CgPostSettings cold = new CgPostSettings().grade(Region.SHADOWS, Control.GAIN, 0.8f, 0.9f, 1.2f, 1f)
+                .grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0.7f).grade(Region.HIGHLIGHTS, Control.GAIN, 1f, 1f, 1f, 0.9f)
+                .grade(Region.MIDTONES, Control.GAMMA, 1.1f, 1f, 0.9f, 1f).whiteBalance(5500f, 0f).tint(1f, 0.95f, 0.9f);
+        BufferedImage graded = draw(ctx, world, "grade", v -> v.add(post.volume(0, cold)));
+        double[] grade = new double[CgColorGrade.PACKED];
+        CgColorGrade.pack(cold, grade);
+        gradeWorst = gradeError(linear, graded, grade, new double[] {cold.tintR(), cold.tintG(), cold.tintB()});
+        if (gradeWorst > 3) failures.add("the grade: a pixel " + gradeWorst + " codes from the CPU's");
+        same(failures, "a neutral grade", base, draw(ctx, world, "grade-neutral", v -> v.add(post.volume(0,
+                new CgPostSettings().grade(Region.SHADOWS, Control.GAIN, 1f, 1f, 1f, 1f).whiteBalance(6500f, 0f).tint(1f, 1f, 1f)))));
         BufferedImage lines = draw(ctx, world, "lines", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.LINES, 1f))));
         if (!(mean(lines, 0, 0, W, H) < mean(base, 0, 0, W, H) * 0.95f)) {
             failures.add("focus lines: mean " + mean(lines, 0, 0, W, H) + " against " + mean(base, 0, 0, W, H));
@@ -149,6 +164,38 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
     private static void same(List<String> failures, String what, BufferedImage a, BufferedImage b) {
         int n = changed(a, b);
         if (n > 0) failures.add(what + " changed " + n + " pixels");
+    }
+
+    /** The grade's worst pixel against the CPU's, in codes: for the verdict. */
+    private static double gradeWorst;
+
+    /**
+     * The most any of every 7th pixel of {@code graded} is from {@code plain}'s decoded through the packed grade and its
+     * tint, in codes. A pixel near white, or graded past it, is skipped: the roll to white is not the grade's.
+     */
+    private static double gradeError(BufferedImage plain, BufferedImage graded, double[] grade, double[] tint) {
+        double worst = 0;
+        double[] in = new double[3], out = new double[3];
+        for (int y = 0; y < plain.getHeight(); y += 7) {
+            for (int x = 0; x < plain.getWidth(); x += 7) {
+                int p = plain.getRGB(x, y), t = graded.getRGB(x, y);
+                if ((p >> 16 & 0xFF) > 245 || (p >> 8 & 0xFF) > 245 || (p & 0xFF) > 245) continue;
+                in[0] = decode(p >> 16 & 0xFF);
+                in[1] = decode(p >> 8 & 0xFF);
+                in[2] = decode(p & 0xFF);
+                CgColorGrade.apply(grade, in, out);
+                if (Math.max(out[0], Math.max(out[1], out[2])) > 1) continue;
+                for (int c = 0; c < 3; c++) {
+                    double want = encode(Math.max(0, out[c]) * tint[c]) * 255;
+                    worst = Math.max(worst, Math.abs((t >> (16 - 8 * c) & 0xFF) - want));
+                }
+            }
+        }
+        return worst;
+    }
+
+    private static double encode(double c) {
+        return c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
     }
 
     /** The tonemapper's worst pixel against the CPU's table, in codes: for the verdict. */
@@ -212,7 +259,8 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         } else {
             System.out.println("[post-looks] PASS on " + on + ": weight 0, out of reach and flashes 0 change nothing; "
                     + "flash, vignette, invert, aberration and focus lines each show; a drawn frame's subject is the glow; "
-                    + "priority overrides; the tonemapper within " + String.format("%.2f", toneWorst) + " codes of the CPU's table");
+                    + "priority overrides; the tonemapper within " + String.format("%.2f", toneWorst) + " codes of the CPU's table; "
+                    + "the grade within " + String.format("%.2f", gradeWorst) + " codes of the CPU's, a neutral one exact");
         }
     }
 
