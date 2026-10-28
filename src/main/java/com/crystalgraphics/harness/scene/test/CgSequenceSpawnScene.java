@@ -187,6 +187,8 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
         sequencer.spawner("camera", (p, s, at) -> counted(new Fixture()));
         sequencer.spawner("light", (p, s, at) -> counted(new Fixture()));
         player = sequencer.play(ref.get(), Map.of("caster", new Caster()));
+        // The charge loops while its key is held: released at its first lap's end, as the skill would.
+        if (sequenceId.equals(NOVA)) player.nextSection("charge", "fire");
     }
 
     private CgSequenceSpawned counted(CgSequenceSpawned s) {
