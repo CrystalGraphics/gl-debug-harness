@@ -18,6 +18,10 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.object.value.CgUnits;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgraphics.render.post.CgPostMaterial;
+import com.crystalgraphics.render.post.CgPostPoint;
+import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.sequence.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencePlayer;
@@ -74,6 +78,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** K's Kamehameha: the kit's charge and shot montages, sequences; the shot's loop ends at its {@code End} section. */
     private static final String CHARGE = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_01",
             SHOT = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_02", SHOT_END = "End";
+    /** Kakarot's battle outline, its renderer's pass as a post material, and the stencil it outlines Goku by. */
+    private static final String BATTLE_OUTLINE = "kakarot_kit:Renderer/BattleOutline";
+    private static final int GOKU_STENCIL = 1;
     /** Goku's Blueprint: its mesh node names his mesh's materials, one a slot, in slot order. */
     private static final String GOKU_PREFAB = "prefabs/Blueprints/Character/C001A/AT_Character_cpl001_BP.yaml";
     /** The namespace the kit's materials name their shading models by ({@code kakarot:cell_tone}). */
@@ -233,6 +240,15 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private int selected;
     private CgMaterial material;
     private CgTickFunction submit;
+    /** The battle outline on the post stack, once Goku is dressed. */
+    private CgRenderStage.Registration outline;
+    /** OL5's gate, under {@code -Dcrystalgraphics.harness.skinnedPlay.outlineCheck=true} ({@link SkinnedOutlineCheck}). */
+    private SkinnedOutlineCheck outlineCheck;
+    /** The outline's pass, and which of its edge tests U shows: all, then depth, normal and ID alone. */
+    private CgMaterial outlinePass;
+    private int outlineTests;
+    private static final String[] OUTLINE_TESTS = {"all tests", "depth alone", "normal alone", "ID alone"};
+    private boolean kitFailureLogged;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -284,7 +300,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             for (Actor actor : actors) {
                 if (!actor.name.equals("Goku")) continue;
                 actor.kitMaterials = prefabMaterials(kitFolder.resolve(GOKU_PREFAB), actor.instance.materialSlots());
-                materials = actor.kitMaterials;
+                materials = new ArrayList<>(actor.kitMaterials);
+                materials.add(BATTLE_OUTLINE);   // last: kit.material(slots)
             }
             kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT), SHADING);
         }
@@ -342,11 +359,32 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 actor.release();
                 LOGGER.info("[skinned-play] {}: the shot played out", actor.name);
             }
+            if (kit != null && kit.failed() && !kitFailureLogged) {
+                kitFailureLogged = true;
+                LOGGER.warn("[skinned-play] the kit failed to load: {}", kit.failures());
+            }
             if (kit != null && kit.ready()) {
                 if (!actor.dressed && !actor.kitMaterials.isEmpty()) {
                     for (int s = 0; s < actor.kitMaterials.size(); s++) actor.instance.material(s, CgMaterial.of(kit.material(s).get()));
                     actor.dressed = true;
                     LOGGER.info("[skinned-play] {}: drawn in its {} kit materials", actor.name, actor.kitMaterials.size());
+                    // Kakarot's battle outline: its renderer's pass over the characters, Goku's stencil 1 (OL5).
+                    actor.instance.customDepth(GOKU_STENCIL, 0xFF);
+                    if (outline == null) {
+                        CgMaterial pass = CgMaterial.of(kit.material(actor.kitMaterials.size()).get());
+                        if (Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.skinnedPlay.outlineYellow", "true"))) {
+                            // A debug view: every pixel the outline draws in full yellow, not the capture's 0.35 black.
+                            pass.applyProperties(b -> b.vec4("OutlineColor", 1f, 1f, 0f, 1f).set1f("Intensity", 1f)
+                                    .set1f("UseOutlineColor", 1f));
+                        }
+                        outlinePass = pass;
+                        CgPostMaterial battle = CgPostMaterial.of(pass, CgPostPoint.AFTER_WORLD, 0);
+                        outline = CgPostStack.get().add(battle);
+                        LOGGER.info("[skinned-play] {}: outlined by {}", actor.name, BATTLE_OUTLINE);
+                        if (Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.outlineCheck")) {
+                            outlineCheck = new SkinnedOutlineCheck(battle, List.of(actor.instance), actor.x, actor.z, actor.height);
+                        }
+                    }
                 }
             }
             if (actor.instance.palette() < 0) continue;
@@ -361,6 +399,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
+        if (outlineCheck != null) outlineCheck.frame(ctx);
     }
 
     @Override
@@ -382,6 +421,12 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             case CgKeyCodes.KEY_I -> instance.rate(RATES[actor.rate = Math.max(0, actor.rate - 1)]);
             case CgKeyCodes.KEY_O -> instance.rate(RATES[actor.rate = Math.min(RATES.length - 1, actor.rate + 1)]);
             case CgKeyCodes.KEY_K -> kamehameha(actor);
+            case CgKeyCodes.KEY_U -> {
+                if (outlinePass == null) break;
+                outlineTests = (outlineTests + 1) % OUTLINE_TESTS.length;
+                SkinnedOutlineCheck.tests(outlinePass, outlineTests < 2, outlineTests == 0 || outlineTests == 2,
+                        outlineTests == 0 || outlineTests == 3);
+            }
             default -> {
             }
         }
@@ -417,6 +462,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < actors.size(); i++) sb.append(i == selected ? "> " : "  ").append(actors.get(i).line()).append('\n');
         sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart  K Kamehameha: charge, fire, end (Goku)  F9 night");
+        if (outlinePass != null) sb.append("\nU outline: ").append(OUTLINE_TESTS[outlineTests]);
         if (kit != null && kit.failed()) sb.append("\nthe kit failed to load: ").append(kit.failures());
         else if (kit != null && !kit.ready()) sb.append("\nloading the kit...");
         return sb.toString();
@@ -425,6 +471,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     @Override
     public void dispose() {
         if (submit != null) submit.close();
+        if (outline != null) outline.close();
         CgAnimation animation = CgAnimation.client();
         for (Actor actor : actors) {
             actor.release();
