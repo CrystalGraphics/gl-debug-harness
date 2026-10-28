@@ -57,8 +57,11 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
     private static final int NX = 275, NY = 64;
     /** What the writer's custom data packs to there: the ID byte + 256 * (model 13 + 32 * type 2), and (51, 102, 153). */
     private static final float DATA_X = 128 + 256 * (13 + 32 * 2), DATA_Y = 51 * 65536 + 102 * 256 + 153;
-    /** The probe's colour there and at the background: stencil, ID, model / 31, type / 6 + 0.5 where facing +Z. */
-    private static final int[] PROBE_NEAR = {0x3F, 128, 107, 212}, PROBE_BACKGROUND = {0, 0, 0, 128};
+    /**
+     * The probe's colour there and at the background: stencil, ID, model / 31, type / 6 + 0.5 where facing +Z. The
+     * background is the host's, so DefaultLit (model 1).
+     */
+    private static final int[] PROBE_NEAR = {0x3F, 128, 107, 212}, PROBE_BACKGROUND = {0, 0, 8, 128};
     private static final int BX = 14, BY = 223;
 
     private CgRenderStage.Registration asking, reader, probing;
@@ -66,7 +69,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
     private boolean wasHdr;
     private volatile byte[] stencil;
     private volatile float[] normal, data, hiddenData;
-    /** The hidden cube's pixel, behind the wall: its custom data must read 0. */
+    /** The hidden cube's pixel, behind the wall: its custom data must read the clear, DefaultLit's (256, 0). */
     private static final int HX = 90, HY = 120;
     private volatile byte[] near, background;
     private boolean armed, running = true;
@@ -188,9 +191,9 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
                 System.out.printf("[custom-depth]   custom data at (%d, %d): (%.0f, %.0f), expected (%.0f, %.0f)%n", NX, NY,
                         data[0], data[1], DATA_X, DATA_Y);
                 if (fail == null && (data[0] != DATA_X || data[1] != DATA_Y)) fail = "the near cube's custom data";
-                System.out.printf("[custom-depth]   custom data behind the wall at (%d, %d): (%.0f, %.0f), expected (0, 0)%n", HX, HY,
+                System.out.printf("[custom-depth]   custom data behind the wall at (%d, %d): (%.0f, %.0f), expected (256, 0)%n", HX, HY,
                         hiddenData == null ? -1f : hiddenData[0], hiddenData == null ? -1f : hiddenData[1]);
-                if (fail == null && (hiddenData == null || hiddenData[0] != 0f || hiddenData[1] != 0f)) {
+                if (fail == null && (hiddenData == null || hiddenData[0] != 256f || hiddenData[1] != 0f)) {
                     fail = "a hidden writer's custom data shows through the wall";
                 }
                 fail = probed("near cube", near, PROBE_NEAR, fail);
