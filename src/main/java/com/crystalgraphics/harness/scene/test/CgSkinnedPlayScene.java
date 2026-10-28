@@ -277,12 +277,12 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private CgTickFunction submit;
     /** The battle outline on the post stack, once Goku is dressed. */
     private CgRenderStage.Registration outline;
+    /** Under {@code -Dcrystalgraphics.harness.skinnedPlay.cut=true}: frames since Goku's cut was played unattended, or -1. */
+    private int cutFrames = Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.cut") ? 0 : -1, cutRuns, cutStart;
     /** OL5's gate, under {@code -Dcrystalgraphics.harness.skinnedPlay.outlineCheck=true} ({@link SkinnedOutlineCheck}). */
     private SkinnedOutlineCheck outlineCheck;
     /** The outline's pass, and which of its edge tests U shows: all, then depth, normal and ID alone. */
     private CgMaterial outlinePass;
-    /** Under {@code -Dcrystalgraphics.harness.skinnedPlay.cut=true}: frames since Goku's cut was played unattended, or -1. */
-    private int cutFrames = Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.cut") ? 0 : -1, cutRuns, cutStart;
     private int outlineTests;
     private static final String[] OUTLINE_TESTS = {"all tests", "depth alone", "normal alone", "ID alone"};
     /** The outline's order among post materials: first, below any volume's priority. */
@@ -591,28 +591,6 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         }
         if (outlineCheck != null) outlineCheck.frame(ctx);
-    }
-
-    @Override
-    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        if (!event.pressed() || actors.isEmpty()) return true;
-        Actor actor = actors.get(selected);
-        CgAnimInstance instance = actor.instance;
-        switch (event.key()) {
-            case CgKeyCodes.KEY_TAB -> selected = (selected + 1) % actors.size();
-            case CgKeyCodes.KEY_N -> actor.play(actor.clip + 1);
-            case CgKeyCodes.KEY_B -> actor.play(actor.clip - 1);
-            case CgKeyCodes.KEY_R -> {
-                instance.clear().seek(0);
-                actor.play(actor.clip);
-            }
-            case CgKeyCodes.KEY_P -> instance.playing(!instance.playing());
-            case CgKeyCodes.KEY_COMMA -> instance.playing(false).seek(instance.time() - FRAME);
-            case CgKeyCodes.KEY_PERIOD -> instance.playing(false).seek(instance.time() + FRAME);
-            case CgKeyCodes.KEY_I -> instance.rate(RATES[actor.rate = Math.max(0, actor.rate - 1)]);
-            case CgKeyCodes.KEY_O -> instance.rate(RATES[actor.rate = Math.min(RATES.length - 1, actor.rate + 1)]);
-            case CgKeyCodes.KEY_K -> kamehameha(actor);
-            case CgKeyCodes.KEY_X -> cut(actor);
         if (cutFrames >= 0 && kit != null && kit.ready()) cutCheck();
     }
 
@@ -638,6 +616,28 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             System.out.println("[skinned-play] cut done");
             cutFrames = -1;
         }
+    }
+
+    @Override
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
+        if (!event.pressed() || actors.isEmpty()) return true;
+        Actor actor = actors.get(selected);
+        CgAnimInstance instance = actor.instance;
+        switch (event.key()) {
+            case CgKeyCodes.KEY_TAB -> selected = (selected + 1) % actors.size();
+            case CgKeyCodes.KEY_N -> actor.play(actor.clip + 1);
+            case CgKeyCodes.KEY_B -> actor.play(actor.clip - 1);
+            case CgKeyCodes.KEY_R -> {
+                instance.clear().seek(0);
+                actor.play(actor.clip);
+            }
+            case CgKeyCodes.KEY_P -> instance.playing(!instance.playing());
+            case CgKeyCodes.KEY_COMMA -> instance.playing(false).seek(instance.time() - FRAME);
+            case CgKeyCodes.KEY_PERIOD -> instance.playing(false).seek(instance.time() + FRAME);
+            case CgKeyCodes.KEY_I -> instance.rate(RATES[actor.rate = Math.max(0, actor.rate - 1)]);
+            case CgKeyCodes.KEY_O -> instance.rate(RATES[actor.rate = Math.min(RATES.length - 1, actor.rate + 1)]);
+            case CgKeyCodes.KEY_K -> kamehameha(actor);
+            case CgKeyCodes.KEY_X -> cut(actor);
             case CgKeyCodes.KEY_V -> bystander = !bystander;
             case CgKeyCodes.KEY_E -> stage(!(stage != null && stage.on()));
             case CgKeyCodes.KEY_U -> {
