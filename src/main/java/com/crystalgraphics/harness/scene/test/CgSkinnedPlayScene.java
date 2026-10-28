@@ -16,6 +16,7 @@ import com.crystalgraphics.frame.CgWorld;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.object.value.CgQuantity;
 import com.crystalgraphics.object.value.CgUnits;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
@@ -125,6 +126,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         CgRoleRim rim;
         @Nullable
         Map<?, ?> rimBlock;
+        /** How far its prefab's root stands above its mesh's, in host units: 0 for a body with no prefab. */
+        double rootLift;
         int clip;
         int rate = 3;
 
@@ -195,7 +198,14 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
         @Override
         public CgAttachment attachment(String socket) {
-            return instance.attachment(socket == null ? "" : socket);   // an unknown name answers where it stands
+            if (socket != null) return instance.attachment(socket);   // an unknown name answers where it stands
+            // No socket: the actor's origin, its prefab's root, rootLift above the mesh's (an ACharacter's capsule centre)
+            CgAttachment root = instance.attachment("");
+            return (point, turn) -> {
+                if (!root.place(point, turn)) return false;
+                point[1] += rootLift;
+                return true;
+            };
         }
 
         @Override
@@ -329,6 +339,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             for (Actor actor : actors) {
                 if (!actor.name.equals("Goku")) continue;
                 actor.kitMaterials = prefabMaterials(kitFolder.resolve(GOKU_PREFAB), actor.instance.materialSlots());
+                actor.rootLift = prefabRootLift(kitFolder.resolve(GOKU_PREFAB), kitFolder.resolve("units.yaml"));
                 materials = new ArrayList<>(actor.kitMaterials);
                 actor.outlineBlock = castBlock(kitFolder.resolve("cast.yaml"), actor.name, "outline");
                 actor.rimBlock = castBlock(kitFolder.resolve("cast.yaml"), actor.name, "rim");
@@ -422,6 +433,27 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 return List.of();
             }
             return List.of();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * How far a prefab's root stands above the node drawing its mesh, in host units: minus that node's height (Goku's
+     * Mesh at z -100 cm under the Blueprint's capsule). 0 where the prefab or its mesh node has no location.
+     */
+    private static double prefabRootLift(Path prefab, Path units) {
+        if (!Files.isRegularFile(prefab) || !Files.isRegularFile(units)) return 0;
+        try {
+            CgUnits kitUnits = CgUnits.of(((Map<?, ?>) CgAssetYaml.read(Files.readString(units))).get("units"), CgUnits.HOST);
+            Map<?, ?> tree = (Map<?, ?>) CgAssetYaml.read(Files.readString(prefab));
+            for (Object node : (List<?>) tree.get("nodes")) {
+                Map<?, ?> n = (Map<?, ?>) node;
+                if (!(n.get("meshes") instanceof List<?>) || !(n.get("location") instanceof List<?> at)) continue;
+                List<?> host = (List<?>) kitUnits.toHost(at, CgQuantity.POSITION);
+                return -((Number) host.get(1)).doubleValue();
+            }
+            return 0;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
