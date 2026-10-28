@@ -22,11 +22,13 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.post.CgPostMaterial;
 import com.crystalgraphics.render.post.CgPostPoint;
 import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.volume.CgPostVolumeSpawner;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.binding.CgRoleOutline;
+import com.crystalgraphics.sequence.binding.CgRoleRim;
 import com.crystalgraphics.sequence.binding.CgSequenceRole;
 import com.crystalgraphics.sequence.animation.CgSequenceSkeletal;
 import com.crystalgraphics.sequence.spawn.CgSequenceSpawned;
@@ -87,6 +89,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** K's Kamehameha: the kit's charge and shot montages, sequences; the shot's loop ends at its {@code End} section. */
     private static final String CHARGE ="kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_01",
             SHOT = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_02", SHOT_END = "End";
+    /** X's cut: the Kamehameha's cinematic montage, its face picked by Goku's form (SQ8). */
+    private static final String CUT = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_Cut";
     /** Goku's Blueprint: its mesh node names his mesh's materials, one a slot, in slot order. */
     private static final String GOKU_PREFAB = "prefabs/Blueprints/Character/C001A/AT_Character_cpl001_BP.yaml";
     /** The namespace the kit's materials name their shading models by ({@code kakarot:cell_tone}). */
@@ -116,6 +120,11 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         /** Its cast entry's {@code outline} block: stencil, post, colour slots; or null where it has none. */
         @Nullable
         Map<?, ?> outlineBlock;
+        /** The contract's rim, once its kit materials are set; its cast entry's {@code rim} block, or null for none. */
+        @Nullable
+        CgRoleRim rim;
+        @Nullable
+        Map<?, ?> rimBlock;
         int clip;
         int rate = 3;
 
@@ -191,17 +200,23 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
         @Override
         public int slot(String name) {
-            return outline == null ? -1 : outline.slot(name);
+            // The outline's slot is 0, the rim's follow it
+            int s = outline == null ? -1 : outline.slot(name);
+            if (s >= 0) return s;
+            s = rim == null ? -1 : rim.slot(name);
+            return s < 0 ? -1 : 1 + s;
         }
 
         @Override
         public void set(int slot, float[] values, int mask) {
-            outline.set(slot, values, mask);
+            if (slot == 0) outline.set(0, values, mask);
+            else rim.set(slot - 1, values, mask);
         }
 
         @Override
         public void get(int slot, float[] out) {
-            outline.get(slot, out);
+            if (slot == 0) outline.get(0, out);
+            else rim.get(slot - 1, out);
         }
 
         @Override
@@ -315,7 +330,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 if (!actor.name.equals("Goku")) continue;
                 actor.kitMaterials = prefabMaterials(kitFolder.resolve(GOKU_PREFAB), actor.instance.materialSlots());
                 materials = new ArrayList<>(actor.kitMaterials);
-                actor.outlineBlock = castOutline(kitFolder.resolve("cast.yaml"), actor.name);
+                actor.outlineBlock = castBlock(kitFolder.resolve("cast.yaml"), actor.name, "outline");
+                actor.rimBlock = castBlock(kitFolder.resolve("cast.yaml"), actor.name, "rim");
                 if (actor.outlineBlock != null && actor.outlineBlock.get("post") instanceof String post) {
                     materials.add(post);   // last: kit.material(slots)
                 } else {
@@ -323,13 +339,14 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     actor.outlineBlock = null;
                 }
             }
-            kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT), SHADING);
+            kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT), SHADING);
         }
         CgWorld client = CgWorld.client();
         sequencer = client.subsystem(CgSequencer.class);
         if (sequencer == null) sequencer = client.add(new CgSequencer());
         sequencer.spawner("system", new CgVfxSystemSpawner(VFX.system()));
         sequencer.spawner("camera", (p, s, at) -> new HeldCamera());
+        CgPostVolumeSpawner.install(sequencer);   // the cut's post volumes
         submit = client.schedule().add(CgTickGroup.SUBMIT, "harness:skinned-play", this::submit);
         ctx.getCamera3D().moveCamera(2f, 3f, 6f);
         ctx.getCamera3D().setPitch(-10f);
@@ -410,13 +427,13 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
     }
 
-    /** The {@code outline} block of cast member {@code name} (the rig's, `spec/bodies.md`), or null where it has none. */
+    /** Cast member {@code name}'s {@code key} block (the rig's, `spec/bodies.md`), or null where it has none. */
     @Nullable
-    private static Map<?, ?> castOutline(Path cast, String name) {
+    private static Map<?, ?> castBlock(Path cast, String name, String key) {
         if (!Files.isRegularFile(cast)) return null;
         try {
             Object entry = ((Map<?, ?>) CgAssetYaml.read(Files.readString(cast))).get(name);
-            return entry instanceof Map<?, ?> m && m.get("outline") instanceof Map<?, ?> outline ? outline : null;
+            return entry instanceof Map<?, ?> m && m.get(key) instanceof Map<?, ?> block ? block : null;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -440,6 +457,12 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     for (int s = 0; s < actor.kitMaterials.size(); s++) actor.instance.material(s, kit.material(s).get());
                     actor.dressed = true;
                     LOGGER.info("[skinned-play] {}: drawn in its {} kit materials", actor.name, actor.kitMaterials.size());
+                    // His cast entry's rim: the parameters the contract's rim_strength, rim_power and rim write
+                    Map<?, ?> rim = actor.rimBlock;
+                    if (rim != null && rim.get("strength") instanceof String strength && rim.get("power") instanceof String power
+                            && rim.get("colour") instanceof String colour) {
+                        actor.rim = new CgRoleRim(actor.instance, strength, power, colour);
+                    }
                     // His cast entry's outline: the stencil its post reads him by, the post, his colour slot (OL5, OL6)
                     Map<?, ?> block = actor.outlineBlock;
                     if (block != null && block.get("custom_depth_stencil_value") instanceof Number stencil) {
@@ -505,6 +528,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             case CgKeyCodes.KEY_I -> instance.rate(RATES[actor.rate = Math.max(0, actor.rate - 1)]);
             case CgKeyCodes.KEY_O -> instance.rate(RATES[actor.rate = Math.min(RATES.length - 1, actor.rate + 1)]);
             case CgKeyCodes.KEY_K -> kamehameha(actor);
+            case CgKeyCodes.KEY_X -> cut(actor);
             case CgKeyCodes.KEY_U -> {
                 if (outlinePass == null) break;
                 outlineTests = (outlineTests + 1) % OUTLINE_TESTS.length;
@@ -540,12 +564,21 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         LOGGER.info("[skinned-play] {}: {} ({})", actor.name, actor.stage, actor.move == null ? "let go" : actor.move.definition().id());
     }
 
+    /** X: the cut from the start, whatever was playing; it plays out and lets go by itself. */
+    private void cut(Actor actor) {
+        if (!actor.kit || kit == null || !kit.ready()) return;
+        if (actor.move != null) actor.move.stop();
+        actor.move = sequencer.play(kit.sequence(2).get(), Map.of("caster", actor));
+        actor.stage = Stage.ENDING;
+        LOGGER.info("[skinned-play] {}: the cut ({})", actor.name, actor.move.definition().id());
+    }
+
     @Override
     public String hudLine() {
         if (actors.isEmpty()) return "skinned-play: no meshes found (see the scene's javadoc for the paths)";
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < actors.size(); i++) sb.append(i == selected ? "> " : "  ").append(actors.get(i).line()).append('\n');
-        sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart  K Kamehameha: charge, fire, end (Goku)  F9 night");
+        sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart  K Kamehameha: charge, fire, end (Goku)  X its cut  F9 night");
         if (outlinePass != null) sb.append("\nU outline: ").append(OUTLINE_TESTS[outlineTests]);
         if (kit != null && kit.failed()) sb.append("\nthe kit failed to load: ").append(kit.failures());
         else if (kit != null && !kit.ready()) sb.append("\nloading the kit...");
