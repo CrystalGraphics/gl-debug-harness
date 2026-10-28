@@ -24,6 +24,7 @@ import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.CgSequencer;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.sequence.binding.CgSequenceRole;
+import com.crystalgraphics.vfx.system.CgVfxSystemAssets;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -55,8 +56,8 @@ import java.util.Map;
  * <ul>
  *   <li>The pictures are display-encoded 8-bit, top row first; the target is their size. A pixel is compared in
  *       those codes, 0 to 1.</li>
- *   <li>Only the post spawnables play: every other kind spawns a fixture, every role is a caster at the origin, and
- *       its systems are not compiled.</li>
+ *   <li>Only the post spawnables play: every other kind spawns a fixture, every role is a caster at the origin. Its
+ *       systems still load, as its hard dependencies: one that does not compile fails the run, naming it.</li>
  *   <li>It first checks the scene comes back byte for byte with nothing playing; then plays, re-evaluating at the
  *       tick for {@link #SETTLE} frames so every post program is built, and scores the last.</li>
  *   <li>Prints {@code [post-capture] PASS} or {@code FAIL}: the frame's mean difference at most {@link #MEAN}, and
@@ -109,8 +110,7 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle {
         String namespace = sequenceId.substring(0, sequenceId.indexOf(':'));
         Path kit = Paths.get(System.getProperty("crystalgraphics.harness.postCapture.kit", KITS + namespace));
         if (!Files.isDirectory(kit)) throw new IllegalStateException("no kit at " + kit.toAbsolutePath() + ": check out plan/");
-        // No system compiler: its systems stay unresolved, as a server's are, since only its post plays here.
-        CgSequenceDefinition.register();
+        CgVfxSystemAssets.register();
         CgAssetRegistry registry = new CgAssetRegistry();
         registry.registerEngine();
         registry.scan(namespace, kit, CgAssetSource.DEV);
