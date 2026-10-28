@@ -718,10 +718,13 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         LOGGER.info("[skinned-play] the ocean arena's post chain {}", on ? "on" : "off");
     }
 
-    /** X: the cut from the start, whatever was playing; it plays out and lets go by itself. */
+    /**
+     * X: the cut from the start, whatever was playing, which ends at once with its particles, so a repeated X starts
+     * clean; the cut plays out and lets go by itself.
+     */
     private void cut(Actor actor) {
         if (!actor.kit || kit == null || !kit.ready()) return;
-        if (actor.move != null) actor.move.stop();
+        if (actor.move != null) actor.move.kill();
         actor.move = sequencer.play(kit.sequence(2).get(), Map.of("caster", actor));
         actor.stage = Stage.ENDING;
         LOGGER.info("[skinned-play] {}: the cut ({})", actor.name, actor.move.definition().id());
