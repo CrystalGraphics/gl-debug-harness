@@ -1,6 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.asset.kind.CgParticleKinds;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
+import com.crystalgraphics.asset.load.CgAssetCompiler;
 import com.crystalgraphics.asset.load.CgAssetRef;
 import com.crystalgraphics.asset.load.CgLoadHandle;
 import com.crystalgraphics.asset.load.CgLoadPriority;
@@ -23,8 +25,10 @@ import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.CgSequencer;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
+import com.crystalgraphics.sequence.CgSequenceTarget;
 import com.crystalgraphics.sequence.binding.CgSequenceRole;
-import com.crystalgraphics.vfx.system.CgVfxSystemAssets;
+import com.crystalgraphics.sequence.definition.CgSequenceBinding;
+import com.crystalgraphics.sequence.spawn.CgSequenceSystem;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -56,8 +60,9 @@ import java.util.Map;
  * <ul>
  *   <li>The pictures are display-encoded 8-bit, top row first; the target is their size. A pixel is compared in
  *       those codes, 0 to 1.</li>
- *   <li>Only the post spawnables play: every other kind spawns a fixture, every role is a caster at the origin. Its
- *       systems still load, as its hard dependencies: one that does not compile fails the run, naming it.</li>
+ *   <li>Only the post spawnables play: every other kind spawns a fixture, every role is a caster at the origin, the environment a fixture. Its
+ *       systems and emitters load uncompiled, as a kind with no compiler does, so a particle module not built yet
+ *       does not stop a post gate; the run's process compiles no system after it.</li>
  *   <li>It first checks the scene comes back byte for byte with nothing playing; then plays, re-evaluating at the
  *       tick for {@link #SETTLE} frames so every post program is built, and scores the last.</li>
  *   <li>Prints {@code [post-capture] PASS} or {@code FAIL}: the frame's mean difference at most {@link #MEAN}, and
@@ -110,7 +115,8 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle {
         String namespace = sequenceId.substring(0, sequenceId.indexOf(':'));
         Path kit = Paths.get(System.getProperty("crystalgraphics.harness.postCapture.kit", KITS + namespace));
         if (!Files.isDirectory(kit)) throw new IllegalStateException("no kit at " + kit.toAbsolutePath() + ": check out plan/");
-        CgVfxSystemAssets.register();
+        CgAssetCompiler.register(CgParticleKinds.SYSTEM, CgAssetCompiler.RESOLVED);
+        CgAssetCompiler.register(CgParticleKinds.EMITTER, CgAssetCompiler.RESOLVED);
         CgAssetRegistry registry = new CgAssetRegistry();
         registry.registerEngine();
         registry.scan(namespace, kit, CgAssetSource.DEV);
@@ -160,10 +166,12 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle {
 
     private void start() {
         sequencer = new CgWorld().add(new CgSequencer());
+        // The stage's brightness and fog are the captured frame's already.
+        sequencer.environment(new CgSequenceSpawnScene.Fixture());
         CgSequenceDefinition definition = ref.get();
         CgPostVolumeSpawner post = new CgPostVolumeSpawner(CgPostStack.get());
         for (CgSequenceDefinition.Spawnable s : definition.spawnables()) {
-            if (!s.kind().equals("post")) sequencer.spawner(s.kind(), (p, sp, at) -> new CgSequenceSpawnScene.Fixture());
+            if (!s.kind().equals("post")) sequencer.spawner(s.kind(), (p, sp, at) -> new StandIn());
         }
         sequencer.spawner("post", post);
         Map<String, CgSequenceRole> roles = new HashMap<>();
@@ -285,6 +293,28 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         if (target != null) target.delete();
+    }
+
+    /**
+     * What a kind other than post spawns: any slot taken, any node or material a part of its own, and a system its
+     * tracks drive that draws nothing.
+     */
+    private static final class StandIn extends CgSequenceSpawnScene.Fixture implements CgSequenceSystem {
+        private final Map<String, StandIn> parts = new HashMap<>();
+        private boolean active;
+
+        @Override
+        public CgSequenceTarget part(CgSequenceBinding.Part part, String name) {
+            return parts.computeIfAbsent(part + ":" + name, k -> new StandIn());
+        }
+
+        @Override public void activate(boolean reset) { active = true; }
+        @Override public void deactivate() { active = false; }
+        @Override public void kill() { active = false; }
+        @Override public void detach() { }
+        @Override public boolean active() { return active; }
+        @Override public void age(float seconds) { }
+        @Override public CgSequenceSystem emitter(String handle) { return parts.computeIfAbsent("emitter:" + handle, k -> new StandIn()); }
     }
 
     @Override public boolean isRunning() { return running; }
