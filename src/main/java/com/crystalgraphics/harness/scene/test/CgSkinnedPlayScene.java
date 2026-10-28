@@ -280,6 +280,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private CgMaterial outlinePass;
     private int outlineTests;
     private static final String[] OUTLINE_TESTS = {"all tests", "depth alone", "normal alone", "ID alone"};
+    /** The outline's order among post materials: first, below any volume's priority. */
+    private static final int OUTLINE_ORDER = -1_000_000;
     private boolean kitFailureLogged;
 
     @Override
@@ -508,16 +510,15 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     }
                     if (outline == null && block != null) {
                         CgMaterial pass = CgMaterial.of(kit.material(actor.kitMaterials.size()).get());
-                        boolean checking = Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.outlineCheck");
-                        if (Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.skinnedPlay.outlineYellow",
-                                String.valueOf(!checking)))) {
-                            // A debug view: every pixel the outline draws in full yellow, not the capture's 0.35 black.
-                            // The check reads the game's colour, which darkens.
+                        if (Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.outlineYellow")) {
+                            // A debug view: every pixel the outline draws in full yellow, not the capture's 0.35 black
                             pass.applyProperties(b -> b.vec4("OutlineColor", 1f, 1f, 0f, 1f).set1f("Intensity", 1f)
                                     .set1f("UseOutlineColor", 1f));
                         }
                         outlinePass = pass;
-                        CgPostMaterial battle = CgPostMaterial.of(pass, CgPostPoint.AFTER_WORLD, 0);
+                        // Before every post material, as the game's outline draws after lighting (cut capture 4376):
+                        // the stage's colouring and a skill's grade then darken it with the rest
+                        CgPostMaterial battle = CgPostMaterial.of(pass, CgPostPoint.BEFORE_TRANSLUCENCY, OUTLINE_ORDER);
                         outline = CgPostStack.get().add(battle);
                         LOGGER.info("[skinned-play] {}: outlined by {}", actor.name, block.get("post"));
                         // The contract's outline colour in his slot, 1: the battle's first member, as gameplay would give
@@ -525,7 +526,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                                 && block.get("slot_colours") instanceof List<?> colours && !colours.isEmpty()) {
                             actor.outline = new CgRoleOutline(actor.instance, battle, 1, parameter, String.valueOf(colours.get(0)));
                         }
-                        if (checking) {
+                        if (Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.outlineCheck")) {
                             outlineCheck = new SkinnedOutlineCheck(battle, List.of(actor.instance), actor.x, actor.z, actor.height,
                                     keyed -> sequencer.play(keyed, Map.of("caster", actor)));
                         }
