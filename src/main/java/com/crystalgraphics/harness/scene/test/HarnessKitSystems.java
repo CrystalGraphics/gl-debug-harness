@@ -11,7 +11,7 @@ import com.crystalgraphics.asset.load.CgLoadPriority;
 import com.crystalgraphics.asset.load.CgVfxAssets;
 import com.crystalgraphics.asset.registry.CgAssetRegistry;
 import com.crystalgraphics.asset.registry.CgAssetSource;
-import com.crystalgraphics.sequence.CgSequenceDefinition;
+import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.prefab.CgVfxPrefabAssets;
 import com.crystalgraphics.vfx.system.CgVfxSystemAssets;

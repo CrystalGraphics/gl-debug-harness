@@ -23,11 +23,11 @@ import com.crystalgraphics.render.post.CgPostPoint;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
-import com.crystalgraphics.sequence.CgSequenceDefinition;
+import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencePlayer;
-import com.crystalgraphics.sequence.CgSequenceRole;
-import com.crystalgraphics.sequence.CgSequenceSkeletal;
-import com.crystalgraphics.sequence.CgSequenceSpawned;
+import com.crystalgraphics.sequence.binding.CgSequenceRole;
+import com.crystalgraphics.sequence.animation.CgSequenceSkeletal;
+import com.crystalgraphics.sequence.spawn.CgSequenceSpawned;
 import com.crystalgraphics.sequence.CgSequencer;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.vfx.CgVfx;
@@ -372,8 +372,11 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     actor.instance.customDepth(GOKU_STENCIL, 0xFF);
                     if (outline == null) {
                         CgMaterial pass = CgMaterial.of(kit.material(actor.kitMaterials.size()).get());
-                        if (Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.skinnedPlay.outlineYellow", "true"))) {
+                        boolean checking = Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.outlineCheck");
+                        if (Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.skinnedPlay.outlineYellow",
+                                String.valueOf(!checking)))) {
                             // A debug view: every pixel the outline draws in full yellow, not the capture's 0.35 black.
+                            // The check reads the game's colour, which darkens.
                             pass.applyProperties(b -> b.vec4("OutlineColor", 1f, 1f, 0f, 1f).set1f("Intensity", 1f)
                                     .set1f("UseOutlineColor", 1f));
                         }
@@ -381,7 +384,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                         CgPostMaterial battle = CgPostMaterial.of(pass, CgPostPoint.AFTER_WORLD, 0);
                         outline = CgPostStack.get().add(battle);
                         LOGGER.info("[skinned-play] {}: outlined by {}", actor.name, BATTLE_OUTLINE);
-                        if (Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.outlineCheck")) {
+                        if (checking) {
                             outlineCheck = new SkinnedOutlineCheck(battle, List.of(actor.instance), actor.x, actor.z, actor.height);
                         }
                     }

@@ -31,7 +31,7 @@ import com.crystalgraphics.asset.load.CgAssetCompiler;
 import com.crystalgraphics.asset.tree.CgAssetData;
 import com.crystalgraphics.object.CgType;
 import com.crystalgraphics.object.value.CgUnits;
-import com.crystalgraphics.sequence.CgSequenceDefinition;
+import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.vfx.sequence.CgVfxClipBake;
 import com.crystalgraphics.vfx.sequence.CgVfxNodeClip;
 import org.joml.Matrix4f;
