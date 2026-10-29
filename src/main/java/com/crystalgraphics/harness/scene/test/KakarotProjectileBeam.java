@@ -21,8 +21,10 @@ import org.apache.logging.log4j.Logger;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -40,7 +42,8 @@ import java.util.function.Function;
  *       facing the caster's way (no target): not attached, as the game's actor.</li>
  *   <li>Its head, the cue's {@code ParticleTop}, starts {@code InitTopOffset} out along that facing and flies at
  *       {@code InitialSpeed}; nothing blocks it here.</li>
- *   <li>With {@code bRequestEnd} the span's end removes the cue, which plays its end phase; without, the play
+ *   <li>With {@code bRequestEnd} the span's end removes the cue, which plays its end phase; without, or for a beam
+ *       spawned inside a cut-in ({@code ATAnimNotifyState_SkillCutin}, whose beams the request never reaches), the play
  *       stopping does, as the game ends it when its owner's action changes.</li>
  *   <li>The cue starts its start and loop phases together, as a GAS looping cue's; the game's loop waits DurationST
  *       (0.3 s).</li>
@@ -49,7 +52,7 @@ import java.util.function.Function;
  */
 final class KakarotProjectileBeam implements CgSequenceEventListener, AutoCloseable {
 
-    static final String EVENT = "kakarot:AnimNotify_SpawnProjectileBeam";
+    static final String EVENT = "kakarot:AnimNotify_SpawnProjectileBeam", CUTIN = "kakarot:ATAnimNotifyState_SkillCutin";
     private static final Logger LOGGER = LogManager.getLogger(KakarotProjectileBeam.class);
     /** The cue's ATProjectileBeam defaults, in metres: InitTopOffset 300, BeamLengthBase 100, InitialSpeed 16000. */
     private static final float TOP_OFFSET = 3f, LENGTH_BASE = 1f, SPEED = 160f;
@@ -58,6 +61,9 @@ final class KakarotProjectileBeam implements CgSequenceEventListener, AutoClosea
     private final CgCueManager cues;
     private final Function<CgSequencePlayer, CgSequenceRole> casters;
     private final Map<CgSequencePlayer, CgCuePlaying> playing = new IdentityHashMap<>();
+    /** Plays inside an {@link #CUTIN} span, and plays whose beam ends with its span ({@code bRequestEnd}). */
+    private final Set<CgSequencePlayer> cutIns = Collections.newSetFromMap(new IdentityHashMap<>()),
+            requestsEnd = Collections.newSetFromMap(new IdentityHashMap<>());
     private final CgCueParameters params = new CgCueParameters();
 
     private KakarotProjectileBeam(CgSequencer sequencer, CgCueManager cues, Function<CgSequencePlayer, CgSequenceRole> casters) {
@@ -85,10 +91,15 @@ final class KakarotProjectileBeam implements CgSequenceEventListener, AutoClosea
 
     @Override
     public void heard(CgSequencePlayer player, Phase phase, String event, @Nullable Object args) {
+        if (event.equals(CUTIN)) {
+            if (phase == Phase.BEGIN) cutIns.add(player);
+            else if (phase == Phase.END) cutIns.remove(player);
+            return;
+        }
         if (!event.equals(EVENT) || !(args instanceof Map<?, ?> a)) return;
         if (phase == Phase.END) {
             // bRequestEnd ends it with the span; without, as the owner's action changes (end(), below)
-            if (Boolean.TRUE.equals(a.get("bRequestEnd"))) end(player);
+            if (requestsEnd.remove(player)) end(player);
             return;
         }
         CgSequenceRole caster = casters.apply(player);
@@ -117,10 +128,13 @@ final class KakarotProjectileBeam implements CgSequenceEventListener, AutoClosea
             out[1] = out[2] = 0f;
         });
         playing.put(player, p);
+        // The request ends only the action's listed beams, which a cut-in's never is: it runs to the action's end
+        if (Boolean.TRUE.equals(a.get("bRequestEnd")) && !cutIns.contains(player)) requestsEnd.add(player);
     }
 
     /** {@code player}'s beam into its end phase, if it has one playing. */
     private void end(CgSequencePlayer player) {
+        requestsEnd.remove(player);
         CgCuePlaying p = playing.remove(player);
         if (p != null && p.active()) p.remove();
     }
@@ -130,6 +144,8 @@ final class KakarotProjectileBeam implements CgSequenceEventListener, AutoClosea
         sequencer.unlisten(Side.RPG, this);
         for (CgCuePlaying p : playing.values()) if (p.active()) p.remove();
         playing.clear();
+        cutIns.clear();
+        requestsEnd.clear();
     }
 
     /** The actor: its root where it was placed, its head flying out along its facing from the first frame it is asked. */
