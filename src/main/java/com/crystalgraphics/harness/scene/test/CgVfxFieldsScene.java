@@ -35,9 +35,10 @@ import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
 
 /**
  * The gate for force fields on the GPU: each of Chaos's node kinds the GPU evaluates, a turned and a world-oriented
- * placement and the four targets it applies, each a station of its own group. 512 particles are seeded at known places
+ * placement and every target it applies, each a station of its own group. 512 particles are seeded at known places
  * with no velocity and stepped once; each one's change of velocity ({@code linear_force}), of place
- * ({@code linear_velocity}, {@code orbit}) or its death ({@code kill}) must be what {@code CgFieldEval}, the Java mirror,
+ * ({@code linear_velocity}, {@code orbit}), of what it keeps ({@code speed_scale}, {@code angular_velocity},
+ * {@code scale}, from the seeded zeros) or its death ({@code kill}) must be what {@code CgFieldEval}, the Java mirror,
  * gives where it stood. A neighbour reading no group stays as it was seeded.
  *
  * <pre>{@code
@@ -130,6 +131,12 @@ public class CgVfxFieldsScene implements InteractiveSceneLifecycle {
                 .node("v", "uniform_vector", "magnitude", 1.5, "direction", List.of(0, 1, 0)).build(), new Quaternionf(), false));
         stations.add(new Station("kill", CgFieldDefinition.graph(CgFieldDefinition.Target.KILL)
                 .node("b", "box_falloff", "transform", Map.of("scale", List.of(5, 4, 6))).build(), new Quaternionf(), false));
+        stations.add(new Station("speed", CgFieldDefinition.graph(CgFieldDefinition.Target.SPEED_SCALE)
+                .node("r", "radial_falloff", "magnitude", 0.5, "max_range", 3).build(), new Quaternionf(), false));
+        stations.add(new Station("spin", CgFieldDefinition.graph(CgFieldDefinition.Target.ANGULAR_VELOCITY)
+                .node("v", "uniform_vector", "magnitude", 0.2, "direction", List.of(0, 0, 1)).build(), new Quaternionf(), false));
+        stations.add(new Station("grow", CgFieldDefinition.graph(CgFieldDefinition.Target.SCALE)
+                .node("v", "radial_vector", "magnitude", 0.1).build(), new Quaternionf(), false));
         stations.add(new Station("neighbour", null, new Quaternionf(), false));
 
         Map<String, Object> still = Map.of("_v", 1, "properties", Map.of("capacity", PARTICLES),
@@ -263,6 +270,17 @@ public class CgVfxFieldsScene implements InteractiveSceneLifecycle {
                     case "linear_velocity" -> {
                         want = new float[]{w[0] * DT, w[1] * DT, w[2] * DT};
                         measured = 3;
+                    }
+                    // Rates per 30 fps frame on the kept state, unturned: these stations' turns are none.
+                    case "speed_scale", "angular_velocity", "scale" -> {
+                        int at = layout.word(CgVfxRecord.Tail.FIELD);
+                        float frames = DT * 30f;
+                        boolean speed = s.graph().target() == CgFieldDefinition.Target.SPEED_SCALE;
+                        int from = at + (speed ? 6 : s.graph().target() == CgFieldDefinition.Target.SCALE ? 3 : 0);
+                        for (int c = 0; c < 3; c++) got[c] = speed && c > 0 ? 0f : layout.f(records, r, from + c);
+                        want = speed ? new float[]{Math.max(w[3] * frames, 0f), 0f, 0f}
+                                : new float[]{w[0] * frames, w[1] * frames, w[2] * frames};
+                        measured = 0;
                     }
                     case "orbit" -> {
                         float rate = (float) Math.sqrt(w[0] * w[0] + w[1] * w[1] + w[2] * w[2]);
