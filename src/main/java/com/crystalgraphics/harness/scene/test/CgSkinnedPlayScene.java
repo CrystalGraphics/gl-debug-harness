@@ -153,6 +153,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             this.x = x;
             this.z = z;
             CgAABB box = mesh.mesh().bounds(new CgAABB());
+            // 0: as authored, the caster whose effects are sized for him (Kakarot's mesh component carries no scale)
+            if (height <= 0f) height = (float) (box.maxY() - box.minY());
             float scale = height / (float) Math.max(box.maxY() - box.minY(), 1e-4);
             transform.scaling(scale).translate((float) -(box.minX() + box.maxX()) / 2f, (float) -box.minY(),
                     (float) -(box.minZ() + box.maxZ()) / 2f);
@@ -332,7 +334,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 }
             }
             if (!clips.isEmpty()) {
-                Actor actor = new Actor("Goku", mesh, clips, -2.0, -6.0, 1.9f, 0xFFF0A040);
+                Actor actor = new Actor("Goku", mesh, clips, -2.0, -6.0, 0f, 0xFFF0A040);
                 actor.kit = true;
                 actors.add(actor);
                 dressFace(actor, mesh, root + KIT + "ANM/cpl/C001A/FCE/");
