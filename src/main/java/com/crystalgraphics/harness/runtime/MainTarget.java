@@ -41,6 +41,8 @@ public final class MainTarget {
         int w = target.getWidth(), h = target.getHeight();
         CgFrameBuffer.blitFrom(target.getId(), 0, 0, 0, w, h, 0, 0, w, h, CgGL.GL_COLOR_BUFFER_BIT, CgGL.GL_NEAREST);
         CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+        // The world pass cleared ours, not the window's: the overlays' text depth-tests against it.
+        CgGL.glClear(CgGL.GL_DEPTH_BUFFER_BIT);
     }
 
     public void delete() {
