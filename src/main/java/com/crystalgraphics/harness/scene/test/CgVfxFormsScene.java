@@ -601,6 +601,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 case SPEED, VELOCITY -> CgVfxRecord.VELOCITY;
                 case RADIUS, OFFSET, CYLINDER_HEIGHT -> CgVfxRecord.POSITION;
                 case CONE_ANGLE -> throw new IllegalStateException("a cone's angle is not read back");
+                case SHAPE_VELOCITY -> throw new IllegalStateException("a shape's velocity is not read back");
                 case COLOR -> layout.word(CgVfxRecord.Tail.COLOR);
                 case MESH_SCALE -> layout.word(CgVfxRecord.Tail.SCALE);
                 case MESH_ORIENTATION -> layout.word(CgVfxRecord.Tail.TURN);
