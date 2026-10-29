@@ -40,7 +40,8 @@ import java.util.function.Function;
  *       facing the caster's way (no target): not attached, as the game's actor.</li>
  *   <li>Its head, the cue's {@code ParticleTop}, starts {@code InitTopOffset} out along that facing and flies at
  *       {@code InitialSpeed}; nothing blocks it here.</li>
- *   <li>The span's end (or the play stopping) removes the cue, which plays its end phase.</li>
+ *   <li>With {@code bRequestEnd} the span's end removes the cue, which plays its end phase; without, the play
+ *       stopping does, as the game ends it when its owner's action changes.</li>
  *   <li>The cue starts its start and loop phases together, as a GAS looping cue's; the game's loop waits DurationST
  *       (0.3 s).</li>
  *   <li>Each frame it writes {@code BeamLength} and {@code CylinderLength} as the cue's {@code writes} say.</li>
@@ -86,10 +87,8 @@ final class KakarotProjectileBeam implements CgSequenceEventListener, AutoClosea
     public void heard(CgSequencePlayer player, Phase phase, String event, @Nullable Object args) {
         if (!event.equals(EVENT) || !(args instanceof Map<?, ?> a)) return;
         if (phase == Phase.END) {
-            // bRequestEnd ends it with the span; without, the game ends it as the owner's action changes: here the
-            // play stopping, which ends the span too
-            CgCuePlaying p = playing.remove(player);
-            if (p != null && p.active()) p.remove();
+            // bRequestEnd ends it with the span; without, as the owner's action changes (end(), below)
+            if (Boolean.TRUE.equals(a.get("bRequestEnd"))) end(player);
             return;
         }
         CgSequenceRole caster = casters.apply(player);
@@ -106,16 +105,24 @@ final class KakarotProjectileBeam implements CgSequenceEventListener, AutoClosea
         LOGGER.info("[skinned-play] the beam {}", projectile);
         // The importer tags each projectile's cue by its asset's name: kakarot_kit:cue.BP_Projectile_...
         String tag = projectile.substring(0, projectile.indexOf(':') + 1) + "cue." + projectile.substring(projectile.lastIndexOf('/') + 1);
+        end(player);
         CgCuePlaying p = cues.add(CgTagRegistry.global().require(tag), params.reset().target(beam));
         p.writes("BeamLength", (time, out) -> {
+            // The owner's action changing: its play stopped (a new move, a release)
+            if (player.stopped()) end(player);
             out[0] = beam.length(time) / LENGTH_BASE;
             out[1] = out[2] = 1f;
         }).writes("CylinderLength", (time, out) -> {
             out[0] = 200f * beam.length(time) / LENGTH_BASE;
             out[1] = out[2] = 0f;
         });
-        CgCuePlaying old = playing.put(player, p);
-        if (old != null && old.active()) old.remove();
+        playing.put(player, p);
+    }
+
+    /** {@code player}'s beam into its end phase, if it has one playing. */
+    private void end(CgSequencePlayer player) {
+        CgCuePlaying p = playing.remove(player);
+        if (p != null && p.active()) p.remove();
     }
 
     @Override
