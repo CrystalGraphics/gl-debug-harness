@@ -45,8 +45,8 @@ import java.util.function.Function;
  *   <li>With {@code bRequestEnd} the span's end removes the cue, which plays its end phase; without, or for a beam
  *       spawned inside a cut-in ({@code ATAnimNotifyState_SkillCutin}, whose beams the request never reaches), the play
  *       stopping does, as the game ends it when its owner's action changes.</li>
- *   <li>The cue starts its start and loop phases together, as a GAS looping cue's; the game's loop waits DurationST
- *       (0.3 s).</li>
+ *   <li>The cue's loop waits {@code DurationST} and replaces the start phase on each socket, and its end phase replaces
+ *       the loop: the cue's {@code delay} and {@code replace}, as the importer writes them.</li>
  *   <li>Each frame it writes {@code BeamLength} and {@code CylinderLength} as the cue's {@code writes} say.</li>
  * </ul>
  */
