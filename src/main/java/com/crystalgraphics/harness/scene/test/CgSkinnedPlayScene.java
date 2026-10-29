@@ -188,8 +188,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
         String line() {
             if (move != null) {
-                return String.format(Locale.ROOT, "%s: %s, %s at %.2f s", name, stage.name().toLowerCase(Locale.ROOT),
-                        move.definition().id(), move.seconds());
+                return String.format(Locale.ROOT, "%s: %s, %s at %.2f s, %.2fx", name, stage.name().toLowerCase(Locale.ROOT),
+                        move.definition().id(), move.seconds(), RATES[rate]);
             }
             CgAnimSequence s = clips.get(clip);
             CgAnimSection playing = instance.sections().get(instance.sections().size() - 1);
@@ -669,8 +669,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             case CgKeyCodes.KEY_P -> instance.playing(!instance.playing());
             case CgKeyCodes.KEY_COMMA -> instance.playing(false).seek(instance.time() - FRAME);
             case CgKeyCodes.KEY_PERIOD -> instance.playing(false).seek(instance.time() + FRAME);
-            case CgKeyCodes.KEY_I -> instance.rate(RATES[actor.rate = Math.max(0, actor.rate - 1)]);
-            case CgKeyCodes.KEY_O -> instance.rate(RATES[actor.rate = Math.min(RATES.length - 1, actor.rate + 1)]);
+            case CgKeyCodes.KEY_I -> rate(actor, actor.rate - 1);
+            case CgKeyCodes.KEY_O -> rate(actor, actor.rate + 1);
             case CgKeyCodes.KEY_K -> kamehameha(actor);
             case CgKeyCodes.KEY_X -> cut(actor);
             case CgKeyCodes.KEY_V -> bystander = !bystander;
@@ -687,17 +687,29 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         return true;
     }
 
+    /**
+     * I/O: the actor's rate, on its clips, its move and the move's particles. A move poses the body from its own clock, so
+     * the clips' rate alone leaves a cut at full speed; its systems run on the world's.
+     */
+    private void rate(Actor actor, int index) {
+        actor.rate = Math.max(0, Math.min(RATES.length - 1, index));
+        float r = RATES[actor.rate];
+        actor.instance.rate(r);
+        if (actor.move != null) actor.move.rate(r);
+        if (actor.kit) CgWorld.client().timeDilation(r);
+    }
+
     /** K: the charge, then the shot (its loop held), then the shot's end; the end plays out and lets go by itself. */
     private void kamehameha(Actor actor) {
         if (!actor.kit || kit == null || !kit.ready()) return;
         switch (actor.stage) {
             case IDLE -> {
-                actor.move = sequencer.play(kit.sequence(0).get(), Map.of("caster", actor));
+                actor.move = sequencer.play(kit.sequence(0).get(), Map.of("caster", actor)).rate(RATES[actor.rate]);
                 actor.stage = Stage.CHARGING;
             }
             case CHARGING -> {
                 actor.move.stop();
-                actor.move = sequencer.play(kit.sequence(1).get(), Map.of("caster", actor));
+                actor.move = sequencer.play(kit.sequence(1).get(), Map.of("caster", actor)).rate(RATES[actor.rate]);
                 actor.stage = Stage.FIRING;
             }
             case FIRING -> {
@@ -738,7 +750,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private void cut(Actor actor) {
         if (!actor.kit || kit == null || !kit.ready()) return;
         if (actor.move != null) actor.move.kill();
-        actor.move = sequencer.play(kit.sequence(2).get(), Map.of("caster", actor));
+        actor.move = sequencer.play(kit.sequence(2).get(), Map.of("caster", actor)).rate(RATES[actor.rate]);
         actor.stage = Stage.ENDING;
         LOGGER.info("[skinned-play] {}: the cut ({})", actor.name, actor.move.definition().id());
     }
@@ -765,6 +777,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (stage != null) stage.on(false);
         if (darken != null) darken.close();
         if (stageLight != null) stageLight.close();
+        CgWorld.client().timeDilation(1f);   // the client world outlives the scene
         CgAnimation animation = CgAnimation.client();
         for (Actor actor : actors) {
             actor.release();
