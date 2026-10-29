@@ -22,7 +22,9 @@ repositories {
 }
 
 val lwjglVersion = "3.4.1"
-val lwjglModules = listOf("lwjgl", "lwjgl-glfw", "lwjgl-opengl", "lwjgl-vulkan", "lwjgl-shaderc", "lwjgl-spvc", "lwjgl-vma")
+val lwjglModules = listOf("lwjgl", "lwjgl-glfw", "lwjgl-opengl", "lwjgl-vulkan", "lwjgl-shaderc", "lwjgl-spvc", "lwjgl-vma",
+    // The engine's own sound: an OpenAL device of its own, Ogg Vorbis by stb_vorbis, as on the modern hosts.
+    "lwjgl-openal", "lwjgl-stb")
 val lwjglNatives: String = run {
     val os = System.getProperty("os.name").lowercase()
     val arm = System.getProperty("os.arch").let { it == "aarch64" || it.startsWith("arm") }

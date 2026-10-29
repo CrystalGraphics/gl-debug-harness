@@ -1,5 +1,9 @@
 package com.crystalgraphics.harness;
 
+import com.crystalgraphics.lwjgl3.Lwjgl3AudioOutput;
+import com.crystalgraphics.lwjgl3.StbVorbisDecoder;
+import com.crystalgraphics.platform.audio.CgAudioDecoder;
+import com.crystalgraphics.platform.audio.CgAudioOutput;
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.harness.config.*;
 import com.crystalgraphics.harness.config.*;
@@ -109,6 +113,9 @@ public final class FontDebugHarnessMain {
             CgPlatform.provide(CgCursorService.SERVICE, new GlfwCursorService(HarnessWindow::handle));
             // CgCameraShake's offset, applied by HarnessWorld while C has it on.
             CgPlatform.provide(CgHostCamera.SERVICE, HarnessCameraShake.INSTANCE);
+            // The engine's sound, on the default device: what a scene's CgAudioEngine plays sequences and cues through.
+            CgPlatform.provide(CgAudioOutput.SERVICE, new Lwjgl3AudioOutput(() -> null));
+            CgPlatform.provide(CgAudioDecoder.SERVICE, new StbVorbisDecoder());
             CgGraphicsLifecycle.initContext(ctx.getScreenWidth(), ctx.getScreenHeight());
             //HarnessDiagnostics.logStartup(ctx);
 

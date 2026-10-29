@@ -10,6 +10,7 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
 import com.crystalgraphics.api.mesh.CgSkeletalMesh;
 import com.crystalgraphics.asset.codec.CgAssetYaml;
+import com.crystalgraphics.audio.CgAudioEngine;
 import com.crystalgraphics.camera.CgCameraPose;
 import com.crystalgraphics.camera.CgCameraSystem;
 import com.crystalgraphics.frame.CgTickFunction;
@@ -398,6 +399,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         CgWorld client = CgWorld.client();
         sequencer = client.subsystem(CgSequencer.class);
         if (sequencer == null) sequencer = client.add(new CgSequencer());
+        // The cut's sound tracks play through it, each on its tick.
+        if (client.subsystem(CgAudioEngine.class) == null) client.add(new CgAudioEngine());
         sequencer.spawner("system", new CgVfxSystemSpawner(VFX.system()));
         current = this;
         cameras = client.subsystem(CgCameraSystem.class);
