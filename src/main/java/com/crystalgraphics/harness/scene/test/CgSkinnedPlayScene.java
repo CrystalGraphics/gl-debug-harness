@@ -74,7 +74,7 @@ import java.util.Random;
  * <ul>
  *   <li>Tab picks Goku or Kurama; N and B its next and previous clip, cross-fading over 0.25 s.</li>
  *   <li>P pauses and plays; {@code ,} and {@code .} step a frame back and on (a seek: the pose playing reaches);
- *       I and O play slower and faster; R restarts the clip.</li>
+ *       U and I play slower and faster; R restarts the clip.</li>
  *   <li>K on Goku plays Kakarot's Kamehameha: the kit's charge and shot montages played through the client world's
  *       {@link CgSequencer}, Goku their caster, their clips on his montage slot and their systems on his sockets, each on
  *       its tick. K charges (the loop held), K again fires (the shot's loop held), K again ends the shot.</li>
@@ -300,7 +300,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private int cutFrames = Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.cut") ? 0 : -1, cutRuns, cutStart;
     /** OL5's gate, under {@code -Dcrystalgraphics.harness.skinnedPlay.outlineCheck=true} ({@link SkinnedOutlineCheck}). */
     private SkinnedOutlineCheck outlineCheck;
-    /** The outline's pass, and which of its edge tests U shows: all, then depth, normal and ID alone. */
+    /** The outline's pass, and which of its edge tests O shows: all, then depth, normal and ID alone. */
     private CgMaterial outlinePass;
     private int outlineTests;
     private static final String[] OUTLINE_TESTS = {"all tests", "depth alone", "normal alone", "ID alone"};
@@ -698,13 +698,13 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             }
             case CgKeyCodes.KEY_COMMA -> instance.playing(false).seek(instance.time() - FRAME);
             case CgKeyCodes.KEY_PERIOD -> instance.playing(false).seek(instance.time() + FRAME);
-            case CgKeyCodes.KEY_I -> rate(actor, actor.rate - 1);
-            case CgKeyCodes.KEY_O -> rate(actor, actor.rate + 1);
+            case CgKeyCodes.KEY_U -> rate(actor, actor.rate - 1);
+            case CgKeyCodes.KEY_I -> rate(actor, actor.rate + 1);
             case CgKeyCodes.KEY_K -> kamehameha(actor);
             case CgKeyCodes.KEY_X -> cut(actor);
             case CgKeyCodes.KEY_V -> bystander = !bystander;
             case CgKeyCodes.KEY_E -> stage(!(stage != null && stage.on()));
-            case CgKeyCodes.KEY_U -> {
+            case CgKeyCodes.KEY_O -> {
                 if (outlinePass == null) break;
                 outlineTests = (outlineTests + 1) % OUTLINE_TESTS.length;
                 SkinnedOutlineCheck.tests(outlinePass, outlineTests < 2, outlineTests == 0 || outlineTests == 2,
@@ -717,7 +717,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     }
 
     /**
-     * I/O: the actor's rate, on its clips, its move and the move's particles; P holds all three at 0. A move poses the
+     * U/I: the actor's rate, on its clips, its move and the move's particles; P holds all three at 0. A move poses the
      * body from its own clock, so the clips' rate alone leaves a cut at full speed; its systems run on the world's.
      */
     private void rate(Actor actor, int index) {
@@ -792,11 +792,11 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (actors.isEmpty()) return "skinned-play: no meshes found (see the scene's javadoc for the paths)";
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < actors.size(); i++) sb.append(i == selected ? "> " : "  ").append(actors.get(i).line()).append('\n');
-        sb.append("Tab actor  N/B clip  P pause  , . frame  I/O rate  R restart  F9 night\n");
+        sb.append("Tab actor  N/B clip  P pause  , . frame  U/I rate  R restart  F9 night\n");
         sb.append("K Kamehameha: charge, fire, end (Goku)  X its cut\n");
         sb.append("V ").append(bystander ? "a bystander (the cut's camera not yours)" : "in the cut");
         sb.append("  E stage: ").append(stage != null && stage.on() ? "ocean arena" : "none");
-        if (outlinePass != null) sb.append("\nU outline: ").append(OUTLINE_TESTS[outlineTests]);
+        if (outlinePass != null) sb.append("\nO outline: ").append(OUTLINE_TESTS[outlineTests]);
         if (kit != null && kit.failed()) sb.append("\nthe kit failed to load: ").append(kit.failures());
         else if (kit != null && !kit.ready()) sb.append("\nloading the kit...");
         return sb.toString();
