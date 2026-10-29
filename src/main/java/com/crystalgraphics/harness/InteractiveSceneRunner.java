@@ -609,6 +609,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     && letters) {
                 CgWorldRenderer.get().halfResolution(!CgWorldRenderer.get().halfResolution());
             }
+            // F1: the HUD hidden or shown.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F1 && overlayPipeline != null) {
+                overlayPipeline.toggleHud();
+            }
             // F9: day and night under VFX Lab's sky, where the scene plays under it.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F9 && HarnessEnvironment.INSTANCE.enabled()) {
                 HarnessEnvironment.INSTANCE.toggleNight();

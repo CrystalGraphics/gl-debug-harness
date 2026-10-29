@@ -115,9 +115,16 @@ public final class OverlayPipeline {
         }
 
         // HUD renders second (on top of pause overlay if both active)
-        if (uses3DCamera) {
+        if (uses3DCamera && !hudHidden) {
             hudRenderer.render(ctx);
         }
+    }
+
+    private boolean hudHidden;
+
+    /** F1: the HUD hidden or shown again, as a game's F1 hides its interface. */
+    public void toggleHud() {
+        hudHidden = !hudHidden;
     }
 
     /**

@@ -686,6 +686,7 @@ The interactive runner sequences these steps every frame:
 | SHIFT | Move down |
 | Mouse | Look around (yaw/pitch) |
 | ESCAPE or T | Toggle pause (releases mouse cursor) |
+| F1 | Hide or show the HUD, as a game's F1 hides its interface: a clean frame to compare against a game capture |
 | C | Camera shake on and off (the HUD says which) |
 | L | Bloom in the target's encoding, then in linear light, then off (the HUD says which) |
 | G | The HDR scene on or off for the run (`CgWorldRenderer.hdrScene`, overriding the `CgGraphicsSettings.HDR` setting, on by default, unsaved; `-Dcrystalgraphics.world.hdrScene=false` at launch): the transparent stage drawn into a linear RGBA16F scene and composited back, or straight into the target as before. Takes effect the next frame |
