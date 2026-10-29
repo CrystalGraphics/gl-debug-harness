@@ -104,7 +104,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     private static final float[] FIELD_AT = {0.5f, -0.3f, 0.2f}, FIELD_HALF = {2f, 2f, 2f};
     private static final float FIELD_STRENGTH = 1.7f, FIELD_TIGHTNESS = 0.35f;
     private static final CgVfxFieldTurn FIELD_TURN = new CgVfxFieldTurn(new float[]{0.3f, 0.1f, -0.2f},
-            CgUnits.rotatorToHost(0.4, 0.9, -0.6), new float[]{0.2f, -0.5f, 1.1f}, new float[]{0.2f, -0.5f, 1.1f}, new float[3]);
+            CgUnits.rotatorToHost(0.4, 0.9, -0.6), new float[]{0.2f, -0.5f, 1.1f}, new float[]{0.2f, -0.5f, 1.1f}, new float[3],
+            new float[]{1.5f, 0.75f, 1.25f});
     /** The loop's seconds the spawn stations spawn at, and the instance's as the module stations step. */
     private static final float LOOP = 0.7f, STEP_LOOP = 1.3f;
     /** The triangle station's height, apex angle (radians) and thickness. */
@@ -500,16 +501,14 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     private void compareField(int e) {
         ByteBuffer records = read.get(e);
         CgVfxRecord layout = pools.get(e).record();
-        float[] q = new float[4], conj = new float[4], local = new float[3], sample = new float[3], v = new float[3];
-        FIELD_TURN.at(0f, 0f, q);
-        conj[0] = -q[0];
-        conj[1] = -q[1];
-        conj[2] = -q[2];
-        conj[3] = q[3];
-        turn(conj, new float[]{-FIELD_AT[0], -FIELD_AT[1], -FIELD_AT[2]}, local);
-        for (int a = 0; a < 3; a++) local[a] = ((local[a] - FIELD_TURN.pivot()[a]) / FIELD_HALF[a] + 1f) * 0.5f;
+        float[] frame = new float[18], local = new float[3], sample = new float[3], v = new float[3];
+        FIELD_TURN.frame(0f, 0f, 0f, 0f, 0f, 1f, frame);   // the station's instance unturned
+        for (int a = 0; a < 3; a++) {
+            float d = -(frame[a * 3] * FIELD_AT[0] + frame[a * 3 + 1] * FIELD_AT[1] + frame[a * 3 + 2] * FIELD_AT[2]);
+            local[a] = ((d - FIELD_TURN.pivot()[a]) / FIELD_HALF[a] + 1f) * 0.5f;
+        }
         FIELD.sample(local[0], local[1], local[2], sample);
-        turn(q, sample, v);
+        for (int a = 0; a < 3; a++) v[a] = frame[9 + a * 3] * sample[0] + frame[9 + a * 3 + 1] * sample[1] + frame[9 + a * 3 + 2] * sample[2];
         float l = (float) Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
         float pull = FIELD_TIGHTNESS / (FIELD_TIGHTNESS + 0.001f);
         // Tightness each of Cascade's 1/30 s steps, so 15 of them over this step.
@@ -567,15 +566,6 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             }
             checked++;
         }
-    }
-
-    /** {@code q}'s turn of {@code v} into {@code out}: {@code fx_field_turn}. */
-    private static void turn(float[] q, float[] v, float[] out) {
-        float cx = q[1] * v[2] - q[2] * v[1] + q[3] * v[0], cy = q[2] * v[0] - q[0] * v[2] + q[3] * v[1];
-        float cz = q[0] * v[1] - q[1] * v[0] + q[3] * v[2];
-        out[0] = v[0] + 2f * (q[1] * cz - q[2] * cy);
-        out[1] = v[1] + 2f * (q[2] * cx - q[0] * cz);
-        out[2] = v[2] + 2f * (q[0] * cy - q[1] * cx);
     }
 
     /** Every particle of spawn station {@code e}: its life, size, rotation, velocity or place, against the form's Java evaluation. */
