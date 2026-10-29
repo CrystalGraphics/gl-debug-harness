@@ -4,6 +4,7 @@ import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.camera.PauseScreenRenderer;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.RenderPassState;
+import com.crystalgraphics.render.stage.CgRenderStage;
 
 import java.util.logging.Logger;
 
@@ -30,7 +31,8 @@ import java.util.logging.Logger;
  * post-scene GL state reset:</p>
  * <ol>
  *   <li>Pause overlay (if paused) — semi-transparent bar at bottom of screen</li>
- *   <li>HUD overlay (if 3D camera active) — camera position/rotation text</li>
+ *   <li>{@link CgRenderStage#HUD} (if 3D camera active and not hidden with F1), fired as a game's host fires it: the
+ *       HUD text at {@link #HUD_ORDER}, then anything else drawing over the HUD, the engine's subtitles among them</li>
  * </ol>
  * <p>This order ensures the HUD text renders on top of the pause overlay
  * when both are active simultaneously.</p>
@@ -57,8 +59,15 @@ public final class OverlayPipeline {
 
     private static final Logger LOGGER = Logger.getLogger(OverlayPipeline.class.getName());
 
+    /** Where the HUD text draws on {@link CgRenderStage#HUD}: under the engine's subtitles. */
+    public static final int HUD_ORDER = 0;
+
     private final HUDRenderer hudRenderer;
     private final PauseScreenRenderer pauseRenderer;
+    private CgRenderStage.Registration hudStage;
+    /** The context of the firing under way, for the HUD text's callback. */
+    private HarnessContext firing;
+    private final Runnable drawHud = this::renderHud;
 
     /**
      * Creates a new overlay pipeline owning the given HUD and pause renderers.
@@ -90,6 +99,7 @@ public final class OverlayPipeline {
     public void init(HarnessContext ctx) {
         hudRenderer.init(ctx);
         pauseRenderer.init();
+        hudStage = CgRenderStage.HUD.register(HUD_ORDER, frame -> frame.callback("harness.hud", drawHud));
         LOGGER.info("[OverlayPipeline] All overlay renderers initialized.");
     }
 
@@ -114,10 +124,16 @@ public final class OverlayPipeline {
             pauseRenderer.render(ctx);
         }
 
-        // HUD renders second (on top of pause overlay if both active)
+        // The HUD stage second (on top of pause overlay if both active), into the window: the scene's target has been
+        // blitted to it by now. The harness's GUI is unscaled.
         if (uses3DCamera && !hudHidden) {
-            hudRenderer.render(ctx);
+            firing = ctx;
+            CgRenderStage.HUD.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, 0);
         }
+    }
+
+    private void renderHud() {
+        hudRenderer.render(firing);
     }
 
     private boolean hudHidden;
@@ -155,6 +171,7 @@ public final class OverlayPipeline {
      * methods should be invoked.</p>
      */
     public void delete() {
+        if (hudStage != null) hudStage.close();
         hudRenderer.delete();
         pauseRenderer.delete();
         LOGGER.info("[OverlayPipeline] All overlay renderers deleted.");
