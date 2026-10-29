@@ -41,8 +41,12 @@ import com.crystalgraphics.sequence.camera.CgCameraAnimationEvaluator;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxOwner;
+import com.crystalgraphics.vfx.system.CgVfxCueEffects;
 import com.crystalgraphics.vfx.system.CgVfxSystemSpawner;
+import com.crystalgraphics.asset.load.CgVfxAssets;
+import com.crystalgraphics.cue.CgCueManager;
 import com.crystalgraphics.world.CgAttachment;
+import org.joml.Quaternionf;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix3f;
@@ -100,6 +104,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private static final String CUT = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/AM_C001A_S_SKL001_Cut";
     /** The cut's camera animation: what its {@code camera_animation} section plays on the viewer's camera. */
     private static final String CUT_CAMERA = "kakarot_kit:Art/ANM/cpl/C001A/BTL/SKL/C001A_S_SKL001_Cam";
+    /** The beams the shot and the cut fire: their AnimNotify_SpawnProjectileBeam's Projectile, each a cue. */
+    private static final String BEAM = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/BP_Projectile_C001A_S_SKL001",
+            BEAM_CUT = BEAM + "_Cut";
     /** E's stage: Kakarot's ocean arena's post materials (KakarotStageFixture), loaded after Goku's. */
     private static final String STAGE_CHARA = "kakarot_kit:Art/BG/Area02/PostProcess/Area02_CharaColor",
             STAGE_POST = "kakarot_kit:Art/BG/Area02/PostProcess/Area02_PostProcess";
@@ -142,6 +149,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         Map<?, ?> rimBlock;
         /** How far its prefab's root stands above its mesh's, in host units: 0 for a body with no prefab. */
         double rootLift;
+        /** Its mesh's turn back to its actor's: the inverse of the prefab's Mesh node rotation (an ACharacter's yaw -90). */
+        final Quaternionf meshToActor = new Quaternionf();
         int clip;
         int rate = 3;
 
@@ -215,11 +224,13 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         @Override
         public CgAttachment attachment(String socket) {
             if (socket != null) return instance.attachment(socket);   // an unknown name answers where it stands
-            // No socket: the actor's origin, its prefab's root, rootLift above the mesh's (an ACharacter's capsule centre)
+            // No socket: the actor's origin, its prefab's root, rootLift above the mesh's (an ACharacter's capsule centre),
+            // turned as the actor rather than its mesh
             CgAttachment root = instance.attachment("");
             return (point, turn) -> {
                 if (!root.place(point, turn)) return false;
                 point[1] += rootLift;
+                if (turn != null) turn.mul(meshToActor);
                 return true;
             };
         }
@@ -278,6 +289,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private final Matrix3f basis = new Matrix3f();
     private final Vector3f forward = new Vector3f(), right = new Vector3f(), up = new Vector3f(), eye = new Vector3f();
     private CgSequencer sequencer;
+    /** The moves' projectile beams: Kakarot's ATProjectileBeam, standing in for RPG-Core's. */
+    private KakarotProjectileBeam beams;
     private int selected;
     private CgMaterial material;
     private CgTickFunction submit;
@@ -363,7 +376,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             for (Actor actor : actors) {
                 if (!actor.name.equals("Goku")) continue;
                 actor.kitMaterials = prefabMaterials(kitFolder.resolve(GOKU_PREFAB), actor.instance.materialSlots());
-                actor.rootLift = prefabRootLift(kitFolder.resolve(GOKU_PREFAB), kitFolder.resolve("units.yaml"));
+                prefabMesh(actor, kitFolder.resolve(GOKU_PREFAB), kitFolder.resolve("units.yaml"));
                 materials = new ArrayList<>(actor.kitMaterials);
                 actor.outlineBlock = castBlock(kitFolder.resolve("cast.yaml"), actor.name, "outline");
                 actor.rimBlock = castBlock(kitFolder.resolve("cast.yaml"), actor.name, "rim");
@@ -399,6 +412,15 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
         this.ctx = ctx;
         CgPostVolumeSpawner.install(sequencer, cameras);   // the cut's post volumes: its camera's, in its view alone
+        CgCueManager cues = client.subsystem(CgCueManager.class);
+        if (cues == null) {
+            cues = client.add(new CgCueManager(CgVfxAssets.instance()));
+            cues.effects(new CgVfxCueEffects(VFX.system(), cues));
+        }
+        beams = KakarotProjectileBeam.install(sequencer, cues, player -> {
+            for (Actor a : actors) if (a.move == player) return a;
+            return null;
+        }).prepare(BEAM).prepare(BEAM_CUT);
         cameras.involved(owner -> current == null || !current.bystander);
         submit = client.schedule().add(CgTickGroup.SUBMIT, "harness:skinned-play", this::submit);
         stageLight = CgDirectionalLights.get().add(0).colour(1f, 5.941f / 6.797f, 4.574f / 6.797f, 6.797f)
@@ -483,11 +505,12 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     }
 
     /**
-     * How far a prefab's root stands above the node drawing its mesh, in host units: minus that node's height (Goku's
-     * Mesh at z -100 cm under the Blueprint's capsule). 0 where the prefab or its mesh node has no location.
+     * The node drawing a prefab's mesh, into {@code actor}: how far the root stands above it, minus its height (Goku's
+     * Mesh at z -100 cm under the Blueprint's capsule), and its turn undone. Left as they are where the prefab or its mesh
+     * node has no location.
      */
-    private static double prefabRootLift(Path prefab, Path units) {
-        if (!Files.isRegularFile(prefab) || !Files.isRegularFile(units)) return 0;
+    private static void prefabMesh(Actor actor, Path prefab, Path units) {
+        if (!Files.isRegularFile(prefab) || !Files.isRegularFile(units)) return;
         try {
             CgUnits kitUnits = CgUnits.of(((Map<?, ?>) CgAssetYaml.read(Files.readString(units))).get("units"), CgUnits.HOST);
             Map<?, ?> tree = (Map<?, ?>) CgAssetYaml.read(Files.readString(prefab));
@@ -495,9 +518,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 Map<?, ?> n = (Map<?, ?>) node;
                 if (!(n.get("meshes") instanceof List<?>) || !(n.get("location") instanceof List<?> at)) continue;
                 List<?> host = (List<?>) kitUnits.toHost(at, CgQuantity.POSITION);
-                return -((Number) host.get(1)).doubleValue();
+                actor.rootLift = -((Number) host.get(1)).doubleValue();
+                kitUnits.rotationToHost(n.get("rotation"), actor.meshToActor).invert();
+                return;
             }
-            return 0;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -781,6 +805,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     @Override
     public void dispose() {
         if (submit != null) submit.close();
+        if (beams != null) beams.close();
         if (outline != null) outline.close();
         if (stage != null) stage.on(false);
         if (darken != null) darken.close();
