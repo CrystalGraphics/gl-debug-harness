@@ -512,6 +512,8 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         turn(q, sample, v);
         float l = (float) Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
         float pull = FIELD_TIGHTNESS / (FIELD_TIGHTNESS + 0.001f);
+        // Tightness each of Cascade's 1/30 s steps, so 15 of them over this step.
+        float tight = (float) (1.0 - Math.pow(1.0 - FIELD_TIGHTNESS, DT * 30.0));
         boolean[] seen = new boolean[PARTICLES];
         for (int r = 0; r < PARTICLES; r++) {
             int id = layout.i(records, r, CgVfxRecord.ID);
@@ -519,7 +521,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             seen[id] = true;
             float[] s = seeded[id];
             for (int c = 0; c < 3; c++) {
-                float drawn = s[2 + c] + (v[c] * FIELD_STRENGTH * pull - s[2 + c]) * FIELD_TIGHTNESS;
+                float drawn = s[2 + c] + (v[c] * FIELD_STRENGTH * pull - s[2 + c]) * tight;
                 float want = drawn + v[c] / l * (l * FIELD_STRENGTH) * DT;
                 float got = layout.f(records, r, CgVfxRecord.VELOCITY + c);
                 float off = Math.abs(got - want) / (TOLERANCE * (1f + Math.abs(want)));
