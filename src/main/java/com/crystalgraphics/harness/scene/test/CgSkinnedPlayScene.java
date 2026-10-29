@@ -37,7 +37,7 @@ import com.crystalgraphics.sequence.binding.CgRoleRim;
 import com.crystalgraphics.sequence.binding.CgSequenceRole;
 import com.crystalgraphics.sequence.animation.CgSequenceSkeletal;
 import com.crystalgraphics.sequence.CgSequencer;
-import com.crystalgraphics.sequence.camera.CgCameraAnimationEvaluator;
+import com.crystalgraphics.sequence.camera.CgSequenceCameras;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxOwner;
@@ -407,7 +407,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         });
         // Once a sequencer: the scene shown now answers its camera sequences.
         if (cameraSequencer != sequencer) {
-            CgCameraAnimationEvaluator.install(sequencer, cameras, id -> current == null ? null : current.cameraSequence(id));
+            CgSequenceCameras.install(sequencer, cameras, id -> current == null ? null : current.cameraSequence(id));
             cameraSequencer = sequencer;
         }
         this.ctx = ctx;
