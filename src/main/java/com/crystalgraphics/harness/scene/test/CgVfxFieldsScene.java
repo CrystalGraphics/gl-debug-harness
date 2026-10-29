@@ -38,7 +38,7 @@ import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
  * placement and every target it applies, each a station of its own group. 512 particles are seeded at known places
  * with no velocity and stepped once; each one's change of velocity ({@code linear_force}), of place
  * ({@code linear_velocity}, {@code orbit}), of what it keeps ({@code speed_scale}, {@code angular_velocity},
- * {@code scale}, from the seeded zeros) or its death ({@code kill}) must be what {@code CgFieldEval}, the Java mirror,
+ * {@code scale}, from where a launch starts them) or its death ({@code kill}) must be what {@code CgFieldEval}, the Java mirror,
  * gives where it stood. A neighbour reading no group stays as it was seeded.
  *
  * <pre>{@code
@@ -218,6 +218,9 @@ public class CgVfxFieldsScene implements InteractiveSceneLifecycle {
             for (int id = 0; id < PARTICLES; id++) {
                 float[] s = seeded[id];
                 layout.put(packed, id, s[2], s[3], s[4], 0f, 0f, 0f, s[0], s[1], 0.1f, 0f, id, slot);
+                // What fields keep starts where a launch starts it: no turn, a scale and a speed scale of 1.
+                int field = layout.word(CgVfxRecord.Tail.FIELD);
+                if (field >= 0) for (int w = 3; w < 7; w++) packed.putFloat(id * layout.bytes() + (field + w) * 4, 1f);
             }
             pool.seed(rec, packed, PARTICLES);
             pools.add(pool);
@@ -278,8 +281,9 @@ public class CgVfxFieldsScene implements InteractiveSceneLifecycle {
                         boolean speed = s.graph().target() == CgFieldDefinition.Target.SPEED_SCALE;
                         int from = at + (speed ? 6 : s.graph().target() == CgFieldDefinition.Target.SCALE ? 3 : 0);
                         for (int c = 0; c < 3; c++) got[c] = speed && c > 0 ? 0f : layout.f(records, r, from + c);
-                        want = speed ? new float[]{Math.max(w[3] * frames, 0f), 0f, 0f}
-                                : new float[]{w[0] * frames, w[1] * frames, w[2] * frames};
+                        float from1 = s.graph().target() == CgFieldDefinition.Target.ANGULAR_VELOCITY ? 0f : 1f;
+                        want = speed ? new float[]{Math.max(1f + w[3] * frames, 0f), 0f, 0f}
+                                : new float[]{from1 + w[0] * frames, from1 + w[1] * frames, from1 + w[2] * frames};
                         measured = 0;
                     }
                     case "orbit" -> {
