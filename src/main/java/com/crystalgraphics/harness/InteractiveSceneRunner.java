@@ -41,6 +41,7 @@ import com.crystalgraphics.harness.runtime.MainTarget;
 import com.crystalgraphics.harness.runtime.MotionProbe;
 import com.crystalgraphics.harness.runtime.OverlayCaptureOrchestrator;
 import com.crystalgraphics.harness.runtime.OverlayPipeline;
+import com.crystalgraphics.harness.runtime.RenderDoc;
 import com.crystalgraphics.harness.runtime.ResizeHandler;
 import com.crystalgraphics.harness.runtime.HarnessEnvironment;
 import com.crystalgraphics.harness.runtime.WorldPassCoordinator;
@@ -159,6 +160,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      * name less {@code KEY_}) at that frame, as the window would: a binding tried unattended, or profiled either side.
      */
     private static final String KEY_AT = System.getProperty("crystalgraphics.harness.keyAt");
+    /** {@code -Dcrystalgraphics.harness.renderDocAt=<frame>[,<frame>...]}: a RenderDoc capture of each, under {@code --renderdoc}. */
+    private static final String RENDERDOC_AT = System.getProperty("crystalgraphics.harness.renderDocAt");
     /** {@code -Dcrystalgraphics.harness.resizeAt=<frame>:<width>x<height>}: resizes the window at that frame. */
     private static final String RESIZE_AT = System.getProperty("crystalgraphics.harness.resizeAt");
     /** {@code -Dcrystalgraphics.harness.camera=<x>,<y>,<z>,<yaw>,<pitch>}: the camera after the scene placed it, as the
@@ -577,6 +580,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private void pollInput() {
         HarnessWindow.pollEvents();
+        if (RENDERDOC_AT != null && Arrays.asList(RENDERDOC_AT.split(",")).contains(Long.toString(frameClock.getFrameNumber()))) {
+            RenderDoc.captureNextFrames(1);
+        }
         List<CgSystemInput.Keyboard.Event> keys;
         if (UNATTENDED) {
             // Live input is dropped; scripted presses are the run's own, so they still reach the scene.
