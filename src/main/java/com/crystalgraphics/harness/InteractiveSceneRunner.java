@@ -140,6 +140,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     /** Zones a profiled frame may hold, per thread: the ring is sized so no profiled frame loses its own. */
     private static final int PROFILE_ZONES_PER_FRAME =
             Integer.getInteger("crystalgraphics.harness.profile.zonesPerFrame", 16_384);
+    /** {@code -Dcrystalgraphics.harness.hitchDumpMs=<ms>}: a profile of the frames before each frame slower than it. */
+    private static final long HITCH_DUMP_MS = Long.getLong("crystalgraphics.harness.hitchDumpMs", 0L);
+    /** The frames a hitch's profile covers, the hitch last; and the most a run writes. */
+    private static final int HITCH_FRAMES = 240, HITCH_DUMPS = 5;
+    private int hitchDumps;
+    private long hitchAt;
     /** {@code -Dcrystalgraphics.harness.captureAt=<frame>}: photograph that frame and stop -- an unattended
      * picture of any interactive scene. Pair with {@code fixedDelta} for one that repeats run to run. Live input
      * is ignored meanwhile: a pointer crossing the window would otherwise grab it and turn the camera. */
@@ -354,6 +360,13 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             CgTrace.stopAfterHitch(0L, 0);
             CgTrace.enable("crystalgraphics");
         }
+        // -Dcrystalgraphics.harness.hitchDumpMs=<ms>: the trace kept running, and the frames before each frame slower
+        // than that written as a profile (at most HITCH_DUMPS a run): a rare hitch in a hand-driven session, caught.
+        if (HITCH_DUMP_MS > 0 && profileFrames == 0) {
+            CgTrace.configure(0, HITCH_FRAMES + 8, PROFILE_ZONES_PER_FRAME);
+            CgTrace.stopAfterHitch(0L, 0);
+            CgTrace.enable("crystalgraphics");
+        }
         long profileFrom = 0L;
         // THE HARNESS IS THE HOST, so it brackets each loop as a trace frame -- unless the scene frames
         // itself (a UIDocument does), which it notices the first time the index moves under a render.
@@ -519,6 +532,20 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 scene.onFrameEnd(ctx, new FrameInfo(
                         (float) ((System.nanoTime() - frameStartNanos) / 1_000_000_000.0),
                         frameClock.getElapsedTime(), frameClock.getFrameNumber()));
+            }
+            if (HITCH_DUMP_MS > 0 && hitchDumps < HITCH_DUMPS) {
+                long took = (System.nanoTime() - frameStartNanos) / 1_000_000L;
+                if (hitchAt == 0 && frameClock.getFrameNumber() > HITCH_FRAMES && took > HITCH_DUMP_MS) {
+                    hitchAt = frameClock.getFrameNumber();
+                    LOGGER.info("[InteractiveSceneRunner] a " + took + " ms frame at " + hitchAt);
+                } else if (hitchAt != 0 && frameClock.getFrameNumber() >= hitchAt + 2) {
+                    // Two frames on: a wait after the frame's end (its swap, its sync) is booked to the frame after it.
+                    File report = TraceDump.profile(new File(ctx.getOutputDir()), "hitch-" + hitchAt,
+                            CgTrace.currentFrameIndex() - HITCH_FRAMES);
+                    LOGGER.info("[InteractiveSceneRunner] hitch at " + hitchAt + ": report=" + report);
+                    hitchDumps++;
+                    hitchAt = 0;
+                }
             }
             if (CAPTURE_AT > 0 && frameClock.getFrameNumber() >= CAPTURE_AT) break;
             if (bench != null && bench.end()) {
