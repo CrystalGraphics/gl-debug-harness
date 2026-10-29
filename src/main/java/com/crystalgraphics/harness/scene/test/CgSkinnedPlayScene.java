@@ -66,6 +66,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 
 /**
@@ -549,6 +550,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             if (actor.stage == Stage.ENDING && actor.move.finished()) {
                 actor.release();
                 LOGGER.info("[skinned-play] {}: the shot played out", actor.name);
+                if (!Double.isNaN(EXIT_AFTER) && actor.kit) exitAt = elapsed + EXIT_AFTER;
             }
             if (kit != null && kit.failed() && !kitFailureLogged) {
                 kitFailureLogged = true;
@@ -559,7 +561,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     // His own copies (Unreal's dynamic material instances): what his clips' curves and his outline slot set
                     for (int s = 0; s < actor.kitMaterials.size(); s++) actor.instance.material(s, kit.material(s).get());
                     actor.dressed = true;
-                    LOGGER.info("[skinned-play] {}: drawn in its {} kit materials", actor.name, actor.kitMaterials.size());
+                    LOGGER.info("[skinned-play] {}: drawn in its {} kit materials, at frame {}", actor.name, actor.kitMaterials.size(), frameNumber);
                     // His cast entry's rim: the parameters the contract's rim_strength, rim_power and rim write
                     Map<?, ?> rim = actor.rimBlock;
                     if (rim != null && rim.get("strength") instanceof String strength && rim.get("power") instanceof String power
@@ -647,8 +649,39 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** Whether this frame draws from the camera system's pose, as {@link #worldView} found it. */
     private boolean cut;
 
+    /** The frame being drawn: when the kit came ready, in the log. */
+    private long frameNumber;
+    /** Seconds after Goku's kit is ready to press X, and after the shot plays out to end the run; NaN for never. */
+    private static final double CUT_AFTER = seconds("crystalgraphics.harness.skinnedPlay.cutAfter"),
+            EXIT_AFTER = seconds("crystalgraphics.harness.skinnedPlay.exitAfter");
+    /** The scene's clock, and when the scripted cut and the run's end fall on it; negative until known. */
+    private double elapsed, cutAt = -1, exitAt = -1;
+    private boolean running = true;
+
+    private static double seconds(String property) {
+        String value = System.getProperty(property);
+        return value == null ? Double.NaN : Double.parseDouble(value);
+    }
+
+    /** The scripted cut: X, {@link #CUT_AFTER} seconds after the kit is ready; the run's end {@link #EXIT_AFTER} after it plays out. */
+    private void script() {
+        Actor goku = null;
+        for (Actor a : actors) if (a.kit) goku = a;
+        if (goku == null || Double.isNaN(CUT_AFTER)) return;
+        if (cutAt < 0 && goku.dressed) cutAt = elapsed + CUT_AFTER;
+        if (cutAt >= 0 && elapsed >= cutAt && cutAt != Double.MAX_VALUE) {
+            cutAt = Double.MAX_VALUE;
+            LOGGER.info("[skinned-play] the scripted cut, at frame {}", frameNumber);
+            cut(goku);
+        }
+        if (exitAt >= 0 && elapsed >= exitAt) running = false;
+    }
+
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
+        frameNumber = frame.getFrameNumber();
+        elapsed = frame.getElapsedTime();
+        script();
         if (cut) {
             HarnessWorld.fire(ctx, view, projection);
         } else {
@@ -656,6 +689,24 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
         if (outlineCheck != null) outlineCheck.frame(ctx);
         if (cutFrames >= 0 && kit != null && kit.ready()) cutCheck();
+        subtitleWatch();
+    }
+
+    /** The subtitle last logged. */
+    private String subtitle;
+
+    /** Logs each line the subtitles show as it changes: what, who, in which look, and when in the cut. */
+    private void subtitleWatch() {
+        CgAudioEngine audio = CgWorld.client().subsystem(CgAudioEngine.class);
+        String text = audio == null ? null : audio.subtitles().text();
+        if (Objects.equals(text, subtitle)) return;
+        subtitle = text;
+        Actor goku = null;
+        for (Actor a : actors) if (a.kit) goku = a;
+        String at = goku == null || goku.move == null ? "" : String.format(Locale.ROOT, " at %.2f s", goku.move.seconds());
+        System.out.println(text == null ? "[skinned-play] subtitle cleared" + at + "; " + audio.subtitleFramesDrawn() + " frames drawn"
+                : "[skinned-play] subtitle \"" + text + "\" by " + audio.subtitles().speaker() + ", in "
+                + (audio.subtitles().style() != null ? "its game's style" : "the canvas look") + at);
     }
 
     /** The cut played twice, unattended, 300 frames after the kit is ready: the move's light and plays logged each second. */
@@ -821,8 +872,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
     }
 
-    @Override public boolean isRunning()                { return true; }
+    @Override public boolean isRunning()                { return running; }
     @Override public boolean uses3DCamera()             { return true; }
-    @Override public boolean shouldShutdownOnComplete() { return false; }
+    @Override public boolean shouldShutdownOnComplete() { return !Double.isNaN(EXIT_AFTER); }
     @Override public boolean editorEnvironment()        { return true; }
 }
