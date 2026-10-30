@@ -365,6 +365,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         }
         // -Dcrystalgraphics.harness.hitchDumpMs=<ms>: the trace kept running, and the frames before each frame slower
         // than that written as a profile (at most HITCH_DUMPS a run): a rare hitch in a hand-driven session, caught.
+        if (PROFILE_RING > 0 && profileFrames == 0) {
+            CgTrace.configure(0, PROFILE_RING, PROFILE_ZONES_PER_FRAME);
+            CgTrace.stopAfterHitch(0L, 0);
+            CgTrace.enable("crystalgraphics");
+        }
         if (HITCH_DUMP_MS > 0 && profileFrames == 0) {
             CgTrace.configure(0, HITCH_FRAMES + 8, PROFILE_ZONES_PER_FRAME);
             CgTrace.stopAfterHitch(0L, 0);
@@ -683,6 +688,34 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             LOGGER.info("[InteractiveSceneRunner] keyAt: " + name + " at frame " + frameClock.getFrameNumber());
         }
         return out == null ? drained : out;
+    }
+
+    /**
+     * {@code -Dcrystalgraphics.harness.profile.ring=<frames>}: the trace kept running over that many frames, for a scene
+     * that profiles its own ranges ({@link #profileBegin}): an event's frames, however long the run takes to reach it.
+     */
+    private static final int PROFILE_RING = Integer.getInteger("crystalgraphics.harness.profile.ring", 0);
+    /** The range a scene opened, and the trace frame it starts at; null while none is open. */
+    private String rangeLabel;
+    private long rangeFrom;
+
+    /**
+     * Starts a profile of the frames from the next one until {@link #profileEnd}, written as
+     * {@code profile-<label>/report.txt}: a scene's own event, found by the scene rather than by frame numbers. Needs
+     * {@code profile.ring}; without it, nothing is recorded and this does nothing.
+     */
+    public void profileBegin(String label) {
+        if (PROFILE_RING <= 0) return;
+        rangeLabel = label;
+        rangeFrom = CgTrace.currentFrameIndex() + 1;
+    }
+
+    /** Ends the range {@link #profileBegin} opened, with this frame, and writes its report. */
+    public void profileEnd() {
+        if (rangeLabel == null) return;
+        File report = TraceDump.profile(new File(ctx.getOutputDir()), rangeLabel, rangeFrom, CgTrace.currentFrameIndex() + 1);
+        LOGGER.info("[InteractiveSceneRunner] profile " + rangeLabel + " report=" + report);
+        rangeLabel = null;
     }
 
     private static void splitProfile(HarnessContext ctx, String label, long from) {

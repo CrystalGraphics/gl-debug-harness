@@ -72,6 +72,24 @@ public final class RuntimeServices {
     }
 
     /** The desktop an extension keeps over this scene, or null: a 2D scene, or no extension offering one. */
+    /**
+     * Profiles the frames from the next one until {@link #profileEnd}, as {@code profile-<label>/}: a scene's own
+     * event. Records only under {@code -Dcrystalgraphics.harness.profile.ring=<frames>}; otherwise does nothing.
+     *
+     * <pre>{@code
+     * services.profileBegin("cut-1");   // the frame X is pressed
+     * services.profileEnd();             // the frame the shot plays out
+     * }</pre>
+     */
+    public void profileBegin(String label) {
+        runner.profileBegin(label);
+    }
+
+    /** Ends the range {@link #profileBegin} opened and writes its report. */
+    public void profileEnd() {
+        runner.profileEnd();
+    }
+
     public HarnessDesktop desktop() {
         return runner.desktop();
     }

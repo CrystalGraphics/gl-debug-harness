@@ -12,11 +12,11 @@ import com.crystalgraphics.asset.load.CgVfxAssets;
 import com.crystalgraphics.asset.registry.CgAssetRegistry;
 import com.crystalgraphics.asset.registry.CgAssetSource;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
+import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.prefab.CgVfxPrefabAssets;
 import com.crystalgraphics.vfx.system.CgVfxSystemAssets;
 import com.crystalgraphics.vfx.system.CgVfxSystemDefinition;
-import com.crystalgraphics.vfx.system.CgVfxSystemPreparer;
 
 import javax.annotation.Nullable;
 
@@ -69,7 +69,7 @@ final class HarnessKitSystems {
         registry.registerEngine();
         registry.scan(namespace, kit, CgAssetSource.DEV);
         CgVfxAssets assets = new CgVfxAssets(registry);
-        assets.preparer(CgParticleKinds.SYSTEM, new CgVfxSystemPreparer(() -> vfx));
+        CgVfx.preparers(assets, () -> vfx);   // the client's: systems, prefabs, sequences' sounds
         CgVfxAssets.install(assets);   // the frame boundary drains and publishes the process's assets
         refs = new CgAssetRef[ids.size()];
         for (int i = 0; i < refs.length; i++) refs[i] = assets.declare(CgParticleKinds.SYSTEM, namespace + ":" + ids.get(i));

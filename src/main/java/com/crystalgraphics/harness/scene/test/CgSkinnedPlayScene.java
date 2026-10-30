@@ -16,10 +16,12 @@ import com.crystalgraphics.camera.CgCameraSystem;
 import com.crystalgraphics.frame.CgTickFunction;
 import com.crystalgraphics.frame.CgTickGroup;
 import com.crystalgraphics.frame.CgWorld;
+import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.harness.config.RuntimeServices;
 import com.crystalgraphics.object.value.CgQuantity;
 import com.crystalgraphics.object.value.CgUnits;
 import com.crystalgraphics.platform.input.CgKeyCodes;
@@ -68,6 +70,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.function.Function;
 
 /**
  * Skinned meshes playing their clips, to look at and play with: Kakarot's Goku and his move clips, and Kurama with
@@ -329,6 +332,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public void init(HarnessContext ctx) {
+        services = ctx.getRuntimeServices();
         material = CgMaterial.load("assets/harness/shader/skinned_view.shader");
         String root = System.getProperty("user.dir").replace('\\', '/');
         root = root.endsWith("gl-debug-harness") ? root.substring(0, root.length() - "gl-debug-harness".length()) : root + "/";
@@ -402,29 +406,25 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (sequencer == null) sequencer = client.add(new CgSequencer());
         // The cut's sound tracks play through it, each on its tick.
         if (client.subsystem(CgAudioEngine.class) == null) client.add(new CgAudioEngine());
-        sequencer.spawner("system", new CgVfxSystemSpawner(VFX.system()));
         current = this;
         cameras = client.subsystem(CgCameraSystem.class);
         if (cameras == null) cameras = client.add(new CgCameraSystem());
         cameras.host(pose -> {
             if (current != null) current.hostPose(pose);
         });
-        // Once a sequencer: the scene shown now answers its camera sequences.
-        if (cameraSequencer != sequencer) {
-            CgSequenceCameras.install(sequencer, cameras, id -> current == null ? null : current.cameraSequence(id));
-            cameraSequencer = sequencer;
-        }
         this.ctx = ctx;
-        CgPostVolumeSpawner.install(sequencer, cameras);   // the cut's post volumes: its camera's, in its view alone
         CgCueManager cues = client.subsystem(CgCueManager.class);
         if (cues == null) {
             cues = client.add(new CgCueManager(CgVfxAssets.instance()));
             cues.effects(new CgVfxCueEffects(VFX.system(), cues));
         }
-        beams = KakarotProjectileBeam.install(sequencer, cues, player -> {
+        // Once a sequencer: the scene shown now answers its camera sequences.
+        boolean newCameras = cameraSequencer != sequencer;
+        cameraSequencer = sequencer;
+        beams = installCut(sequencer, VFX.system(), cameras, newCameras, cues, player -> {
             for (Actor a : actors) if (a.move == player) return a;
             return null;
-        }).prepare(BEAM).prepare(BEAM_CUT);
+        });
         cameras.involved(owner -> current == null || !current.bystander);
         submit = client.schedule().add(CgTickGroup.SUBMIT, "harness:skinned-play", this::submit);
         stageLight = CgDirectionalLights.get().add(0).colour(1f, 5.941f / 6.797f, 4.574f / 6.797f, 6.797f)
@@ -550,7 +550,13 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             if (actor.stage == Stage.ENDING && actor.move.finished()) {
                 actor.release();
                 LOGGER.info("[skinned-play] {}: the shot played out", actor.name);
-                if (!Double.isNaN(EXIT_AFTER) && actor.kit) exitAt = elapsed + EXIT_AFTER;
+                if (actor.kit && cutsPlayed > 0) {
+                    services.profileEnd();
+                    if (cutsPlayed < CUTS) rearm = true;
+                    else if (!Double.isNaN(EXIT_AFTER)) exitAt = elapsed + EXIT_AFTER;
+                } else if (!Double.isNaN(EXIT_AFTER) && actor.kit) {
+                    exitAt = elapsed + EXIT_AFTER;
+                }
             }
             if (kit != null && kit.failed() && !kitFailureLogged) {
                 kitFailureLogged = true;
@@ -558,21 +564,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             }
             if (kit != null && kit.ready()) {
                 if (!actor.dressed && !actor.kitMaterials.isEmpty()) {
-                    // His own copies (Unreal's dynamic material instances): what his clips' curves and his outline slot set
-                    for (int s = 0; s < actor.kitMaterials.size(); s++) actor.instance.material(s, kit.material(s).get());
-                    actor.dressed = true;
+                    dress(actor);
                     LOGGER.info("[skinned-play] {}: drawn in its {} kit materials, at frame {}", actor.name, actor.kitMaterials.size(), frameNumber);
-                    // His cast entry's rim: the parameters the contract's rim_strength, rim_power and rim write
-                    Map<?, ?> rim = actor.rimBlock;
-                    if (rim != null && rim.get("strength") instanceof String strength && rim.get("power") instanceof String power
-                            && rim.get("colour") instanceof String colour) {
-                        actor.rim = new CgRoleRim(actor.instance, strength, power, colour);
-                    }
-                    // His cast entry's outline: the stencil its post reads him by, the post, his colour slot (OL5, OL6)
                     Map<?, ?> block = actor.outlineBlock;
-                    if (block != null && block.get("custom_depth_stencil_value") instanceof Number stencil) {
-                        actor.instance.customDepth(stencil.intValue(), 0xFF);
-                    }
                     if (outline == null && block != null) {
                         CgMaterial pass = CgMaterial.of(kit.material(actor.kitMaterials.size()).get());
                         if (Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.outlineYellow")) {
@@ -599,13 +593,49 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 }
             }
             if (actor.kit && kit != null && kit.ready()) darken(dt, actor.move != null);
-            if (actor.instance.palette() < 0) continue;
-            if (actor.dressed) {
-                world.draw(actor.instance);
-            } else {
-                world.draw(actor.instance, material).pad(actor.height * 50f).custom(0, actor.r, actor.g, actor.b, 1f).submit();
-            }
+            draw(world, actor);
         }
+    }
+
+    /**
+     * {@code actor} in its kit materials, its own copies (Unreal's dynamic material instances: what its clips' curves and
+     * its outline slot set), its cast entry's rim (what the contract's rim_strength, rim_power and rim write) and the
+     * stencil its outline's post reads it by. The outline post itself is the scene's, set by the real Goku alone.
+     */
+    private void dress(Actor actor) {
+        for (int s = 0; s < actor.kitMaterials.size(); s++) actor.instance.material(s, kit.material(s).get());
+        actor.dressed = true;
+        Map<?, ?> rim = actor.rimBlock;
+        if (rim != null && rim.get("strength") instanceof String strength && rim.get("power") instanceof String power
+                && rim.get("colour") instanceof String colour) {
+            actor.rim = new CgRoleRim(actor.instance, strength, power, colour);
+        }
+        Map<?, ?> block = actor.outlineBlock;
+        if (block != null && block.get("custom_depth_stencil_value") instanceof Number stencil) {
+            actor.instance.customDepth(stencil.intValue(), 0xFF);
+        }
+    }
+
+    /** {@code actor}'s draw once posed: in its kit materials once dressed, else the plain skinned view in its colour. */
+    private void draw(CgWorldRenderer world, Actor actor) {
+        if (actor.instance.palette() < 0) return;
+        if (actor.dressed) {
+            world.draw(actor.instance);
+        } else {
+            world.draw(actor.instance, material).pad(actor.height * 50f).custom(0, actor.r, actor.g, actor.b, 1f).submit();
+        }
+    }
+
+    /**
+     * The cut's kinds on {@code sequencer}: its systems spawned into {@code vfx}, its cameras (where {@code installCameras}),
+     * its post volumes in its camera's view, and the beam its notify fires through {@code cues}.
+     */
+    private KakarotProjectileBeam installCut(CgSequencer sequencer, CgVfxSystem vfx, CgCameraSystem cameras, boolean installCameras,
+                                             CgCueManager cues, Function<CgSequencePlayer, CgSequenceRole> casters) {
+        sequencer.spawner("system", new CgVfxSystemSpawner(vfx));
+        if (installCameras) CgSequenceCameras.install(sequencer, cameras, id -> current == null ? null : current.cameraSequence(id));
+        CgPostVolumeSpawner.install(sequencer, cameras);
+        return KakarotProjectileBeam.install(sequencer, cues, casters).prepare(BEAM).prepare(BEAM_CUT);
     }
 
     /** The harness camera as the camera system's host: its eye, its look and the projection's horizontal FOV. */
@@ -654,24 +684,37 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** Seconds after Goku's kit is ready to press X, and after the shot plays out to end the run; NaN for never. */
     private static final double CUT_AFTER = seconds("crystalgraphics.harness.skinnedPlay.cutAfter"),
             EXIT_AFTER = seconds("crystalgraphics.harness.skinnedPlay.exitAfter");
+    /** How many scripted cuts: each after the last plays out by {@link #CUT_AFTER}; the run ends after the last. */
+    private static final int CUTS = Integer.getInteger("crystalgraphics.harness.skinnedPlay.cuts", 1);
     /** The scene's clock, and when the scripted cut and the run's end fall on it; negative until known. */
     private double elapsed, cutAt = -1, exitAt = -1;
+    /** A cut played out: the next is timed from the frame after, past the stall of writing its profile. */
+    private boolean rearm;
+    private int cutsPlayed;
     private boolean running = true;
+    private RuntimeServices services;
 
     private static double seconds(String property) {
         String value = System.getProperty(property);
         return value == null ? Double.NaN : Double.parseDouble(value);
     }
 
-    /** The scripted cut: X, {@link #CUT_AFTER} seconds after the kit is ready; the run's end {@link #EXIT_AFTER} after it plays out. */
+    /**
+     * The scripted cuts: X, {@link #CUT_AFTER} seconds after the kit is ready and again that long after each plays out,
+     * {@link #CUTS} of them, each profiled as {@code cut-<n>} under {@code profile.ring}; the run's end
+     * {@link #EXIT_AFTER} after the last plays out.
+     */
     private void script() {
         Actor goku = null;
         for (Actor a : actors) if (a.kit) goku = a;
         if (goku == null || Double.isNaN(CUT_AFTER)) return;
-        if (cutAt < 0 && goku.dressed) cutAt = elapsed + CUT_AFTER;
+        if (cutAt < 0 && goku.dressed || rearm) cutAt = elapsed + CUT_AFTER;
+        rearm = false;
         if (cutAt >= 0 && elapsed >= cutAt && cutAt != Double.MAX_VALUE) {
             cutAt = Double.MAX_VALUE;
-            LOGGER.info("[skinned-play] the scripted cut, at frame {}", frameNumber);
+            cutsPlayed++;
+            LOGGER.info("[skinned-play] the scripted cut {}, at frame {}", cutsPlayed, frameNumber);
+            services.profileBegin("cut-" + cutsPlayed);
             cut(goku);
         }
         if (exitAt >= 0 && elapsed >= exitAt) running = false;
@@ -852,8 +895,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         sb.append("  E stage: ").append(stage != null && stage.on() ? "ocean arena" : "none");
         if (outlinePass != null) sb.append("\nO outline: ").append(OUTLINE_TESTS[outlineTests]);
         if (kit != null && kit.failed()) sb.append("\nthe kit failed to load: ").append(kit.failures());
-        else if (kit != null && !kit.ready()) sb.append("\nloading the kit...");
-        return sb.toString();
+        else if (kit != null && !kit.ready()) sb.append("\nloading the kit...");        return sb.toString();
     }
 
     @Override
