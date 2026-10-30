@@ -32,6 +32,9 @@ public final class FontDebugHarnessMain {
         if (System.getProperty("crystalgraphics.demo") == null) System.setProperty("crystalgraphics.demo", "false");
         // Every run, so a capture repeats (Unreal's -FixedSeed).
         CgRandom.fixedSeed(true);
+        // The frame thread above the engine's helpers, as Minecraft's render thread (setPriority(10)) and Unreal's game
+        // thread (TPri_AboveNormal over its workers): at equal priority a busy helper pool preempted it for milliseconds.
+        Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
         // Before the window: RenderDoc hooks context creation.
         RenderDoc.attachIfRequested(args);
 

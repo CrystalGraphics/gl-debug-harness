@@ -61,6 +61,8 @@ public final class TraceDump {
      * //   profile-<label>/report.txt   read this first: the breakdown, and the slowest, idlest and a
      * //                                typical frame in detail
      * //   profile-<label>/report-full.txt   every zone and counter, for a zone-by-zone comparison
+     * //   profile-<label>/slow.txt     the 20 slowest frames by cpu, each with its tree: every hitch at once
+     * //   profile-<label>/slow-gpu.txt the 20 frames with the most gpu time: a spike the cpu pays frames later
      * //   profile-<label>/tree.txt     every thread's call tree, ms and calls per frame
      * //   profile-<label>/trace.json   for ui.perfetto.dev -- only with -Dcrystalgraphics.harness.profile.json=true
      * //   profile-<label>.prev/        the run before, for a diff
@@ -82,6 +84,8 @@ public final class TraceDump {
      * TraceDump.profile(outputDir, "harness-300f-after", split, Long.MAX_VALUE);
      * }</pre>
      */
+    private static final int SLOW_FRAMES = 20;
+
     public static File profile(File directory, String label, long fromFrame, long toFrame) {
         File folder = new File(directory, "profile-" + label);
         try {
@@ -100,6 +104,8 @@ public final class TraceDump {
             Files.write(report.toPath(), full.breakdown().getBytes(StandardCharsets.UTF_8));
             Files.write(new File(folder, "report-full.txt").toPath(),
                     full.render(CgTraceReport.Tier.FULL).getBytes(StandardCharsets.UTF_8));
+            Files.write(new File(folder, "slow.txt").toPath(), full.worst(SLOW_FRAMES).getBytes(StandardCharsets.UTF_8));
+            Files.write(new File(folder, "slow-gpu.txt").toPath(), full.worstGpu(SLOW_FRAMES).getBytes(StandardCharsets.UTF_8));
             Files.write(tree.toPath(), callTree(fromFrame, toFrame, range.frames().size(), sources)
                     .getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
