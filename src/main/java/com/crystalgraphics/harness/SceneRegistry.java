@@ -42,6 +42,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxHashesScene;
 import com.crystalgraphics.harness.scene.test.CgVolumeTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
+import com.crystalgraphics.harness.scene.test.CgGlCallCostScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuCullTestScene;
 import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
@@ -737,6 +738,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgGpuOpsCostScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("gl-call-cost")
+                .description("T11 P0.3: what one GL state change costs the frame, timed with the draw it dirties against draws alone; prints microseconds a change and exits. Run with fps=0")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(180)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgGlCallCostScene()
         );
 
         reg.register(
