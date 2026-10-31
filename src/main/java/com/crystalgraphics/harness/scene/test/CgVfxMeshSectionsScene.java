@@ -3,7 +3,6 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.api.material.CgMaterialUsage;
 import com.crystalgraphics.api.mesh.CgMesh;
-import com.crystalgraphics.api.mesh.CgMeshLoader;
 import com.crystalgraphics.api.mesh.CgMeshLods;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.FrameInfo;
@@ -46,7 +45,8 @@ import java.util.Map;
  */
 public class CgVfxMeshSectionsScene implements InteractiveSceneLifecycle {
 
-    private static final String MESH = "harness:models/vfx_two_sections";
+    /** The mesh made in code, held by the renderer as it is. */
+    private static final CgMeshLods MESH = CgMeshLods.of(twoSections());
     private static final float[] RED = {0.9f, 0.1f, 0.1f}, GREEN = {0.1f, 0.9f, 0.1f}, BLUE = {0.1f, 0.2f, 0.9f};
     /** Each station's x and the colours its two halves must show: facing the eye, the mesh's section 0 is on the left. */
     private static final float[] STATIONS = {-2.4f, 2.4f};
@@ -93,7 +93,6 @@ public class CgVfxMeshSectionsScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        CgMeshLoader.provide(MESH, () -> CgMeshLods.of(twoSections()));
     }
 
     @Override

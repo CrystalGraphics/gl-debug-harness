@@ -90,7 +90,7 @@ final class HarnessMaterialDump {
             s.append(head).append(name).append('\t');
             if (p.getType().isSampler()) {
                 CgMaterialDefinition.Texture t = d.textures().get(name);
-                s.append(t == null ? p.getRawDefault() : t.texture()).append("\t\t\t\t")
+                s.append(t == null ? p.getRawDefault() : t.describe()).append("\t\t\t\t")
                         .append(t == null ? "default" : "texture").append('\n');
             } else if (common.bind().containsKey(name)) {
                 s.append(common.bind().get(name)).append("\t\t\t\tbind\n");
