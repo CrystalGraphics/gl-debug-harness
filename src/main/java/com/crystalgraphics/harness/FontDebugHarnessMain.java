@@ -4,7 +4,7 @@ import com.crystalgraphics.lwjgl3.Lwjgl3AudioOutput;
 import com.crystalgraphics.lwjgl3.StbVorbisDecoder;
 import com.crystalgraphics.platform.audio.CgAudioDecoder;
 import com.crystalgraphics.platform.audio.CgAudioOutput;
-import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
+import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.harness.config.*;
 import com.crystalgraphics.harness.config.*;
 import com.crystalgraphics.harness.util.HarnessOutputDir;

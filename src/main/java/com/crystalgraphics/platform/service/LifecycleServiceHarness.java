@@ -1,6 +1,6 @@
 package com.crystalgraphics.platform.service;
 
-import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
+import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.service.CgLifecycleService;
 import com.crystalgraphics.trace.CgTrace;

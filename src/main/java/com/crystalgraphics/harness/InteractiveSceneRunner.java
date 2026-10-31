@@ -3,7 +3,7 @@ package com.crystalgraphics.harness;
 import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgGlCallSites;
-import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
+import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.gl.CgGlRecording;
