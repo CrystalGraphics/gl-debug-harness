@@ -4,8 +4,7 @@ import com.crystalgraphics.lwjgl3.Lwjgl3AudioOutput;
 import com.crystalgraphics.lwjgl3.StbVorbisDecoder;
 import com.crystalgraphics.platform.audio.CgAudioDecoder;
 import com.crystalgraphics.platform.audio.CgAudioOutput;
-import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
-import com.crystalgraphics.harness.config.*;
+import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.harness.config.*;
 import com.crystalgraphics.harness.util.HarnessOutputDir;
 import com.crystalgraphics.platform.CgPlatform;
@@ -119,7 +118,7 @@ public final class FontDebugHarnessMain {
             // The engine's sound, on the default device: what a scene's CgAudioEngine plays sequences and cues through.
             CgPlatform.provide(CgAudioOutput.SERVICE, new Lwjgl3AudioOutput(() -> null));
             CgPlatform.provide(CgAudioDecoder.SERVICE, new StbVorbisDecoder());
-            CgGraphicsLifecycle.initContext(ctx.getScreenWidth(), ctx.getScreenHeight());
+            CgEngineLifecycle.ensureGraphicsContext(ctx.getScreenWidth(), ctx.getScreenHeight());
             //HarnessDiagnostics.logStartup(ctx);
 
             // Populate context with all configuration — single source of truth
@@ -161,7 +160,7 @@ public final class FontDebugHarnessMain {
             }
             String tracked = PlatformServiceHarness.trackedReport();
             if (tracked != null) LOGGER.info("[Harness] tracked: " + tracked);
-            CgGraphicsLifecycle.destroyContext();
+            CgEngineLifecycle.destroyContext();
 
             LOGGER.info("[Harness] Mode '" + mode + "' completed successfully.");
         } catch (Exception e) {

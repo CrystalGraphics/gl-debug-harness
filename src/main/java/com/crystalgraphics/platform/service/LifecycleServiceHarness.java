@@ -1,6 +1,7 @@
 package com.crystalgraphics.platform.service;
 
 import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
+import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.service.CgLifecycleService;
 import com.crystalgraphics.trace.CgTrace;
@@ -11,8 +12,7 @@ public final class LifecycleServiceHarness implements CgLifecycleService {
 
     private static final int TRACKED_END = CgTrace.name("frame.trackedEnd");
 
-    @Override public void onContextInit(int w, int h) { CgGraphicsLifecycle.initContext(w, h); }
-    @Override public void onContextDestroy()          { CgGraphicsLifecycle.destroyContext(); }
+    @Override public void onContextDestroy()          { CgEngineLifecycle.destroyContext(); }
     @Override public void onResize(int w, int h)      { CgGraphicsLifecycle.onResize(w, h); }
     @Override public void onFrameRendered() {
         CgGraphicsLifecycle.tickFrame();

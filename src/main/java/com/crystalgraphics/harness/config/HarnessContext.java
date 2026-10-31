@@ -228,7 +228,7 @@ public final class HarnessContext {
     /**
      * Returns the shared {@link TextContext}, constructing it on first call. Deliberately lazy
      * (not built in the constructor): by the time any real caller reaches this method,
-     * {@code CgGraphicsLifecycle.initContext()} has already run, so {@code TextContext}'s
+     * {@code CgEngineLifecycle.ensureGraphicsContext()} has already run, so {@code TextContext}'s
      * {@code CgTextRenderer.create()} field initializer sees fully-resolved
      * {@code CgBindingPoints} values instead of racing them.
      */
