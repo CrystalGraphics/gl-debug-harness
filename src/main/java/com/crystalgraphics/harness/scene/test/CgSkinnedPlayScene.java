@@ -44,9 +44,7 @@ import com.crystalgraphics.sequence.camera.CgSequenceCameras;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxOwner;
-import com.crystalgraphics.vfx.system.CgVfxCueEffects;
 import com.crystalgraphics.vfx.system.CgVfxSystemSpawner;
-import com.crystalgraphics.asset.load.CgVfxAssets;
 import com.crystalgraphics.cue.CgCueManager;
 import com.crystalgraphics.world.CgAttachment;
 import org.joml.Quaternionf;
@@ -413,11 +411,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             if (current != null) current.hostPose(pose);
         });
         this.ctx = ctx;
-        CgCueManager cues = client.subsystem(CgCueManager.class);
-        if (cues == null) {
-            cues = client.add(new CgCueManager(CgVfxAssets.instance()));
-            cues.effects(new CgVfxCueEffects(VFX.system(), cues));
-        }
+        CgCueManager cues = CgCueManager.client();   // the engine's, wired as the client started
         // Once a sequencer: the scene shown now answers its camera sequences.
         boolean newCameras = cameraSequencer != sequencer;
         cameraSequencer = sequencer;
