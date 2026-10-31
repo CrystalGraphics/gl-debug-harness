@@ -29,10 +29,10 @@ import java.util.Map;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-prepare"
- * // the control: played unprepared, the same frames must wait on compiles
+ * // unprepared, its unready draws held (the default): no waits, and the held draws counted
  * ... -Dcrystalgraphics.harness.prepare.skip=true
- * // unprepared with unready draws skipped: no waits, and the skipped draws counted
- * ... -Dcrystalgraphics.harness.prepare.skip=true -Dcrystalgraphics.world.skipUnready=true
+ * // the control: unprepared and compiled at the draw, the same frames must wait on compiles
+ * ... -Dcrystalgraphics.harness.prepare.skip=true -Dcrystalgraphics.world.skipUnready=false
  * }</pre>
  *
  * <p>Prepared, halfway through the move it toggles HDR and the quality tier, which must re-warm before applying and so
