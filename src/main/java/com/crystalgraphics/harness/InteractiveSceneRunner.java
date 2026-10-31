@@ -2,6 +2,7 @@ package com.crystalgraphics.harness;
 
 import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.platform.gl.CgGL;
+import com.crystalgraphics.platform.gl.CgGlCallSites;
 import com.crystalgraphics.gl.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
@@ -456,9 +457,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // paint host brackets the UI's whole frame. The lifecycle's own brackets nest inside.
             CgGL.fromHost();
             try {
-                if (MainTarget.ON) ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
-                // 6. Pre-render: set world pass state (depth ON, blend OFF, depth writes ON)
-                RenderPassState.beginWorldPass();
+                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.begin")) {
+                    if (MainTarget.ON) ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
+                    // 6. Pre-render: set world pass state (depth ON, blend OFF, depth writes ON)
+                    RenderPassState.beginWorldPass();
+                }
 
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.worldPass")) {
                     boolean own = scene.worldView(ctx, worldView, worldProjection);
@@ -472,7 +475,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 }
 
                 // 9. Scene pass: set baseline state, then let the scene render freely
-                RenderPassState.beginScenePass();
+                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.scenePass")) {
+                    RenderPassState.beginScenePass();
+                }
                 long framedAs = CgTrace.currentFrameIndex();
                 FrameInfo info = new FrameInfo(frameClock.getDeltaTime(),
                         frameClock.getElapsedTime(), frameClock.getFrameNumber());
@@ -494,7 +499,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     motionDone = motion.sample(frameClock.getFrameNumber(), ctx.getScreenWidth(), ctx.getScreenHeight());
                 }
 
-                if (MainTarget.ON) mainTarget.end();
+                if (MainTarget.ON) {
+                    try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.mainTarget")) {
+                        mainTarget.end();
+                    }
+                }
                 // 10-13. Post-scene sequence: GL reset → pause overlay → HUD → capture callback
                 //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.overlay")) {
@@ -708,13 +717,22 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         if (PROFILE_RING <= 0) return;
         rangeLabel = label;
         rangeFrom = CgTrace.currentFrameIndex() + 1;
+        CgGlCallSites.reset();
     }
 
-    /** Ends the range {@link #profileBegin} opened, with this frame, and writes its report. */
+    /** Ends the range {@link #profileBegin} opened, with this frame, and writes its report (and its GL calls, if counted). */
     public void profileEnd() {
         if (rangeLabel == null) return;
-        File report = TraceDump.profile(new File(ctx.getOutputDir()), rangeLabel, rangeFrom, CgTrace.currentFrameIndex() + 1);
+        long to = CgTrace.currentFrameIndex() + 1;
+        File report = TraceDump.profile(new File(ctx.getOutputDir()), rangeLabel, rangeFrom, to);
         LOGGER.info("[InteractiveSceneRunner] profile " + rangeLabel + " report=" + report);
+        if (CgGlCallSites.ON && report != null) {
+            try {
+                CgGlCallSites.write(new File(report.getParentFile(), "gl-calls.txt"), to - rangeFrom);
+            } catch (IOException e) {
+                LOGGER.warning("[InteractiveSceneRunner] gl-calls.txt: " + e);
+            }
+        }
         rangeLabel = null;
     }
 
