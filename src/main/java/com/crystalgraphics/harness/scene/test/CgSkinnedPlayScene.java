@@ -712,7 +712,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         Actor goku = null;
         for (Actor a : actors) if (a.kit) goku = a;
         if (goku == null || Double.isNaN(CUT_AFTER)) return;
-        if (cutAt < 0 && goku.dressed || rearm) cutAt = elapsed + CUT_AFTER;
+        // From the kit's readiness, not Goku's dressing: he dresses before its systems are rehearsed, and X is refused
+        // until they are.
+        if (cutAt < 0 && goku.dressed && kit.ready() || rearm) cutAt = elapsed + CUT_AFTER;
         rearm = false;
         if (cutAt >= 0 && elapsed >= cutAt && cutAt != Double.MAX_VALUE) {
             cutAt = Double.MAX_VALUE;
