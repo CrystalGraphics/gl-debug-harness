@@ -15,6 +15,7 @@ import com.crystalgraphics.shape.primitive.CgPlane;
 import com.crystalgraphics.shape.primitive.CgRing;
 import com.crystalgraphics.shape.primitive.CgSphere;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
+import com.crystalgraphics.vfx.particle.CgVfxField;
 import com.crystalgraphics.vfx.particle.CgVfxModule;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
@@ -30,17 +31,19 @@ import java.util.TreeMap;
 import java.util.logging.Logger;
 
 /**
- * Stacked shapes draw what their own do ({@code CgVfxShapeCoalescing}, a shape run in a wider one's kernel with what it
- * lacks switched off). Six definitions, each module stack some of one wide stack in order and each born on its own spawn
- * shape, are included together and stepped twice: a burst, then a step of what lives. Every particle's record is written
- * by id to {@code -Dcrystalgraphics.harness.vfxStack.out}, for the run with {@code -Dcrystalgraphics.vfx.stackShapes=false}
- * to be matched against; the scene itself checks that each burst was read back whole and how many pools it took.
- * Scene id {@code vfx-stack}.
+ * Shared pools draw what a pool of each definition's own does ({@code CgVfxShapeCoalescing}): shapes stacked into a
+ * wider one's kernel with what they lack switched off, a Step placing by its pool's spawn shapes, and a table of texture
+ * sets each slot names its entry in. Nine definitions are included together and stepped twice (a burst, then a step of
+ * what lives): six whose module stacks are some of one wide stack in order, each born on its own spawn shape; two of one
+ * shape sampling different vector fields; a force alone, stacked under those lacking the field. Every particle's record
+ * is written by id to {@code -Dcrystalgraphics.harness.vfxStack.out}, to be matched against the reference run, each
+ * definition in a pool of its own ({@code -Dcrystalgraphics.harness.vfxStack.apart=true}) unstacked; the scene itself
+ * checks that each burst was read back whole and how many pools it took. Scene id {@code vfx-stack}.
  *
  * <pre>{@code
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-stack" -Dcrystalgraphics.harness.vfxStack.out=on.txt
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-stack" -Dcrystalgraphics.harness.vfxStack.out=shared.txt
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-stack" -Dcrystalgraphics.vfx.stackShapes=false \
- *     -Dcrystalgraphics.harness.vfxStack.out=off.txt
+ *     -Dcrystalgraphics.harness.vfxStack.apart=true -Dcrystalgraphics.harness.vfxStack.out=apart.txt
  * }</pre>
  */
 public final class CgVfxStackScene implements InteractiveSceneLifecycle {
@@ -54,6 +57,19 @@ public final class CgVfxStackScene implements InteractiveSceneLifecycle {
     private final List<Integer> slots = new ArrayList<>();
     private final List<ByteBuffer> read = new ArrayList<>();
     private final List<CgRequest> requests = new ArrayList<>();
+    private static final CgVfxField FIELD_A = CgVfxField.of(4, 4, 4, false, (x, y, z, out) -> {
+        out[0] = 0.5f + x - 0.3f * z;
+        out[1] = 1f - 0.4f * y;
+        out[2] = -0.8f + 0.6f * z;
+    });
+    private static final CgVfxField FIELD_B = CgVfxField.of(4, 4, 4, false, (x, y, z, out) -> {
+        out[0] = -1f + 0.2f * y;
+        out[1] = 0.3f * x - 0.5f;
+        out[2] = 1.2f - 0.4f * x;
+    });
+    /** Each definition in a pool of its own: the reference a shared run is matched against. */
+    private static final boolean APART = Boolean.getBoolean("crystalgraphics.harness.vfxStack.apart");
+
     private final Object owner = new Object();
     private int frame;
     private boolean running = true;
@@ -71,6 +87,11 @@ public final class CgVfxStackScene implements InteractiveSceneLifecycle {
         add("stack-drag-kill", CgRing.of(0.5, 1.5, 0.2), new CgVfxModule.Drag(0.2f, 0.1f),
                 new CgVfxModule.Kill(CgBox.of(0.5, 2, 0.5), true).at(-1f, 0f, 0f));
         add("stack-none", CgCapsule.of(1, 0.3));
+        // One shape on two fields: one pool, its table two sets, each slot's call chosen by its entry; and a force alone
+        // stacked under them, lacking the textured kind.
+        add("stack-field-a", CgSphere.of(1), new CgVfxModule.VectorField(FIELD_A, CgBox.of(3, 3, 3), 3f, 1f), new CgVfxModule.Force(0f, 1f, 0f));
+        add("stack-field-b", CgSphere.of(1), new CgVfxModule.VectorField(FIELD_B, CgBox.of(3, 3, 3), 3f, 1f), new CgVfxModule.Force(0f, 1f, 0f));
+        add("stack-force", CgBox.of(0.5, 0.5, 0.5), new CgVfxModule.Force(1f, 0f, 0f));
         CgVfxShapeCoalescing.loaded().include(emitters);
         for (CgVfxEmitter e : emitters) CgVfxParticlePool.prepare(e);
     }
@@ -90,7 +111,7 @@ public final class CgVfxStackScene implements InteractiveSceneLifecycle {
             CgRecording rec = new CgRecording();
             if (frame == 1) {
                 for (CgVfxEmitter e : emitters) {
-                    CgVfxParticlePool pool = CgVfxParticlePool.of(owner, e);
+                    CgVfxParticlePool pool = CgVfxParticlePool.of(APART ? e : owner, e);
                     slots.add(pool.open(e, PARTICLES));
                     pools.add(pool);
                 }
@@ -190,6 +211,7 @@ public final class CgVfxStackScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         CgVfxParticlePool.release(owner);
+        if (APART) for (CgVfxEmitter e : emitters) CgVfxParticlePool.release(e);
     }
 
     @Override public boolean isRunning() { return running; }
