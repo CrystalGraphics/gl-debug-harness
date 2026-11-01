@@ -10,10 +10,19 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import org.lwjgl.glfw.Callbacks;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWErrorCallback;
+import org.lwjgl.glfw.GLFWImage;
+import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11C;
 import org.lwjgl.opengl.GL30C;
 
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,6 +30,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+
+import javax.imageio.ImageIO;
 
 /**
  * The harness's one window and GL context, on GLFW: creation, the frame's swap, poll and pacing, resize,
@@ -54,6 +65,8 @@ public final class HarnessWindow {
     private static long window;
     /** False for a window a Vulkan device presents to: no GL context, and no buffers of its own to swap. */
     private static boolean glContext = true;
+    /** The window's icon: the engine's logo, beside its shaders. */
+    private static final String ICON = "/assets/crystalgraphics/textures/gui/logo.png";
     private static int framebufferWidth;
     private static int framebufferHeight;
     private static boolean resized;
@@ -226,7 +239,47 @@ public final class HarnessWindow {
                     (float) -dy, -1L));
         });
 
+        setIcon();
         GLFW.glfwShowWindow(window);
+    }
+
+    /** The engine's logo as the window's icon, at the sizes Windows asks for (title bar, taskbar, Alt+Tab). */
+    private static void setIcon() {
+        BufferedImage logo;
+        try (InputStream in = HarnessWindow.class.getResourceAsStream(ICON)) {
+            logo = in == null ? null : ImageIO.read(in);
+        } catch (IOException e) {
+            logo = null;
+        }
+        if (logo == null) return;
+        int[] sizes = {16, 32, 48, 256};
+        GLFWImage.Buffer images = GLFWImage.malloc(sizes.length);
+        ByteBuffer[] pixels = new ByteBuffer[sizes.length];
+        try {
+            for (int i = 0; i < sizes.length; i++) {
+                int n = sizes[i];
+                BufferedImage scaled = new BufferedImage(n, n, BufferedImage.TYPE_INT_ARGB);
+                Graphics2D g = scaled.createGraphics();
+                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g.drawImage(logo.getScaledInstance(n, n, Image.SCALE_SMOOTH), 0, 0, null);
+                g.dispose();
+                ByteBuffer rgba = pixels[i] = MemoryUtil.memAlloc(n * n * 4);
+                for (int y = 0; y < n; y++) {
+                    for (int x = 0; x < n; x++) {
+                        int argb = scaled.getRGB(x, y);
+                        rgba.put((byte) (argb >> 16)).put((byte) (argb >> 8)).put((byte) argb).put((byte) (argb >>> 24));
+                    }
+                }
+                rgba.flip();
+                images.position(i).width(n).height(n).pixels(rgba);
+            }
+            images.position(0);
+            GLFW.glfwSetWindowIcon(window, images);   // copies the pixels
+        } finally {
+            for (ByteBuffer b : pixels) MemoryUtil.memFree(b);
+            images.free();
+        }
     }
 
     /** The GLFW handle, or 0 before {@link #create}. What the platform's input and cursor services read. */

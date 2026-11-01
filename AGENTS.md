@@ -17,10 +17,17 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
 | | |
 |---|---|
 | Applies to | **every scene**, interactive and managed — it is enforced by the runner, not by scene code, so a scene cannot omit it and a new scene gets it for free |
-| Timed from | scene start, so GL context creation and shader compilation are not counted against it |
+| Timed from | the loading screen's hide (below), so context creation, the scene's init and warming are not counted against it |
 | Values | any positive number; fractional is fine (`--seconds=0.5` is enough to prove a scene draws) |
 | Exit code | **0**. Reaching the cap is the requested outcome, not a failure — a non-zero code would make every timed run a red build |
 | Default | absent = run until closed, which is the right default for a human at the keyboard |
+
+**Every interactive scene starts behind the loading screen** (`CgLoadingScreen`, the engine's logo over a bar): the
+scene's `init` runs behind its first frame, then the world stages fire with no scene content until pipelines, assets
+and effects are warm and a hold of quiet frames passes. Input is eaten and nothing paces those frames. The scene's
+frame 1, `captureAt`, `keyAt`, profiles and benches all count from the hide; `[loading]` lines log why it shows.
+`-Dcrystalgraphics.loading.screen=never` skips it, for a scene measuring its own loading. The window's title is the
+scene and its device: `skinned-play [vk]`.
 
 ## `--device=gl|tracked|vulkan` — what `CgGL` runs on
 

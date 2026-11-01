@@ -59,6 +59,16 @@ public final class FrameClock {
         frameNumber++;
     }
 
+    /** Whether {@code fixedDelta} sets each frame's step. */
+    public static boolean fixed() {
+        return FIXED_DELTA > 0;
+    }
+
+    /** The next {@link #tick()} times from now: the loading screen's hide, so its first delta is one frame. */
+    public void restart() {
+        lastTimeNanos = System.nanoTime();
+    }
+
     /**
      * Returns the time elapsed since the previous frame, in seconds.
      *

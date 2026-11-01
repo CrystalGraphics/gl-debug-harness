@@ -108,6 +108,7 @@ public final class FontDebugHarnessMain {
         try {
             // The window first: a Vulkan device presents to it, so it must exist before the platform does.
             ctx = HarnessContext.create(config.getWidth(), config.getHeight(), !config.getDevice().equals("vulkan"));
+            HarnessWindow.setTitle(mode + " [" + (config.getDevice().equals("vulkan") ? "vk" : config.getDevice()) + "]");
             // Registers input and sound along with the GL services -- one bundle, so the UI cannot
             // come up with a working backend and no keyboard.
             PlatformServiceHarness.onPreInit(config.getDevice(), ctx.getScreenWidth(), ctx.getScreenHeight());

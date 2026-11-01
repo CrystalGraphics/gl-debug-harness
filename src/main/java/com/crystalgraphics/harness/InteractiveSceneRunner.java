@@ -4,6 +4,7 @@ import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgGlCallSites;
 import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
+import com.crystalgraphics.loading.CgLoadingScreen;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.gl.CgGlRecording;
@@ -52,6 +53,7 @@ import com.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.harness.runtime.FrameBench;
+import com.crystalgraphics.harness.scene.test.HarnessWorld;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 
 import com.sun.management.ThreadMXBean;
@@ -243,7 +245,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      */
     private void renderScene(HarnessContext ctx, FrameInfo info) {
         // The frame's time from the harness's own clock, so a fixed delta gives the same capture on every run.
-        CgFrameClock.set(info.getElapsedTime());
+        CgFrameClock.set(loadingSeconds + info.getElapsedTime());
         long frame = info.getFrameNumber();
         boolean sample = RECORD_FROM > 0 && frame >= RECORD_FROM - ALLOCATION_SAMPLE;
         long before = sample ? allocatedBytes() : 0;
@@ -333,7 +335,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         CgGL.glEnable(CgGL.GL_DEPTH_TEST);
         CgGL.glDepthFunc(CgGL.GL_LEQUAL);
 
-        init();
+        // The loading screen from launch: the scene's init runs behind its first frame, a reason of its own.
+        try (CgLoadingScreen.Task starting = CgLoadingScreen.task("starting " + ctx.getOutputName())) {
+            presentLoadingFrame();
+            init();
+        }
+        HarnessDeadline.restart();
 
         LOGGER.info("[InteractiveSceneRunner] Entering render loop for: "
                 + scene.getClass().getSimpleName());
@@ -381,8 +388,19 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // itself (a UIDocument does), which it notices the first time the index moves under a render.
         boolean sceneFrames = false;
         FrameBench bench = FrameBench.fromProperty();
+        boolean wasLoading = true;
 
         while (!HarnessWindow.shouldClose() && scene.isRunning() && !HarnessDeadline.expired()) {
+            // While the loading screen shows the world still fires, so warm-ups advance, but the scene waits:
+            // its frame 1 is the first after the hide, and --seconds times it from there.
+            if (CgLoadingScreen.shown()) {
+                loadingFrame();
+                continue;
+            }
+            if (wasLoading) {
+                wasLoading = false;
+                frameClock.restart();
+            }
             if (bench != null) bench.begin();
             if (profileFrames > 0) {
                 if (frameClock.getFrameNumber() == PROFILE_WARMUP_FRAMES) profileFrom = CgTrace.currentFrameIndex() + 1;
@@ -511,6 +529,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     overlayCaptureOrchestrator.executePostSceneSequence(inputPauseHandler.isPaused(), scene.uses3DCamera(),
                             desktop == null ? null : () -> desktop.render(ctx, info));
                 }
+                drawLoadingScreen();   // its fade-out
             } finally {
                 CgGL.toHost();
             }
@@ -590,6 +609,73 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
         LOGGER.info("[InteractiveSceneRunner] Cleanup complete. shouldShutdown="
                 + scene.shouldShutdownOnComplete());
+    }
+
+    /**
+     * The engine's clock across the loading screen, which the scene's elapsed time starts after: wall time, or none
+     * under {@code fixedDelta}, so a capture's frame is the same picture however long the load took.
+     */
+    private double loadingSeconds;
+    private long loadingAt;
+
+    /** A frame under the loading screen: the world pass fires, the scene and input wait, nothing paces it. */
+    private void loadingFrame() {
+        HarnessDeadline.restart();
+        CgTrace.frameBegin();
+        HarnessWindow.pollEvents();
+        HarnessWindow.drainMouse();
+        HarnessWindow.drainKeyboard();
+        if (resizeHandler.checkAndPropagate()) {
+            ViewportState vp = ctx.getViewport();
+            PlatformServiceHarness.resizeSurface(vp.getWidth(), vp.getHeight());
+            CgGraphicsLifecycle.onResize(vp.getWidth(), vp.getHeight());
+            scene.onResize(vp.getWidth(), vp.getHeight());
+            ctx.setProjection(HarnessProjectionUtil.perspective(vp.getWidth(), vp.getHeight()));
+        }
+        CgGL.fromHost();
+        try {
+            if (MainTarget.ON) ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
+            RenderPassState.beginWorldPass();
+            boolean own = scene.worldView(ctx, worldView, worldProjection);
+            Matrix4f view = own ? worldView : camera.getViewMatrix(), projection = own ? worldProjection : ctx.getProjection();
+            worldPassCoordinator.executeWorldPass(view, projection, scene.uses3DCamera());
+            // The world's firing is where pipelines settle and effects warm and rehearse; the scene adds nothing to it.
+            long now = System.nanoTime();
+            if (!FrameClock.fixed() && loadingAt != 0L) loadingSeconds += (now - loadingAt) / 1e9;
+            loadingAt = now;
+            CgFrameClock.set(loadingSeconds);
+            HarnessWorld.fire(ctx, view, projection);
+            if (MainTarget.ON) mainTarget.end();
+            drawLoadingScreen();
+        } finally {
+            CgGL.toHost();
+        }
+        CgPlatform.lifecycle().onFrameRendered();
+        CgTrace.frameEnd();
+        try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, SWAP)) {
+            HarnessWindow.swapBuffers();
+        }
+    }
+
+    /** The loading screen alone, before the scene's init: what the window shows while it runs. */
+    private void presentLoadingFrame() {
+        CgGL.fromHost();
+        try {
+            drawLoadingScreen();
+        } finally {
+            CgGL.toHost();
+        }
+        CgPlatform.lifecycle().onFrameRendered();
+        HarnessWindow.swapBuffers();
+    }
+
+    /** Over the window's framebuffer, after the overlays and the capture callback, so no capture holds it. */
+    private void drawLoadingScreen() {
+        try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.loadingScreen")) {
+            CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+            CgGL.glViewport(0, 0, ctx.getScreenWidth(), ctx.getScreenHeight());
+            CgLoadingScreen.draw(ctx.getScreenWidth(), ctx.getScreenHeight());
+        }
     }
 
     private void pollInput() {

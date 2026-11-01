@@ -54,6 +54,7 @@ public final class HarnessDeadline {
 
     /** {@code 0} when no cap was asked for, which is the default and means "run until closed". */
     private static volatile long deadlineNanos;
+    private static long capNanos;
 
     private HarnessDeadline() {
     }
@@ -72,10 +73,16 @@ public final class HarnessDeadline {
             deadlineNanos = 0L;
             return;
         }
-        deadlineNanos = System.nanoTime() + (long) (seconds * 1_000_000_000d);
+        capNanos = (long) (seconds * 1_000_000_000d);
+        deadlineNanos = System.nanoTime() + capNanos;
         LOGGER.info("[HarnessDeadline] Scene capped at " + seconds + "s"
                 + " (watchdog halts at +" + (GRACE_MILLIS / 1000L) + "s)");
         startWatchdog(seconds);
+    }
+
+    /** The clock starts again from now: each frame the loading screen shows, so the cap times the scene. */
+    public static void restart() {
+        if (deadlineNanos != 0L) deadlineNanos = System.nanoTime() + capNanos;
     }
 
     /** Whether the cap has been reached. Always false when no cap was set. */
@@ -93,11 +100,14 @@ public final class HarnessDeadline {
 
     private static void startWatchdog(double seconds) {
         Thread watchdog = new Thread(() -> {
-            try {
-                Thread.sleep((long) (seconds * 1000d) + GRACE_MILLIS);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
+            // Re-read each wake: restart() moves the deadline while the loading screen shows.
+            for (long left; (left = deadlineNanos + GRACE_MILLIS * 1_000_000L - System.nanoTime()) > 0L; ) {
+                try {
+                    Thread.sleep(left / 1_000_000L + 1L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
             }
             LOGGER.severe("[HarnessDeadline] Scene did not stop " + (GRACE_MILLIS / 1000L)
                     + "s past its --seconds=" + seconds + " cap -- halting. The scene is wedged somewhere"
