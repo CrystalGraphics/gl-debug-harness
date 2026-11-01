@@ -233,7 +233,7 @@ public final class SceneRegistry {
         );
         
         reg.register(
-            SceneDescriptor.builder("shader-lib-test")
+            SceneDescriptor.builder("shader-lib-test").checksPixels()
                 .description("Tests GLSL library #include chain: noise, color, UV operations")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -257,7 +257,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("material-dual-path")
+            SceneDescriptor.builder("material-dual-path").checksPixels()
                 .description("CrystalShader MVP: single .shader file drawn with drawDirect() and drawInstanced(8)")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -323,7 +323,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("compute-seam")
+            SceneDescriptor.builder("compute-seam").checksPixels()
                 .description("gpu-compute C1: kernels write a buffer drawn as quads and an image a material samples, beside an indirect draw; the picture from the kernels must match one from CPU-written data on every device")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -337,7 +337,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("compute-graph")
+            SceneDescriptor.builder("compute-graph").checksPixels()
                 .description("gpu-compute C3: compute and raster passes in one frame graph built on a worker, a history stepped twice and an image painted through an indirect dispatch, every barrier derived; the picture, and the frame executed again, must match the CPU's")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -351,7 +351,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("indirect-draw")
+            SceneDescriptor.builder("indirect-draw").checksPixels()
                 .description("gpu-compute C4: a kernel writes counts four indirect draws read in the same frame, one per CgIndirect mode and one past its mesh; each must match a direct draw of what its count means, in a graph, executed again, and through the world renderer. C9b: a draw of object records a kernel wrote, its count held to the records given")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -365,7 +365,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("skinned-mesh")
+            SceneDescriptor.builder("skinned-mesh").checksPixels()
                 .description("B2: a bar of three bones bent at both joints, skinned on the GPU from a palette beside its CPU-skinned twin (CgSkinning); positions and normals must match")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -398,7 +398,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("gpu-cull")
+            SceneDescriptor.builder("gpu-cull").checksPixels()
                 .description("gpu-compute C9b: spheres in rows at four distances, half behind a wall, culled by the world renderer on the CPU and by CgGpuOps.cull against a depth pyramid on the GPU; the pictures must match byte for byte and each level's count lie within the wall's bounds; prints each path's draw cost")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -412,7 +412,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("multi-draw")
+            SceneDescriptor.builder("multi-draw").checksPixels()
                 .description("gpu-compute C9: 76 draws of distinct meshes under one pipeline and bindings, indexed and not, in slabs and on the frame ring, drawn with multi-draw on and off; the pictures must match byte for byte, and joined they must take 4 calls where separate take 77")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -426,7 +426,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("sampler-binding")
+            SceneDescriptor.builder("sampler-binding").checksPixels()
                 .description("G0.2: one 4x4 texture, one upload, drawn on four quads in one pass through a binding's sampler each (nearest wrapped, clamped, mirrored, and the texture's own); every quad must read the colour its address mode gives at u -0.25")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -440,7 +440,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("cooked-texture")
+            SceneDescriptor.builder("cooked-texture").checksPixels()
                 .description("G0.3: one image from its PNG and from its BC7 .cgtex, colour and alpha, at 3x and at a quarter (a lower mip); every cooked quad must match its PNG twin. Blocks where BPTC is, decoded to RGBA8 on mac41")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -454,7 +454,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("second-layer")
+            SceneDescriptor.builder("second-layer").checksPixels()
                 .description("G0.4: a glTF quad's second UV set and vertex colour loaded into SPATIAL, drawn by one shader at its first UV and, under SECOND_LAYER, at its second; each quad must read the texel and tint due")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -468,7 +468,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("flipbook")
+            SceneDescriptor.builder("flipbook").checksPixels()
                 .description("G0.5: a flipbook's frames through fx_particle.glsl, as sprite.shader draws them: a rect table looped at 30 a second, the grid over a life, a range looped, random frames and a blend; every particle must show the frame due")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -482,7 +482,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("global-parameters")
+            SceneDescriptor.builder("global-parameters").checksPixels()
                 .description("G0.6: a parameter collection's value set once, read by two materials through the world renderer and ignored by a third; each quad must read the colour due")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -496,7 +496,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("texture-cube")
+            SceneDescriptor.builder("texture-cube").checksPixels()
                 .description("A stacked-faces cube sampled along each axis, and a .hdr read as half floats: each face i the device's face i")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -510,7 +510,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("property-table")
+            SceneDescriptor.builder("property-table").checksPixels()
                 .description("A material's vec4[64] read on the GPU: 64 quads, each its own element's colour, across the table's four chunks")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -524,7 +524,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-sort-group")
+            SceneDescriptor.builder("vfx-sort-group").checksPixels()
                 .description("G0.7: two effects in one sort group keep their layers' authored order whichever is nearer; an ungrouped pair sorts by distance")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -538,7 +538,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-mesh-sections")
+            SceneDescriptor.builder("vfx-mesh-sections").checksPixels()
                 .description("A mesh renderer's material_overrides: each section with its override, one past them with the renderer's own")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -552,7 +552,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-prefab")
+            SceneDescriptor.builder("vfx-prefab").checksPixels()
                 .description("G0.9: a 458-node prefab drawn a ball a node, a subtree cut by opacity 0 and a chain dimmed by 0.5; evaluating it takes a few microseconds")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -564,7 +564,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("post-transitions")
+            SceneDescriptor.builder("post-transitions").checksPixels()
                 .description("G0.10: a post material by its weight, a fade in both composite forms, a cut's held frame crossfaded out; each firing's pixel checked")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -576,7 +576,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("bloom-occlusion")
+            SceneDescriptor.builder("bloom-occlusion").checksPixels()
                 .description("The world bloom's gate: an emissive ball behind a wall must bloom nowhere and one in front must bloom, at two target sizes and bloom scales 1 and 0.5")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -590,7 +590,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("material-buffer")
+            SceneDescriptor.builder("material-buffer").checksPixels()
                 .description("A material reads a kernel's buffers: records written and compacted on the GPU, a quad per live cell placed and coloured from them through one indirect draw, in a graph and through the world renderer; every cell must match Java's")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -604,7 +604,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("raster-levels")
+            SceneDescriptor.builder("raster-levels").checksPixels()
                 .description("Raster passes into mip levels: a chain drawn level by level in one texture, each level reading the one above through a level view; every texel of every level must match Java's")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -618,7 +618,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("raster-layers")
+            SceneDescriptor.builder("raster-layers").checksPixels()
                 .description("Raster passes into array layers: 2 to 5 layers of one array drawn each frame and summed through a sampler2DArray; every layer and the sum must match Java's, on one storage throughout")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -632,7 +632,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("mrt-emission")
+            SceneDescriptor.builder("mrt-emission").checksPixels()
                 .description("MRT emission's proof: colour and emission drawn in one pass into two attachments under one blend, against each drawn alone; smoke must dim the glow, a wall hide it")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -646,7 +646,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("hdr-scene")
+            SceneDescriptor.builder("hdr-scene").checksPixels()
                 .description("render-hdr-scene H0: an 8-bit host decoded into a linear scene and encoded back, timed on the GPU at 1080p and 4K, RGBA16F and R11G11B10F; the RGBA16F round trip must be byte-identical; prints a table and exits")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -660,7 +660,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("post-looks")
+            SceneDescriptor.builder("post-looks").checksPixels()
                 .description("The post stack's volumes and looks: flash, vignette, impact frames, aberration, each through a volume; weight 0, out of reach and flashes 0 change nothing, priority overrides")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -674,7 +674,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("post-capture")
+            SceneDescriptor.builder("post-capture").checksPixels()
                 .description("A kit sequence's post spawnables played over a game capture's frame before its post, at the captured tick, scored against the frame after it")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -686,7 +686,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("post-effects")
+            SceneDescriptor.builder("post-effects").checksPixels()
                 .description("The post stack's mod SPI: an effect at each point, checked to run in order round the composite, by order within a point, and to leave nothing once closed")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -700,7 +700,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("compute-tiers")
+            SceneDescriptor.builder("compute-tiers").checksPixels()
                 .description("gpu-compute C5/C6: one kernel per shape, every buffer and image checked against Java's arithmetic; run at each forced tier (-Dcrystalgraphics.compute.tier=G43|G40|G33) and under the CPU oracle (-Dcrystalgraphics.harness.oracle=true), all must agree")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -714,7 +714,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("gpu-ops")
+            SceneDescriptor.builder("gpu-ops").checksPixels()
                 .description("gpu-compute C7: every CgGpuOps op at counts 0 to 70000, fixed and read from the GPU, checked bit for bit against Java; run at each forced tier, all must agree")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -756,7 +756,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("compute-check")
+            SceneDescriptor.builder("compute-check").checksPixels()
                 .description("gpu-compute C10: checked mode (-Dcrystalgraphics.compute.checked=true) names a write past a buffer, an add past it and a texel past an image, each at its line, and not a kernel inside its buffer")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -770,7 +770,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("readback")
+            SceneDescriptor.builder("readback").checksPixels()
                 .description("gpu-compute C8: buffer words, float and unaligned byte targets and a mip level read back through the frame graph each frame, every delivery checked against the frame that recorded it")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -784,7 +784,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("volumes")
+            SceneDescriptor.builder("volumes").checksPixels()
                 .description("gpu-compute E3: 3D textures in the frame graph, filled and spread by 3d image kernels, sampled as sampler3D by a kernel and a material, updated and read back by boxes, every texel checked against Java")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -798,7 +798,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("material-library")
+            SceneDescriptor.builder("material-library").checksPixels()
                 .description("The material library: DepthFade, Panner, Rotator, ParticleSubUV, RotateAboutAxis against Unreal's formulas")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -812,7 +812,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-hashes")
+            SceneDescriptor.builder("vfx-hashes").checksPixels()
                 .description("The spawn hash: fx_rand on the GPU bit for bit against the Java an emitter's books use")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -826,7 +826,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-forms")
+            SceneDescriptor.builder("vfx-forms").checksPixels()
                 .description("Module inputs in forms: each form's lanes on the GPU against its Java evaluation")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -840,7 +840,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-stack")
+            SceneDescriptor.builder("vfx-stack").checksPixels()
                 .description("Stacked shapes: definitions run in a wider shape's kernel, each particle written to match a run without")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -854,7 +854,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-fields")
+            SceneDescriptor.builder("vfx-fields").checksPixels()
                 .description("Force fields: each node, placement and target on the GPU against the Java mirror")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -868,7 +868,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-beams")
+            SceneDescriptor.builder("vfx-beams").checksPixels()
                 .description("Beams: each beam's ends, noise and drawn points on the GPU against a Java simulation of Cascade's")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -893,7 +893,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("lights-grid")
+            SceneDescriptor.builder("lights-grid").checksPixels()
                 .description("The world's light list and grid read back against Java: CPU and appended lights, Unreal's binning")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -904,7 +904,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-range")
+            SceneDescriptor.builder("vfx-range").checksPixels()
                 .description("vfx-gpu §13.4: Range culls a pool's particles against a view and writes the records a look reads, checked against the CPU's cull and writeRecords")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -918,7 +918,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("lights-shadow")
+            SceneDescriptor.builder("lights-shadow").checksPixels()
                 .description("The world lights' shadows: a light beside a wall of blocks, its light behind the wall withheld and in the open kept")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -932,7 +932,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("lights-volume")
+            SceneDescriptor.builder("lights-volume").checksPixels()
                 .description("The world lights on transparent surfaces: two glass panes by a light, the one in the open lit by the translucency lighting volume, the one behind a wall not")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -946,7 +946,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("lights-air")
+            SceneDescriptor.builder("lights-air").checksPixels()
                 .description("The world lights in the air: a light in a haze beside a tall wall, the air by it glowing and the air in the wall's shadow not")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -998,7 +998,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("lights-sun")
+            SceneDescriptor.builder("lights-sun").checksPixels()
                 .description("The sun's shadows: our box shadows the host's ground, blocks the host never draws shadow our box, at noon against no sun")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1012,7 +1012,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("lights-casters")
+            SceneDescriptor.builder("lights-casters").checksPixels()
                 .description("Our meshes casting through their distance fields: a box over the host's ground and a ball over our slab under a low sun, against no sun")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1038,7 +1038,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("lights-torch")
+            SceneDescriptor.builder("lights-torch").checksPixels()
                 .description("Minecraft's block light: a torch on the host's ground, our box beside it shadowing the ground behind it, against no box")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1052,7 +1052,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-world")
+            SceneDescriptor.builder("vfx-world").checksPixels()
                 .description("vfx-gpu X4: a world of its own in the voxel window; GPU debris rests on its stairs and overhang, and Range lights a blast at a cave's mouth from it")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1066,7 +1066,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-events")
+            SceneDescriptor.builder("vfx-events").checksPixels()
                 .description("vfx-gpu X5: debris's landings, an age and its deaths as events; a child pool spawning from them in the same step, every child checked against Java from the rows the CPU heard")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1080,7 +1080,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-sequence")
+            SceneDescriptor.builder("vfx-sequence").checksPixels()
                 .description("G2.1: a particle playing a clip, its part drawn where its node is and gone once faded; an event at the node, the clip's burst and stream spawning children and theirs grandchildren, every row checked against Java")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1094,7 +1094,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-collide")
+            SceneDescriptor.builder("vfx-collide").checksPixels()
                 .description("vfx-gpu X6: debris bounced off a ground and a wall by a GLSL kind given as text over the window's distance field; its collisions and a rate as repeating events, every row and child checked against Java")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1108,7 +1108,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-cascade-collide")
+            SceneDescriptor.builder("vfx-cascade-collide").checksPixels()
                 .description("A collider's Cascade response: per-axis damping rolled per particle, a count with freeze, halt and kill, and a delay, each group checked against Java")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1122,7 +1122,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-spawn-from")
+            SceneDescriptor.builder("vfx-spawn-from").checksPixels()
                 .description("Particles born on another emitter's: random on still sources, sequential inheriting moving sources' velocity, an empty source's at the origin, checked against the seeded sources")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1136,7 +1136,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-ribbons")
+            SceneDescriptor.builder("vfx-ribbons").checksPixels()
                 .description("The ribbon generation: Niagara's ribbon, a shaped one broken by its link gap and Cascade's trail in one pool, the packed run and draw counts held to a Java twin of every stage")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1150,7 +1150,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-trail-heads")
+            SceneDescriptor.builder("vfx-trail-heads").checksPixels()
                 .description("Trails behind another emitter's particles, their heads worked out on the GPU: three trails on three moving particles held to a Java twin of Cascade's trail spawning")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1164,7 +1164,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-mesh-facing")
+            SceneDescriptor.builder("vfx-mesh-facing").checksPixels()
                 .description("Mesh particles facing: Niagara's modes and locked axis, Cascade's ups, rolls and pre-rotations, each mesh's turn against Java")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1178,7 +1178,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-inputs")
+            SceneDescriptor.builder("vfx-inputs").checksPixels()
                 .description("vfx-gpu X6: module kinds sampling a 3D vector field, a 2D heightfield and the scene's depth, each pool checked against Java")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1192,7 +1192,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("gpu-budget")
+            SceneDescriptor.builder("gpu-budget").checksPixels()
                 .description("gpu-compute C11: a pass of fills charged to a CgGpuBudget and sized by its scale, held under a budget a third of its full cost")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1206,7 +1206,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("async-compute")
+            SceneDescriptor.builder("async-compute").checksPixels()
                 .description("gpu-compute C8: blurs in a compute pass beside fill-bound drawing, timed alone, in order and async(); the outputs of both orders compared byte for byte")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1220,7 +1220,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("upload-stress")
+            SceneDescriptor.builder("upload-stress").checksPixels()
                 .description("render-async-uploads U0: bursts of textures and a volume uploaded from workers and from the render thread, for what an upload costs each thread and the GPU")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1234,7 +1234,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("gpu-groups")
+            SceneDescriptor.builder("gpu-groups").checksPixels()
                 .description("render-distortion T1: a timed pass of three materials costing 1 : 2 : 4, split by crystalgraphics.gpu.groups, the groups summing to the pass; then the channel off")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1248,7 +1248,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("overdraw-count")
+            SceneDescriptor.builder("overdraw-count").checksPixels()
                 .description("render-distortion T3: transparent planes in front of and behind a wall, one discarding half, counted by the overdraw view and read back exactly")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1262,7 +1262,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("custom-depth")
+            SceneDescriptor.builder("custom-depth").checksPixels()
                 .description("aaa-milestones OL2: CustomDepth and CustomStencil, a hidden cube still written, a partial mask over a full one, a skinned quad, each stencil byte read back exactly")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1276,7 +1276,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("distortion")
+            SceneDescriptor.builder("distortion").checksPixels()
                 .description("render-distortion D1-D2: quads bending a coordinate backdrop, checked pixel by pixel: adding, hidden by a wall, mirrored, the leak guard, the split, and the after-distortion queue")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1290,7 +1290,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("text-threaded")
+            SceneDescriptor.builder("text-threaded").checksPixels()
                 .description("render-graph G2.2a: text recorded on a worker while the render thread draws text in the same faces; a converged text drawn both ways must match")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1510,7 +1510,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("sequence-spawn")
+            SceneDescriptor.builder("sequence-spawn").checksPixels()
                 .description("A sequence played from its files, its systems, prefabs and post volumes spawned by the engine (the Nova Cannon by default): each system on its ticks, nothing loaded while playing, the sequencer's worst frame")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1546,7 +1546,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-books")
+            SceneDescriptor.builder("vfx-books").checksPixels()
                 .description("The books against the GPU: under a 200 ms frame no slot closes while its particles live")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1606,7 +1606,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-renderers")
+            SceneDescriptor.builder("vfx-renderers").checksPixels()
                 .description("An emitter's renderers drawing from material definitions: four kinds over 100 effects, each one merged draw")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1618,7 +1618,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-lights")
+            SceneDescriptor.builder("vfx-lights").checksPixels()
                 .description("Particles as lights: a light module's embers over the floor, the firing's light list against a Java gather")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -1630,7 +1630,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("kit-shading")
+            SceneDescriptor.builder("kit-shading").checksPixels()
                 .description("A kit's shading models drawing: its shading.yaml registered, one of its materials compiled from the kit and drawn")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)

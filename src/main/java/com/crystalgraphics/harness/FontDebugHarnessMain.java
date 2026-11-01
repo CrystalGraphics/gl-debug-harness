@@ -5,6 +5,7 @@ import com.crystalgraphics.lwjgl3.StbVorbisDecoder;
 import com.crystalgraphics.platform.audio.CgAudioDecoder;
 import com.crystalgraphics.platform.audio.CgAudioOutput;
 import com.crystalgraphics.lifecycle.CgEngineLifecycle;
+import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.harness.config.*;
 import com.crystalgraphics.harness.util.HarnessOutputDir;
 import com.crystalgraphics.platform.CgPlatform;
@@ -135,6 +136,7 @@ public final class FontDebugHarnessMain {
             // caller is trying to bound. Applies to every scene, interactive or managed.
             HarnessDeadline.arm(config.getSeconds());
 
+            if (entry.getDescriptor().checksPixels()) CgWorldRenderer.get().skipUnready(false);
             HarnessSceneLifecycle scene = entry.getFactory().create();
             boolean isInteractiveMode =
                     entry.getDescriptor().getLifecycleMode() == SceneDescriptor.LifecycleMode.INTERACTIVE;

@@ -37,6 +37,7 @@ public  class SceneDescriptor {
     private final int defaultWidth;
     private final int defaultHeight;
     private final float[] clearColor; // r,g,b,a
+    private final boolean checksPixels;
 
     private SceneDescriptor(Builder b) {
         if (b.id == null || b.id.isEmpty()) {
@@ -57,6 +58,7 @@ public  class SceneDescriptor {
         this.defaultWidth = b.defaultWidth > 0 ? b.defaultWidth : 800;
         this.defaultHeight = b.defaultHeight > 0 ? b.defaultHeight : 600;
         this.clearColor = b.clearColor != null ? b.clearColor : new float[]{0.1f, 0.1f, 0.1f, 1.0f};
+        this.checksPixels = b.checksPixels;
     }
 
     public String getId() { return id; }
@@ -68,6 +70,8 @@ public  class SceneDescriptor {
     public int getDefaultWidth() { return defaultWidth; }
     public int getDefaultHeight() { return defaultHeight; }
     public float[] getClearColor() { return clearColor; }
+    /** Whether the run draws what it records at once, holding no world draw for its programs (see the builder's). */
+    public boolean checksPixels() { return checksPixels; }
 
     public static Builder builder(String id) {
         return new Builder(id);
@@ -83,8 +87,20 @@ public  class SceneDescriptor {
         private int defaultWidth = 800;
         private int defaultHeight = 600;
         private float[] clearColor;
+        private boolean checksPixels;
 
         public Builder(String id) { this.id = id; }
+
+        /**
+         * A gate checking what it drew from its first frames: the world renderer compiles a program at its draw rather
+         * than holding the draw until it is built ({@code CgWorldRenderer.skipUnready(false)}), as Unreal's screenshot
+         * tests wait for shaders before capturing. Leave it off a scene measuring hitches or the warm-up itself.
+         *
+         * <pre>{@code
+         * SceneDescriptor.builder("post-looks").description("...").lifecycleMode(INTERACTIVE).checksPixels().build()
+         * }</pre>
+         */
+        public Builder checksPixels() { this.checksPixels = true; return this; }
 
         public Builder description(String val) { this.description = val; return this; }
         public Builder lifecycleMode(LifecycleMode val) { this.lifecycleMode = val; return this; }
