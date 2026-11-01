@@ -12,7 +12,7 @@ public final class LifecycleServiceHarness implements CgLifecycleService {
 
     private static final int TRACKED_END = CgTrace.name("frame.trackedEnd");
 
-    @Override public void onContextDestroy()          { CgEngineLifecycle.destroyContext(); }
+    @Override public void onContextDestroy()          { CgEngineLifecycle.shutdown(); }
     @Override public void onResize(int w, int h)      { CgGraphicsLifecycle.onResize(w, h); }
     @Override public void onFrameRendered() {
         CgGraphicsLifecycle.tickFrame();

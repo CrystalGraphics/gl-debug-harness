@@ -16,6 +16,7 @@ import com.crystalgraphics.lwjgl3.GlfwCursorService;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.harness.runtime.RenderDoc;
 import com.crystalgraphics.platform.PlatformServiceHarness;
+import com.crystalgraphics.trace.CgTraceRun;
 import com.crystalgraphics.util.CgRandom;
 
 import java.io.File;
@@ -110,6 +111,8 @@ public final class FontDebugHarnessMain {
             // Registers input and sound along with the GL services -- one bundle, so the UI cannot
             // come up with a working backend and no keyboard.
             PlatformServiceHarness.onPreInit(config.getDevice(), ctx.getScreenWidth(), ctx.getScreenHeight());
+            // The trace's run directory, as a game's pre-init opens it: its log, and report.txt at the end.
+            CgTraceRun.open();
             // The cursor adapter is a TOOLKIT service, so it comes from CrystalGraphics' LWJGL 3 tier
             // rather than from a copy of our own. CrystalGUI's CursorService turns its keywords into
             // pictures and finds this through the slot; nothing here names either side of that.
@@ -162,7 +165,7 @@ public final class FontDebugHarnessMain {
             }
             String tracked = PlatformServiceHarness.trackedReport();
             if (tracked != null) LOGGER.info("[Harness] tracked: " + tracked);
-            CgEngineLifecycle.destroyContext();
+            CgEngineLifecycle.shutdown();
 
             LOGGER.info("[Harness] Mode '" + mode + "' completed successfully.");
         } catch (Exception e) {
