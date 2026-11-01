@@ -556,7 +556,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 kitFailureLogged = true;
                 LOGGER.warn("[skinned-play] the kit failed to load: {}", kit.failures());
             }
-            if (kit != null && kit.ready()) {
+            if (kit != null && materialsReady(actor)) {
                 if (!actor.dressed && !actor.kitMaterials.isEmpty()) {
                     dress(actor);
                     LOGGER.info("[skinned-play] {}: drawn in its {} kit materials, at frame {}", actor.name, actor.kitMaterials.size(), frameNumber);
@@ -589,6 +589,16 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             if (actor.kit && kit != null && kit.ready()) darken(dt, actor.move != null);
             draw(world, actor);
         }
+    }
+
+    /**
+     * Whether {@code actor}'s kit materials and its outline's post are READY: it is dressed then, as Unreal draws a mesh
+     * once its own materials are, while the kit's systems may still be rehearsing.
+     */
+    private boolean materialsReady(Actor actor) {
+        int last = actor.kitMaterials.size() + (actor.outlineBlock != null ? 1 : 0);
+        for (int s = 0; s < last; s++) if (!kit.material(s).ready()) return false;
+        return true;
     }
 
     /**
