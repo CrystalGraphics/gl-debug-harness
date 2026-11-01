@@ -16,7 +16,9 @@ import com.crystalgraphics.camera.CgCameraSystem;
 import com.crystalgraphics.frame.CgTickFunction;
 import com.crystalgraphics.frame.CgTickGroup;
 import com.crystalgraphics.frame.CgWorld;
+import com.crystalgraphics.vfx.CgVfxEffect;
 import com.crystalgraphics.vfx.CgVfxSystem;
+import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -546,8 +548,14 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 LOGGER.info("[skinned-play] {}: the shot played out", actor.name);
                 if (actor.kit && cutsPlayed > 0) {
                     services.profileEnd();
-                    if (cutsPlayed < CUTS) rearm = true;
-                    else if (!Double.isNaN(EXIT_AFTER)) exitAt = elapsed + EXIT_AFTER;
+                    if (cutsPlayed < CUTS) {
+                        rearm = true;
+                    } else if (!Double.isNaN(STEADY)) {
+                        // Counted in frames: writing the cut's profile stalls for seconds, which the clock would skip.
+                        steadyAfterIn = STEADY_SETTLE_FRAMES;
+                    } else if (!Double.isNaN(EXIT_AFTER)) {
+                        exitAt = elapsed + EXIT_AFTER;
+                    }
                 } else if (!Double.isNaN(EXIT_AFTER) && actor.kit) {
                     exitAt = elapsed + EXIT_AFTER;
                 }
@@ -690,6 +698,16 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             EXIT_AFTER = seconds("crystalgraphics.harness.skinnedPlay.exitAfter");
     /** How many scripted cuts: each after the last plays out by {@link #CUT_AFTER}; the run ends after the last. */
     private static final int CUTS = Integer.getInteger("crystalgraphics.harness.skinnedPlay.cuts", 1);
+    /**
+     * Seconds of steady play profiled either side of the cuts, as {@code steady-before} (ending at the first cut) and
+     * {@code steady-after} (from a second after the last plays out, then the run ends); NaN for neither. Under
+     * {@code profile.ring}; {@link #CUT_AFTER} must be longer.
+     */
+    private static final double STEADY = seconds("crystalgraphics.harness.skinnedPlay.steady");
+    /** Frames after the last cut plays out before {@code steady-after} opens: past its profile's write and the GPU's clock. */
+    private static final int STEADY_SETTLE_FRAMES = 240;
+    private int steadyAfterIn = -1;
+    private boolean steadyOpen;
     /** The scene's clock, and when the scripted cut and the run's end fall on it; negative until known. */
     private double elapsed, cutAt = -1, exitAt = -1;
     /** A cut played out: the next is timed from the frame after, past the stall of writing its profile. */
@@ -716,14 +734,39 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         // until they are.
         if (cutAt < 0 && goku.dressed && kit.ready() || rearm) cutAt = elapsed + CUT_AFTER;
         rearm = false;
+        if (!Double.isNaN(STEADY) && cutsPlayed == 0 && cutAt >= 0 && cutAt != Double.MAX_VALUE && !steadyOpen
+                && elapsed >= cutAt - STEADY) {
+            services.profileBegin("steady-before");
+            steadyOpen = true;
+        }
         if (cutAt >= 0 && elapsed >= cutAt && cutAt != Double.MAX_VALUE) {
             cutAt = Double.MAX_VALUE;
             cutsPlayed++;
+            if (steadyOpen) {
+                services.profileEnd();
+                steadyOpen = false;
+            }
             LOGGER.info("[skinned-play] the scripted cut {}, at frame {}", cutsPlayed, frameNumber);
             services.profileBegin("cut-" + cutsPlayed);
             cut(goku);
         }
-        if (exitAt >= 0 && elapsed >= exitAt) running = false;
+        if (steadyAfterIn > 0 && --steadyAfterIn == 0) {
+            steadyAfterIn = -1;
+            exitAt = elapsed + STEADY;
+            // What outlives the cuts: the steady frame after them pays for it.
+            LOGGER.info("[skinned-play] {} effects alive after the cuts", VFX.system().effects().size());
+            for (CgVfxEffect<?> e : VFX.system().effects()) {
+                LOGGER.info("[skinned-play] alive after the cuts: {} age {} state {}", e instanceof CgVfxSystemInstance<?> s
+                        ? s.definition().name() : e.getClass().getSimpleName(), e.age(), e.state());
+            }
+            services.profileBegin("steady-after");
+            steadyOpen = true;
+        }
+        if (exitAt >= 0 && elapsed >= exitAt) {
+            if (steadyOpen) services.profileEnd();
+            steadyOpen = false;
+            running = false;
+        }
     }
 
     @Override
