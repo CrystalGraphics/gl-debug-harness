@@ -33,7 +33,7 @@ import java.util.logging.Logger;
  *
  * <p>HUD display format, the scene's own lines ({@code InteractiveSceneLifecycle.hudLine}) under it:</p>
  * <pre>
- * FPS: n
+ * FPS: n | 1% low n | worst x.xx ms   (each over the last 0.5 s)
  * Pos: x.xx y.yy z.zz \ yaw° pitch°
  * Particles: n  (the median drawn a frame over the last 0.5 s)
  *
@@ -64,12 +64,14 @@ public final class HUDRenderer {
     private int currentFontSizePx;
     private float currentQuadOffset;
 
-    // FPS counter: sampled over a rolling window rather than shown per-frame,
-    // since a single frame's instantaneous 1/dt is too jittery to read.
+    // Frame times over each window: the average alone hides a hitch (one 30 ms frame in half a second at 1,000 fps
+    // moves it 3%), so the 1% low and the worst frame are shown beside it.
     private static final long FPS_SAMPLE_WINDOW_NANOS = 500_000_000L; // 0.5s
     private long fpsWindowStartNanos = -1;
-    private int fpsWindowFrameCount = 0;
-    private double displayedFps = 0.0;
+    private long lastFrameNanos = -1;
+    private long[] frameNanos = new long[1024];
+    private int frameCount;
+    private double displayedFps, displayedLowFps, displayedWorstMs;
 
     // Particles drawn: each frame's count, the median shown once a window elapses.
     private int[] particleSamples = new int[256];
@@ -146,24 +148,29 @@ public final class HUDRenderer {
      * font's dispose listener.
      */
     /**
-     * Updates the rolling FPS sample. Counts frames within a
-     * {@link #FPS_SAMPLE_WINDOW_NANOS} window and recomputes {@link #displayedFps}
-     * once the window elapses, rather than showing a raw per-frame 1/dt value
-     * (too jittery to read frame to frame).
+     * Records this frame's time since the last and, once a {@link #FPS_SAMPLE_WINDOW_NANOS} window elapses, shows its
+     * average FPS, its 1% low (the slowest 1% of its frames, at least one, averaged, as FPS: CapFrameX's) and its worst
+     * frame in milliseconds.
      */
     private void updateFpsSample() {
         long now = System.nanoTime();
-        if (fpsWindowStartNanos < 0) {
-            fpsWindowStartNanos = now;
+        if (lastFrameNanos >= 0) {
+            if (frameCount == frameNanos.length) frameNanos = Arrays.copyOf(frameNanos, frameCount * 2);
+            frameNanos[frameCount++] = now - lastFrameNanos;
         }
-        fpsWindowFrameCount++;
-
+        lastFrameNanos = now;
+        if (fpsWindowStartNanos < 0) fpsWindowStartNanos = now;
         long elapsed = now - fpsWindowStartNanos;
-        if (elapsed >= FPS_SAMPLE_WINDOW_NANOS) {
-            displayedFps = fpsWindowFrameCount / (elapsed / 1_000_000_000.0);
-            fpsWindowFrameCount = 0;
-            fpsWindowStartNanos = now;
-        }
+        if (elapsed < FPS_SAMPLE_WINDOW_NANOS || frameCount == 0) return;
+        displayedFps = frameCount / (elapsed / 1_000_000_000.0);
+        Arrays.sort(frameNanos, 0, frameCount);
+        int slowest = Math.max(1, frameCount / 100);
+        long sum = 0;
+        for (int i = frameCount - slowest; i < frameCount; i++) sum += frameNanos[i];
+        displayedLowFps = 1_000_000_000.0 * slowest / sum;
+        displayedWorstMs = frameNanos[frameCount - 1] / 1_000_000.0;
+        frameCount = 0;
+        fpsWindowStartNanos = now;
     }
 
     /**
@@ -264,7 +271,8 @@ public final class HUDRenderer {
         updateFpsSample();
         updateParticleSample();
 
-        String fpsLine = String.format("FPS: %.1f", displayedFps);
+        String fpsLine = String.format("FPS: %.0f | 1%% low %.0f | worst %.2f ms", displayedFps, displayedLowFps,
+                displayedWorstMs);
         String posLine = String.format("Pos: %.2f %.2f %.2f \\ %.2f\u00B0 %.2f\u00B0",
                 camera.getPosX(), camera.getPosY(), camera.getPosZ(), camera.getYaw(), camera.getPitch());
         String particleLine = String.format("Particles: %,d", displayedParticles);
