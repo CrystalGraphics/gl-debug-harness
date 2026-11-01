@@ -62,6 +62,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxPrefabScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBooksScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrecacheScene;
 import com.crystalgraphics.harness.scene.test.CgVfxKamehamehaScene;
+import com.crystalgraphics.harness.scene.test.CgVfxDeclaredScene;
 import com.crystalgraphics.harness.scene.test.CgVfxKitPlayScene;
 import com.crystalgraphics.harness.scene.test.CgSequenceSpawnScene;
 import com.crystalgraphics.harness.scene.test.CgVfxNovaScene;
@@ -1531,6 +1532,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxKitPlayScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-declared")
+                .description("Looks a mod only declares (registered, and an owner's precache from another thread), played after a title screen's frames: no compile wait or texture load at their first play")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgVfxDeclaredScene()
         );
 
         reg.register(
