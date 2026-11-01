@@ -116,9 +116,9 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         compileSystem();
-        CgVfxParticlePool.prepare(debris);
-        CgVfxParticlePool.prepare(puffer);
-        CgVfxParticlePool.prepare(dust, 1);
+        CgVfxParticlePool.precache(debris);
+        CgVfxParticlePool.precache(puffer);
+        CgVfxParticlePool.precache(dust, 1);
         CgVfxParticlePool.listen(listener);
         CgVfxWords words = new CgVfxWords();
         int[] raw = new int[spawn.length];

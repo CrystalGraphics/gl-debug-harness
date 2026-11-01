@@ -377,10 +377,10 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
             seeded[id] = new float[]{age, life, (random.nextFloat() * 2f - 1f) * 3f, (random.nextFloat() * 2f - 1f) * 3f,
                     (random.nextFloat() * 2f - 1f) * 3f};
         }
-        // Prepared as a bundle's systems are: included first, so under -Dcrystalgraphics.vfx.poolBudget=0 each station's
+        // Precached as a bundle's systems are: included first, so under -Dcrystalgraphics.vfx.poolBudget=0 each station's
         // definition plays raised into its group's forms, which must draw what its own do.
         CgVfxShapeCoalescing.loaded().include(emitters);
-        for (CgVfxEmitter emitter : emitters) CgVfxParticlePool.prepare(emitter);
+        for (CgVfxEmitter emitter : emitters) CgVfxParticlePool.precache(emitter);
     }
 
     @Override

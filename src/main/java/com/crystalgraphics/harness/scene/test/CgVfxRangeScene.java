@@ -203,10 +203,10 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     }
 
     private void record() {
-        CgVfxParticlePool.prepare(emitter);
-        CgVfxParticlePool.prepare(bySpeed);
-        CgVfxParticlePool.prepare(LEAD);
-        CgVfxRange.prepare();
+        CgVfxParticlePool.precache(emitter);
+        CgVfxParticlePool.precache(bySpeed);
+        CgVfxParticlePool.precache(LEAD);
+        CgVfxRange.precache();
         CgRecording rec = new CgRecording();
         Random random = new Random(1201);
         lead = CgVfxParticlePool.of(this, LEAD);

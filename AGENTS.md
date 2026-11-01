@@ -176,9 +176,9 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   colour across the table's four chunks; PASS at G43, G40, G33, with `-Dcrystalgraphics.shaderBuffer.tier=TBO` and on `vulkan`.
   `--mode=vfx-sort-group` is a `CgVfxSortGroup`'s: two effects in one group, the layer of the higher hint drawn last
   whichever is nearer, and an ungrouped pair sorted by distance; PASS on `gl`, `mac41` and `vulkan`.
-  `--mode=vfx-prepare` is programs prepared on load: a move's looks (the Kamehameha, the explosion, heat haze) prepared
-  together, played once `warmed()`, their first 1200 frames adding no `CgMaterialShader.compileWaits()`;
-  `-Dcrystalgraphics.harness.prepare.skip=true` is the control, unprepared, which must wait. PASS on `gl`, `mac41` and
+  `--mode=vfx-precache` is programs precached on load: a move's looks (the Kamehameha, the explosion, heat haze) precached
+  together, played once `ready()`, their first 1200 frames adding no `CgMaterialShader.compileWaits()`;
+  `-Dcrystalgraphics.harness.precache.skip=true` is the control, unprecached, which must wait. PASS on `gl`, `mac41` and
   `vulkan`. `--mode=vfx-nova` is the same from files: the Nova Cannon kit scanned (the plan repository's
   `examples/novamod`, a resource root the build adds when `plan/` is checked out; elsewhere
   `-Dcrystalgraphics.harness.nova.kit=<root>/assets/novamod -Pharness.assetRoots=<root>`), its systems' bundle loaded to `READY`, then played from

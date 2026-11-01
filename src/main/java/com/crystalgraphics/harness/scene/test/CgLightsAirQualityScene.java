@@ -89,14 +89,14 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         CgWorldRenderer.get().media().add(haze);
         target = HarnessFboHelper.create(W, H, true);
-        demo.prepare();
+        demo.precache();
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo info) {
         int phase = frame / PHASE, at = frame % PHASE;
         // The demo's phases wait for its programs: the frame before them is drawn again, uncounted, until they are ready.
-        boolean waiting = phase == DEMO && demoFrom < 0 && !demo.warmed();
+        boolean waiting = phase == DEMO && demoFrom < 0 && !demo.ready();
         if (waiting) {
             phase = DEMO - 1;
             at = 0;
@@ -122,7 +122,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
         CgMesh cube = CgMeshShapes.cube();
         renderer.draw(cube, grey).at(0, GROUND - 0.5, 0).transform(new Matrix4f().scale(120f, 1f, 120f)).submit();
         if (waiting) {
-            demo.warmed();
+            demo.ready();
         } else if (phase >= DEMO) {
             demo.submit(renderer, 0, GROUND, 0, SHOW_AT + (frame - demoFrom) / 60.0);
         } else {

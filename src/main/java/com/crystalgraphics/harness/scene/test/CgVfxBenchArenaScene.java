@@ -25,7 +25,7 @@ import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
 /**
  * The arena's frame-thread load: 8 moves playing at once, each a generated look of
  * emitters over shapes and layers, their bursts staggered over the move so a few
- * dozen emitters are alive at a time, with 30 idle palettes prepared. What a frame costs is the books,
+ * dozen emitters are alive at a time, with 30 idle palettes precached. What a frame costs is the books,
  * the ticks and the submit of the effects; the GPU work is the pools of the shapes alive. Scene id {@code bench-arena}; {@code bench-duel} and {@code bench-brawl} are
  * presets of it: two 67-shape ultimates starting together, and the arena under 300 puffs a second.
  *
@@ -65,7 +65,7 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
     private float clock;
     private int[] plays;
 
-    /** The arena: 8 moves of 180 emitters over 106 shapes, staggered, 30 palettes prepared. */
+    /** The arena: 8 moves of 180 emitters over 106 shapes, staggered, 30 palettes precached. */
     public CgVfxBenchArenaScene() {
         this(8, 180, 106, 163, 30, 15f, true, 0);
     }
@@ -162,10 +162,10 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().moveCamera(0f, 6f, 24f);
         ctx.getCamera3D().setPitch(-12f);
         for (int p = 0; p < palettesCount; p++) palettes.add(look(p));
-        vfx.prepare(palettes.toArray(new CgVfxLook[0]));
+        vfx.precache(palettes.toArray(new CgVfxLook[0]));
         if (bursts > 0) {
             puff = puffLook();
-            vfx.prepare(puff);
+            vfx.precache(puff);
         }
         plays = new int[moves];
         java.util.Arrays.fill(plays, -1);

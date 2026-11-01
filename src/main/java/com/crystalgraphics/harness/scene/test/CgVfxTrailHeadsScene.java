@@ -73,8 +73,8 @@ public class CgVfxTrailHeadsScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        CgVfxParticlePool.prepare(source);
-        CgVfxParticlePool.prepare(trail, 1);
+        CgVfxParticlePool.precache(source);
+        CgVfxParticlePool.precache(trail, 1);
     }
 
     @Override

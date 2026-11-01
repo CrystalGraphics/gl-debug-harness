@@ -82,7 +82,7 @@ final class KakarotProjectileBeam implements CgSequenceEventListener, AutoClosea
      * Loads {@code projectile}'s cue ahead of its first beam: an event's args name it, so the moves' own loads never
      * reach it, and an add of a cue not yet ready waits for its load.
      */
-    KakarotProjectileBeam prepare(String projectile) {
+    KakarotProjectileBeam precache(String projectile) {
         CgVfxAssets.instance().declare(CgGameplayKinds.CUE, projectile).request(CgLoadPriority.MOVE);
         return this;
     }

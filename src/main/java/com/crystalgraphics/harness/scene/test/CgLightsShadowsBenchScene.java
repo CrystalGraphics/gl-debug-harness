@@ -62,7 +62,7 @@ public final class CgLightsShadowsBenchScene implements InteractiveSceneLifecycl
         CgPlatform.provide(CgLevels.SERVICE, CgLevels.single(new Flat(), ENTITIES > 0 ? new Herd() : CgEntityQuery.NONE));
         CgWorldRenderer.get().install();
         floor = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
-        demo.prepare();
+        demo.precache();
         ByteBuffer texels = ByteBuffer.allocateDirect(16 * 16 * 4).order(ByteOrder.nativeOrder());
         for (int sky = 0; sky < 16; sky++) {
             for (int block = 0; block < 16; block++) {
@@ -87,7 +87,7 @@ public final class CgLightsShadowsBenchScene implements InteractiveSceneLifecycl
         ground.translation((float) (X - EYE_X), (float) (GROUND - 0.5 - EYE_Y), (float) (Z - EYE_Z)).scale(400f, 1f, 400f);
         CgMesh cube = CgMeshShapes.cube();
         ObjectDraws.draw(host, floor, cube, 1, (i, data, at) -> ObjectDraws.object(data, at, ground, 1f, 1f, 1f, 1f));
-        if (demo.warmed()) demo.submit(CgWorldRenderer.get(), X, GROUND, Z, frame.getElapsedTime());
+        if (demo.ready()) demo.submit(CgWorldRenderer.get(), X, GROUND, Z, frame.getElapsedTime());
         for (CgRenderStage stage : new CgRenderStage[]{CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT}) {
             stage.host().set(0f, w, h, ctx.getTargetFramebuffer()).view().set(EYE_X, EYE_Y, EYE_Z, view, projection);
             stage.host().environment().sun(SUN_ANGLE, 0, 0f, 1f);

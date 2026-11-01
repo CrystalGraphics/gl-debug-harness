@@ -38,7 +38,7 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle, CgSys
         font = CgFont.load(HarnessFontUtil.LATIN_FONT, CgFontStyle.REGULAR, 48);
         modules = new CgVfxModules(font);
         // As the game's demo does: every station's shapes settled and their kernels warming before the first play.
-        modules.prepare();
+        modules.precache();
     }
 
     @Override

@@ -117,7 +117,7 @@ public class CgVfxCascadeCollideScene implements InteractiveSceneLifecycle {
         Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, 0.1f, -0.45f, -1f, 0f, 1f, 0f);
         view.set(CX, 76.0, CZ + 20.5, look, new Matrix4f().perspective((float) Math.toRadians(80), 16f / 9f, 0.05f, 300f));
         for (int g = 0; g < 4; g++) {
-            CgVfxParticlePool.prepare(emitters[g]);
+            CgVfxParticlePool.precache(emitters[g]);
             hits.add(new HashMap<>());
             deaths.add(new HashMap<>());
         }

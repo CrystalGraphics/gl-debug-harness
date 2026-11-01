@@ -147,7 +147,7 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
                 """)), List.of(CgVfxEvent.onCollision().readback(PER_POOL)));
         host.set(CAMERA[0], CAMERA[1], CAMERA[2], view, projection);
         fillDepth();
-        for (CgVfxGpuEmitter d : List.of(fielded, heightened, depthed)) CgVfxParticlePool.prepare(d);
+        for (CgVfxGpuEmitter d : List.of(fielded, heightened, depthed)) CgVfxParticlePool.precache(d);
         CgVfxParticlePool.listen(listener);
     }
 

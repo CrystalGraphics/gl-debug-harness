@@ -27,7 +27,7 @@ import java.util.List;
 
 /**
  * A kit's systems and materials loaded from its files by id for a scene to play: the kit scanned under its namespace,
- * one bundle loaded to {@code READY} at move priority, each system prepared against the scene's {@link CgVfxSystem}.
+ * one bundle loaded to {@code READY} at move priority, each system precached against the scene's {@link CgVfxSystem}.
  *
  * <pre>{@code
  * HarnessKitSystems kit = HarnessKitSystems.load(vfx, "kakarot_kit", folder,

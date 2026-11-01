@@ -629,7 +629,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         sequencer.spawner("system", new CgVfxSystemSpawner(vfx));
         if (installCameras) CgSequenceCameras.install(sequencer, cameras, id -> current == null ? null : current.cameraSequence(id));
         CgPostVolumeSpawner.install(sequencer, cameras);
-        return KakarotProjectileBeam.install(sequencer, cues, casters).prepare(BEAM).prepare(BEAM_CUT);
+        return KakarotProjectileBeam.install(sequencer, cues, casters).precache(BEAM).precache(BEAM_CUT);
     }
 
     /** The harness camera as the camera system's host: its eye, its look and the projection's horizontal FOV. */

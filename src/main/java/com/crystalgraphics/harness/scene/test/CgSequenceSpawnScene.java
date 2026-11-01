@@ -142,7 +142,7 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
                 return;
             }
             if (!handle.ready()) {
-                vfx.update(now);   // the world's frame prepares the bundle's GPU work
+                vfx.update(now);   // the world's frame precaches the bundle's GPU work
                 vfx.submit(CgWorldRenderer.get());
                 HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
                 return;
@@ -217,7 +217,7 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
             boolean charge = on[0] >= 0 && crossed(onFrom[0], on[0], 0, 1) && crossed(offFrom[0], off[0], 42, 44);
             boolean beam = on[1] >= 0 && crossed(onFrom[1], on[1], 40, 41) && crossed(offFrom[1], off[1], 90, 91);
             // A post volume's look keywords are not warmed yet (the composite's variant compiles as it first applies):
-            // compile waits are reported, not gated, until post volumes from spawnables prepare.
+            // compile waits are reported, not gated, until post volumes from spawnables precache.
             boolean pass = charge && beam && syncLoads == 0 && textureLoads == 0 && validation == 0;
             System.out.println(TAG + (pass ? "PASS" : "FAIL") + " on " + device() + ": the charge active over [" + on[0] + ", "
                     + off[0] + "], the beam over [" + on[1] + ", " + off[1] + "]; " + summary);

@@ -102,10 +102,10 @@ public class CgVfxSpawnFromScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         for (int g = 0; g < GROUPS; g++) {
-            CgVfxParticlePool.prepare(sources[g]);
-            CgVfxParticlePool.prepare(readers[g], 1);
+            CgVfxParticlePool.precache(sources[g]);
+            CgVfxParticlePool.precache(readers[g], 1);
         }
-        CgVfxParticlePool.prepare(itself);
+        CgVfxParticlePool.precache(itself);
     }
 
     @Override

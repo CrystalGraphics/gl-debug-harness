@@ -172,7 +172,7 @@ public class CgVfxBeamsScene implements InteractiveSceneLifecycle {
                         .life(100f, 100f).size(0.1f, 0.1f).module(c.source()).module(c.target());
                 if (c.noise() != null) b.module(c.noise());
                 p.emitters[i] = b.build();
-                CgVfxParticlePool.prepare(p.emitters[i]);
+                CgVfxParticlePool.precache(p.emitters[i]);
             }
         }
     }

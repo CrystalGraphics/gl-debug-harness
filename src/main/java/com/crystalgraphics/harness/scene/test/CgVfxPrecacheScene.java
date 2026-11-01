@@ -23,52 +23,52 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * G0.8's gate, programs prepared on load: a move's looks (the Kamehameha, the explosion, heat haze) prepared together,
- * played once {@link CgVfxSystem#warmed} says so, and their first {@value #FRAMES} frames must compile nothing
- * ({@link CgMaterialShader#compileWaits()} unchanged). Scene id {@code vfx-prepare}.
+ * G0.8's gate, programs precached on load: a move's looks (the Kamehameha, the explosion, heat haze) precached together,
+ * played once {@link CgVfxSystem#ready} says so, and their first {@value #FRAMES} frames must compile nothing
+ * ({@link CgMaterialShader#compileWaits()} unchanged). Scene id {@code vfx-precache}.
  *
  * <pre>{@code
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-prepare"
- * // unprepared, its unready draws held (the default): no waits, and the held draws counted
- * ... -Dcrystalgraphics.harness.prepare.skip=true
- * // the control: unprepared and compiled at the draw, the same frames must wait on compiles
- * ... -Dcrystalgraphics.harness.prepare.skip=true -Dcrystalgraphics.world.skipUnready=false
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-precache"
+ * // unprecached, its unready draws held (the default): no waits, and the held draws counted
+ * ... -Dcrystalgraphics.harness.precache.skip=true
+ * // the control: unprecached and compiled at the draw, the same frames must wait on compiles
+ * ... -Dcrystalgraphics.harness.precache.skip=true -Dcrystalgraphics.world.skipUnready=false
  * }</pre>
  *
- * <p>Prepared, halfway through the move it toggles HDR and the quality tier, which must re-warm before applying and so
+ * <p>Precached, halfway through the move it toggles HDR and the quality tier, which must re-warm before applying and so
  * add no wait either; both settings are put back after.</p>
  *
- * <p><b>Rehearsed</b> ({@code -Dcrystalgraphics.harness.prepare.casts=10}): the move is also rehearsed
+ * <p><b>Rehearsed</b> ({@code -Dcrystalgraphics.harness.precache.casts=10}): the move is also rehearsed
  * ({@link CgVfxSystem#rehearse}) before it plays, then cast that many times, {@value #CAST_FRAMES} frames each and
  * cleared between. The first cast's frame-thread time may be slower than the median of the rest by no more than noise
  * (10% or 0.25 ms a frame): one-sided, since a device's frame time swings by a cast either way. The
  * first cast must load no engine class (JFR, {@link HarnessJitWatch}); its compilations and deopts are printed beside
  * the last cast's, the JIT's floor in a warm cast.
- * {@code .prepare.rehearse=false} is the control, which should fail; {@code -Dcrystalgraphics.rehearsal.listGrowth=true}
+ * {@code .precache.rehearse=false} is the control, which should fail; {@code -Dcrystalgraphics.rehearsal.listGrowth=true}
  * lists the buffers the rehearsal grew instead of failing on the first.</p>
  *
  * <pre>{@code
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-prepare" -Dcrystalgraphics.harness.prepare.casts=10 \
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-precache" -Dcrystalgraphics.harness.precache.casts=10 \
  *     -Dcrystalgraphics.harness.fps=0
  * }</pre>
  *
- * <p><b>Delayed</b> ({@code -Dcrystalgraphics.harness.prepare.delay=600}): the looks are prepared after that many idle
+ * <p><b>Delayed</b> ({@code -Dcrystalgraphics.harness.precache.delay=600}): the looks are precached after that many idle
  * frames rather than at start, as a game loads palettes mid-session: profile that window for the warm-up's own cost,
  * not the JIT's at a cold start.</p>
  *
- * <p>Prints {@code [vfx-prepare] PASS} or {@code FAIL}; run it on {@code gl}, {@code mac41} and {@code vulkan}.</p>
+ * <p>Prints {@code [vfx-precache] PASS} or {@code FAIL}; run it on {@code gl}, {@code mac41} and {@code vulkan}.</p>
  */
-public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
+public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
 
     private static final String[] MOVE = {"crystalgraphics:kamehameha", "crystalgraphics:explosion",
             "crystalgraphics:heat_haze"};
     private static final int FRAMES = 1200;
-    private static final boolean SKIP = Boolean.getBoolean("crystalgraphics.harness.prepare.skip");
+    private static final boolean SKIP = Boolean.getBoolean("crystalgraphics.harness.precache.skip");
     private static final int IDLE = 120;
-    private static final int CASTS = Integer.getInteger("crystalgraphics.harness.prepare.casts", 0);
-    private static final boolean REHEARSE = Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.prepare.rehearse", "true"));
+    private static final int CASTS = Integer.getInteger("crystalgraphics.harness.precache.casts", 0);
+    private static final boolean REHEARSE = Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.precache.rehearse", "true"));
     private static final int CAST_FRAMES = 300;
-    private static final int DELAY = Integer.getInteger("crystalgraphics.harness.prepare.delay", 0);
+    private static final int DELAY = Integer.getInteger("crystalgraphics.harness.precache.delay", 0);
     /** Noise between two casts' mean frame-thread time: a share, and a floor in nanoseconds. */
     private static final double NOISE_SHARE = 0.10, NOISE_FLOOR = 250_000;
 
@@ -91,24 +91,24 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().setPitch(-12f);
         if (SKIP) return;
         for (String id : MOVE) CgVfxRegistry.get(id).look();   // as a game has, long before a palette loads
-        if (DELAY == 0) prepareLooks();
+        if (DELAY == 0) precacheLooks();
         if (CASTS > 0) {
             jit = HarnessJitWatch.start();
             if (REHEARSE) {
-                rehearsal = vfx.rehearse(CgVfxPrepareScene::playMove);
+                rehearsal = vfx.rehearse(CgVfxPrecacheScene::playMove);
                 // Its length, for measuring what the first cast needs: the rehearsal's own defaults unless given.
-                Integer least = Integer.getInteger("crystalgraphics.harness.prepare.minPasses");
-                Integer window = Integer.getInteger("crystalgraphics.harness.prepare.window");
+                Integer least = Integer.getInteger("crystalgraphics.harness.precache.minPasses");
+                Integer window = Integer.getInteger("crystalgraphics.harness.precache.window");
                 if (least != null) rehearsal.minPasses(least).maxPasses(Math.max(least, 20_000));
                 if (window != null) rehearsal.window(window);
             }
         }
     }
 
-    private void prepareLooks() {
+    private void precacheLooks() {
         CgVfxLook[] looks = new CgVfxLook[MOVE.length];
         for (int i = 0; i < MOVE.length; i++) looks[i] = CgVfxRegistry.get(MOVE[i]).look();
-        owner.prepare(looks);
+        owner.precache(looks);
     }
 
     /** The move, into {@code system}: what the real cast plays, for the rehearsal's hidden system too. */
@@ -129,9 +129,9 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
             renderCasts(ctx, frame);
             return;
         }
-        // Unprepared, the move waits IDLE frames first, so the engine's own passes (text, post) are built before it.
-        if (!SKIP && DELAY > 0 && warmFrames == DELAY) prepareLooks();
-        if (!playing && (SKIP ? warmFrames >= IDLE : warmFrames >= DELAY && vfx.warmed())) {
+        // Not precached, the move waits IDLE frames first, so the engine's own passes (text, post) are built before it.
+        if (!SKIP && DELAY > 0 && warmFrames == DELAY) precacheLooks();
+        if (!playing && (SKIP ? warmFrames >= IDLE : warmFrames >= DELAY && vfx.ready())) {
             before = CgMaterialShader.compileWaits();
             unreadyBefore = CgWorldRenderer.get().unreadyDraws();
             owner.play(MOVE[0], 0, 1.5, 0, 0, 0.5, -24).ground(0f);
@@ -162,17 +162,17 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
         if (!playing) {
             boolean warm;
             try {
-                warm = vfx.warmed();
+                warm = vfx.ready();
             } catch (IllegalStateException failed) {
                 Throwable cause = failed.getCause() != null ? failed.getCause() : failed;
-                System.out.println("[vfx-prepare] FAIL on " + device() + ": the rehearsal failed: " + cause.getMessage());
+                System.out.println("[vfx-precache] FAIL on " + device() + ": the rehearsal failed: " + cause.getMessage());
                 running = false;
                 return;
             }
             if (warm) {
                 playing = true;
                 if (rehearsal != null) {
-                    System.out.println("[vfx-prepare] rehearsed in " + rehearsal.passes() + " passes over " + warmFrames
+                    System.out.println("[vfx-precache] rehearsed in " + rehearsal.passes() + " passes over " + warmFrames
                             + " frames" + (rehearsal.settledByMeasurement() ? "" : ", stopped at its most"));
                 }
             } else {
@@ -211,11 +211,11 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
         double noise = Math.max(NOISE_SHARE * warmNanos, NOISE_FLOOR * CAST_FRAMES);
         boolean even = castNanos[0] - warmNanos <= noise;
         boolean pass = even && first.classLoads() == 0;
-        System.out.println("[vfx-prepare] " + (pass ? "PASS" : "FAIL") + " on " + device() + (REHEARSE ? "" : " (control, unrehearsed)")
+        System.out.println("[vfx-precache] " + (pass ? "PASS" : "FAIL") + " on " + device() + (REHEARSE ? "" : " (control, unrehearsed)")
                 + ": cast 1 " + String.format("%.2f", firstMs) + " ms a frame, casts 2 to " + CASTS + " "
                 + String.format("%.2f", lastMs) + " (median; " + (even ? "within" : "beyond") + " noise); cast 1 had " + first);
-        System.out.println("[vfx-prepare] ms a frame, each cast: " + each);
-        System.out.println("[vfx-prepare] cast " + CASTS + " had " + last + ": the JIT's floor in a warm cast");
+        System.out.println("[vfx-precache] ms a frame, each cast: " + each);
+        System.out.println("[vfx-precache] cast " + CASTS + " had " + last + ": the JIT's floor in a warm cast");
         // Cast 1's events by type and class, most first: what the rehearsal left cold.
         Map<String, Integer> byClass = new HashMap<>();
         for (String named : first.named()) {
@@ -223,10 +223,10 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
             byClass.merge(named.substring(0, named.indexOf(' ') + 1) + (named.startsWith("ClassLoad") ? named.substring(named.indexOf(' ') + 1) : named.substring(named.indexOf(' ') + 1, dot)), 1, Integer::sum);
         }
         byClass.entrySet().stream().sorted(Map.Entry.<String, Integer>comparingByValue().reversed()).limit(40)
-                .forEach(e -> System.out.println("[vfx-prepare]   " + e.getValue() + " " + e.getKey()));
-        for (String named : first.named()) if (named.startsWith("ClassLoad")) System.out.println("[vfx-prepare]   loaded: " + named);
+                .forEach(e -> System.out.println("[vfx-precache]   " + e.getValue() + " " + e.getKey()));
+        for (String named : first.named()) if (named.startsWith("ClassLoad")) System.out.println("[vfx-precache]   loaded: " + named);
         List<String> grown = CgRehearsal.grown();
-        if (!grown.isEmpty()) System.out.println("[vfx-prepare] the rehearsal grew: " + grown);
+        if (!grown.isEmpty()) System.out.println("[vfx-precache] the rehearsal grew: " + grown);
     }
 
     private static String device() {
@@ -238,22 +238,22 @@ public final class CgVfxPrepareScene implements InteractiveSceneLifecycle {
         String on = device();
         int validation = PlatformServiceHarness.validationErrors();
         if (validation > 0) {
-            System.out.println("[vfx-prepare] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
+            System.out.println("[vfx-precache] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
         } else if (mostDrawn == 0) {
             // A move that draws nothing also compiles nothing: never a pass.
-            System.out.println("[vfx-prepare] FAIL on " + on + ": the move drew no particle in its " + FRAMES + " frames");
+            System.out.println("[vfx-precache] FAIL on " + on + ": the move drew no particle in its " + FRAMES + " frames");
         } else if (SKIP && CgWorldRenderer.get().skipUnready()) {
-            System.out.println("[vfx-prepare] " + (waits == 0 && unready > 0 ? "PASS" : "FAIL") + " on " + on
-                    + " (unprepared, unready draws skipped): " + waits + " compile waits, " + unready + " draws skipped and counted");
+            System.out.println("[vfx-precache] " + (waits == 0 && unready > 0 ? "PASS" : "FAIL") + " on " + on
+                    + " (unprecached, unready draws skipped): " + waits + " compile waits, " + unready + " draws skipped and counted");
         } else if (SKIP) {
-            System.out.println("[vfx-prepare] " + (waits > 0 ? "PASS" : "FAIL") + " on " + on + " (control, unprepared): "
+            System.out.println("[vfx-precache] " + (waits > 0 ? "PASS" : "FAIL") + " on " + on + " (control, unprecached): "
                     + waits + " compile waits in the move's first " + FRAMES + " frames, where some are due");
         } else if (waits == 0) {
-            System.out.println("[vfx-prepare] PASS on " + on + ": prepared over " + warmFrames + " frames, the move's first "
+            System.out.println("[vfx-precache] PASS on " + on + ": precached over " + warmFrames + " frames, the move's first "
                     + FRAMES + " frames compiled nothing, HDR and the tier toggled halfway");
         } else {
-            System.out.println("[vfx-prepare] FAIL on " + on + ": " + waits + " compile waits in the move's first " + FRAMES
-                    + " frames after it was prepared");
+            System.out.println("[vfx-precache] FAIL on " + on + ": " + waits + " compile waits in the move's first " + FRAMES
+                    + " frames after it was precached");
         }
     }
 

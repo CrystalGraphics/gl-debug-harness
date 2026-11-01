@@ -122,7 +122,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
         CgPlatform.provide(CgLevels.SERVICE, CgLevels.single(new Flat(), CgEntityQuery.NONE));
         CgWorldRenderer.get().install();
         floor = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
-        demo.prepare();
+        demo.precache();
         width = ctx.getScreenWidth();
         height = ctx.getScreenHeight();
         target = HarnessFboHelper.create(width, height, true);
@@ -143,7 +143,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo info) {
         frame++;
-        if (warmAt < 0 && demo.warmed() && (!steady || frame >= STEADY_START)) warmAt = frame;
+        if (warmAt < 0 && demo.ready() && (!steady || frame >= STEADY_START)) warmAt = frame;
         int phase = warmAt < 0 || steady ? -1 : (frame - warmAt) / PHASE;
         if (phase >= 0 && phase < PHASES.length) {
             for (int v = 0; v < VARS.length; v++) ((CgVar.Bool) CgVars.get(VARS[v])).set(PHASES[phase][v]);

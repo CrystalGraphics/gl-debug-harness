@@ -60,7 +60,7 @@ import com.crystalgraphics.harness.scene.test.CgTextureCubeScene;
 import com.crystalgraphics.harness.scene.test.CgPostTransitionsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxPrefabScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBooksScene;
-import com.crystalgraphics.harness.scene.test.CgVfxPrepareScene;
+import com.crystalgraphics.harness.scene.test.CgVfxPrecacheScene;
 import com.crystalgraphics.harness.scene.test.CgVfxKamehamehaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxKitPlayScene;
 import com.crystalgraphics.harness.scene.test.CgSequenceSpawnScene;
@@ -1486,15 +1486,15 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("vfx-prepare")
-                .description("G0.8: a move's looks prepared together, then played: their first 1200 frames must compile nothing")
+            SceneDescriptor.builder("vfx-precache")
+                .description("G0.8: a move's looks precached together, then played: their first 1200 frames must compile nothing")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
                 .needsDepthBuffer(true)
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
-            () -> new CgVfxPrepareScene()
+            () -> new CgVfxPrecacheScene()
         );
 
         reg.register(
@@ -1559,7 +1559,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("bench-arena")
-                .description("The arena's frame-thread load: 8 generated moves (180 emitters, 106 shapes, 163 layers each) playing, 30 palettes prepared; EFFECTS and SUBMIT per frame")
+                .description("The arena's frame-thread load: 8 generated moves (180 emitters, 106 shapes, 163 layers each) playing, 30 palettes precached; EFFECTS and SUBMIT per frame")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)

@@ -157,7 +157,7 @@ public class CgVfxFieldsScene implements InteractiveSceneLifecycle {
             seeded[id] = new float[]{age, life, (random.nextFloat() * 2f - 1f) * 4f, (random.nextFloat() * 2f - 1f) * 4f,
                     (random.nextFloat() * 2f - 1f) * 4f};
         }
-        for (CgVfxEmitter emitter : emitters) CgVfxParticlePool.prepare(emitter);
+        for (CgVfxEmitter emitter : emitters) CgVfxParticlePool.precache(emitter);
     }
 
     @Override
