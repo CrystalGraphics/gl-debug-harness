@@ -83,6 +83,8 @@ public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
     private HarnessJitWatch jit;
     private int cast, castFrame;
     private final long[] castNanos = new long[Math.max(1, CASTS)];
+    /** Each cast's slowest frame: a first play's hitch, which its mean spreads over the cast. */
+    private final long[] castWorst = new long[Math.max(1, CASTS)];
 
     @Override
     public void init(HarnessContext ctx) {
@@ -160,12 +162,9 @@ public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
     /** Warm and rehearsed, then {@link #CASTS} casts, the first watched by the JIT watch. */
     private void renderCasts(HarnessContext ctx, FrameInfo frame) {
         if (!playing) {
-            boolean warm;
-            try {
-                warm = vfx.ready();
-            } catch (IllegalStateException failed) {
-                Throwable cause = failed.getCause() != null ? failed.getCause() : failed;
-                System.out.println("[vfx-precache] FAIL on " + device() + ": the rehearsal failed: " + cause.getMessage());
+            boolean warm = vfx.ready();
+            if (warm && rehearsal != null && rehearsal.failure() != null) {
+                System.out.println("[vfx-precache] FAIL on " + device() + ": the rehearsal failed: " + rehearsal.failure().getMessage());
                 running = false;
                 return;
             }
@@ -188,7 +187,9 @@ public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
         vfx.submit(CgWorldRenderer.get());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         if (!playing) return;
-        castNanos[cast] += System.nanoTime() - start;
+        long took = System.nanoTime() - start;
+        castNanos[cast] += took;
+        castWorst[cast] = Math.max(castWorst[cast], took);
         if (++castFrame < CAST_FRAMES) return;
         if (cast == 0 || cast == CASTS - 1) jit.close();
         vfx.clear();
@@ -215,6 +216,9 @@ public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
                 + ": cast 1 " + String.format("%.2f", firstMs) + " ms a frame, casts 2 to " + CASTS + " "
                 + String.format("%.2f", lastMs) + " (median; " + (even ? "within" : "beyond") + " noise); cast 1 had " + first);
         System.out.println("[vfx-precache] ms a frame, each cast: " + each);
+        StringBuilder worst = new StringBuilder();
+        for (int i = 0; i < CASTS; i++) worst.append(i == 0 ? "" : " ").append(String.format("%.2f", castWorst[i] / 1e6));
+        System.out.println("[vfx-precache] slowest frame, each cast: " + worst);
         System.out.println("[vfx-precache] cast " + CASTS + " had " + last + ": the JIT's floor in a warm cast");
         // Cast 1's events by type and class, most first: what the rehearsal left cold.
         Map<String, Integer> byClass = new HashMap<>();
