@@ -88,6 +88,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
   placement and the four targets applied (`linear_force`, `linear_velocity`, `orbit`, `kill`), a station a group, 512
   particles seeded and stepped once, each one's change held to `CgFieldEval`, and a neighbour reading no group left as
   it was. PASS at G43, G33 (TBO too) and on `vulkan`.
+  `--mode=vfx-stack` is stacked shapes' (`CgVfxShapeCoalescing`): six definitions, each module stack some of one wide
+  stack in order and each born on its own spawn shape, a burst stepped twice, every particle written by id to
+  `-Dcrystalgraphics.harness.vfxStack.out`; run once with `-Dcrystalgraphics.vfx.stackShapes=false` and match the two
+  files. Matched on `gl`, G33 and `vulkan`, 6 pools to 1.
   `--mode=vfx-forms` is module inputs in forms (P6.3, P6.6): an emitter compiled from its file a form (ranges, a pick,
   curves by age, the particle's age, its speed, a random draw, its id and the loop, arrays by age, id and a random draw,
   `random_range` and `add` over forms, a binding to its age) giving `acceleration`,

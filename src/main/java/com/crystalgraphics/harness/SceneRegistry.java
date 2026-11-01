@@ -38,6 +38,7 @@ import com.crystalgraphics.harness.scene.test.CgLightsGridScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBeamsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxFieldsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxFormsScene;
+import com.crystalgraphics.harness.scene.test.CgVfxStackScene;
 import com.crystalgraphics.harness.scene.test.CgVfxHashesScene;
 import com.crystalgraphics.harness.scene.test.CgVolumeTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
@@ -836,6 +837,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVfxFormsScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("vfx-stack")
+                .description("Stacked shapes: definitions run in a wider shape's kernel, each particle written to match a run without")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(160)
+                .defaultHeight(120)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgVfxStackScene()
         );
 
         reg.register(
