@@ -237,9 +237,11 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
         }
 
         CgMaterialShader asset;
+        long baseBegan;
         try {
             asset = CgMaterialShaderRegistry.get().getOrCreate(path);
             capture.clear();
+            baseBegan = System.nanoTime();
             asset.recompile();
         } catch (Throwable t) {
             fail(body, "  COMPILE FAIL — base variant threw: " + t);
@@ -253,7 +255,7 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
             appendCaptured(capture, body);
             return;                       // variants cannot compile if the base did not
         }
-        body.add("  COMPILE ok   base variant");
+        body.add("  COMPILE ok   base variant, every pass " + (System.nanoTime() - baseBegan) / 1_000_000 + " ms");
         for (CgParsedPass pass : parsed.passes()) {
             buildPipelines(asset.getOrCompile(pass.name(), Collections.emptySet()),
                     "pass '" + pass.name() + "' base variant", body);
@@ -289,13 +291,16 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
         capture.clear();
         String label = "  COMPILE %s pass '" + pass + "' keywords=" + keywords;
         try {
+            long began = System.nanoTime();
             CgShader program = asset.getOrCompile(pass, keywords);
+            long ms = (System.nanoTime() - began) / 1_000_000;
             if (program == null) {
                 failures++;
                 body.add(String.format(label, "FAIL"));
                 appendCaptured(capture, body);
             } else {
-                body.add(String.format(label, "ok  "));
+                // The driver's time: a cold one only where its shader cache is empty (__GL_SHADER_DISK_CACHE_PATH).
+                body.add(String.format(label, "ok  ") + " " + ms + " ms");
                 buildPipelines(program, "pass '" + pass + "' keywords=" + keywords, body);
             }
         } catch (Throwable t) {
@@ -340,14 +345,16 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
                         try {
                             String glsl = new CgShaderPreprocessor().process(
                                     CgKernelEmitter.emit(source, kernel, keywords, target), path);
+                            long began = System.nanoTime();
                             CgShaderProgram.compileCompute(glsl).delete();
+                            long ms = (System.nanoTime() - began) / 1_000_000;
                             int raised = PlatformServiceHarness.validationErrors() - validationBefore;
                             if (raised > 0) {
                                 failures++;
                                 body.add(String.format(label, "FAIL") + " — " + raised
                                         + " validation error(s), in the console as [vulkan] ERROR");
                             } else {
-                                body.add(String.format(label, "ok  "));
+                                body.add(String.format(label, "ok  ") + " " + ms + " ms");
                             }
                         } catch (Throwable t) {
                             failures++;
