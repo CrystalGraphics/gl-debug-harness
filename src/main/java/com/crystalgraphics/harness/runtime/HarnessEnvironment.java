@@ -6,6 +6,7 @@ import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.render.world.CgSortLayer;
+import com.crystalgraphics.render.world.CgPipelinePrecache;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
@@ -88,15 +89,18 @@ public final class HarnessEnvironment {
             floor = CgMesh.build(CgVertexFormat.SPATIAL, m -> CgMeshShapes.plane(m, 1, 1, FLOOR_FADE * 2.5f, FLOOR_FADE * 2.5f));
             skyMaterial = CgMaterial.newInstance(SKY_SHADER);
             floorMaterial = CgMaterial.newInstance(FLOOR_SHADER).applyProperties(b -> b.set1f("_Fade", FLOOR_FADE));
+            programs = CgPipelinePrecache.request(pipelines -> {
+                pipelines.add(skyMaterial, false);
+                pipelines.add(floorMaterial, false);
+            });
         }
+        if (!programs.ready()) return;
         CgWorldRenderer world = CgWorldRenderer.get();
         double x = camera.getPosX(), y = camera.getPosY(), z = camera.getPosZ();
         // Under the eye, so flying never reaches its edge; the grid's lines are absolute and hold still.
-        if (world.prepare(floorMaterial)) {
-            world.draw(floor, floorMaterial).at(x, 0.0, z).layer(CgSortLayer.BACKGROUND).submit();
-        }
-        if (world.prepare(skyMaterial)) {
-            world.draw(sky, skyMaterial).at(x, y, z).transform(SKY_SCALE).layer(CgSortLayer.BACKGROUND).submit();
-        }
+        world.draw(floor, floorMaterial).at(x, 0.0, z).layer(CgSortLayer.BACKGROUND).submit();
+        world.draw(sky, skyMaterial).at(x, y, z).transform(SKY_SCALE).layer(CgSortLayer.BACKGROUND).submit();
     }
+
+    private CgPipelinePrecache.Request programs;
 }
