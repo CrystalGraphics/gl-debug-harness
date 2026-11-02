@@ -471,9 +471,10 @@ Each entry has:
 
 **The harness is CrystalGraphics-only and names no project built on it.** A project's scenes come in as a
 `HarnessExtension`, found through `ServiceLoader`: CrystalGUI's live in its own `harness-scenes` module
-(`com.crystalgui.harness.CrystalGuiHarness`). One interface, four hooks — `registerScenes`, `beforeReload`
-(Ctrl+R, ahead of CrystalGraphics' `CgAssetReloader.reload()`), and `shaderNamespaces` (what
-`shader-compile-audit` checks: each namespace's `.shader` and `.compute` under `shaders/`). Its javadoc has the example. The fourth, `desktop`, offers the `HarnessDesktop` the runtime keeps over every 3D scene: windows drawn over the HUD and given input ahead of the scene, apps opened by id through `RuntimeServices.desktop()` (its javadoc has the example).
+(`com.crystalgui.harness.CrystalGuiHarness`). One interface, five hooks — `registerScenes`, `beforeReload`
+(Ctrl+R, ahead of CrystalGraphics' `CgAssetReloader.reload()`), `shaderNamespaces` (what
+`shader-compile-audit` checks: each namespace's `.shader` and `.compute` under `shaders/`), and `start` (GL-free
+work begun at pre-init on the project's own threads; a scene's `init` waits behind the loading screen until it ends). Its javadoc has the example. The fourth, `desktop`, offers the `HarnessDesktop` the runtime keeps over every 3D scene: windows drawn over the HUD and given input ahead of the scene, apps opened by id through `RuntimeServices.desktop()` (its javadoc has the example).
 
 The harness cannot depend on the module holding them, so that module wires itself into the run:
 

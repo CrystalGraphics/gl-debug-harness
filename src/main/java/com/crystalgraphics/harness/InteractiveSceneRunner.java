@@ -339,6 +339,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // The loading screen from launch: the scene's init runs behind its first frame, a reason of its own.
         try (CgLoadingScreen.Task starting = CgLoadingScreen.task("starting " + ctx.getOutputName())) {
             presentLoadingFrame();
+            // The projects' own starts (CrystalGUI's registries and sheets) end on their threads first, the screen drawing
+            // meanwhile: a scene's init would otherwise run them, or build beside them
+            while (!HarnessExtensions.started() && !HarnessWindow.shouldClose()) loadingFrame();
             try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "scene.init")) {
                 init();
             }

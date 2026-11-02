@@ -1,6 +1,7 @@
 package com.crystalgraphics.harness;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * What a project built on CrystalGraphics adds to the harness: its scenes, a step for Ctrl+R, and the shader
@@ -48,5 +49,18 @@ public interface HarnessExtension {
     /** The desktop kept over every 3D scene, made fresh for each run; null for none. The first extension's wins. */
     default HarnessDesktop desktop() {
         return null;
+    }
+
+    /**
+     * Work this project starts at launch on threads of its own, GL-free (a UI library's registries, its parsed sheets):
+     * called at pre-init, and the scene's {@code init} waits behind the loading screen until it ends, so the scene
+     * never pays it on the render thread.
+     *
+     * <pre>{@code
+     * @Override public CompletableFuture<?> start() { return MyUi.startAhead(); }
+     * }</pre>
+     */
+    default CompletableFuture<?> start() {
+        return CompletableFuture.completedFuture(null);
     }
 }
