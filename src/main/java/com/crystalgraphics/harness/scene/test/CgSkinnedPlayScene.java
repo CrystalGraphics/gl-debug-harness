@@ -1,6 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.animation.CgAnimInstance;
+import com.crystalgraphics.loading.CgLoadingProcess;
+import com.crystalgraphics.loading.CgLoadingScreen;
 import com.crystalgraphics.animation.CgAnimLayer;
 import com.crystalgraphics.animation.CgAnimation;
 import com.crystalgraphics.api.animation.CgAnimSection;
@@ -318,6 +320,19 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     @Nullable
     private KakarotStageFixture stage;
     private int stageMaterials = -1;
+    /**
+     * Behind the loading screen: the kit loaded, then the arena up, so its post chain builds its pipelines and loads its
+     * textures in the screen's warm frames rather than the scene's first.
+     */
+    private final CgLoadingProcess arena = () -> {
+        if (kit == null || kit.failed()) return null;
+        if (!kit.ready()) return "loading the kit";
+        if (this.stageAtStart) {
+            this.stageAtStart = false;
+            stage(true);
+        }
+        return null;
+    };
     /** On at start once the kit is ready, unless {@code -Dcrystalgraphics.harness.skinnedPlay.stage=false}. */
     private boolean stageAtStart = !"false".equals(System.getProperty("crystalgraphics.harness.skinnedPlay.stage"));
     /**
@@ -408,6 +423,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             materials.add(SKILL_DARKEN);
             skillAction = kitFolder.resolve(SKILL_ACTION);
             kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT, CUT_CAMERA), SHADING);
+            CgLoadingScreen.add(arena);
         }
         CgWorld client = CgWorld.client();
         sequencer = client.subsystem(CgSequencer.class);
@@ -961,6 +977,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Override
     public void dispose() {
+        CgLoadingScreen.remove(arena);
         if (submit != null) submit.close();
         if (beams != null) beams.close();
         if (outline != null) outline.close();
