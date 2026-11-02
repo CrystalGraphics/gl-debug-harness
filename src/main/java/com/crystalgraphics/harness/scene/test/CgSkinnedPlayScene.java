@@ -21,7 +21,6 @@ import com.crystalgraphics.frame.CgTickFunction;
 import com.crystalgraphics.frame.CgTickGroup;
 import com.crystalgraphics.frame.CgWorld;
 import com.crystalgraphics.vfx.CgVfxEffect;
-import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.camera.Camera3D;
@@ -35,7 +34,6 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.post.CgPostMaterial;
 import com.crystalgraphics.render.post.CgPostPoint;
 import com.crystalgraphics.render.post.CgPostStack;
-import com.crystalgraphics.render.post.volume.CgPostVolumeSpawner;
 import com.crystalgraphics.render.stage.CgDirectionalLights;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
@@ -46,11 +44,10 @@ import com.crystalgraphics.sequence.binding.CgRoleRim;
 import com.crystalgraphics.sequence.binding.CgSequenceRole;
 import com.crystalgraphics.sequence.animation.CgSequenceSkeletal;
 import com.crystalgraphics.sequence.CgSequencer;
-import com.crystalgraphics.sequence.camera.CgSequenceCameras;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxOwner;
-import com.crystalgraphics.vfx.system.CgVfxSystemSpawner;
+import com.crystalgraphics.vfx.system.CgVfxSequencer;
 import com.crystalgraphics.cue.CgCueManager;
 import com.crystalgraphics.world.CgAttachment;
 import org.joml.Quaternionf;
@@ -293,8 +290,6 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     @Nullable
     private static CgSkinnedPlayScene current;
     @Nullable
-    private static CgSequencer cameraSequencer;
-    @Nullable
     private CgCameraSystem cameras;
     private HarnessContext ctx;
     /** V: watch as a viewer the cut does not involve, its camera and its post not taken. */
@@ -402,8 +397,6 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         });
         CgLoadingScreen.add(arena);
         CgWorld client = CgWorld.client();
-        sequencer = client.subsystem(CgSequencer.class);
-        if (sequencer == null) sequencer = client.add(new CgSequencer());
         // The cut's sound tracks play through it, each on its tick.
         if (client.subsystem(CgAudioEngine.class) == null) client.add(new CgAudioEngine());
         current = this;
@@ -414,10 +407,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         });
         this.ctx = ctx;
         CgCueManager cues = CgCueManager.client();   // the engine's, wired as the client started
-        // Once a sequencer: the scene shown now answers its camera sequences.
-        boolean newCameras = cameraSequencer != sequencer;
-        cameraSequencer = sequencer;
-        beams = installCut(sequencer, VFX.system(), cameras, newCameras, cues, player -> {
+        // The engine's sequencer, as Minecraft's; its cameras answer the scene shown now's camera sequences
+        sequencer = CgVfxSequencer.install(client, VFX.system(), cameras, id -> current == null ? null : current.cameraSequence(id));
+        beams = installCut(sequencer, cues, player -> {
             for (Actor a : actors) if (a.move == player) return a;
             return null;
         });
@@ -761,15 +753,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
     }
 
-    /**
-     * The cut's kinds on {@code sequencer}: its systems spawned into {@code vfx}, its cameras (where {@code installCameras}),
-     * its post volumes in its camera's view, and the beam its notify fires through {@code cues}.
-     */
-    private KakarotProjectileBeam installCut(CgSequencer sequencer, CgVfxSystem vfx, CgCameraSystem cameras, boolean installCameras,
-                                             CgCueManager cues, Function<CgSequencePlayer, CgSequenceRole> casters) {
-        sequencer.spawner("system", new CgVfxSystemSpawner(vfx));
-        if (installCameras) CgSequenceCameras.install(sequencer, cameras, id -> current == null ? null : current.cameraSequence(id));
-        CgPostVolumeSpawner.install(sequencer, cameras);
+    /** The cut's own kind on {@code sequencer}, beside the engine's: the beam its notify fires through {@code cues}. */
+    private KakarotProjectileBeam installCut(CgSequencer sequencer, CgCueManager cues, Function<CgSequencePlayer, CgSequenceRole> casters) {
         return KakarotProjectileBeam.install(sequencer, cues, casters).precache(BEAM).precache(BEAM_CUT);
     }
 
