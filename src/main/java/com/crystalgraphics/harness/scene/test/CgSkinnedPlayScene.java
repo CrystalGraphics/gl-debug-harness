@@ -318,6 +318,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     @Nullable
     private KakarotStageFixture stage;
     private int stageMaterials = -1;
+    /** On at start once the kit is ready, unless {@code -Dcrystalgraphics.harness.skinnedPlay.stage=false}. */
+    private boolean stageAtStart = !"false".equals(System.getProperty("crystalgraphics.harness.skinnedPlay.stage"));
     /**
      * The ocean arena's directional light, the battle capture's (5440): what Kakarot's cel shading is lit by outside a
      * move's own light, which wins at priority 1. Unreal's (6.797, 5.941, 4.574) travelling along -(0.5567, -0.3214,
@@ -786,6 +788,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         }
         if (outlineCheck != null) outlineCheck.frame(ctx);
+        if (stageAtStart && kit != null && kit.ready()) {
+            stageAtStart = false;
+            stage(true);
+        }
         if (cutFrames >= 0 && kit != null && kit.ready()) cutCheck();
         subtitleWatch();
     }
