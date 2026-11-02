@@ -9,7 +9,6 @@ import com.crystalgraphics.asset.load.CgAssetRef;
 import com.crystalgraphics.asset.load.CgLoadHandle;
 import com.crystalgraphics.asset.load.CgLoadPriority;
 import com.crystalgraphics.asset.load.CgVfxAssets;
-import com.crystalgraphics.asset.registry.CgAssetRegistry;
 import com.crystalgraphics.asset.registry.CgAssetSource;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.vfx.CgVfx;
@@ -65,12 +64,11 @@ final class HarnessKitSystems {
         if (shading != null) CgShadingModels.registerKit(shading, kit);
         CgVfxSystemAssets.register();
         CgVfxPrefabAssets.register();
-        CgAssetRegistry registry = new CgAssetRegistry();
-        registry.registerEngine();
-        registry.scan(namespace, kit, CgAssetSource.DEV);
-        CgVfxAssets assets = new CgVfxAssets(registry);
-        CgVfx.preparers(assets, () -> vfx);   // the client's: systems, prefabs, sequences' sounds
-        CgVfxAssets.install(assets);   // the frame boundary drains and publishes the process's assets
+        // Mounted on the process's assets, as a mod's: the world's cue manager routes the kit's cues from that registry
+        CgVfxAssets assets = CgVfxAssets.instance();
+        assets.registry().scan(namespace, kit, CgAssetSource.DEV);
+        // The engine's world has its preparers; a scene's own system warms what it plays too
+        if (vfx != CgVfx.world()) CgVfx.preparers(assets, () -> vfx);
         refs = new CgAssetRef[ids.size()];
         for (int i = 0; i < refs.length; i++) refs[i] = assets.declare(CgParticleKinds.SYSTEM, namespace + ":" + ids.get(i));
         materials = new CgAssetRef[materialIds.size()];
