@@ -66,6 +66,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import com.crystalgraphics.job.CgJob;
+import com.crystalgraphics.job.reply.CgReply;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -320,11 +321,14 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     @Nullable
     private KakarotStageFixture stage;
     private int stageMaterials = -1;
+    /** Whether the bodies' files have been read and their actors made, or their reading failed. */
+    private boolean bodiesLoaded;
     /**
-     * Behind the loading screen: the kit loaded, then the arena up, so its post chain builds its pipelines and loads its
-     * textures in the screen's warm frames rather than the scene's first.
+     * Behind the loading screen: the bodies read, the kit loaded, then the arena up, so its post chain builds its
+     * pipelines and loads its textures in the screen's warm frames rather than the scene's first.
      */
     private final CgLoadingProcess arena = () -> {
+        if (!bodiesLoaded) return "loading Goku and Kurama";
         if (kit == null || kit.failed()) return null;
         if (!kit.ready()) return "loading the kit";
         if (this.stageAtStart) {
@@ -359,72 +363,25 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         String gokuClips = System.getProperty("crystalgraphics.harness.skinned.goku.clips", root + KIT + "ANM/cpl/C001A/BTL/SKL");
         String kurama = System.getProperty("crystalgraphics.harness.skinned.kurama", "X:/research/nsuns4/assets/5nrtspl1_extra/puppets/5nrvbod2.glb");
 
-        if (new File(goku).isFile()) {
-            CgSkeletalMesh mesh = withKitSockets(CgMeshLoader.skeletal(goku), root + KIT_ROOT);
-            List<CgAnimSequence> clips = new ArrayList<>(mesh.sequences());
-            File[] files = new File(gokuClips).listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".glb"));
-            if (files != null) {
-                Arrays.sort(files);
-                // Baked across the cores, kept in the files' order.
-                @SuppressWarnings("unchecked")
-                List<CgAnimSequence>[] baked = new List[files.length];
-                CgJob.forEach(files.length, i -> baked[i] = CgMeshLoader.sequences(files[i].getAbsolutePath()));
-                for (List<CgAnimSequence> sequences : baked) {
-                    for (CgAnimSequence clip : sequences) {
-                        if (clip.trackCount() > 1) clips.add(clip);   // the _dmy files move one locator
-                    }
-                }
+        // Every file read on the workers while the loading screen draws: the bodies, and the kit's plan, whose delivery
+        // starts the kit's own load; the actors are made here once both have landed
+        String kitRoot = root + KIT_ROOT, face = root + KIT + "ANM/cpl/C001A/FCE/";
+        Path kitFolder = Paths.get(kitRoot);
+        CgReply<Bodies> bodies = CgJob.run(() -> readBodies(goku, gokuClips, kurama, kitRoot, face)).named("skinned-play bodies");
+        CgReply<KitPlan> plan = Files.isDirectory(kitFolder)
+                ? CgJob.run(() -> readKitPlan(kitFolder)).named("skinned-play kit").then(p -> loadKit(kitFolder, p))
+                : CgReply.of(null);
+        CgReply.both(bodies, plan).then(loaded -> {
+            try {
+                addActors(loaded.first(), loaded.second());
+            } finally {
+                bodiesLoaded = true;
             }
-            if (!clips.isEmpty()) {
-                Actor actor = new Actor("Goku", mesh, clips, -2.0, -6.0, 0f, 0xFFF0A040);
-                actor.kit = true;
-                actors.add(actor);
-                dressFace(actor, mesh, root + KIT + "ANM/cpl/C001A/FCE/");
-            }
-        } else {
-            LOGGER.warn("[skinned-play] no Goku at {}", goku);
-        }
-        if (new File(kurama).isFile()) {
-            CgSkeletalMesh mesh = CgMeshLoader.skeletal(kurama);
-            if (!mesh.sequences().isEmpty()) {
-                actors.add(new Actor("Kurama", mesh, new ArrayList<>(mesh.sequences()), 8.0, -16.0, 9f, 0xFFE06030));
-            }
-        } else {
-            LOGGER.warn("[skinned-play] no Kurama at {}", kurama);
-        }
-        CgAnimation animation = CgAnimation.client();
-        for (Actor actor : actors) {
-            animation.add(actor.instance);
-            actor.play(0);
-            LOGGER.info("[skinned-play] {}: {} bones, {} clips{}", actor.name, actor.mesh.skeleton().boneCount(),
-                    actor.clips.size(), actor.kit ? ", K charges the kit's Kamehameha" : "");
-        }
-        Path kitFolder = Paths.get(root + KIT_ROOT);
-        if (Files.isDirectory(kitFolder)) {
-            List<String> materials = List.of();
-            for (Actor actor : actors) {
-                if (!actor.name.equals("Goku")) continue;
-                actor.kitMaterials = prefabMaterials(kitFolder.resolve(GOKU_PREFAB), actor.instance.materialSlots());
-                prefabMesh(actor, kitFolder.resolve(GOKU_PREFAB), kitFolder.resolve("units.yaml"));
-                materials = new ArrayList<>(actor.kitMaterials);
-                actor.outlineBlock = castBlock(kitFolder.resolve("cast.yaml"), actor.name, "outline");
-                actor.rimBlock = castBlock(kitFolder.resolve("cast.yaml"), actor.name, "rim");
-                if (actor.outlineBlock != null && actor.outlineBlock.get("post") instanceof String post) {
-                    materials.add(post);   // last: kit.material(slots)
-                } else {
-                    LOGGER.warn("[skinned-play] {}'s cast entry has no outline with a post: not outlined", actor.name);
-                    actor.outlineBlock = null;
-                }
-            }
-            stageMaterials = materials.size();
-            materials = new ArrayList<>(materials);
-            materials.add(STAGE_CHARA);
-            materials.add(STAGE_POST);
-            materials.add(SKILL_DARKEN);
-            skillAction = kitFolder.resolve(SKILL_ACTION);
-            kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT, CUT_CAMERA), SHADING);
-            CgLoadingScreen.add(arena);
-        }
+        }).onError(e -> {
+            LOGGER.warn("[skinned-play] reading the bodies failed: {}", e.detail(), e.cause());
+            bodiesLoaded = true;
+        });
+        CgLoadingScreen.add(arena);
         CgWorld client = CgWorld.client();
         sequencer = client.subsystem(CgSequencer.class);
         if (sequencer == null) sequencer = client.add(new CgSequencer());
@@ -460,20 +417,15 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
      * OnMontageEnded does. A move's FacialSlot section plays over the face. No lip-sync layer: fbLowerFace's weight is
      * 0 in battle, where no voice has lip data.
      */
-    private static void dressFace(Actor actor, CgSkeletalMesh mesh, String fce) {
-        String name = System.getProperty("crystalgraphics.harness.skinned.goku.face", "C001A_FCE_Battle");
-        File face = new File(fce + name + ".glb"), blink = new File(fce + name + "_blink.glb");
-        if (!face.isFile() || mesh.skeleton().indexOfIgnoringCase(FACE_BRANCH) < 0) {
-            LOGGER.warn("[skinned-play] Goku's face clip {} is missing: his face is the body's", face);
-            return;
-        }
-        CgAnimSequence faceClip = CgMeshLoader.sequences(face.getPath()).get(0);
+    private static void dressFace(Actor actor, Body body) {
+        CgAnimSequence faceClip = body.face();
+        if (faceClip == null) return;
         CgAnimLayer layer = actor.instance.layer(FACE_SLOT, FACE_BRANCH, 1);
         double from = 0;
-        if (blink.isFile()) {
+        CgAnimSequence blinkClip = body.blink();
+        if (blinkClip != null) {
             // Laid out on the timeline from a fixed seed rather than switched per frame, so a seek replays it exactly.
             // The timer restarts as a blink starts, so blinks are an interval apart start to start.
-            CgAnimSequence blinkClip = CgMeshLoader.sequences(blink.getPath()).get(0);
             double length = blinkClip.duration();
             Random rng = new Random(BLINK_SEED);
             for (double at = blinkInterval(rng); at + length <= BLINKS_FOR; at += Math.max(length, blinkInterval(rng))) {
@@ -483,7 +435,132 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             }
         }
         layer.play(CgAnimSection.of(faceClip).at(from).until(Double.POSITIVE_INFINITY).loop().build());
-        LOGGER.info("[skinned-play] Goku's face: {} on {}{}", faceClip.name(), FACE_SLOT, blink.isFile() ? ", blinking" : "");
+        LOGGER.info("[skinned-play] Goku's face: {} on {}{}", faceClip.name(), FACE_SLOT, blinkClip != null ? ", blinking" : "");
+    }
+
+    /** A skinned body read from its files, and its face's clips; null clips where it has none. */
+    private record Body(CgSkeletalMesh mesh, List<CgAnimSequence> clips, @Nullable CgAnimSequence face,
+                        @Nullable CgAnimSequence blink) {
+    }
+
+    /** Goku and Kurama, each null where its file is missing or plays nothing. */
+    private record Bodies(@Nullable Body goku, @Nullable Body kurama) {
+    }
+
+    /**
+     * Goku's kit blocks: his prefab's materials, one a slot, and its Mesh node (the root's lift above it, its turn
+     * undone); his cast entry's outline (kept only with a post) and rim.
+     */
+    private record KitPlan(List<String> materials, double rootLift, Quaternionf meshToActor, @Nullable Map<?, ?> outline,
+                           @Nullable Map<?, ?> rim) {
+    }
+
+    /**
+     * Every body file read in one split across the cores, each its own item: Goku's mesh and sockets, each of his clip
+     * files, his face's two clips, Kurama. A worker's.
+     */
+    private static Bodies readBodies(String goku, String gokuClips, String kurama, String kitRoot, String fce) {
+        String faceName = System.getProperty("crystalgraphics.harness.skinned.goku.face", "C001A_FCE_Battle");
+        File face = new File(fce + faceName + ".glb"), blink = new File(fce + faceName + "_blink.glb");
+        boolean hasGoku = new File(goku).isFile(), hasKurama = new File(kurama).isFile();
+        if (!hasGoku) LOGGER.warn("[skinned-play] no Goku at {}", goku);
+        if (!hasKurama) LOGGER.warn("[skinned-play] no Kurama at {}", kurama);
+        File[] files = hasGoku ? new File(gokuClips).listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".glb")) : null;
+        if (files == null) files = new File[0];
+        Arrays.sort(files);
+        File[] clipFiles = files;
+        // 0 Goku, 1 Kurama, 2 the face, 3 the blink, then the clip files, kept in their order
+        Object[] read = new Object[4 + clipFiles.length];
+        CgJob.forEach(read.length, i -> {
+            switch (i) {
+                case 0 -> read[i] = hasGoku ? withKitSockets(CgMeshLoader.skeletal(goku), kitRoot) : null;
+                case 1 -> read[i] = hasKurama ? CgMeshLoader.skeletal(kurama) : null;
+                case 2 -> read[i] = hasGoku && face.isFile() ? CgMeshLoader.sequences(face.getPath()).get(0) : null;
+                case 3 -> read[i] = hasGoku && blink.isFile() ? CgMeshLoader.sequences(blink.getPath()).get(0) : null;
+                default -> read[i] = CgMeshLoader.sequences(clipFiles[i - 4].getAbsolutePath());
+            }
+        });
+        Body gokuBody = null, kuramaBody = null;
+        if (read[0] instanceof CgSkeletalMesh mesh) {
+            List<CgAnimSequence> clips = new ArrayList<>(mesh.sequences());
+            for (int i = 4; i < read.length; i++) {
+                @SuppressWarnings("unchecked")
+                List<CgAnimSequence> sequences = (List<CgAnimSequence>) read[i];
+                for (CgAnimSequence clip : sequences) {
+                    if (clip.trackCount() > 1) clips.add(clip);   // the _dmy files move one locator
+                }
+            }
+            CgAnimSequence faceClip = (CgAnimSequence) read[2];
+            if (faceClip == null || mesh.skeleton().indexOfIgnoringCase(FACE_BRANCH) < 0) {
+                LOGGER.warn("[skinned-play] Goku's face clip {} is missing: his face is the body's", face);
+                faceClip = null;
+            }
+            if (!clips.isEmpty()) gokuBody = new Body(mesh, clips, faceClip, faceClip == null ? null : (CgAnimSequence) read[3]);
+        }
+        if (read[1] instanceof CgSkeletalMesh mesh && !mesh.sequences().isEmpty()) {
+            kuramaBody = new Body(mesh, new ArrayList<>(mesh.sequences()), null, null);
+        }
+        return new Bodies(gokuBody, kuramaBody);
+    }
+
+    /** Goku's kit blocks, from his prefab and cast entry under {@code kit}. A worker's. */
+    private static KitPlan readKitPlan(Path kit) {
+        Path prefab = kit.resolve(GOKU_PREFAB), cast = kit.resolve("cast.yaml");
+        Quaternionf meshToActor = new Quaternionf();
+        double rootLift = prefabMesh(prefab, kit.resolve("units.yaml"), meshToActor);
+        Map<?, ?> outline = castBlock(cast, "Goku", "outline");
+        if (outline != null && !(outline.get("post") instanceof String)) {
+            LOGGER.warn("[skinned-play] Goku's cast entry has no outline with a post: not outlined");
+            outline = null;
+        }
+        return new KitPlan(prefabMaterials(prefab), rootLift, meshToActor, outline, castBlock(cast, "Goku", "rim"));
+    }
+
+    /**
+     * Starts the kit's load: Goku's materials and his outline's post (last: {@code kit.material(slots)}), then the
+     * stage's and the darkening's.
+     */
+    private void loadKit(Path kitFolder, KitPlan plan) {
+        List<String> materials = new ArrayList<>(plan.materials());
+        if (plan.outline() != null) materials.add((String) plan.outline().get("post"));
+        stageMaterials = materials.size();
+        materials.add(STAGE_CHARA);
+        materials.add(STAGE_POST);
+        materials.add(SKILL_DARKEN);
+        skillAction = kitFolder.resolve(SKILL_ACTION);
+        kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT, CUT_CAMERA), SHADING);
+    }
+
+    /** The bodies on the floor, playing their first clips, Goku in his kit's materials where it names one a slot. */
+    private void addActors(Bodies bodies, @Nullable KitPlan plan) {
+        Body goku = bodies.goku();
+        if (goku != null) {
+            Actor actor = new Actor("Goku", goku.mesh(), goku.clips(), -2.0, -6.0, 0f, 0xFFF0A040);
+            actor.kit = true;
+            if (plan != null) {
+                int slots = actor.instance.materialSlots();
+                if (plan.materials().size() == slots) {
+                    actor.kitMaterials = plan.materials();
+                    actor.outlineBlock = plan.outline();
+                } else if (!plan.materials().isEmpty()) {
+                    LOGGER.warn("[skinned-play] Goku's prefab names {} materials for {} slots: drawn plain", plan.materials().size(), slots);
+                }
+                actor.rimBlock = plan.rim();
+                actor.rootLift = plan.rootLift();
+                actor.meshToActor.set(plan.meshToActor());
+            }
+            actors.add(actor);
+            dressFace(actor, goku);
+        }
+        Body kurama = bodies.kurama();
+        if (kurama != null) actors.add(new Actor("Kurama", kurama.mesh(), kurama.clips(), 8.0, -16.0, 9f, 0xFFE06030));
+        CgAnimation animation = CgAnimation.client();
+        for (Actor actor : actors) {
+            animation.add(actor.instance);
+            actor.play(0);
+            LOGGER.info("[skinned-play] {}: {} bones, {} clips{}", actor.name, actor.mesh.skeleton().boneCount(),
+                    actor.clips.size(), actor.kit ? ", K charges the kit's Kamehameha" : "");
+        }
     }
 
     /** Kakarot's next blink, in seconds: 15 times the mean of 20 uniform draws, 7.5 s on average (its facial tick). */
@@ -508,9 +585,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
     /**
      * The materials a prefab's first mesh names, one a slot in slot order: Unreal's component materials as the kit
-     * exported them. Empty where it has none or not one for each of {@code slots}.
+     * exported them. Empty where it has none.
      */
-    private static List<String> prefabMaterials(Path prefab, int slots) {
+    private static List<String> prefabMaterials(Path prefab) {
         if (!Files.isRegularFile(prefab)) return List.of();
         try {
             Map<?, ?> tree = (Map<?, ?>) CgAssetYaml.read(Files.readString(prefab));
@@ -518,9 +595,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 if (!(((Map<?, ?>) node).get("meshes") instanceof List<?> meshes) || meshes.isEmpty()) continue;
                 List<String> ids = new ArrayList<>();
                 for (Object id : (List<?>) ((Map<?, ?>) meshes.get(0)).get("materials")) ids.add(String.valueOf(id));
-                if (ids.size() == slots) return ids;
-                LOGGER.warn("[skinned-play] {} names {} materials for {} slots: drawn plain", prefab, ids.size(), slots);
-                return List.of();
+                return ids;
             }
             return List.of();
         } catch (IOException e) {
@@ -529,12 +604,12 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     }
 
     /**
-     * The node drawing a prefab's mesh, into {@code actor}: how far the root stands above it, minus its height (Goku's
-     * Mesh at z -100 cm under the Blueprint's capsule), and its turn undone. Left as they are where the prefab or its mesh
-     * node has no location.
+     * The node drawing a prefab's mesh: how far the root stands above it, minus its height (Goku's Mesh at z -100 cm
+     * under the Blueprint's capsule), answered, and its turn undone into {@code meshToActor}. 0 and unturned where the
+     * prefab or its mesh node has no location.
      */
-    private static void prefabMesh(Actor actor, Path prefab, Path units) {
-        if (!Files.isRegularFile(prefab) || !Files.isRegularFile(units)) return;
+    private static double prefabMesh(Path prefab, Path units, Quaternionf meshToActor) {
+        if (!Files.isRegularFile(prefab) || !Files.isRegularFile(units)) return 0.0;
         try {
             CgUnits kitUnits = CgUnits.of(((Map<?, ?>) CgAssetYaml.read(Files.readString(units))).get("units"), CgUnits.HOST);
             Map<?, ?> tree = (Map<?, ?>) CgAssetYaml.read(Files.readString(prefab));
@@ -542,10 +617,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 Map<?, ?> n = (Map<?, ?>) node;
                 if (!(n.get("meshes") instanceof List<?>) || !(n.get("location") instanceof List<?> at)) continue;
                 List<?> host = (List<?>) kitUnits.toHost(at, CgQuantity.POSITION);
-                actor.rootLift = -((Number) host.get(1)).doubleValue();
-                kitUnits.rotationToHost(n.get("rotation"), actor.meshToActor).invert();
-                return;
+                kitUnits.rotationToHost(n.get("rotation"), meshToActor).invert();
+                return -((Number) host.get(1)).doubleValue();
             }
+            return 0.0;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -629,6 +704,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
      */
     private boolean materialsReady(Actor actor) {
         int last = actor.kitMaterials.size() + (actor.outlineBlock != null ? 1 : 0);
+        if (!kit.declared()) return false;
         for (int s = 0; s < last; s++) if (!kit.material(s).ready()) return false;
         return true;
     }
@@ -690,7 +766,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
     @Nullable
     private CgSequenceDefinition cameraSequence(String id) {
-        return kit != null && id.equals(CUT_CAMERA) && kit.sequence(3).ready() ? kit.sequence(3).get() : null;
+        return kit != null && kit.declared() && id.equals(CUT_CAMERA) && kit.sequence(3).ready() ? kit.sequence(3).get() : null;
     }
 
     /** The camera system's pose while it controls the view, so the runner's floor is drawn from it too. */

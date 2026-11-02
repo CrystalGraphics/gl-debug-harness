@@ -42,6 +42,8 @@ import java.util.List;
  * }</pre>
  *
  * <ul>
+ *   <li>The kit is scanned on the workers: {@link #ref}, {@link #material} and {@link #sequence} answer null until
+ *       {@link #declared()}, a frame or more later.</li>
  *   <li>The kit's textures resolve as {@code <namespace>:textures/...} only through a resource root holding
  *       {@code assets/<namespace>}: the harness's build adds the plan's {@code local/kitroot} when it is there.</li>
  *   <li>A system's id is its path under the kit's {@code vfx/systems}, without {@code .yaml}; a material's and a
@@ -54,7 +56,11 @@ final class HarnessKitSystems {
     private final CgAssetRef<CgVfxSystemDefinition>[] refs;
     private final CgAssetRef<CgMaterialDefinition>[] materials;
     private final CgAssetRef<CgSequenceDefinition>[] sequences;
-    private final CgLoadHandle handle;
+    /** The bundle's load, once the kit's scan has registered its ids; null before. */
+    @Nullable
+    private CgLoadHandle handle;
+    @Nullable
+    private String scanFailure;
 
     @SuppressWarnings("unchecked")
     private HarnessKitSystems(CgVfxSystem vfx, String namespace, Path kit, List<String> ids, List<String> materialIds,
@@ -66,19 +72,21 @@ final class HarnessKitSystems {
         CgVfxPrefabAssets.register();
         // Mounted on the process's assets, as a mod's: the world's cue manager routes the kit's cues from that registry
         CgVfxAssets assets = CgVfxAssets.instance();
-        assets.registry().scan(namespace, kit, CgAssetSource.DEV);
         // The engine's world has its preparers; a scene's own system warms what it plays too
         if (vfx != CgVfx.world()) CgVfx.preparers(assets, () -> vfx);
         refs = new CgAssetRef[ids.size()];
-        for (int i = 0; i < refs.length; i++) refs[i] = assets.declare(CgParticleKinds.SYSTEM, namespace + ":" + ids.get(i));
         materials = new CgAssetRef[materialIds.size()];
-        for (int i = 0; i < materials.length; i++) materials[i] = assets.declare(CgLookKinds.MATERIAL, materialIds.get(i));
         sequences = new CgAssetRef[sequenceIds.size()];
-        for (int i = 0; i < sequences.length; i++) sequences[i] = assets.declare(CgSequenceKinds.SEQUENCE, sequenceIds.get(i));
-        List<CgAssetRef<?>> all = new ArrayList<>(List.of(refs));
-        all.addAll(List.of(materials));
-        all.addAll(List.of(sequences));
-        handle = assets.load(all, CgLoadPriority.MOVE);
+        // Its thousands of files read on the workers while the loading screen draws; declared once registered
+        assets.registry().scanAsync(namespace, kit, CgAssetSource.DEV).then(() -> {
+            for (int i = 0; i < refs.length; i++) refs[i] = assets.declare(CgParticleKinds.SYSTEM, namespace + ":" + ids.get(i));
+            for (int i = 0; i < materials.length; i++) materials[i] = assets.declare(CgLookKinds.MATERIAL, materialIds.get(i));
+            for (int i = 0; i < sequences.length; i++) sequences[i] = assets.declare(CgSequenceKinds.SEQUENCE, sequenceIds.get(i));
+            List<CgAssetRef<?>> all = new ArrayList<>(List.of(refs));
+            all.addAll(List.of(materials));
+            all.addAll(List.of(sequences));
+            handle = assets.load(all, CgLoadPriority.MOVE);
+        }).onError(e -> scanFailure = "scanning " + namespace + ": " + e.detail());
     }
 
     /** Starts loading {@code ids} of the kit at {@code kit} (its folder, holding {@code vfx/systems}). */
@@ -95,16 +103,22 @@ final class HarnessKitSystems {
         return new HarnessKitSystems(vfx, namespace, kit, ids, materialIds, sequenceIds, shading);
     }
 
+    /** Whether the kit's scan has registered it and its refs are declared: {@link #material} and the rest answer then. */
+    boolean declared() {
+        return handle != null;
+    }
+
     boolean ready() {
-        return handle.ready();
+        return handle != null && handle.ready();
     }
 
     boolean failed() {
-        return handle.failed();
+        return scanFailure != null || handle != null && handle.failed();
     }
 
     /** Each asset that failed, with why: what a scene prints when {@link #failed()}. */
     String failures() {
+        if (scanFailure != null) return scanFailure;
         List<String> why = new ArrayList<>();
         for (CgAssetRef<?> r : refs) if (r.failure() != null) why.add(String.valueOf(r.failure()));
         for (CgAssetRef<?> r : materials) if (r.failure() != null) why.add(String.valueOf(r.failure()));

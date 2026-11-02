@@ -3,6 +3,7 @@ package com.crystalgraphics.harness;
 import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgGlCallSites;
+import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.loading.CgLoadingScreen;
 import com.crystalgraphics.platform.CgPlatform;
@@ -416,6 +417,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // 1. Frame clock tick — compute delta, elapsed, frame number
             frameClock.tick();
             if (!sceneFrames) CgTrace.frameBegin();
+            clientTicks();
             if (FRAME_TIMES > 0 && timeFrame(frameClock.getFrameNumber())) break;
             if (motionDone) break;
             if (RELOAD_AT > 0 && frameClock.getFrameNumber() == RELOAD_AT) {
@@ -617,10 +619,29 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private double loadingSeconds;
     private long loadingAt;
 
-    /** A frame under the loading screen: the scene and input wait, nothing paces it. */
+    /** Minecraft's tick: 20 a second, at most 10 caught up after a stall. */
+    private static final long TICK_NANOS = 50_000_000L;
+    private static final int MAX_CATCH_UP = 10;
+    private long nextTickAt;
+
+    /** The engine's client ticks this frame owes, as Minecraft's game loop fires them: its jobs land at each. */
+    private void clientTicks() {
+        long now = System.nanoTime();
+        if (nextTickAt == 0L || now - nextTickAt > MAX_CATCH_UP * TICK_NANOS) nextTickAt = now;
+        while (now - nextTickAt >= 0L) {
+            CgEngineLifecycle.clientTick();
+            nextTickAt += TICK_NANOS;
+        }
+    }
+
+    /**
+     * A frame under the loading screen: the scene and input wait. Paced as the scene's are, so the cores go to the work
+     * it waits on rather than to drawing it a thousand times a second.
+     */
     private void loadingFrame() {
         HarnessDeadline.restart();
         CgTrace.frameBegin();
+        clientTicks();
         HarnessWindow.pollEvents();
         HarnessWindow.drainMouse();
         HarnessWindow.drainKeyboard();
@@ -646,6 +667,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         CgTrace.frameEnd();
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, SWAP)) {
             HarnessWindow.swapBuffers();
+        }
+        if (TARGET_FPS > 0) {
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, SYNC)) {
+                HarnessWindow.sync(TARGET_FPS);
+            }
         }
     }
 
