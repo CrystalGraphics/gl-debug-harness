@@ -3,6 +3,8 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.animation.CgAnimInstance;
 import com.crystalgraphics.loading.CgLoadingProcess;
 import com.crystalgraphics.loading.CgLoadingScreen;
+import com.crystalgraphics.loading.task.CgLoadPlan;
+import com.crystalgraphics.loading.task.CgLoadTask;
 import com.crystalgraphics.animation.CgAnimLayer;
 import com.crystalgraphics.animation.CgAnimation;
 import com.crystalgraphics.api.animation.CgAnimSection;
@@ -75,6 +77,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 /**
@@ -327,16 +331,28 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
      * Behind the loading screen: the bodies read, the kit loaded, then the arena up, so its post chain builds its
      * pipelines and loads its textures in the screen's warm frames rather than the scene's first.
      */
-    private final CgLoadingProcess arena = () -> {
-        if (!bodiesLoaded) return "loading Goku and Kurama";
-        if (kit == null || kit.failed()) return null;
-        if (!kit.ready()) return "loading the kit";
-        if (this.stageAtStart) {
-            this.stageAtStart = false;
-            stage(true);
+    private final CgLoadingProcess arena = new CgLoadingProcess() {
+        @Override
+        public String loading() {
+            if (!bodiesLoaded) return "loading Goku and Kurama";
+            if (kit == null || kit.failed()) return null;
+            if (!kit.ready()) return "loading the kit";
+            if (stageAtStart) {
+                stageAtStart = false;
+                stage(true);
+            }
+            return null;
         }
-        return null;
+
+        /** While the bodies load, their files read; after, the kit's own task measures it. */
+        @Override
+        public float progress() {
+            CgLoadTask t = bodiesTask.get();
+            return !bodiesLoaded && t != null ? t.reported() : Float.NaN;
+        }
     };
+    /** The bodies' read as the loading screen's task: set once its job has started. */
+    private final AtomicReference<CgLoadTask> bodiesTask = new AtomicReference<>();
     /** On at start once the kit is ready, unless {@code -Dcrystalgraphics.harness.skinnedPlay.stage=false}. */
     private boolean stageAtStart = !"false".equals(System.getProperty("crystalgraphics.harness.skinnedPlay.stage"));
     /**
@@ -367,10 +383,13 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         // starts the kit's own load; the actors are made here once both have landed
         String kitRoot = root + KIT_ROOT, face = root + KIT + "ANM/cpl/C001A/FCE/";
         Path kitFolder = Paths.get(kitRoot);
-        CgReply<Bodies> bodies = CgJob.run(() -> readBodies(goku, gokuClips, kurama, kitRoot, face)).named("skinned-play bodies");
+        CgReply<Bodies> bodies = CgJob.run(() -> readBodies(goku, gokuClips, kurama, kitRoot, face, bodiesTask))
+                .named("skinned-play bodies");
         CgReply<KitPlan> plan = Files.isDirectory(kitFolder)
                 ? CgJob.run(() -> readKitPlan(kitFolder)).named("skinned-play kit").then(p -> loadKit(kitFolder, p))
                 : CgReply.of(null);
+        bodiesTask.set(CgLoadPlan.get().track("skinned-play:bodies", bodies));
+        CgLoadPlan.get().track("skinned-play:kitPlan", plan);
         CgReply.both(bodies, plan).then(loaded -> {
             try {
                 addActors(loaded.first(), loaded.second());
@@ -459,7 +478,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
      * Every body file read in one split across the cores, each its own item: Goku's mesh and sockets, each of his clip
      * files, his face's two clips, Kurama. A worker's.
      */
-    private static Bodies readBodies(String goku, String gokuClips, String kurama, String kitRoot, String fce) {
+    private static Bodies readBodies(String goku, String gokuClips, String kurama, String kitRoot, String fce,
+                                     AtomicReference<CgLoadTask> task) {
         String faceName = System.getProperty("crystalgraphics.harness.skinned.goku.face", "C001A_FCE_Battle");
         File face = new File(fce + faceName + ".glb"), blink = new File(fce + faceName + "_blink.glb");
         boolean hasGoku = new File(goku).isFile(), hasKurama = new File(kurama).isFile();
@@ -471,6 +491,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         File[] clipFiles = files;
         // 0 Goku, 1 Kurama, 2 the face, 3 the blink, then the clip files, kept in their order
         Object[] read = new Object[4 + clipFiles.length];
+        AtomicInteger done = new AtomicInteger();
         CgJob.forEach(read.length, i -> {
             switch (i) {
                 case 0 -> read[i] = hasGoku ? withKitSockets(CgMeshLoader.skeletal(goku), kitRoot) : null;
@@ -479,6 +500,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 case 3 -> read[i] = hasGoku && blink.isFile() ? CgMeshLoader.sequences(blink.getPath()).get(0) : null;
                 default -> read[i] = CgMeshLoader.sequences(clipFiles[i - 4].getAbsolutePath());
             }
+            CgLoadTask t = task.get();   // the loading screen's record: files read of all of them
+            if (t != null) t.progress(done.incrementAndGet() / (float) read.length);
         });
         Body gokuBody = null, kuramaBody = null;
         if (read[0] instanceof CgSkeletalMesh mesh) {

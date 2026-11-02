@@ -93,7 +93,7 @@ public final class CgVfxStackScene implements InteractiveSceneLifecycle {
         add("stack-field-b", CgSphere.of(1), new CgVfxModule.VectorField(FIELD_B, CgBox.of(3, 3, 3), 3f, 1f), new CgVfxModule.Force(0f, 1f, 0f));
         add("stack-force", CgBox.of(0.5, 0.5, 0.5), new CgVfxModule.Force(1f, 0f, 0f));
         CgVfxShapeCoalescing.loaded().include(emitters);
-        for (CgVfxEmitter e : emitters) CgVfxParticlePool.precache(e);
+        CgVfxParticlePool.precacheAhead("harness:vfx-stack", emitters, 0);
     }
 
     private void add(String name, CgShape shape, CgVfxModule... modules) {

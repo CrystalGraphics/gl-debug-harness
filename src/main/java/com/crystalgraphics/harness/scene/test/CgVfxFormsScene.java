@@ -380,7 +380,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
         // Precached as a bundle's systems are: included first, so under -Dcrystalgraphics.vfx.poolBudget=0 each station's
         // definition plays raised into its group's forms, which must draw what its own do.
         CgVfxShapeCoalescing.loaded().include(emitters);
-        for (CgVfxEmitter emitter : emitters) CgVfxParticlePool.precache(emitter);
+        CgVfxParticlePool.precacheAhead("harness:vfx-forms", emitters, 0);
     }
 
     @Override

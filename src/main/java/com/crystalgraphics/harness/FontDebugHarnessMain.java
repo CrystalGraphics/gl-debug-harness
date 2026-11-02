@@ -5,6 +5,7 @@ import com.crystalgraphics.lwjgl3.StbVorbisDecoder;
 import com.crystalgraphics.platform.audio.CgAudioDecoder;
 import com.crystalgraphics.platform.audio.CgAudioOutput;
 import com.crystalgraphics.lifecycle.CgEngineLifecycle;
+import com.crystalgraphics.loading.task.CgLoadTracker;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.harness.config.*;
 import com.crystalgraphics.harness.util.HarnessOutputDir;
@@ -123,6 +124,7 @@ public final class FontDebugHarnessMain {
             // The engine's sound, on the default device: what a scene's CgAudioEngine plays sequences and cues through.
             CgPlatform.provide(CgAudioOutput.SERVICE, new Lwjgl3AudioOutput(() -> null));
             CgPlatform.provide(CgAudioDecoder.SERVICE, new StbVorbisDecoder());
+            CgLoadTracker.key(mode);   // the bar's history is the last load of this scene
             CgEngineLifecycle.ensureGraphicsContext(ctx.getScreenWidth(), ctx.getScreenHeight());
             //HarnessDiagnostics.logStartup(ctx);
 

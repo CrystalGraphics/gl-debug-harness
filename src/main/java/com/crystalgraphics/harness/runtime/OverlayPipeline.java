@@ -97,9 +97,19 @@ public final class OverlayPipeline {
      * Delegates to each renderer's init method in dependency order.</p>
      */
     public void init(HarnessContext ctx) {
+        initHud(ctx);
+        initPause();
+    }
+
+    /** The HUD text's half of {@link #init}: its fonts and renderer, and its place on the HUD stage. */
+    public void initHud(HarnessContext ctx) {
         hudRenderer.init(ctx);
-        pauseRenderer.init();
         hudStage = CgRenderStage.HUD.register(HUD_ORDER, frame -> frame.callback("harness.hud", drawHud));
+    }
+
+    /** The pause overlay's half of {@link #init}: its program, compiled now. */
+    public void initPause() {
+        pauseRenderer.init();
         LOGGER.info("[OverlayPipeline] All overlay renderers initialized.");
     }
 

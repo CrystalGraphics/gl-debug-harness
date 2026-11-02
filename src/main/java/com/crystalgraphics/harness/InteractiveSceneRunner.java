@@ -6,6 +6,7 @@ import com.crystalgraphics.platform.gl.CgGlCallSites;
 import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.loading.CgLoadingScreen;
+import com.crystalgraphics.loading.task.CgLoadPlan;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.gl.CgGlRecording;
@@ -338,7 +339,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // The loading screen from launch: the scene's init runs behind its first frame, a reason of its own.
         try (CgLoadingScreen.Task starting = CgLoadingScreen.task("starting " + ctx.getOutputName())) {
             presentLoadingFrame();
-            init();
+            try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "scene.init")) {
+                init();
+            }
         }
         HarnessDeadline.restart();
 
@@ -967,7 +970,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     }
 
     public void init() {
-        scene.init(ctx);
+        try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "scene.init.scene")) {
+            scene.init(ctx);
+        }
         if (CAMERA != null) {
             String[] v = CAMERA.split(",");
             Camera3D camera = ctx.getCamera3D();
@@ -975,8 +980,20 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             camera.setYaw(Float.parseFloat(v[3].trim()));
             camera.setPitch(Float.parseFloat(v[4].trim()));
         }
-        overlayPipeline.init(ctx);
-        worldPassCoordinator.init();
+        if (!CgLoadingScreen.shown()) {
+            overlayPipeline.init(ctx);
+            worldPassCoordinator.init();
+            return;
+        }
+        // Behind the screen, a renderer a slice: the HUD's fonts and the pause overlay's program held the scene's init
+        // 190 ms, and nothing draws them before the hide, which this task holds back until they are made
+        Runnable[] parts = {() -> overlayPipeline.initHud(ctx), overlayPipeline::initPause, worldPassCoordinator::init};
+        int[] next = {0};
+        CgLoadPlan.get().task("harness:overlays").render(task -> {
+            parts[next[0]++].run();
+            task.progress(next[0] / (float) parts.length);
+            return next[0] == parts.length;
+        }).start();
     }
     /**
      * Returns the debug tools for LLM-driven camera control and screenshot capture.

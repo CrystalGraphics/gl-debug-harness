@@ -109,8 +109,8 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         CgPlatform.provide(CgLevels.SERVICE, CgLevels.single(world, CgEntityQuery.NONE));
         Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, 0.1f, -0.45f, -1f, 0f, 1f, 0f);
         view.set(CX, 76.0, CZ + 20.5, look, new Matrix4f().perspective((float) Math.toRadians(80), 16f / 9f, 0.05f, 300f));
-        CgVfxParticlePool.precache(debris);
-        CgVfxParticlePool.precache(dust, 1);
+        CgVfxParticlePool.precacheAhead("harness:vfx-collide", List.of(debris), 0);
+        CgVfxParticlePool.precacheAhead("harness:vfx-collide-dust", List.of(dust), 1);
         CgVfxParticlePool.listen(listener);
         CgVfxWords words = new CgVfxWords();
         int[] raw = new int[spawn.length];
