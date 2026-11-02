@@ -665,9 +665,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     /** Over the window's framebuffer, after the overlays and the capture callback, so no capture holds it. */
     private void drawLoadingScreen() {
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.loadingScreen")) {
-            CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
-            CgGL.glViewport(0, 0, ctx.getScreenWidth(), ctx.getScreenHeight());
-            CgLoadingScreen.draw(ctx.getScreenWidth(), ctx.getScreenHeight());
+            CgLoadingScreen.draw(0, ctx.getScreenWidth(), ctx.getScreenHeight());
         }
     }
 
