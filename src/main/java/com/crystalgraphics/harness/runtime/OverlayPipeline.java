@@ -126,19 +126,19 @@ public final class OverlayPipeline {
 
         // The HUD stage second (on top of pause overlay if both active), into the window: the scene's target has been
         // blitted to it by now. The harness's GUI is unscaled.
-        if (uses3DCamera && !hudHidden) {
+        if (uses3DCamera) {
             firing = ctx;
             CgRenderStage.HUD.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, 0);
         }
     }
 
     private void renderHud() {
-        hudRenderer.render(firing);
+        if (!hudHidden) hudRenderer.render(firing);
     }
 
     private boolean hudHidden;
 
-    /** F1: the HUD hidden or shown again, as a game's F1 hides its interface. */
+    /** F1: the harness's HUD text hidden or shown again; the stage still fires, so the engine's subtitles stay. */
     public void toggleHud() {
         hudHidden = !hudHidden;
     }
