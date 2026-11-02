@@ -63,6 +63,8 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import com.crystalgraphics.job.CgJob;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -346,8 +348,12 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             File[] files = new File(gokuClips).listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".glb"));
             if (files != null) {
                 Arrays.sort(files);
-                for (File file : files) {
-                    for (CgAnimSequence clip : CgMeshLoader.sequences(file.getAbsolutePath())) {
+                // Baked across the cores, kept in the files' order.
+                @SuppressWarnings("unchecked")
+                List<CgAnimSequence>[] baked = new List[files.length];
+                CgJob.forEach(files.length, i -> baked[i] = CgMeshLoader.sequences(files[i].getAbsolutePath()));
+                for (List<CgAnimSequence> sequences : baked) {
+                    for (CgAnimSequence clip : sequences) {
                         if (clip.trackCount() > 1) clips.add(clip);   // the _dmy files move one locator
                     }
                 }
