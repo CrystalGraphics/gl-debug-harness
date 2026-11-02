@@ -53,7 +53,6 @@ import com.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.harness.runtime.FrameBench;
-import com.crystalgraphics.harness.scene.test.HarnessWorld;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 
 import com.sun.management.ThreadMXBean;
@@ -618,7 +617,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private double loadingSeconds;
     private long loadingAt;
 
-    /** A frame under the loading screen: the world pass fires, the scene and input wait, nothing paces it. */
+    /** A frame under the loading screen: the scene and input wait, nothing paces it. */
     private void loadingFrame() {
         HarnessDeadline.restart();
         CgTrace.frameBegin();
@@ -632,20 +631,13 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             scene.onResize(vp.getWidth(), vp.getHeight());
             ctx.setProjection(HarnessProjectionUtil.perspective(vp.getWidth(), vp.getHeight()));
         }
+        long now = System.nanoTime();
+        if (!FrameClock.fixed() && loadingAt != 0L) loadingSeconds += (now - loadingAt) / 1e9;
+        loadingAt = now;
+        CgFrameClock.set(loadingSeconds);
+        // No world of the scene's: the screen fires its own, where pipelines settle and effects warm and rehearse.
         CgGL.fromHost();
         try {
-            if (MainTarget.ON) ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
-            RenderPassState.beginWorldPass();
-            boolean own = scene.worldView(ctx, worldView, worldProjection);
-            Matrix4f view = own ? worldView : camera.getViewMatrix(), projection = own ? worldProjection : ctx.getProjection();
-            worldPassCoordinator.executeWorldPass(view, projection, scene.uses3DCamera());
-            // The world's firing is where pipelines settle and effects warm and rehearse; the scene adds nothing to it.
-            long now = System.nanoTime();
-            if (!FrameClock.fixed() && loadingAt != 0L) loadingSeconds += (now - loadingAt) / 1e9;
-            loadingAt = now;
-            CgFrameClock.set(loadingSeconds);
-            HarnessWorld.fire(ctx, view, projection);
-            if (MainTarget.ON) mainTarget.end();
             drawLoadingScreen();
         } finally {
             CgGL.toHost();
@@ -659,6 +651,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     /** The loading screen alone, before the scene's init: what the window shows while it runs. */
     private void presentLoadingFrame() {
+        CgFrameClock.set(loadingSeconds);   // the harness's clock from the first world frame: it never runs backwards
         CgGL.fromHost();
         try {
             drawLoadingScreen();
