@@ -401,6 +401,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // its frame 1 is the first after the hide, and --seconds times it from there.
             if (CgLoadingScreen.shown()) {
                 loadingFrame();
+                HarnessDeadline.restart();   // a loading frame longer than the cap must not end the run
                 continue;
             }
             if (wasLoading) {
