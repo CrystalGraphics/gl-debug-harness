@@ -45,7 +45,7 @@ import java.util.Locale;
  *     -Dcrystalgraphics.harness.kitCues.namespace=s0 -Dcrystalgraphics.harness.kitCues.kit=$R/assets/s0 \
  *     -Dcrystalgraphics.harness.kitCues.cues=hit_spark/melee/light,hit_spark/melee/medium,hit_spark/melee/heavy
  * // R: fire again   N / B: next / previous cue   Y / Shift+Y: time faster / slower   P: pause time
- * // . / ,: pause and step 1/60 s forward / back; past the end . goes to 1/60 s, , from the start to the end less 1/60 s
+ * // . / ,: pause and step 1/60 s forward / back, held to repeat; 0 to the end less 1/60 s, and round again
  * // X: the kit's grades on or off (each draw under its kit's look, or the frame's)
  *
  * // Unattended: the medium hit at frame 1 of play, frames 1 to 30 photographed, then it exits
@@ -104,8 +104,8 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     /** The players before the last fire: the cue plays in the world's frame, so its own are the ones after it. */
     private final List<CgSequencePlayer> before = new ArrayList<>();
     private boolean collecting;
-    /** A step forward asked for, simulated in the next frame that is not a fire's. */
-    private boolean step;
+    /** Steps forward asked for and not yet simulated: one a frame, so a held key's repeats each step once. */
+    private int steps;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -144,8 +144,8 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         // A step simulates exactly STEP in one frame: the frame's dilation is what moves the world on by it. A fire's
         // own frame moves nothing, so stepping from it starts at the cue's frame 0
         double dt = frame.getDeltaTime();
-        boolean stepping = speed == 0 && dt > 0 && !fireNow && !collecting && step;
-        if (stepping) step = false;
+        boolean stepping = speed == 0 && dt > 0 && !fireNow && !collecting && steps > 0;
+        if (stepping) steps--;
         double rate = stepping ? STEP / dt : SPEEDS[speed];
         CgWorld.client().timeDilation((float) rate);
         if (!declared && kit.declared()) {
@@ -239,22 +239,29 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         }
     }
 
+    /** Where the hit stands once the steps forward still queued are simulated. */
+    private double at() {
+        return Math.min(sinceFire, duration) + steps * STEP;
+    }
+
     /**
-     * Pauses and steps forward a frame, simulated. From the end, seeks back to the first frame: the same hit, its seeds
-     * kept.
+     * Pauses and steps forward a frame, simulated. The frames run from 0 to the end less a frame and round again: from
+     * the last, it seeks back to 0; from a hit played out to its end, to its first frame. Seeks keep the hit's seeds.
      */
     private void stepForward() {
         if (!started || duration <= 0) return;
         speed = 0;
-        if (sinceFire >= duration - 1e-6) seek(STEP);
-        else step = true;
+        double from = at();
+        if (from >= duration - 1e-6) seek(STEP);
+        else if (from >= duration - STEP - 1e-6) seek(0);
+        else steps++;
     }
 
-    /** Pauses and seeks a frame back; from the start or the end, to the end less a frame. */
+    /** Pauses and seeks a frame back; from 0, or the end, to the end less a frame. */
     private void stepBack() {
         if (!started || duration <= 0) return;
         speed = 0;
-        double from = Math.min(sinceFire, duration);
+        double from = at();
         seek(from >= duration - 1e-6 || from <= 1e-6 ? duration - STEP : from - STEP);
     }
 
@@ -263,7 +270,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
      * played again from its age with the seed it drew, so the frame is the one play showed.
      */
     private void seek(double seconds) {
-        step = false;
+        steps = 0;
         for (CgSequencePlayer p : hit) p.seek(seconds);
         sinceFire = seconds;
     }
@@ -272,7 +279,14 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         int key = event.key();
         if (key == CgKeyCodes.KEY_LSHIFT || key == CgKeyCodes.KEY_RSHIFT) shift = event.pressed();
-        if (!event.pressed() || event.repeat()) return true;
+        if (!event.pressed()) return true;
+        // A held step key steps once a repeat, as the OS repeats it; every other key acts on its press alone
+        if (key == CgKeyCodes.KEY_PERIOD || key == CgKeyCodes.KEY_COMMA) {
+            if (key == CgKeyCodes.KEY_PERIOD) stepForward();
+            else stepBack();
+            return true;
+        }
+        if (event.repeat()) return true;
         switch (key) {
             case CgKeyCodes.KEY_R -> fireNow = started;
             case CgKeyCodes.KEY_N -> {
@@ -285,8 +299,6 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
             }
             case CgKeyCodes.KEY_Y -> speed = shift ? Math.max(0, speed - 1) : Math.min(SPEEDS.length - 1, speed + 1);
             case CgKeyCodes.KEY_P -> speed = speed == 0 ? SPEEDS.length - 1 : 0;
-            case CgKeyCodes.KEY_PERIOD -> stepForward();
-            case CgKeyCodes.KEY_COMMA -> stepBack();
             case CgKeyCodes.KEY_X -> CgWorldRenderer.get().gradeDraws(!CgWorldRenderer.get().gradeDraws());
             default -> {
             }
