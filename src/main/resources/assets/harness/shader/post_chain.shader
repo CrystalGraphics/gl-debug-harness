@@ -5,7 +5,7 @@
 // plus a quarter into a quarter-size target, and that over the scene. A pass reading its input at a size other than its
 // tag's draws magenta.
 
-Tags { "RenderType" = "Transparent" "SceneColorMargin" = "0.01" "Lighting" = "Unlit" "Fog" = "Off" "ColorSpace" = "Linear" }
+Tags { "RenderType" = "Transparent" "SceneColorMargin" = "0.01" "Lighting" = "Unlit" "Fog" = "Off" "ColorSpace" = "Target" }
 Queue = "Overlay"
 
 Properties {

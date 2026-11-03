@@ -5,7 +5,7 @@
 // r CustomStencil / 255, g the custom data's alpha, b the shading model / 31, a the type / 6 plus 0.5 where the world
 // normal is +Z.
 
-Tags { "RenderType" = "Transparent" "Lighting" = "Unlit" "Fog" = "Off" "ColorSpace" = "Linear" }
+Tags { "RenderType" = "Transparent" "Lighting" = "Unlit" "Fog" = "Off" "ColorSpace" = "Target" }
 Queue = "Overlay"
 
 struct v2f { vec2 uv; };

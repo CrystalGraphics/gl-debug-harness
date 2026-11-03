@@ -3,7 +3,7 @@
 // texture-cube's material (CgTextureCubeScene): a quad at CG_OBJECT_CUSTOM0.xy, CG_OBJECT_CUSTOM0.z across, drawing
 // the stacked cube along axis CG_OBJECT_CUSTOM0.w (0 to 5: +X, -X, +Y, -Y, +Z, -Z), or the float ramp at 6.
 
-Tags { "RenderType" = "Opaque" "Lighting" = "Unlit" "Fog" = "Off" "ColorSpace" = "Linear" }
+Tags { "RenderType" = "Opaque" "Lighting" = "Unlit" "Fog" = "Off" "ColorSpace" = "Target" }
 Queue = "Geometry"
 
 Properties {

@@ -3,7 +3,7 @@
 // hdr-scene's stand-in for the host drawing between the world stages (CgHdrSceneTestScene): opaque blue left of
 // _Split, and alpha 0 everywhere else, which a blend over leaves byte for byte.
 
-Tags { "RenderType" = "Transparent" "Lighting" = "Unlit" "Fog" = "Off" "ColorSpace" = "Linear" "Media" = "Off" }
+Tags { "RenderType" = "Transparent" "Lighting" = "Unlit" "Fog" = "Off" "ColorSpace" = "Target" "Media" = "Off" }
 Queue = "Overlay"
 
 Properties {

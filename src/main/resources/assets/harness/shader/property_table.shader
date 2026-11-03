@@ -3,7 +3,7 @@
 // property-table's material (CgPropertyTableScene): a quad at CG_OBJECT_CUSTOM0.xy, CG_OBJECT_CUSTOM0.z across, drawn
 // in element CG_OBJECT_CUSTOM0.w of a 64-element table.
 
-Tags { "RenderType" = "Opaque" "Lighting" = "Unlit" "Fog" = "Off" "ColorSpace" = "Linear" }
+Tags { "RenderType" = "Opaque" "Lighting" = "Unlit" "Fog" = "Off" "ColorSpace" = "Target" }
 Queue = "Geometry"
 
 Properties {
