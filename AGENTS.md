@@ -408,7 +408,9 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 ./gradlew :gl-debug-harness:runHarness --args="--mode=post-effects --seconds=30"
 ./gradlew :gl-debug-harness:runHarness --args="--mode=mrt-emission --seconds=20"
 
-# The HDR scene's cost: an 8-bit host into a linear scene and back, timed at 1080p and 4K; the round trip must be exact
+# The HDR scene's cost: an 8-bit host into a linear scene and back, timed at 1080p and 4K; the round trip must be exact,
+# the engine's too, and through the opaque firing's scene: every pixel outside an opaque cube of 4x red back byte for
+# byte (with the host's overdraw between the stages as well), the cube's excess rolled toward white and blooming
 ./gradlew :gl-debug-harness:runHarness --args="--mode=hdr-scene"
 
 # Text recorded on a worker beside render-thread text; prints PASS/FAIL lines

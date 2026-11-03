@@ -3,6 +3,8 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
+import com.crystalgraphics.api.mesh.CgMeshShapes;
+import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.harness.FrameInfo;
@@ -79,7 +81,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     private final CgFrameBuilder builder = new CgFrameBuilder();
     private final CgFrameGraph graph = new CgFrameGraph();
     private final CgRecording recording = new CgRecording();
-    private CgMaterial in, out;
+    private CgMaterial in, out, opaqueMaterial, overdrawMaterial;
     private int frame;
     private boolean wasTracingGpu, running = true;
 
@@ -87,6 +89,8 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     public void init(HarnessContext ctx) {
         in = CgMaterial.newInstance("assets/harness/shader/hdr_scene_in.shader");
         out = CgMaterial.newInstance("assets/harness/shader/hdr_scene_out.shader");
+        opaqueMaterial = CgMaterial.newInstance("assets/harness/shader/hdr_scene_opaque.shader");
+        overdrawMaterial = CgMaterial.newInstance("assets/harness/shader/hdr_scene_overdraw.shader");
         for (String size : System.getProperty("crystalgraphics.harness.hdrScene.sizes", "1920x1080,3840x2160").split(",")) {
             String[] wh = size.trim().split("x");
             int w = Integer.parseInt(wh[0]), h = Integer.parseInt(wh[1]);
@@ -244,7 +248,113 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         }
         if (gl && CgGL.glGetBoolean(GL_FRAMEBUFFER_SRGB)) return "GL_FRAMEBUFFER_SRGB is on";
         int changed = changed(host.getColorTexture(0).getId(), w, h, true);
-        return changed == 0 ? null : changed + " channel values changed";
+        if (changed != 0) return changed + " channel values changed";
+        // Bloom off for the exact checks: the cube's excess blooms past it, which the last check asks for
+        float bloom = CgPostStack.get().bloom().intensity();
+        CgPostStack.get().bloom().intensity(0f);
+        try {
+            String opaque = opaqueRoundTrip(host, w, h, false, false);
+            if (opaque == null) opaque = opaqueRoundTrip(host, w, h, true, false);
+            if (opaque != null) return opaque;
+        } finally {
+            CgPostStack.get().bloom().intensity(bloom);
+        }
+        CgPostStack.get().bloom().intensity(1f);
+        try {
+            return opaqueRoundTrip(host, w, h, false, true);
+        } finally {
+            CgPostStack.get().bloom().intensity(bloom);
+        }
+    }
+
+    /** The middle of the screen the opaque cube covers, padded: outside it every pixel must come back. */
+    private static final int CUBE_HALF = 100;
+
+    /**
+     * The opaque firing's scene: an unlit opaque cube of linear (4, 0, 0) drawn into it over the pattern, encoded back
+     * after the opaque stage, then with {@code overdraw} the host drawing between the stages (opaque blue over the left
+     * quarter, alpha 0 everywhere else). Every pixel outside the cube and the blue must come back byte for byte, the
+     * blue as blue, and the cube must keep its excess: rolled toward white by the composite, its green near 188 where a
+     * value clamped at the opaque stage would leave 0. Null when all hold; else what failed.
+     */
+    private String opaqueRoundTrip(CgFrameBuffer host, int w, int h, boolean overdraw, boolean blooming) {
+        String which = blooming ? "opaque scene, blooming" : overdraw ? "opaque scene under the host's overdraw" : "opaque scene";
+        CgWorldRenderer world = CgWorldRenderer.get();
+        if (!world.hdrSceneDrawn()) return which + ": the HDR scene is not drawn yet";
+        upload(host, pattern(w, h), w, h);
+        boolean wasSkipping = world.skipUnready();
+        world.skipUnready(false);
+        Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
+        try (CgGlScope ignored = CgGlState.save(CgGlSlot.FBO, CgGlSlot.VIEWPORT, CgGlSlot.DEPTH)) {
+            host.bind();
+            CgGL.glViewport(0, 0, w, h);
+            CgGL.glDepthMask(true);
+            CgGL.glClear(CgGL.GL_DEPTH_BUFFER_BIT);
+            world.draw(CgMeshShapes.cube(), opaqueMaterial).at(0, 0, -3).submit();
+            fire(CgRenderStage.WORLD_OPAQUE, host, w, h, projection);
+            if (overdraw) {
+                overdrawMaterial.applyProperties(b -> b.set1f("_Split", w / 4f));
+                CgPassConstants camera = new CgPassConstants().resolution(w, h).time(0f);
+                try (CgImmediate draw = CgImmediate.begin(camera)) {
+                    draw.chunks().draw(overdrawMaterial.pipeline(CgInstanceKind.OBJECT),
+                            overdrawMaterial.captureBindings(draw.bindings()), CgMesh.quads(1));
+                    draw.chunks().instance();
+                }
+            }
+            fire(CgRenderStage.WORLD_TRANSPARENT, host, w, h, projection);
+        } finally {
+            world.skipUnready(wasSkipping);
+        }
+        ByteBuffer made = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder());
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, host.getColorTexture(0).getId());
+        CgGL.glGetTexImage(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, made);
+        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
+        ByteBuffer want = pattern(w, h);
+        int changed = 0, blue = 0, worst = 0;
+        int[] perChannel = new int[4], box = {w, h, -1, -1};
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int at = (y * w + x) * 4;
+                if (Math.abs(x - w / 2) < CUBE_HALF && Math.abs(y - h / 2) < CUBE_HALF) continue;
+                if (overdraw && x < w / 4) {
+                    if ((made.get(at) & 0xFF) != 0 || (made.get(at + 1) & 0xFF) != 0 || (made.get(at + 2) & 0xFF) != 255) blue++;
+                    continue;
+                }
+                for (int c = 0; c < 4; c++) {
+                    if (made.get(at + c) == want.get(at + c)) continue;
+                    changed++;
+                    perChannel[c]++;
+                    box[0] = Math.min(box[0], x);
+                    box[1] = Math.min(box[1], y);
+                    box[2] = Math.max(box[2], x);
+                    box[3] = Math.max(box[3], y);
+                    int d = Math.abs((made.get(at + c) & 0xFF) - (want.get(at + c) & 0xFF));
+                    worst = Math.max(worst, d);
+                }
+            }
+        }
+        if (changed != 0) {
+            System.out.printf("[hdr-scene]     changed by channel r %d g %d b %d a %d, within x %d..%d y %d..%d, at most %d codes%n",
+                    perChannel[0], perChannel[1], perChannel[2], perChannel[3], box[0], box[2], box[1], box[3], worst);
+        }
+        int middle = (h / 2 * w + w / 2) * 4;
+        int r = made.get(middle) & 0xFF, g = made.get(middle + 1) & 0xFF;
+        System.out.printf("[hdr-scene]   %s: outside the cube %d channel values changed%s, its middle (%d, %d, %d)%n",
+                which, changed, overdraw ? ", " + blue + " blue pixels wrong" : "", r, g, made.get(middle + 2) & 0xFF);
+        // A clamp at the opaque stage leaves (255, 0, 0); the composite rolls the kept 4x red toward white
+        if (r < 250 || g < 64) return which + ": the cube's middle is (" + r + ", " + g + "), not white-rolled red: its excess was lost";
+        if (blooming) {
+            return perChannel[0] > 0 && perChannel[0] > perChannel[1] ? null
+                    : which + ": no red glow past the cube: its excess never reached bloom";
+        }
+        if (changed != 0) return which + ": " + changed + " channel values changed outside the cube";
+        if (blue != 0) return which + ": " + blue + " pixels of the host's blue lost";
+        return null;
+    }
+
+    private static void fire(CgRenderStage stage, CgFrameBuffer host, int w, int h, Matrix4f projection) {
+        stage.host().set(0f, w, h, host.getId()).view().set(0, 0, 0, new Matrix4f(), projection);
+        stage.fire();
     }
 
     private static final int GL_FRAMEBUFFER_SRGB = 0x8DB9;
