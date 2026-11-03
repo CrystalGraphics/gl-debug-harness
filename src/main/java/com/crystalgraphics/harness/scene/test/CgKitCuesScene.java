@@ -44,6 +44,7 @@ import java.util.Locale;
  *     -Dcrystalgraphics.harness.kitCues.namespace=s0 -Dcrystalgraphics.harness.kitCues.kit=$R/assets/s0 \
  *     -Dcrystalgraphics.harness.kitCues.cues=hit_spark/melee/light,hit_spark/melee/medium,hit_spark/melee/heavy
  * // R: fire again   N / B: next / previous cue   Y / Shift+Y: time faster / slower   P: pause time
+ * // .: one 1/60 s step while paused (the HUD shows the hit's age since it fired)
  * // X: the kit's grades on or off (each draw under its kit's look, or the frame's)
  *
  * // Unattended: the medium hit at frame 1 of play, frames 1 to 30 photographed, then it exits
@@ -70,6 +71,8 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     /** The dummy's feet and the hit at its chest, the camera on +z looking down -z. */
     private static final double HIT_X = 0, HIT_Y = 1.2, HIT_Z = 0;
     private static final float[] SPEEDS = {0f, 0.01f, 0.05f, 0.1f, 0.25f, 0.5f, 1f};
+    /** A paused step, in the hit's seconds. */
+    private static final double STEP = 1.0 / 60.0;
 
     private final List<String> ids = new ArrayList<>();
     private final List<CgAssetRef<CgCueDefinition>> cues = new ArrayList<>();
@@ -89,7 +92,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private CgMesh cube;
     private int current, speed = SPEEDS.length - 1, frames;
     private double sinceFire;
-    private boolean declared, started, fireNow, shift, running = true;
+    private boolean declared, started, fireNow, shift, step, running = true;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -125,7 +128,11 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorld.client().timeDilation(SPEEDS[speed]);
+        // A paused step runs this one frame at the dilation that advances the world by STEP
+        boolean stepping = step && speed == 0 && frame.getDeltaTime() > 0;
+        step = false;
+        double rate = stepping ? STEP / frame.getDeltaTime() : SPEEDS[speed];
+        CgWorld.client().timeDilation((float) rate);
         if (!declared && kit.declared()) {
             declared = true;
             for (String id : ids) {
@@ -143,7 +150,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
             System.out.println(TAG + cues.size() + " cues ready: " + ids);
         }
         if (started) {
-            sinceFire += frame.getDeltaTime() * SPEEDS[speed];
+            sinceFire += stepping ? STEP : frame.getDeltaTime() * SPEEDS[speed];
             if (fireNow || fireEvery > 0 && sinceFire >= fireEvery) fire();
             frames++;
             if (capture > 0 && frames <= capture) ctx.getArtifactService().requestCapture(String.format(Locale.ROOT, "f%02d", frames));
@@ -214,6 +221,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
             }
             case CgKeyCodes.KEY_Y -> speed = shift ? Math.max(0, speed - 1) : Math.min(SPEEDS.length - 1, speed + 1);
             case CgKeyCodes.KEY_P -> speed = speed == 0 ? SPEEDS.length - 1 : 0;
+            case CgKeyCodes.KEY_PERIOD -> step = true;
             case CgKeyCodes.KEY_X -> CgWorldRenderer.get().gradeDraws(!CgWorldRenderer.get().gradeDraws());
             default -> {
             }
@@ -224,8 +232,8 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     @Override
     public String hudLine() {
         String cue = ids.isEmpty() ? "-" : ids.get(current);
-        return String.format(Locale.ROOT, "%s [N/B]  fire [R]  time x%s [Y]  kit grades %s [X]", cue,
-                SPEEDS[speed], CgWorldRenderer.get().gradeDraws() ? "on" : "off");
+        return String.format(Locale.ROOT, "%s [N/B]  age %.3f s  fire [R]  time x%s [Y]  pause [P]  step [.]  kit grades %s [X]",
+                cue, sinceFire, SPEEDS[speed], CgWorldRenderer.get().gradeDraws() ? "on" : "off");
     }
 
     @Override
