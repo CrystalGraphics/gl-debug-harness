@@ -39,7 +39,8 @@ import java.util.function.Consumer;
  * darkens the corners, an inverted impact frame is the negative, chromatic aberration moves edges, focus lines darken,
  * a drawn frame fills the glowing ball and not the wall; a volume of higher priority overrides a lower one exactly; and
  * Unreal 4.21's tonemapper draws each pixel as the CPU's bake of its table reads it, Unreal's colour grading each as
- * the CPU grades it, and a neutral grade changes nothing.
+ * the CPU grades it, and a neutral grade changes nothing; Unreal's Gaussian bloom brightens beside the ball and, its
+ * widest layer, the corners.
  *
  * <p>Prints {@code [post-looks] PASS} or {@code FAIL}; on Vulkan a validation error fails it. Captures land in its
  * output directory by look.</p>
@@ -97,6 +98,14 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         BufferedImage chromatic = draw(ctx, world, "chromatic", v -> v.add(post.volume(0, new CgPostSettings().chromatic(5f))));   // Unreal's percent, its usual most
         BufferedImage linear = draw(ctx, world, "copy-form", v -> v.add(post.volume(0, new CgPostSettings().vignette(0.0001f))));
         if (changed(chromatic, linear) < 50) failures.add("chromatic aberration moved " + changed(chromatic, linear) + " pixels");
+        // Unreal's Gaussian layers at its defaults: the glow spread round the ball, its widest layer reaching the corners
+        BufferedImage unbloomed = draw(ctx, world, "no-bloom", v -> v.add(post.volume(0, new CgPostSettings().bloom(0f))));
+        BufferedImage gaussian = draw(ctx, world, "gaussian", v -> v.add(post.volume(0, new CgPostSettings().gaussianBloom())));
+        float near = mean(gaussian, W / 2 + 44, H / 2 - 4, 8, 8) - mean(unbloomed, W / 2 + 44, H / 2 - 4, 8, 8);
+        float far = mean(gaussian, 0, 0, 24, 24) - mean(unbloomed, 0, 0, 24, 24);
+        if (!(near > 2f && far > 0.05f && near > far)) {
+            failures.add("the Gaussian bloom: " + near + " brighter beside the ball and " + far + " in a corner");
+        }
         // Unreal 4.21's tonemapper: each pixel as the CPU's bake of the same table reads it from the untoned picture.
         CgPostSettings stage = new CgPostSettings().tonemap().filmHeal(0.18f);
         BufferedImage toned = draw(ctx, world, "tonemap", v -> v.add(post.volume(0, stage)));
@@ -260,7 +269,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
             System.out.println("[post-looks] PASS on " + on + ": weight 0, out of reach and flashes 0 change nothing; "
                     + "flash, vignette, invert, aberration and focus lines each show; a drawn frame's subject is the glow; "
                     + "priority overrides; the tonemapper within " + String.format("%.2f", toneWorst) + " codes of the CPU's table; "
-                    + "the grade within " + String.format("%.2f", gradeWorst) + " codes of the CPU's, a neutral one exact");
+                    + "the grade within " + String.format("%.2f", gradeWorst) + " codes of the CPU's, a neutral one exact; Unreal's Gaussian bloom spreads to the corners");
         }
     }
 
