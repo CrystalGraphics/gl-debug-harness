@@ -963,8 +963,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 instance.playing(!instance.playing());
                 rate(actor, actor.rate);
             }
-            case CgKeyCodes.KEY_COMMA -> instance.playing(false).seek(instance.time() - FRAME);
-            case CgKeyCodes.KEY_PERIOD -> instance.playing(false).seek(instance.time() + FRAME);
+            case CgKeyCodes.KEY_COMMA -> step(actor, -FRAME);
+            case CgKeyCodes.KEY_PERIOD -> step(actor, FRAME);
             case CgKeyCodes.KEY_U -> rate(actor, actor.rate - 1);
             case CgKeyCodes.KEY_I -> rate(actor, actor.rate + 1);
             case CgKeyCodes.KEY_K -> kamehameha(actor);
@@ -981,6 +981,20 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             }
         }
         return true;
+    }
+
+    /**
+     * , .: pauses the actor and steps it a frame. A move playing (K, X) is sought there, its systems drawn at that frame
+     * with their seeds and its camera with it; otherwise its clip is.
+     */
+    private void step(Actor actor, float seconds) {
+        actor.instance.playing(false);
+        rate(actor, actor.rate);
+        if (actor.move != null && !actor.move.stopped()) {
+            actor.move.seek(Math.max(0, actor.move.seconds() + seconds));
+        } else {
+            actor.instance.seek(actor.instance.time() + seconds);
+        }
     }
 
     /**
