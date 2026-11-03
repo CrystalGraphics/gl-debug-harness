@@ -180,6 +180,11 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         if (!(solidWas > 0.3f && solidOwn < solidWas * 0.5f)) {
             failures.add("an opaque graded draw's look: saturation " + solidOwn + " against " + solidWas);
         }
+        glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).gaussianBloom();
+        BufferedImage solidBloomed = draw(ctx, world, "graded-solid-bloom", v -> { });
+        float solidBeside = mean(solidBloomed, W - 204 - 12, 116, 12, 8) - mean(solidGreyed, W - 204 - 12, 116, 12, 8);
+        gradedSaturation[5] = solidBeside;
+        if (!(solidBeside > 1f)) failures.add("an opaque graded draw's own bloom: " + solidBeside + " brighter beside it");
         solidBall = false;
         glassGrade = null;
 
@@ -244,7 +249,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
     /** The grade's worst pixel against the CPU's, in codes: for the verdict. */
     private static double gradeWorst;
     /** A graded draw's saturation, the ungraded one's, its own bloom beside it, then an opaque one's two: for the verdict. */
-    private static final float[] gradedSaturation = new float[5];
+    private static final float[] gradedSaturation = new float[6];
 
     /**
      * The most any of every 7th pixel of {@code graded} is from {@code plain}'s decoded through the packed grade and its
@@ -340,7 +345,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
                     + "the grade within " + String.format("%.2f", gradeWorst) + " codes of the CPU's, a neutral one exact; Unreal's Gaussian bloom spreads to the corners; a graded draw leaves the frame away from it exact, "
                     + "takes its look (saturation " + String.format("%.2f", gradedSaturation[0]) + " from " + String.format("%.2f", gradedSaturation[1])
                     + ") and its own bloom (" + String.format("%.1f", gradedSaturation[2]) + " brighter beside it), an opaque one too (saturation "
-                    + String.format("%.2f", gradedSaturation[3]) + " from " + String.format("%.2f", gradedSaturation[4]) + ")");
+                    + String.format("%.2f", gradedSaturation[3]) + " from " + String.format("%.2f", gradedSaturation[4]) + ", its bloom " + String.format("%.1f", gradedSaturation[5]) + " brighter beside it)");
         }
     }
 
