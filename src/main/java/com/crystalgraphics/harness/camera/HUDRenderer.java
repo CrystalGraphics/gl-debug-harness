@@ -2,11 +2,10 @@ package com.crystalgraphics.harness.camera;
 
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.PoseStack;
+import com.crystalgraphics.api.font.CgDefaultFont;
 import com.crystalgraphics.api.font.CgFont;
-import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.text.render.CgTextRenderer;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.api.text.CgTextLayout;
 
 import com.crystalgraphics.harness.runtime.HarnessWindow;
@@ -81,9 +80,8 @@ public final class HUDRenderer {
 
     // CgTextRenderer resources (created in init, destroyed in delete)
     private CgCapabilities caps;
+    /** Outfit, the engine's default font ({@link CgDefaultFont}): shared, so never disposed here. */
     private CgFont font;
-    private CgFont jpFnt;
-    private CgFont arabicFont;
     private CgFont demoFont;
     private CgTextRenderer renderer;
     private PoseStack poseStack;
@@ -201,24 +199,12 @@ public final class HUDRenderer {
     }
 
     private void reloadFont() {
-        String fontPath = HarnessFontUtil.resolveFontPath(null);
-
-        if (font != null) font.dispose();
-        if (jpFnt != null) jpFnt.dispose();
-        if (arabicFont != null) arabicFont.dispose();
-        
-        font = CgFont.load(fontPath, CgFontStyle.REGULAR, currentFontSizePx);
-        jpFnt = CgFont.load(HarnessFontUtil.JAPANESE_FONT, CgFontStyle.REGULAR, currentFontSizePx);
-        arabicFont = CgFont.load(HarnessFontUtil.ARABIC_FONT, CgFontStyle.REGULAR, currentFontSizePx);
+        font = CgDefaultFont.regular(currentFontSizePx);
         LOGGER.fine("[HUDRenderer] Font reloaded at " + currentFontSizePx + "px");
     }
 
     private void ensureDemoFont() {
-        if (demoFont != null && !demoFont.isDisposed()) {
-            return;
-        }
-        String fontPath = HarnessFontUtil.resolveFontPath(null);
-        demoFont = CgFont.load(fontPath, CgFontStyle.REGULAR, DEMO_FONT_SIZE_PX);
+        if (demoFont == null) demoFont = CgDefaultFont.regular(DEMO_FONT_SIZE_PX);
     }
 
     /**
@@ -236,10 +222,8 @@ public final class HUDRenderer {
 
         caps = CgCapabilities.detect();
 
-        // Load font from system/test font path at base size
-        String fontPath = HarnessFontUtil.resolveFontPath(null);
-        font = CgFont.load(fontPath, CgFontStyle.REGULAR, currentFontSizePx);
-        demoFont = CgFont.load(fontPath, CgFontStyle.REGULAR, DEMO_FONT_SIZE_PX);
+        font = CgDefaultFont.regular(currentFontSizePx);
+        demoFont = CgDefaultFont.regular(DEMO_FONT_SIZE_PX);
 
         // Screen-sized: the owned context's orthographic projection auto-tracks the
         // display window resolution via CgTextRendererRegistry (see CgGraphicsLifecycle.onResize).
@@ -247,8 +231,7 @@ public final class HUDRenderer {
         poseStack = new PoseStack();
 
         initialized = true;
-        LOGGER.info("[HUDRenderer] Initialized with CgTextRenderer, font=" + fontPath
-                + ", size=" + currentFontSizePx + "px");
+        LOGGER.info("[HUDRenderer] Initialized with CgTextRenderer, font=Outfit, size=" + currentFontSizePx + "px");
     }
 
     private float poseScale = 1.0f;
@@ -386,14 +369,9 @@ public final class HUDRenderer {
             renderer = null;
         }
 
-        if (font != null) {
-            font.dispose();
-            font = null;
-        }
-        if (demoFont != null) {
-            demoFont.dispose();
-            demoFont = null;
-        }
+        // The default font's sizes are shared: dropped, never disposed
+        font = null;
+        demoFont = null;
         initialized = false;
         LOGGER.info("[HUDRenderer] Deleted.");
     }
