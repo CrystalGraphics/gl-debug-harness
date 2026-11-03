@@ -16,14 +16,15 @@ import javax.annotation.Nullable;
  * cut capture's order (kamehameha_cut_charge.rdc). Placed only to match a capture, never as a stage of the game's.
  *
  * <pre>{@code
- * KakarotStageFixture stage = new KakarotStageFixture(kit.material(charaIndex).get(), kit.material(postIndex).get());
+ * KakarotStageFixture stage = new KakarotStageFixture(kit.material(charaIndex).get(), kit.material(postIndex).get(),
+ *         CgVfxKitLook.of("kakarot_kit").settings());
  * stage.on(true);    // E in skinned-play
  * stage.on(false);
  * }</pre>
  *
  * <ul>
  *   <li>Before translucency, after the battle outline: the height fog (4394), then Area02_CharaColor (4415), then
- *       whatever a skill grades. After the world: Unreal 4.21's legacy tonemapper with Kakarot's film heal and its 0.5
+ *       whatever a skill grades. After the world: the kit's look over the whole frame, its tonemapper, bloom and
  *       vignette (5151), then Area02_PostProcess (5185), before a skill's radial blur.</li>
  *   <li>The fog's values and the dummy sun are the capture's: the kit carries neither. The fog's heights put the
  *       harness's cut camera at the capture's, 7959 cm.</li>
@@ -43,7 +44,10 @@ final class KakarotStageFixture {
     @Nullable
     private CgPostVolume tonemap;
 
-    KakarotStageFixture(CgMaterialDefinition charaColor, CgMaterialDefinition postProcess) {
+    private final CgPostSettings look;
+
+    KakarotStageFixture(CgMaterialDefinition charaColor, CgMaterialDefinition postProcess, CgPostSettings look) {
+        this.look = look;
         CgMaterial fogMaterial = CgMaterial.newInstance("kakarot_kit:shaders/post/height_fog.shader");
         // Its ExponentialHeightFog as 4394 reads it: cb1[0..2]
         fogMaterial.applyProperties(b -> b.set1f("FogDensity", 2e-6f).set1f("FogHeightFalloff", 1e-4f)
@@ -69,7 +73,7 @@ final class KakarotStageFixture {
             CgPostStack stack = CgPostStack.get();
             fogOn = stack.add(fog);
             charaOn = stack.add(chara);
-            tonemap = stack.volume(0, new CgPostSettings().tonemap().filmHeal(0.18f).vignette(0.5f));
+            tonemap = stack.volume(0, look);
             overlayOn = stack.add(overlay);
         } else {
             fogOn.close();

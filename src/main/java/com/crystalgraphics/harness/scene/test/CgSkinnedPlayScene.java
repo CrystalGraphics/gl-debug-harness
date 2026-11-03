@@ -47,6 +47,7 @@ import com.crystalgraphics.sequence.CgSequencer;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxOwner;
+import com.crystalgraphics.vfx.look.CgVfxKitLook;
 import com.crystalgraphics.vfx.system.CgVfxSequencer;
 import com.crystalgraphics.cue.CgCueManager;
 import com.crystalgraphics.world.CgAttachment;
@@ -100,6 +101,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private static final CgVfxOwner VFX = CgVfx.owner("harness");
     private static final String KIT_ROOT = "plan/crystalgraphics/vfx-aaa/local/examples/kakarot_kit/";
     private static final String KIT = KIT_ROOT + "models/Art/";
+    private static final String KIT_NAMESPACE = "kakarot_kit";
     /** Goku's sockets: the kit's skeleton asset, in its units.yaml's units. */
     private static final String GOKU_SKELETON = "skeletons/Art/MDL/Cpl/Cpl001/Model/Cpl001p1_Skeleton.yaml";
     private static final float FADE = 0.25f, FRAME = 1f / 30f;
@@ -548,7 +550,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         materials.add(STAGE_POST);
         materials.add(SKILL_DARKEN);
         skillAction = kitFolder.resolve(SKILL_ACTION);
-        kit = HarnessKitSystems.load(VFX.system(), "kakarot_kit", kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT, CUT_CAMERA), SHADING);
+        kit = HarnessKitSystems.load(VFX.system(), KIT_NAMESPACE, kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT, CUT_CAMERA), SHADING);
     }
 
     /** The bodies on the floor, playing their first clips, Goku in his kit's materials where it names one a slot. */
@@ -1035,7 +1037,11 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** E: the ocean arena's post chain on or off. */
     private void stage(boolean on) {
         if (kit == null || !kit.ready() || stageMaterials < 0) return;
-        if (stage == null) stage = new KakarotStageFixture(kit.material(stageMaterials).get(), kit.material(stageMaterials + 1).get());
+        if (stage == null) {
+            CgVfxKitLook look = CgVfxKitLook.of(KIT_NAMESPACE);
+            if (look == null) throw new IllegalStateException(KIT_NAMESPACE + " registered no look.yaml: the arena's grade is its");
+            stage = new KakarotStageFixture(kit.material(stageMaterials).get(), kit.material(stageMaterials + 1).get(), look.settings());
+        }
         stage.on(on);
         LOGGER.info("[skinned-play] the ocean arena's post chain {}", on ? "on" : "off");
     }
