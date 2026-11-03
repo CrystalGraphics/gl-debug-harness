@@ -24,7 +24,6 @@ import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.CgSequencer;
-import com.crystalgraphics.util.CgRandom;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.system.CgVfxSequencer;
 import org.joml.Matrix4f;
@@ -46,7 +45,7 @@ import java.util.Locale;
  *     -Dcrystalgraphics.harness.kitCues.namespace=s0 -Dcrystalgraphics.harness.kitCues.kit=$R/assets/s0 \
  *     -Dcrystalgraphics.harness.kitCues.cues=hit_spark/melee/light,hit_spark/melee/medium,hit_spark/melee/heavy
  * // R: fire again   N / B: next / previous cue   Y / Shift+Y: time faster / slower   P: pause time
- * // . / ,: pause and step 1/60 s forward / back; past the end . starts again at 1/60 s, , goes to the end less 1/60 s
+ * // . / ,: pause and step 1/60 s forward / back; past the end . goes to 1/60 s, , from the start to the end less 1/60 s
  * // X: the kit's grades on or off (each draw under its kit's look, or the frame's)
  *
  * // Unattended: the medium hit at frame 1 of play, frames 1 to 30 photographed, then it exits
@@ -64,9 +63,8 @@ import java.util.Locale;
  *   <li>A cue fires once it and the sequences its burst plays are {@code READY}, resident and precached: a burst
  *       still loading 0.2 s after it fires plays nothing, as in the game.</li>
  *   <li>The HUD's age is the hit's time over its duration, its longest sequence's length; it holds at the end.</li>
- *   <li>A step pauses and simulates one frame. A step back fires the hit again and simulates to the frame before,
- *       a step a frame: each fire clears the last and restarts the engine's random stream ({@code CgRandom.fixedSeed}),
- *       so it draws the same seeds and lands on the frame play showed.</li>
+ *   <li>A step forward pauses and simulates one frame; a step back, and a step past the end, seek the hit, which
+ *       keeps its seeds: only a fire (R, N, B) draws new ones.</li>
  *   <li>A pixel check of the frame is the caller's: {@code .capture=<n>} writes frames 1 to n of play as
  *       {@code kit-cues-f<k>.png}.</li>
  * </ul>
@@ -108,8 +106,6 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private boolean collecting;
     /** A step forward asked for, simulated in the next frame that is not a fire's. */
     private boolean step;
-    /** Steps a rewind still simulates, one a frame, to where it lands. */
-    private int replay;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -148,11 +144,8 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         // A step simulates exactly STEP in one frame: the frame's dilation is what moves the world on by it. A fire's
         // own frame moves nothing, so stepping from it starts at the cue's frame 0
         double dt = frame.getDeltaTime();
-        boolean stepping = speed == 0 && dt > 0 && !fireNow && !collecting && (replay > 0 || step);
-        if (stepping) {
-            if (replay > 0) replay--;
-            else step = false;
-        }
+        boolean stepping = speed == 0 && dt > 0 && !fireNow && !collecting && step;
+        if (stepping) step = false;
         double rate = stepping ? STEP / dt : SPEEDS[speed];
         CgWorld.client().timeDilation((float) rate);
         if (!declared && kit.declared()) {
@@ -218,11 +211,9 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         CgCueDefinition cue = cues.get(current).loaded();
         if (cue.tag() == null) throw new IllegalStateException(TAG + cue.id() + " has no tag to fire it by");
         params.reset().at(HIT_X, HIT_Y, HIT_Z).normal(0f, 0f, 1f);
-        // The last hit gone at once, and the engine's stream started over as -FixedSeed starts it: every fire draws the
-        // same seeds, so a rewind simulates the frames play showed
+        // The last hit gone at once: a fire starts the hit again, with new seeds
         for (CgSequencePlayer p : hit) p.kill();
         CgVfx.world().clear();
-        CgRandom.fixedSeed(true);
         // A burst is executed once; a looping cue is added, and the last one stops as the next fires
         before.clear();
         before.addAll(sequencer.players());
@@ -248,31 +239,33 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         }
     }
 
-    /** Where the hit stands, counting a rewind still on its way. */
-    private double at() {
-        return replay > 0 ? replay * STEP : Math.min(sinceFire, duration);
-    }
-
-    /** Pauses and steps forward a frame, simulated. Past the end, the hit fires again and steps to its first frame. */
+    /**
+     * Pauses and steps forward a frame, simulated. From the end, seeks back to the first frame: the same hit, its seeds
+     * kept.
+     */
     private void stepForward() {
         if (!started || duration <= 0) return;
         speed = 0;
-        if (replay == 0 && sinceFire >= duration - 1e-6) fireNow = true;
-        step = true;
+        if (sinceFire >= duration - 1e-6) seek(STEP);
+        else step = true;
     }
 
-    /**
-     * Pauses and rewinds a frame: the hit fires again and simulates, a step a frame, to a step before where it stood, as
-     * it played there. At the start or the end, to the end less a step.
-     */
+    /** Pauses and seeks a frame back; from the start or the end, to the end less a frame. */
     private void stepBack() {
         if (!started || duration <= 0) return;
         speed = 0;
-        double from = at();
-        double to = from >= duration - 1e-6 || from <= 1e-6 ? duration - STEP : from - STEP;
-        replay = (int) Math.round(Math.max(0, to) / STEP);
+        double from = Math.min(sinceFire, duration);
+        seek(from >= duration - 1e-6 || from <= 1e-6 ? duration - STEP : from - STEP);
+    }
+
+    /**
+     * The hit at {@code seconds}, as a scrub lands: each of its sequences sought there, and each system they play
+     * played again from its age with the seed it drew, so the frame is the one play showed.
+     */
+    private void seek(double seconds) {
         step = false;
-        fireNow = true;
+        for (CgSequencePlayer p : hit) p.seek(seconds);
+        sinceFire = seconds;
     }
 
     @Override
@@ -291,12 +284,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
                 fireNow = started;
             }
             case CgKeyCodes.KEY_Y -> speed = shift ? Math.max(0, speed - 1) : Math.min(SPEEDS.length - 1, speed + 1);
-            case CgKeyCodes.KEY_P -> {
-                speed = speed == 0 ? SPEEDS.length - 1 : 0;
-                // a rewind on its way stops where it is, and plays on from there
-                replay = 0;
-                step = false;
-            }
+            case CgKeyCodes.KEY_P -> speed = speed == 0 ? SPEEDS.length - 1 : 0;
             case CgKeyCodes.KEY_PERIOD -> stepForward();
             case CgKeyCodes.KEY_COMMA -> stepBack();
             case CgKeyCodes.KEY_X -> CgWorldRenderer.get().gradeDraws(!CgWorldRenderer.get().gradeDraws());
