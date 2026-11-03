@@ -37,6 +37,7 @@ import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.stage.CgDirectionalLights;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.render.post.stage.CgStage;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.binding.CgRoleOutline;
@@ -47,7 +48,6 @@ import com.crystalgraphics.sequence.CgSequencer;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxOwner;
-import com.crystalgraphics.vfx.look.CgVfxKitLook;
 import com.crystalgraphics.vfx.system.CgVfxSequencer;
 import com.crystalgraphics.cue.CgCueManager;
 import com.crystalgraphics.world.CgAttachment;
@@ -120,9 +120,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** The beams the shot and the cut fire: their AnimNotify_SpawnProjectileBeam's Projectile, each a cue. */
     private static final String BEAM = "kakarot_kit:Blueprints/Character/C001A/BTL/SKL/BP_Projectile_C001A_S_SKL001",
             BEAM_CUT = BEAM + "_Cut";
-    /** E's stage: Kakarot's ocean arena's post materials (KakarotStageFixture), loaded after Goku's. */
-    private static final String STAGE_CHARA = "kakarot_kit:Art/BG/Area02/PostProcess/Area02_CharaColor",
-            STAGE_POST = "kakarot_kit:Art/BG/Area02/PostProcess/Area02_PostProcess";
+    /** E's stage: Kakarot's ocean arena, its post volume and height fog. */
+    private static final String ARENA = "kakarot_kit:Area02";
     /** K's and X's darkening: the Kamehameha's action defaults (KakarotSkillDarken) and the material they play. */
     private static final String SKILL_ACTION = "roles/Blueprints/Character/C001A/BTL/SKL/BP_C001A_S_SKL001_Action.action.yaml",
             SKILL_DARKEN = "kakarot_kit:MasterMaterials/AT_Materials/PE_DarkenInTheGround";
@@ -318,10 +317,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** The outline's order among post materials: first, below any volume's priority. */
     private static final int OUTLINE_ORDER = -1_000_000;
     private boolean kitFailureLogged;
-    /** E: the ocean arena's post chain, once the kit is ready; where its two materials sit in the kit's list. */
+    /** E: the ocean arena, once the kit is ready; where the darkening's material sits in the kit's list. */
     @Nullable
-    private KakarotStageFixture stage;
-    private int stageMaterials = -1;
+    private CgStage stage;
+    private int darkenMaterial = -1;
     /** Whether the bodies' files have been read and their actors made, or their reading failed. */
     private boolean bodiesLoaded;
     /**
@@ -545,12 +544,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private void loadKit(Path kitFolder, KitPlan plan) {
         List<String> materials = new ArrayList<>(plan.materials());
         if (plan.outline() != null) materials.add((String) plan.outline().get("post"));
-        stageMaterials = materials.size();
-        materials.add(STAGE_CHARA);
-        materials.add(STAGE_POST);
+        darkenMaterial = materials.size();
         materials.add(SKILL_DARKEN);
         skillAction = kitFolder.resolve(SKILL_ACTION);
-        kit = HarnessKitSystems.load(VFX.system(), KIT_NAMESPACE, kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT, CUT_CAMERA), SHADING);
+        kit = HarnessKitSystems.load(VFX.system(), KIT_NAMESPACE, kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT, CUT_CAMERA), List.of(ARENA), SHADING);
     }
 
     /** The bodies on the floor, playing their first clips, Goku in his kit's materials where it names one a slot. */
@@ -971,7 +968,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             case CgKeyCodes.KEY_K -> kamehameha(actor);
             case CgKeyCodes.KEY_X -> cut(actor);
             case CgKeyCodes.KEY_V -> bystander = !bystander;
-            case CgKeyCodes.KEY_E -> stage(!(stage != null && stage.on()));
+            case CgKeyCodes.KEY_E -> stage(stage == null);
             case CgKeyCodes.KEY_O -> {
                 if (outlinePass == null) break;
                 outlineTests = (outlineTests + 1) % OUTLINE_TESTS.length;
@@ -1026,7 +1023,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (!darkenTried) {
             darkenTried = true;
             try {
-                darken = KakarotSkillDarken.of(skillAction, kit.material(stageMaterials + 2).get());
+                darken = KakarotSkillDarken.of(skillAction, kit.material(darkenMaterial).get());
             } catch (IOException e) {
                 LOGGER.warn("[skinned-play] the skill's action file did not read: {}", e.toString());
             }
@@ -1034,15 +1031,18 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (darken != null) darken.update(dt, running);
     }
 
-    /** E: the ocean arena's post chain on or off. */
+    /**
+     * E: the ocean arena on or off, the kit's stage placed with its anchor on the floor: the capture's ground under the
+     * fight, so the cut camera stands at the capture's height in its fog.
+     */
     private void stage(boolean on) {
-        if (kit == null || !kit.ready() || stageMaterials < 0) return;
-        if (stage == null) {
-            CgVfxKitLook look = CgVfxKitLook.of(KIT_NAMESPACE);
-            if (look == null) throw new IllegalStateException(KIT_NAMESPACE + " registered no look.yaml: the arena's grade is its");
-            stage = new KakarotStageFixture(kit.material(stageMaterials).get(), kit.material(stageMaterials + 1).get(), look.settings());
+        if (kit == null || !kit.ready() || on == (stage != null)) return;
+        if (on) {
+            stage = CgStage.place(kit.stage(0).get(), 0, 0, 0);
+        } else {
+            stage.close();
+            stage = null;
         }
-        stage.on(on);
         LOGGER.info("[skinned-play] the ocean arena's post chain {}", on ? "on" : "off");
     }
 
@@ -1067,7 +1067,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         sb.append("Tab actor  N/B clip  P pause  , . frame  U/I rate  R restart  F9 night\n");
         sb.append("K Kamehameha: charge, fire, end (Goku)  X its cut\n");
         sb.append("V ").append(bystander ? "a bystander (the cut's camera not yours)" : "in the cut");
-        sb.append("  E stage: ").append(stage != null && stage.on() ? "ocean arena" : "none");
+        sb.append("  E stage: ").append(stage != null ? "ocean arena" : "none");
         if (outlinePass != null) sb.append("\nO outline: ").append(OUTLINE_TESTS[outlineTests]);
         if (kit != null && kit.failed()) sb.append("\nthe kit failed to load: ").append(kit.failures());
         else if (kit != null && !kit.ready()) sb.append("\nloading the kit...");        return sb.toString();
@@ -1079,7 +1079,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (submit != null) submit.close();
         if (beams != null) beams.close();
         if (outline != null) outline.close();
-        if (stage != null) stage.on(false);
+        if (stage != null) stage.close();
         if (darken != null) darken.close();
         if (stageLight != null) stageLight.close();
         CgWorld.client().timeDilation(1f);   // the client world outlives the scene
