@@ -210,15 +210,15 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
 
         String line() {
+            String state = instance.playing() ? "playing" : "paused";
             if (move != null) {
-                return String.format(Locale.ROOT, "%s: %s, %s at %.2f s, %.2fx%s", name, stage.name().toLowerCase(Locale.ROOT),
-                        move.definition().id(), move.seconds(), RATES[rate], instance.playing() ? "" : " (paused)");
+                return String.format(Locale.ROOT, "%s: %s %s | %.2f s | %s at %.2fx", name, stage.name().toLowerCase(Locale.ROOT),
+                        move.definition().id(), move.seconds(), state, RATES[rate]);
             }
             CgAnimSequence s = clips.get(clip);
             CgAnimSection playing = instance.sections().get(instance.sections().size() - 1);
-            return String.format(Locale.ROOT, "%s: clip %d/%d %s, %.2f / %.2f s at %.2fx%s", name, clip + 1, clips.size(),
-                    s.name(), playing.animationTime(instance.time()), s.duration(), RATES[rate],
-                    instance.playing() ? "" : " (paused)");
+            return String.format(Locale.ROOT, "%s: clip %d/%d %s | %.2f / %.2f s | %s at %.2fx", name, clip + 1,
+                    clips.size(), s.name(), playing.animationTime(instance.time()), s.duration(), state, RATES[rate]);
         }
 
         @Override
@@ -1062,15 +1062,17 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     @Override
     public String hudLine() {
         if (actors.isEmpty()) return "skinned-play: no meshes found (see the scene's javadoc for the paths)";
-        StringBuilder sb = new StringBuilder();
+        // The HUD's own form, a name, its keys, then its state: who plays what, the clip's keys, the move, the stage
+        StringBuilder sb = new StringBuilder("\nActor [Tab]:\n");
         for (int i = 0; i < actors.size(); i++) sb.append(i == selected ? "> " : "  ").append(actors.get(i).line()).append('\n');
-        sb.append("Tab actor  N/B clip  P pause  , . frame  U/I rate  R restart  F9 night\n");
-        sb.append("K Kamehameha: charge, fire, end (Goku)  X its cut\n");
-        sb.append("V ").append(bystander ? "a bystander (the cut's camera not yours)" : "in the cut");
-        sb.append("  E stage: ").append(stage != null ? "ocean arena" : "none");
-        if (outlinePass != null) sb.append("\nO outline: ").append(OUTLINE_TESTS[outlineTests]);
-        if (kit != null && kit.failed()) sb.append("\nthe kit failed to load: ").append(kit.failures());
-        else if (kit != null && !kit.ready()) sb.append("\nloading the kit...");        return sb.toString();
+        sb.append("Clip [N/B] | Pause [P] | Frame [, .] | Rate [U/I] | Restart [R]\n");
+        sb.append("Kamehameha [K]: charge, fire, end (Goku) | Cut [X] | View [V]: ")
+                .append(bystander ? "yours, a bystander" : "the cut's camera").append('\n');
+        sb.append("Stage [E]: ").append(stage != null ? "ocean arena" : "none").append(" | Night [F9]");
+        if (outlinePass != null) sb.append(" | Outline [O]: ").append(OUTLINE_TESTS[outlineTests]);
+        if (kit != null && kit.failed()) sb.append("\nThe kit failed to load: ").append(kit.failures());
+        else if (kit != null && !kit.ready()) sb.append("\nLoading the kit...");
+        return sb.toString();
     }
 
     @Override
