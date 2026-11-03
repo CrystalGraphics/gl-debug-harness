@@ -32,6 +32,8 @@ public final class FontDebugHarnessMain {
     public static void main(String[] args) {
         // CgRenderDemo is Minecraft's: in the harness it would draw a second showcase over vfx-spheres' own.
         if (System.getProperty("crystalgraphics.demo") == null) System.setProperty("crystalgraphics.demo", "false");
+        // The harness is a dev run: the loading watchdog names every hold of the render thread
+        if (System.getProperty("crystalgraphics.loading.logHolds") == null) System.setProperty("crystalgraphics.loading.logHolds", "true");
         // Every run, so a capture repeats (Unreal's -FixedSeed).
         CgRandom.fixedSeed(true);
         // The frame thread above the engine's helpers, as Minecraft's render thread (setPriority(10)) and Unreal's game
