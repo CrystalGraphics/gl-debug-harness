@@ -22,7 +22,9 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
+import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.CgSequencer;
+import com.crystalgraphics.util.CgRandom;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.system.CgVfxSequencer;
 import org.joml.Matrix4f;
@@ -44,7 +46,7 @@ import java.util.Locale;
  *     -Dcrystalgraphics.harness.kitCues.namespace=s0 -Dcrystalgraphics.harness.kitCues.kit=$R/assets/s0 \
  *     -Dcrystalgraphics.harness.kitCues.cues=hit_spark/melee/light,hit_spark/melee/medium,hit_spark/melee/heavy
  * // R: fire again   N / B: next / previous cue   Y / Shift+Y: time faster / slower   P: pause time
- * // .: one 1/60 s step while paused (the HUD shows the hit's age since it fired)
+ * // . / ,: pause and seek 1/60 s forward / back; past the end . starts again at 1/60 s, , goes to the end less 1/60 s
  * // X: the kit's grades on or off (each draw under its kit's look, or the frame's)
  *
  * // Unattended: the medium hit at frame 1 of play, frames 1 to 30 photographed, then it exits
@@ -61,6 +63,10 @@ import java.util.Locale;
  *   <li>{@code .regions=false} plays the cues' sequences without their colour regions.</li>
  *   <li>A cue fires once it and the sequences its burst plays are {@code READY}, resident and precached: a burst
  *       still loading 0.2 s after it fires plays nothing, as in the game.</li>
+ *   <li>The HUD's age is the hit's time over its duration, its longest sequence's length; it holds at the end.</li>
+ *   <li>A step pauses and seeks: the hit is fired again and its sequences sought, so any way to a time gives the same
+ *       frame. Each fire restarts the engine's random stream ({@code CgRandom.fixedSeed}), so every fire draws the
+ *       same seeds.</li>
  *   <li>A pixel check of the frame is the caller's: {@code .capture=<n>} writes frames 1 to n of play as
  *       {@code kit-cues-f<k>.png}.</li>
  * </ul>
@@ -86,13 +92,26 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private final float fireEvery = Float.parseFloat(System.getProperty("crystalgraphics.harness.kitCues.fireEvery", "2"));
     private final int capture = Integer.getInteger("crystalgraphics.harness.kitCues.capture", 0);
     private HarnessKitSystems kit;
+    private CgSequencer sequencer;
     /** The looping cue playing, stopped as the next fires. */
     private CgCuePlaying looping;
     private CgMaterial floor, dummy;
     private CgMesh cube;
     private int current, speed = SPEEDS.length - 1, frames;
     private double sinceFire;
-    private boolean declared, started, fireNow, shift, step, running = true;
+    private boolean declared, started, fireNow, shift, running = true;
+    /** The sequences the last fire plays, and the longest one's length in seconds: the hit's duration. */
+    private final List<CgSequencePlayer> hit = new ArrayList<>();
+    private double duration;
+    /** A seek asked for by a key, made in the next render; NaN for none. */
+    private double seekTo = Double.NaN;
+    /** The players before the last fire: the cue plays in the world's frame, so its own are the ones after it. */
+    private final List<CgSequencePlayer> before = new ArrayList<>();
+    private boolean collecting;
+    /** Where the hit jumps once its players are collected; NaN to play from its start. */
+    private double jumpOnCollect = Double.NaN;
+    /** Seconds the next frame advances while paused, after a seek: the last step to its target, simulated. */
+    private double advance, advanceNext;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -104,7 +123,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         ctx.getCamera3D().setPitch(-5f);
         kit = HarnessKitSystems.load(CgVfx.world(), namespace, Paths.get(folder), List.of());
         // The engine's sequencer, as a client's: a burst's sequences play through it
-        CgSequencer sequencer = CgVfxSequencer.install(CgWorld.client(), CgVfx.world());
+        sequencer = CgVfxSequencer.install(CgWorld.client(), CgVfx.world());
         // Its colour regions left out, to tell what they grade from what the rest of the hit does
         if (!Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.kitCues.regions", "true"))) {
             sequencer.spawner("colour_region", (player, spawnable, at) -> new CgSequenceSpawnScene.Fixture());
@@ -128,10 +147,13 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        // A paused step runs this one frame at the dilation that advances the world by STEP
-        boolean stepping = step && speed == 0 && frame.getDeltaTime() > 0;
-        step = false;
-        double rate = stepping ? STEP / frame.getDeltaTime() : SPEEDS[speed];
+        // A seek lands a step short and this frame simulates the rest, as Niagara's seek ticks to its desired age: a
+        // frame of no time ticks nothing in
+        double rate = SPEEDS[speed];
+        boolean advancing = advance > 0;
+        if (advancing && frame.getDeltaTime() > 0) rate = advance / frame.getDeltaTime();
+        advance = advanceNext;
+        advanceNext = 0;
         CgWorld.client().timeDilation((float) rate);
         if (!declared && kit.declared()) {
             declared = true;
@@ -150,8 +172,16 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
             System.out.println(TAG + cues.size() + " cues ready: " + ids);
         }
         if (started) {
-            sinceFire += stepping ? STEP : frame.getDeltaTime() * SPEEDS[speed];
-            if (fireNow || fireEvery > 0 && sinceFire >= fireEvery) fire();
+            if (collecting) collect();
+            // A seek waits for the last to land: it takes three frames, the fire, the seek and the last step
+            boolean seeking = collecting || advancing || advance > 0 || advanceNext > 0;
+            if (!Double.isNaN(seekTo) && !seeking) {
+                seek(seekTo);
+                seekTo = Double.NaN;
+            } else if (Double.isNaN(seekTo)) {
+                sinceFire += frame.getDeltaTime() * SPEEDS[speed];
+                if (fireNow || fireEvery > 0 && sinceFire >= fireEvery) fire();
+            }
             frames++;
             if (capture > 0 && frames <= capture) ctx.getArtifactService().requestCapture(String.format(Locale.ROOT, "f%02d", frames));
             if (capture > 0 && frames > capture) running = false;
@@ -195,13 +225,61 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         CgCueDefinition cue = cues.get(current).loaded();
         if (cue.tag() == null) throw new IllegalStateException(TAG + cue.id() + " has no tag to fire it by");
         params.reset().at(HIT_X, HIT_Y, HIT_Z).normal(0f, 0f, 1f);
+        // The engine's stream started over, as -FixedSeed starts it: each fire draws the same seeds, so a frame sought
+        // is the same picture whichever way it was stepped to
+        CgRandom.fixedSeed(true);
         // A burst is executed once; a looping cue is added, and the last one stops as the next fires
+        before.clear();
+        before.addAll(sequencer.players());
+        collecting = true;
+        jumpOnCollect = Double.NaN;
         if (cue.kind() == CgCueDefinition.Kind.BURST) {
             CgCueManager.client().execute(cue.tag(), params);
         } else {
             if (looping != null) looping.remove();
             looping = CgCueManager.client().add(cue.tag(), params);
         }
+    }
+
+    /** The hit's players, the ones its fire added, and its duration; then the jump a seek asked for. */
+    private void collect() {
+        collecting = false;
+        hit.clear();
+        duration = 0;
+        for (CgSequencePlayer p : sequencer.players()) {
+            if (before.contains(p) || p.stopped()) continue;
+            hit.add(p);
+            CgSequenceDefinition d = p.definition();
+            duration = Math.max(duration, d.seconds(d.end() - d.start()));
+        }
+        if (Double.isNaN(jumpOnCollect)) return;
+        double from = Math.max(0, jumpOnCollect - STEP);
+        for (CgSequencePlayer p : hit) p.seek(from);
+        advanceNext = jumpOnCollect - from;
+    }
+
+    /**
+     * The hit at {@code seconds} into it: fired again clean and each of its sequences sought a step short, as a scrub
+     * lands (what lasts starts at its age in its section; a one-shot fires only just before it), then the last step
+     * simulated. Each system a sequence plays is played from its age in its section, as Niagara's desired age resets and
+     * seeks, rolling a new seed from the stream as Niagara's does: the same seeds every fire, since each restarts it.
+     */
+    private void seek(double seconds) {
+        for (CgSequencePlayer p : hit) p.kill();
+        CgVfx.world().clear();
+        fire();
+        jumpOnCollect = seconds;
+        sinceFire = seconds;
+    }
+
+    /** Pauses, and seeks a step forward, or back; off either end, it comes round to the other. */
+    private void step(boolean forward) {
+        if (!started || duration <= 0) return;
+        speed = 0;
+        double from = Double.isNaN(seekTo) ? Math.min(sinceFire, duration) : seekTo;
+        boolean end = from >= duration - 1e-6;
+        if (forward) seekTo = end ? STEP : Math.min(duration, from + STEP);
+        else seekTo = end || from <= 1e-6 ? duration - STEP : Math.max(0, from - STEP);
     }
 
     @Override
@@ -221,7 +299,8 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
             }
             case CgKeyCodes.KEY_Y -> speed = shift ? Math.max(0, speed - 1) : Math.min(SPEEDS.length - 1, speed + 1);
             case CgKeyCodes.KEY_P -> speed = speed == 0 ? SPEEDS.length - 1 : 0;
-            case CgKeyCodes.KEY_PERIOD -> step = true;
+            case CgKeyCodes.KEY_PERIOD -> step(true);
+            case CgKeyCodes.KEY_COMMA -> step(false);
             case CgKeyCodes.KEY_X -> CgWorldRenderer.get().gradeDraws(!CgWorldRenderer.get().gradeDraws());
             default -> {
             }
@@ -232,8 +311,8 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     @Override
     public String hudLine() {
         String cue = ids.isEmpty() ? "-" : ids.get(current);
-        return String.format(Locale.ROOT, "%s [N/B]  time x%s [Y]  %s [P]  age %.3f s\nfire [R]  step [.]  kit grades %s [X]",
-                cue, SPEEDS[speed], speed == 0 ? "paused" : "playing", sinceFire,
+        return String.format(Locale.ROOT, "%s [N/B]  time x%s [Y]  %s [P]  age %.3f/%.3f s\nfire [R]  step [, .]  kit grades %s [X]",
+                cue, SPEEDS[speed], speed == 0 ? "paused" : "playing", Math.min(sinceFire, duration), duration,
                 CgWorldRenderer.get().gradeDraws() ? "on" : "off");
     }
 
