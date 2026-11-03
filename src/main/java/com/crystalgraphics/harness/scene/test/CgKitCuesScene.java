@@ -45,8 +45,8 @@ import java.util.Locale;
  *     -Dcrystalgraphics.harness.kitCues.namespace=s0 -Dcrystalgraphics.harness.kitCues.kit=$R/assets/s0 \
  *     -Dcrystalgraphics.harness.kitCues.cues=hit_spark/melee/light,hit_spark/melee/medium,hit_spark/melee/heavy
  * // R: fire again   N / B: next / previous cue   Y / Shift+Y: time faster / slower   P: pause time
- * // . / ,: pause and step 1/60 s forward / back, held to repeat; 0 to the end less 1/60 s, and round again
- * // X: the kit's grades on or off (each draw under its kit's look, or the frame's)
+ * // X / Z: pause and step 1/60 s forward / back, held to repeat; 0 to the end less 1/60 s, and round again
+ * // C: the kit's colour grade on or off (each draw under its kit's look, or the frame's)
  *
  * // Unattended: the medium hit at frame 1 of play, frames 1 to 30 photographed, then it exits
  * ... -Dcrystalgraphics.harness.kitCues.cues=hit_spark/melee/medium -Dcrystalgraphics.harness.kitCues.capture=30 \
@@ -281,8 +281,8 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         if (key == CgKeyCodes.KEY_LSHIFT || key == CgKeyCodes.KEY_RSHIFT) shift = event.pressed();
         if (!event.pressed()) return true;
         // A held step key steps once a repeat, as the OS repeats it; every other key acts on its press alone
-        if (key == CgKeyCodes.KEY_PERIOD || key == CgKeyCodes.KEY_COMMA) {
-            if (key == CgKeyCodes.KEY_PERIOD) stepForward();
+        if (key == CgKeyCodes.KEY_X || key == CgKeyCodes.KEY_Z) {
+            if (key == CgKeyCodes.KEY_X) stepForward();
             else stepBack();
             return true;
         }
@@ -299,7 +299,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
             }
             case CgKeyCodes.KEY_Y -> speed = shift ? Math.max(0, speed - 1) : Math.min(SPEEDS.length - 1, speed + 1);
             case CgKeyCodes.KEY_P -> speed = speed == 0 ? SPEEDS.length - 1 : 0;
-            case CgKeyCodes.KEY_X -> CgWorldRenderer.get().gradeDraws(!CgWorldRenderer.get().gradeDraws());
+            case CgKeyCodes.KEY_C -> CgWorldRenderer.get().gradeDraws(!CgWorldRenderer.get().gradeDraws());
             default -> {
             }
         }
@@ -311,9 +311,9 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     public String hudLine() {
         String cue = ids.isEmpty() ? "-" : ids.get(current);
         return String.format(Locale.ROOT, "%nCue [N/B]: %s | Fire [R]%n"
-                        + "Time [P]: %s | Speed [Y]: x%s | Step [, .]%n"
+                        + "Time [P]: %s | Speed [Y]: x%s | Step [Z X]%n"
                         + "Age: %.3f / %.3f s%n"
-                        + "Kit grades [X]: %s",
+                        + "Kit colour grade [C]: %s",
                 cue, speed == 0 ? "paused" : "playing", SPEEDS[speed], Math.min(sinceFire, duration), duration,
                 CgWorldRenderer.get().gradeDraws() ? "on" : "off").replace("\r", "");
     }

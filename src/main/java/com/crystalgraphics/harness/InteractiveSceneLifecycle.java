@@ -102,7 +102,8 @@ public interface InteractiveSceneLifecycle extends HarnessSceneLifecycle {
 
     /**
      * Whether the HUD shows the camera shake ({@code C}) and the HDR scene's glow gain ({@code [ ]}): off for a scene
-     * neither does anything in, so its lines are not crowded by controls that do nothing there.
+     * neither does anything in, so its lines are not crowded by controls that do nothing there. Off, {@code C} no
+     * longer toggles the shake, and is the scene's own key.
      *
      * <pre>{@code
      * @Override public boolean hudShowsShakeAndGlow() { return false; }

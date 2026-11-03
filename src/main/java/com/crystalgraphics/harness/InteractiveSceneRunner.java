@@ -737,9 +737,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 reloadAssets();
             }
             boolean letters = scene.uses3DCamera() && (desktop == null || !desktop.shown());
-            // C: camera shake on and off. Only with a 3D camera, since a UI scene's text field types the letter.
+            // C: camera shake on and off. Only with a 3D camera, since a UI scene's text field types the letter, and
+            // only where the HUD shows the shake: a scene hiding it takes C for its own.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_C && !isCtrlDown()
-                    && letters) {
+                    && letters && scene.hudShowsShakeAndGlow()) {
                 HarnessCameraShake.INSTANCE.toggle();
             }
             // L: bloom in the target's encoding, then in linear light, then off, to compare the three.

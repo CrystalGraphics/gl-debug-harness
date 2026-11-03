@@ -149,7 +149,7 @@ scene and its device: `skinned-play [vk]`.
   `--mode=kit-cues` is a mod's hits without Minecraft: a kit's cues (`.kitCues.namespace`, `.kitCues.kit` its folder,
   `.kitCues.cues` paths under its `cues/`) fired at a dummy on a floor that writes depth, through the client world's
   cue manager and the engine's sequencer (systems, post volumes, colour regions, shakes), under the kit's look. R fires
-  again, N/B change cue, Y/Shift+Y and P slow or pause time, X the kit's grades; `.kitCues.regions=false` leaves the
+  again, N/B change cue, Y/Shift+Y and P slow or pause time, Z/X step a frame back or forward, C the kit's colour grade; `.kitCues.regions=false` leaves the
   colour regions out, `.kitCues.capture=<n>` photographs n frames of play and exits. Its javadoc has Dragon Forge's s0.
   `--mode=kit-shading` is a kit's shading models drawing: its `shading.yaml` registered under
   `-Dcrystalgraphics.harness.kit.namespace`, the material `.kit.material` compiled from the kit folder `.kit` through its
@@ -710,7 +710,7 @@ The interactive runner sequences these steps every frame:
 | Mouse | Look around (yaw/pitch) |
 | ESCAPE or T | Toggle pause (releases mouse cursor) |
 | F1 | Hide or show the harness's HUD text, as a game's F1 hides its interface: a clean frame to compare against a game capture. The HUD stage still fires, so the engine's subtitles stay |
-| C | Camera shake on and off (the HUD says which) |
+| C | Camera shake on and off (the HUD says which); a scene whose HUD hides the shake (`hudShowsShakeAndGlow`, kit-cues) takes C for its own |
 | L | Bloom in the target's encoding, then in linear light, then off (the HUD says which) |
 | G | The HDR scene on or off for the run (`CgWorldRenderer.hdrScene`, overriding the `CgGraphicsSettings.HDR` setting, on by default, unsaved; `-Dcrystalgraphics.world.hdrScene=false` at launch): the transparent stage drawn into a linear RGBA16F scene and composited back, or straight into the target as before. Takes effect the next frame |
 | [ ] | The HDR scene's glow gain down or up by a quarter (`CgWorldRenderer.sceneEmission`, 0.5 by default): how much an Emissive pass adds sharp into the scene. Held, it repeats; the HUD shows it |
