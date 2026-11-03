@@ -15,7 +15,7 @@ import java.util.Arrays;
 import java.util.function.Supplier;
 
 /**
- * The harness's HUD, top left in the engine's default font, white outlined in black, 14 px where the window's shorter
+ * The harness's HUD, top left in the engine's default font, yellow outlined in black, 14 px where the window's shorter
  * side is 600 and in proportion above. The scene's own lines ({@code InteractiveSceneLifecycle.hudLine}) go under it:
  * <pre>
  * FPS: n | 1% low n | worst x.xx ms   (each over the last 0.5 s)
@@ -31,7 +31,7 @@ public final class HUDRenderer {
 
     private static final int BASE_FONT_PX = 14;
     private static final float BASE_SIDE = 600f;
-    private static final int TEXT_COLOR = 0xFFFFFFFF;
+    private static final int TEXT_COLOR = 0xFFFFD23F;
     private static final float OUTLINE_EM = 0.12f;
     private static final int OUTLINE_COLOR = 0xFF000000;
     private static final long WINDOW_NANOS = 500_000_000L;
