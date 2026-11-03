@@ -49,12 +49,16 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
 
     private static final int W = 320, H = 240;
 
-    private CgMaterial wall, glow;
+    private CgMaterial wall, glow, glass;
+    /** A translucent glow beside the ball, graded by {@link #glassGrade} when {@link #glassBall}. */
+    private boolean glassBall;
+    private CgPostSettings glassGrade;
 
     @Override
     public void init(HarnessContext ctx) {
         wall = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         glow = CgMaterial.load("assets/harness/shader/bloom_glow.shader");
+        glass = CgMaterial.load("assets/harness/shader/grade_glow.shader");
     }
 
     @Override
@@ -139,6 +143,27 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
             failures.add("focus lines on white: ball " + mean(focus, W / 2 - 4, H / 2 - 4, 8, 8) + ", top rows " + rim);
         }
 
+        // A graded draw: its own look on its light alone, the rest of the frame as it was
+        BufferedImage bare = draw(ctx, world, "graded-bare", v -> { });
+        glassBall = true;
+        BufferedImage plain = draw(ctx, world, "graded-plain", v -> { });
+        CgPostSettings grey = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).bloom(0f);
+        glassGrade = grey;
+        BufferedImage greyed = draw(ctx, world, "graded", v -> { });
+        int changedAway = changed(bare, greyed, 0, 0, 150, H);
+        if (changedAway > 0) failures.add("a graded draw changed " + changedAway + " pixels away from it");
+        float own = saturation(greyed, 266, 116, 8, 8), was = saturation(plain, 266, 116, 8, 8);
+        gradedSaturation[0] = own;
+        gradedSaturation[1] = was;
+        if (!(was > 0.3f && own < was * 0.5f)) failures.add("a graded draw's look: saturation " + own + " against " + was);
+        glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).gaussianBloom();
+        BufferedImage bloomed = draw(ctx, world, "graded-bloom", v -> { });
+        float beside = mean(bloomed, 204, 116, 12, 8) - mean(greyed, 204, 116, 12, 8);
+        gradedSaturation[2] = beside;
+        if (!(beside > 1f)) failures.add("a graded draw's own bloom: " + beside + " brighter beside it");
+        glassBall = false;
+        glassGrade = null;
+
         CgGraphicsSettings.FLASHES.set(flashes);
         report(failures, GlErrorChecker.checkAndLog("post-looks"));
     }
@@ -153,6 +178,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         CgMesh cube = CgMeshShapes.cube(), ball = CgMeshShapes.sphere(24, 32);
         world.draw(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).submit();
         world.draw(ball, glow).at(0, 0, -3).transform(new Matrix4f().scale(0.6f)).submit();
+        if (glassBall) world.draw(ball, glass).at(1.6, 0, -3).transform(new Matrix4f().scale(0.6f)).grade(glassGrade).submit();
         Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) W / H, 0.05f, 100f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
             stage.host().set(0f, W, H, target.getFboId()).view().set(0, 0, 0, new Matrix4f(), projection);
@@ -170,6 +196,26 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         }
     }
 
+    /** The pixels of {@code (x, y, w, h)} that differ between {@code a} and {@code b}. */
+    private static int changed(BufferedImage a, BufferedImage b, int x, int y, int w, int h) {
+        int n = 0;
+        for (int j = y; j < y + h; j++) for (int i = x; i < x + w; i++) if (a.getRGB(i, j) != b.getRGB(i, j)) n++;
+        return n;
+    }
+
+    /** The mean of (max - min) / max over {@code (x, y, w, h)}'s channels: 0 for grey. */
+    private static float saturation(BufferedImage image, int x, int y, int w, int h) {
+        float sum = 0;
+        for (int j = y; j < y + h; j++) {
+            for (int i = x; i < x + w; i++) {
+                int p = image.getRGB(i, j), r = p >> 16 & 0xFF, g = p >> 8 & 0xFF, b = p & 0xFF;
+                int max = Math.max(r, Math.max(g, b)), min = Math.min(r, Math.min(g, b));
+                sum += max == 0 ? 0f : (max - min) / (float) max;
+            }
+        }
+        return sum / (w * h);
+    }
+
     private static void same(List<String> failures, String what, BufferedImage a, BufferedImage b) {
         int n = changed(a, b);
         if (n > 0) failures.add(what + " changed " + n + " pixels");
@@ -177,6 +223,8 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
 
     /** The grade's worst pixel against the CPU's, in codes: for the verdict. */
     private static double gradeWorst;
+    /** A graded draw's saturation, the ungraded one's, and its own bloom beside it: for the verdict. */
+    private static final float[] gradedSaturation = new float[3];
 
     /**
      * The most any of every 7th pixel of {@code graded} is from {@code plain}'s decoded through the packed grade and its
@@ -269,7 +317,9 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
             System.out.println("[post-looks] PASS on " + on + ": weight 0, out of reach and flashes 0 change nothing; "
                     + "flash, vignette, invert, aberration and focus lines each show; a drawn frame's subject is the glow; "
                     + "priority overrides; the tonemapper within " + String.format("%.2f", toneWorst) + " codes of the CPU's table; "
-                    + "the grade within " + String.format("%.2f", gradeWorst) + " codes of the CPU's, a neutral one exact; Unreal's Gaussian bloom spreads to the corners");
+                    + "the grade within " + String.format("%.2f", gradeWorst) + " codes of the CPU's, a neutral one exact; Unreal's Gaussian bloom spreads to the corners; a graded draw leaves the frame away from it exact, "
+                    + "takes its look (saturation " + String.format("%.2f", gradedSaturation[0]) + " from " + String.format("%.2f", gradedSaturation[1])
+                    + ") and its own bloom (" + String.format("%.1f", gradedSaturation[2]) + " brighter beside it)");
         }
     }
 
