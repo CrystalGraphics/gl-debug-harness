@@ -306,12 +306,21 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         return true;
     }
 
+    /** The HUD's lines in its own form, a name, its keys, then its state: what plays, its clock, what it is drawn under. */
     @Override
     public String hudLine() {
         String cue = ids.isEmpty() ? "-" : ids.get(current);
-        return String.format(Locale.ROOT, "%s [N/B]  time x%s [Y]  %s [P]  age %.3f/%.3f s\nfire [R]  step [, .]  kit grades %s [X]",
-                cue, SPEEDS[speed], speed == 0 ? "paused" : "playing", Math.min(sinceFire, duration), duration,
-                CgWorldRenderer.get().gradeDraws() ? "on" : "off");
+        return String.format(Locale.ROOT, "%nCue [N/B]: %s | Fire [R]%n"
+                        + "Time [P]: %s | Speed [Y]: x%s | Step [, .]%n"
+                        + "Age: %.3f / %.3f s%n"
+                        + "Kit grades [X]: %s",
+                cue, speed == 0 ? "paused" : "playing", SPEEDS[speed], Math.min(sinceFire, duration), duration,
+                CgWorldRenderer.get().gradeDraws() ? "on" : "off").replace("\r", "");
+    }
+
+    @Override
+    public boolean hudShowsShakeAndGlow() {
+        return false;
     }
 
     @Override

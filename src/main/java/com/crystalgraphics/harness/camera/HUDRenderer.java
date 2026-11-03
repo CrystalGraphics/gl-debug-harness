@@ -97,6 +97,8 @@ public final class HUDRenderer {
 
     /** The scene's own lines, under the HUD's ({@code InteractiveSceneLifecycle.hudLine}). */
     private Supplier<String> sceneLines = () -> null;
+    /** Whether the shake and glow controls show ({@code InteractiveSceneLifecycle.hudShowsShakeAndGlow}). */
+    private boolean shakeAndGlow = true;
 
     public HUDRenderer() {
         currentFontSizePx = BASE_FONT_SIZE_PX;
@@ -105,6 +107,10 @@ public final class HUDRenderer {
 
     public void sceneLines(Supplier<String> lines) {
         sceneLines = lines;
+    }
+
+    public void shakeAndGlow(boolean shown) {
+        shakeAndGlow = shown;
     }
 
     /**
@@ -280,10 +286,11 @@ public final class HUDRenderer {
                 ? String.format("Shake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "Shake [C]: off";
         CgBloom bloom = CgPostStack.get().bloom();
         String hdrLine = "HDR [G]: " + (CgWorldRenderer.get().hdrScene() ? "on" : "off")
-                + String.format(" | Glow [ ]: %.2f", CgWorldRenderer.get().sceneEmission());
+                + (shakeAndGlow ? String.format(" | Glow [ ]: %.2f", CgWorldRenderer.get().sceneEmission()) : "");
         String bloomLine = "Bloom [L]: " + (bloom.intensity() == 0f ? "off" : bloom.linear() ? "linear" : "blend")
                 + String.format(" | Intensity [- =]: %.2f", bloom.intensity());
-        String hudText = fpsLine + "\n" + posLine + "\n" + particleLine + "\n\n" + simLine + "\n" + hdrLine + "\n" + bloomLine;
+        String hudText = fpsLine + "\n" + posLine + "\n" + particleLine + "\n\n" + (shakeAndGlow ? simLine + "\n" : "")
+                + hdrLine + "\n" + bloomLine;
         String own = sceneLines.get();
         if (own != null) hudText += "\n" + own;
 

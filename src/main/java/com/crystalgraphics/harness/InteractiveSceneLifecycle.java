@@ -101,6 +101,18 @@ public interface InteractiveSceneLifecycle extends HarnessSceneLifecycle {
     }
 
     /**
+     * Whether the HUD shows the camera shake ({@code C}) and the HDR scene's glow gain ({@code [ ]}): off for a scene
+     * neither does anything in, so its lines are not crowded by controls that do nothing there.
+     *
+     * <pre>{@code
+     * @Override public boolean hudShowsShakeAndGlow() { return false; }
+     * }</pre>
+     */
+    default boolean hudShowsShakeAndGlow() {
+        return true;
+    }
+
+    /**
      * Whether it plays under VFX Lab's sky and floor ({@code HarnessEnvironment}, F9 day and night) rather than the
      * harness's clear colour and floor. Off for a gate, whose pixels are checked against the plain ones.
      */
