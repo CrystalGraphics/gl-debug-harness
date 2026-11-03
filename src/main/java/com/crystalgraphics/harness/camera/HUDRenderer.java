@@ -31,7 +31,7 @@ public final class HUDRenderer {
 
     private static final int BASE_FONT_PX = 14;
     private static final float BASE_SIDE = 600f;
-    private static final int TEXT_COLOR = 0xFFFF5C7A;
+    private static final int TEXT_COLOR = 0xFFFF4F5E;
     private static final float OUTLINE_EM = 0.12f;
     private static final int OUTLINE_COLOR = 0xFF000000;
     private static final long WINDOW_NANOS = 500_000_000L;
