@@ -232,8 +232,9 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     @Override
     public String hudLine() {
         String cue = ids.isEmpty() ? "-" : ids.get(current);
-        return String.format(Locale.ROOT, "%s [N/B]  age %.3f s  fire [R]  time x%s [Y]  pause [P]  step [.]  kit grades %s [X]",
-                cue, sinceFire, SPEEDS[speed], CgWorldRenderer.get().gradeDraws() ? "on" : "off");
+        return String.format(Locale.ROOT, "%s [N/B]  time x%s [Y]  %s [P]  age %.3f s\nfire [R]  step [.]  kit grades %s [X]",
+                cue, SPEEDS[speed], speed == 0 ? "paused" : "playing", sinceFire,
+                CgWorldRenderer.get().gradeDraws() ? "on" : "off");
     }
 
     @Override
