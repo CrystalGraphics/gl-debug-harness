@@ -1,10 +1,18 @@
 package com.crystalgraphics.harness.runtime;
 
+import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
+import com.crystalgraphics.api.texture.CgTextureType;
+import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.camera.PauseScreenRenderer;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.RenderPassState;
+import com.crystalgraphics.platform.gl.CgGL;
+import com.crystalgraphics.platform.gl.state.CgGlScope;
+import com.crystalgraphics.platform.gl.state.CgGlState;
+import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.render.stage.CgRenderStage;
+import com.crystalgraphics.text.cache.CgFontRegistry;
 
 import java.util.logging.Logger;
 
@@ -178,8 +186,42 @@ public final class OverlayPipeline {
      * <p>Called during runner shutdown. After this call, no overlay
      * methods should be invoked.</p>
      */
+    /** {@link #warmHud}'s target: drawn into, never read. */
+    private CgFrameBuffer hudWarmTarget;
+    private static final int HUD_WARM_FRAMES = 240;
+    private int hudWarmQuiet, hudWarmFrames;
+    private long hudWarmFrame = -1;
+
+    /**
+     * Draws the HUD text into a scratch target behind the loading screen, which draws no overlay: its font at the
+     * window's size and its glyphs are made before it shows. Once a frame, since glyphs land at a frame's tick; true
+     * once three frames' draws in a row left no glyph pending, or after {@link #HUD_WARM_FRAMES}, should glyph work for
+     * others never go quiet.
+     */
+    public boolean warmHud(HarnessContext ctx) {
+        long frame = CgFrameClock.frameIndex();
+        if (frame == hudWarmFrame) return false;
+        hudWarmFrame = frame;
+        if (++hudWarmFrames > HUD_WARM_FRAMES) return true;
+        if (hudWarmTarget == null) {
+            hudWarmTarget = CgFrameBuffer.create("harness_hud_warm", 16, 16,
+                    CgFrameBufferFormat.builder("harness_hud_warm").color(0, CgTextureType.RGBA8).build());
+        }
+        try (CgGlScope ignored = CgGlState.saveAll()) {
+            CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, hudWarmTarget.getId());
+            CgGL.glViewport(0, 0, 16, 16);
+            hudRenderer.render(ctx);
+        }
+        hudWarmQuiet = CgFontRegistry.get().getPendingAsyncGlyphCount() == 0 ? hudWarmQuiet + 1 : 0;
+        return hudWarmQuiet >= 3;
+    }
+
     public void delete() {
         if (hudStage != null) hudStage.close();
+        if (hudWarmTarget != null) {
+            hudWarmTarget.delete();
+            hudWarmTarget = null;
+        }
         hudRenderer.delete();
         pauseRenderer.delete();
         LOGGER.info("[OverlayPipeline] All overlay renderers deleted.");

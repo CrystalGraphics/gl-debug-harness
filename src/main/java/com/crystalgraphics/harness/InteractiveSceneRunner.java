@@ -139,8 +139,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private static final String PROFILE_SPLIT_AT = System.getProperty("crystalgraphics.harness.profile.splitAt");
 
     /** The swap blocks when the GPU is behind, and the sync sleeps to hold the rate: waits, not work. */
-    private static final int SWAP = CgTrace.waitName("frame.swap");
-    private static final int SYNC = CgTrace.waitName("frame.sync");
+    private static final int SWAP = CgTrace.waitName("frame.swap");    private static final int SYNC = CgTrace.waitName("frame.sync");
 
     /** Zones a profiled frame may hold, per thread: the ring is sized so no profiled frame loses its own. */
     private static final int PROFILE_ZONES_PER_FRAME =
@@ -991,13 +990,17 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             return;
         }
         // Behind the screen, a renderer a slice: the HUD's fonts and the pause overlay's program held the scene's init
-        // 190 ms, and nothing draws them before the hide, which this task holds back until they are made
+        // 190 ms, and nothing draws them before the hide, which this task holds back until they are made. Then the HUD
+        // drawn offscreen until its glyphs land: the loading frames draw no overlay, so they popped in after the hide
         Runnable[] parts = {() -> overlayPipeline.initHud(ctx), overlayPipeline::initPause, worldPassCoordinator::init};
         int[] next = {0};
         CgLoadPlan.get().task("harness:overlays").render(task -> {
-            parts[next[0]++].run();
-            task.progress(next[0] / (float) parts.length);
-            return next[0] == parts.length;
+            if (next[0] < parts.length) {
+                parts[next[0]++].run();
+                task.progress(next[0] / (parts.length + 1f));
+                return false;
+            }
+            return !scene.uses3DCamera() || overlayPipeline.warmHud(ctx);
         }).start();
     }
     /**
