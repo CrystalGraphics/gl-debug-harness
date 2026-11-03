@@ -15,6 +15,7 @@ import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.look.CgColorGrade;
 import com.crystalgraphics.render.post.look.CgFilmLut;
 import com.crystalgraphics.render.post.volume.CgImpact;
+import com.crystalgraphics.render.post.volume.CgColourRegion;
 import com.crystalgraphics.render.post.volume.CgPostSettings;
 import com.crystalgraphics.render.post.volume.CgPostSettings.Control;
 import com.crystalgraphics.render.post.volume.CgPostSettings.Region;
@@ -23,6 +24,7 @@ import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.settings.CgGraphicsSettings;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -164,6 +166,26 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         float beside = mean(bloomed, 204, 116, 12, 8) - mean(greyed, 204, 116, 12, 8);
         gradedSaturation[2] = beside;
         if (!(beside > 1f)) failures.add("a graded draw's own bloom: " + beside + " brighter beside it");
+        // A colour region over the graded ball grades its layer's light too: at gain 0 its own bloom beside it is gone.
+        // The ball writes no depth, so its pixels are where the wall behind it is: the region holds that.
+        CgPostSettings dark = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).bloom(0f);
+        CgColourRegion box = new CgColourRegion().shape(CgColourRegion.Shape.BOX).fade(0.9f, 1f)
+                .grade(CgColourRegion.Range.GLOBAL, CgColourRegion.Control.GAIN, 1f, 1f, 1f, 0f)
+                .place(1.6, 0, -4.9, new Quaternionf(), 1.4f, 1.4f, 1.4f);
+        float[] regionBeside = new float[2];
+        for (int r = 0; r < 2; r++) {
+            CgRenderStage.Registration region = r == 1 ? box.show() : null;
+            glassGrade = dark;
+            BufferedImage regionDark = draw(ctx, world, "graded-region-" + r + "-dark", v -> { });
+            glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).gaussianBloom();
+            BufferedImage bloomedHere = draw(ctx, world, "graded-region-" + r, v -> { });
+            regionBeside[r] = mean(bloomedHere, 204, 116, 12, 8) - mean(regionDark, 204, 116, 12, 8);
+            if (region != null) region.close();
+        }
+        gradedSaturation[6] = regionBeside[1] / regionBeside[0];
+        if (!(regionBeside[0] > 1f && regionBeside[1] < regionBeside[0] * 0.1f)) {
+            failures.add("a region over a graded draw: its own bloom " + regionBeside[1] + " against " + regionBeside[0]);
+        }
         glassBall = false;
 
         // An opaque graded draw, drawn in the opaque firing: its layer covers what is behind it, whatever alpha it writes
@@ -249,7 +271,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
     /** The grade's worst pixel against the CPU's, in codes: for the verdict. */
     private static double gradeWorst;
     /** A graded draw's saturation, the ungraded one's, its own bloom beside it, then an opaque one's two: for the verdict. */
-    private static final float[] gradedSaturation = new float[6];
+    private static final float[] gradedSaturation = new float[7];
 
     /**
      * The most any of every 7th pixel of {@code graded} is from {@code plain}'s decoded through the packed grade and its
@@ -345,7 +367,8 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
                     + "the grade within " + String.format("%.2f", gradeWorst) + " codes of the CPU's, a neutral one exact; Unreal's Gaussian bloom spreads to the corners; a graded draw leaves the frame away from it exact, "
                     + "takes its look (saturation " + String.format("%.2f", gradedSaturation[0]) + " from " + String.format("%.2f", gradedSaturation[1])
                     + ") and its own bloom (" + String.format("%.1f", gradedSaturation[2]) + " brighter beside it), an opaque one too (saturation "
-                    + String.format("%.2f", gradedSaturation[3]) + " from " + String.format("%.2f", gradedSaturation[4]) + ", its bloom " + String.format("%.1f", gradedSaturation[5]) + " brighter beside it)");
+                    + String.format("%.2f", gradedSaturation[3]) + " from " + String.format("%.2f", gradedSaturation[4]) + ", its bloom " + String.format("%.1f", gradedSaturation[5]) + " brighter beside it); a gain-0 region over a graded draw leaves "
+                    + String.format("%.2f", gradedSaturation[6]) + "x its own bloom");
         }
     }
 
