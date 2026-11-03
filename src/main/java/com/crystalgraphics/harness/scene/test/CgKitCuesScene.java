@@ -1,0 +1,240 @@
+package com.crystalgraphics.harness.scene.test;
+
+import com.crystalgraphics.api.material.CgMaterial;
+import com.crystalgraphics.api.mesh.CgMesh;
+import com.crystalgraphics.api.mesh.CgMeshShapes;
+import com.crystalgraphics.asset.kind.CgGameplayKinds;
+import com.crystalgraphics.asset.load.CgAssetRef;
+import com.crystalgraphics.asset.load.CgLoadPriority;
+import com.crystalgraphics.asset.load.CgVfxAssets;
+import com.crystalgraphics.cue.CgCueDefinition;
+import com.crystalgraphics.cue.CgCueManager;
+import com.crystalgraphics.cue.CgCueParameters;
+import com.crystalgraphics.cue.CgCuePlaying;
+import com.crystalgraphics.frame.CgTickFunction;
+import com.crystalgraphics.frame.CgTickGroup;
+import com.crystalgraphics.frame.CgWorld;
+import com.crystalgraphics.harness.FrameInfo;
+import com.crystalgraphics.harness.InteractiveSceneLifecycle;
+import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.platform.input.CgKeyCodes;
+import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.asset.kind.CgSequenceKinds;
+import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
+import com.crystalgraphics.sequence.CgSequencer;
+import com.crystalgraphics.vfx.CgVfx;
+import com.crystalgraphics.vfx.system.CgVfxSequencer;
+import org.joml.Matrix4f;
+
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * A kit's cues fired at a dummy standing on a floor, through the engine's own path: the client world's cue manager,
+ * its sequencer with the engine's spawners (systems, post volumes, colour regions, shakes) and the kit's look. What a
+ * mod's hit plays in Minecraft, without launching it. Scene id {@code kit-cues}.
+ *
+ * <pre>{@code
+ * // Dragon Forge's s0 hit sparks, from its resources
+ * R=X:/projects/Dragon-Forge-NeoForge/RPG-Core-NeoForge/src/main/resources
+ * ./gradlew :gl-debug-harness:runHarness -Pharness.assetRoots=$R --args="--mode=kit-cues" \
+ *     -Dcrystalgraphics.harness.kitCues.namespace=s0 -Dcrystalgraphics.harness.kitCues.kit=$R/assets/s0 \
+ *     -Dcrystalgraphics.harness.kitCues.cues=hit_spark/melee/light,hit_spark/melee/medium,hit_spark/melee/heavy
+ * // R: fire again   N / B: next / previous cue   Y / Shift+Y: time faster / slower   P: pause time
+ * // X: the kit's grades on or off (each draw under its kit's look, or the frame's)
+ *
+ * // Unattended: the medium hit at frame 1 of play, frames 1 to 30 photographed, then it exits
+ * ... -Dcrystalgraphics.harness.kitCues.cues=hit_spark/melee/medium -Dcrystalgraphics.harness.kitCues.capture=30 \
+ *     -Dcrystalgraphics.harness.fixedDelta=0.0166667
+ * }</pre>
+ *
+ * <ul>
+ *   <li>A cue is named by its path under the kit's {@code cues/}; it fires by its own {@code tag}.</li>
+ *   <li>The floor and the dummy are opaque world draws, so a colour region, a soft particle or a depth fade sees
+ *       depth where the game would: the harness's own floor writes none.</li>
+ *   <li>{@code .fireEvery=<seconds>} (2) fires the cue again on that clock while nothing is pressed; 0 fires once.
+ *       {@code .distance=<blocks>} (3) is the camera's distance from the hit, at eye height.</li>
+ *   <li>{@code .regions=false} plays the cues' sequences without their colour regions.</li>
+ *   <li>A cue fires once it and the sequences its burst plays are {@code READY}, resident and precached: a burst
+ *       still loading 0.2 s after it fires plays nothing, as in the game.</li>
+ *   <li>A pixel check of the frame is the caller's: {@code .capture=<n>} writes frames 1 to n of play as
+ *       {@code kit-cues-f<k>.png}.</li>
+ * </ul>
+ */
+public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard {
+
+    private static final String TAG = "[kit-cues] ";
+    /** The dummy's feet and the hit at its chest, the camera on +z looking down -z. */
+    private static final double HIT_X = 0, HIT_Y = 1.2, HIT_Z = 0;
+    private static final float[] SPEEDS = {0f, 0.01f, 0.05f, 0.1f, 0.25f, 0.5f, 1f};
+
+    private final List<String> ids = new ArrayList<>();
+    private final List<CgAssetRef<CgCueDefinition>> cues = new ArrayList<>();
+    /** The sequences the cues' bursts play, loaded before the first fire: a burst whose sequence is not loaded plays nothing. */
+    private final List<CgAssetRef<CgSequenceDefinition>> sequences = new ArrayList<>();
+    private CgTickFunction submit;
+    private boolean sequencesDeclared;
+    private final CgCueParameters params = new CgCueParameters();
+    private final Matrix4f floorShape = new Matrix4f().translate(0f, -0.5f, 0f).scale(64f, 1f, 64f);
+    private final Matrix4f dummyShape = new Matrix4f().translate(0f, 0.9f, 0f).scale(0.6f, 1.8f, 0.3f);
+    private final float fireEvery = Float.parseFloat(System.getProperty("crystalgraphics.harness.kitCues.fireEvery", "2"));
+    private final int capture = Integer.getInteger("crystalgraphics.harness.kitCues.capture", 0);
+    private HarnessKitSystems kit;
+    /** The looping cue playing, stopped as the next fires. */
+    private CgCuePlaying looping;
+    private CgMaterial floor, dummy;
+    private CgMesh cube;
+    private int current, speed = SPEEDS.length - 1, frames;
+    private double sinceFire;
+    private boolean declared, started, fireNow, shift, running = true;
+
+    @Override
+    public void init(HarnessContext ctx) {
+        String namespace = require("namespace");
+        String folder = require("kit");
+        for (String id : require("cues").split(",")) if (!id.isBlank()) ids.add(namespace + ":" + id.trim());
+        float distance = Float.parseFloat(System.getProperty("crystalgraphics.harness.kitCues.distance", "3"));
+        ctx.getCamera3D().moveCamera((float) HIT_X, 1.62f, (float) HIT_Z + distance);
+        ctx.getCamera3D().setPitch(-5f);
+        kit = HarnessKitSystems.load(CgVfx.world(), namespace, Paths.get(folder), List.of());
+        // The engine's sequencer, as a client's: a burst's sequences play through it
+        CgSequencer sequencer = CgVfxSequencer.install(CgWorld.client(), CgVfx.world());
+        // Its colour regions left out, to tell what they grade from what the rest of the hit does
+        if (!Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.kitCues.regions", "true"))) {
+            sequencer.spawner("colour_region", (player, spawnable, at) -> new CgSequenceSpawnScene.Fixture());
+        }
+        floor = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
+        dummy = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
+        cube = CgMeshShapes.cube();
+        // Submitted in the world's frame, as a mod's draws are: before it, the world's frame drops them
+        submit = CgWorld.client().schedule().add(CgTickGroup.SUBMIT, "harness:kit-cues", dt -> {
+            CgWorldRenderer world = CgWorldRenderer.get();
+            world.draw(cube, floor).at(0, 0, 0).transform(floorShape).submit();
+            world.draw(cube, dummy).at(HIT_X, 0, HIT_Z - 0.4).transform(dummyShape).submit();
+        });
+    }
+
+    private static String require(String key) {
+        String v = System.getProperty("crystalgraphics.harness.kitCues." + key);
+        if (v == null) throw new IllegalStateException(TAG + "-Dcrystalgraphics.harness.kitCues." + key + " is required");
+        return v;
+    }
+
+    @Override
+    public void render(HarnessContext ctx, FrameInfo frame) {
+        CgWorld.client().timeDilation(SPEEDS[speed]);
+        if (!declared && kit.declared()) {
+            declared = true;
+            for (String id : ids) {
+                CgAssetRef<CgCueDefinition> ref = CgVfxAssets.instance().declare(CgGameplayKinds.CUE, id);
+                ref.request(CgLoadPriority.MOVE);
+                cues.add(ref);
+            }
+        }
+        if (kit.failed()) {
+            System.out.println(TAG + "FAIL: " + kit.failures());
+            running = false;
+        } else if (!started && declared && allLoaded()) {
+            started = true;
+            fireNow = true;
+            System.out.println(TAG + cues.size() + " cues ready: " + ids);
+        }
+        if (started) {
+            sinceFire += frame.getDeltaTime() * SPEEDS[speed];
+            if (fireNow || fireEvery > 0 && sinceFire >= fireEvery) fire();
+            frames++;
+            if (capture > 0 && frames <= capture) ctx.getArtifactService().requestCapture(String.format(Locale.ROOT, "f%02d", frames));
+            if (capture > 0 && frames > capture) running = false;
+        }
+        HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
+    }
+
+    private boolean allLoaded() {
+        for (CgAssetRef<CgCueDefinition> ref : cues) {
+            if (ref.failure() != null) {
+                System.out.println(TAG + "FAIL: " + ref.failure());
+                running = false;
+                return false;
+            }
+            if (!ref.ready()) return false;
+        }
+        if (!sequencesDeclared) {
+            sequencesDeclared = true;
+            for (CgAssetRef<CgCueDefinition> ref : cues) {
+                for (CgCueDefinition.SequenceEntry e : ref.loaded().burst().sequences()) {
+                    CgAssetRef<CgSequenceDefinition> seq = CgVfxAssets.instance().declare(CgSequenceKinds.SEQUENCE, e.sequence());
+                    seq.request(CgLoadPriority.MOVE);
+                    sequences.add(seq);
+                }
+            }
+        }
+        for (CgAssetRef<CgSequenceDefinition> seq : sequences) {
+            if (seq.failure() != null) {
+                System.out.println(TAG + "FAIL: " + seq.failure());
+                running = false;
+                return false;
+            }
+            if (!seq.ready()) return false;
+        }
+        return true;
+    }
+
+    private void fire() {
+        fireNow = false;
+        sinceFire = 0;
+        CgCueDefinition cue = cues.get(current).loaded();
+        if (cue.tag() == null) throw new IllegalStateException(TAG + cue.id() + " has no tag to fire it by");
+        params.reset().at(HIT_X, HIT_Y, HIT_Z).normal(0f, 0f, 1f);
+        // A burst is executed once; a looping cue is added, and the last one stops as the next fires
+        if (cue.kind() == CgCueDefinition.Kind.BURST) {
+            CgCueManager.client().execute(cue.tag(), params);
+        } else {
+            if (looping != null) looping.remove();
+            looping = CgCueManager.client().add(cue.tag(), params);
+        }
+    }
+
+    @Override
+    public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
+        int key = event.key();
+        if (key == CgKeyCodes.KEY_LSHIFT || key == CgKeyCodes.KEY_RSHIFT) shift = event.pressed();
+        if (!event.pressed() || event.repeat()) return true;
+        switch (key) {
+            case CgKeyCodes.KEY_R -> fireNow = started;
+            case CgKeyCodes.KEY_N -> {
+                current = (current + 1) % Math.max(1, ids.size());
+                fireNow = started;
+            }
+            case CgKeyCodes.KEY_B -> {
+                current = (current + ids.size() - 1) % Math.max(1, ids.size());
+                fireNow = started;
+            }
+            case CgKeyCodes.KEY_Y -> speed = shift ? Math.max(0, speed - 1) : Math.min(SPEEDS.length - 1, speed + 1);
+            case CgKeyCodes.KEY_P -> speed = speed == 0 ? SPEEDS.length - 1 : 0;
+            case CgKeyCodes.KEY_X -> CgWorldRenderer.get().gradeDraws(!CgWorldRenderer.get().gradeDraws());
+            default -> {
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public String hudLine() {
+        String cue = ids.isEmpty() ? "-" : ids.get(current);
+        return String.format(Locale.ROOT, "%s [N/B]  fire [R]  time x%s [Y]  kit grades %s [X]", cue,
+                SPEEDS[speed], CgWorldRenderer.get().gradeDraws() ? "on" : "off");
+    }
+
+    @Override
+    public void dispose() {
+        if (submit != null) submit.close();
+        if (looping != null) looping.remove();
+    }
+
+    @Override public boolean isRunning() { return running; }
+    @Override public boolean uses3DCamera() { return true; }
+    @Override public boolean shouldShutdownOnComplete() { return capture > 0; }
+}

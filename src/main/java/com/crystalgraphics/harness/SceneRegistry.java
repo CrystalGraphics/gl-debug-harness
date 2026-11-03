@@ -65,6 +65,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxKamehamehaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxDeclaredScene;
 import com.crystalgraphics.harness.scene.test.CgVfxKitPlayScene;
 import com.crystalgraphics.harness.scene.test.CgSequenceSpawnScene;
+import com.crystalgraphics.harness.scene.test.CgKitCuesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxNovaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBenchArenaScene;
 import com.crystalgraphics.harness.scene.test.CgKitShadingScene;
@@ -1520,6 +1521,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgSequenceSpawnScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("kit-cues")
+                .description("A kit's cues fired at a dummy on a floor through the engine's cue manager and sequencer, its look on: a mod's hit sparks without Minecraft")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.45f, 0.62f, 0.88f, 1.0f)
+                .build(),
+            () -> new CgKitCuesScene()
         );
 
         reg.register(
