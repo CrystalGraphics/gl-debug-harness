@@ -329,6 +329,11 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private final CgLoadingProcess arena = new CgLoadingProcess() {
         @Override
         public String loading() {
+            // The beam's cues once the kit's scan registered them: asked before, they fail as unregistered
+            if (!beamsRequested && kit != null && kit.declared() && beams != null) {
+                beamsRequested = true;
+                beams.precache(BEAM).precache(BEAM_CUT);
+            }
             if (!bodiesLoaded) return "loading Goku and Kurama";
             if (kit == null || kit.failed()) return null;
             if (!kit.ready()) return "loading the kit";
@@ -755,8 +760,11 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
     /** The cut's own kind on {@code sequencer}, beside the engine's: the beam its notify fires through {@code cues}. */
     private KakarotProjectileBeam installCut(CgSequencer sequencer, CgCueManager cues, Function<CgSequencePlayer, CgSequenceRole> casters) {
-        return KakarotProjectileBeam.install(sequencer, cues, casters).precache(BEAM).precache(BEAM_CUT);
+        return KakarotProjectileBeam.install(sequencer, cues, casters);
     }
+
+    /** Whether the beam's cues were asked for: once the kit is declared, by {@link #arena}. */
+    private boolean beamsRequested;
 
     /** The harness camera as the camera system's host: its eye, its look and the projection's horizontal FOV. */
     private void hostPose(CgCameraPose out) {
