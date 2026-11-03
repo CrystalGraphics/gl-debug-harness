@@ -722,11 +722,9 @@ The interactive runner sequences these steps every frame:
 
 ### HUD Display
 
-Top-left corner shows camera state in real-time:
-```
-Pos: (X, Y, Z)
-Rot: yaw=Y pitch=P
-```
+Top left, in the engine's default font (the installed sans-serif): FPS with its 1% low and worst frame, the camera's
+position and rotation, the particles drawn, then the shake, HDR and bloom switches and the scene's own lines.
+`HUDRenderer`'s javadoc has the layout.
 
 ---
 

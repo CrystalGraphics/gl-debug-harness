@@ -80,8 +80,6 @@ public final class HarnessWindow {
     private static double travelX;
     private static double travelY;
     private static boolean grabbed;
-    /** Wheel notches since {@link #takeWheel} last read them, positive away from the user. */
-    private static double wheel;
 
     private static long nextFrameNanos;
 
@@ -233,7 +231,6 @@ public final class HarnessWindow {
                         CgPlatform.input().translateMouseCodes(button), action == GLFW.GLFW_PRESS, 0f,
                         System.currentTimeMillis())));
         GLFW.glfwSetScrollCallback(window, (win, dx, dy) -> {
-            wheel += dy;
             // GLFW reports a roll away from the user as positive; the event's convention is the reverse.
             mouse.add(new CgSystemInput.Mouse.Event((int) cursorX, (int) cursorY, 0, 0, CgMouseCodes.NONE, false,
                     (float) -dy, -1L));
@@ -395,13 +392,6 @@ public final class HarnessWindow {
         travelX = 0;
         travelY = 0;
         return delta;
-    }
-
-    /** The wheel's notches since the last call, positive away from the user; and resets them. */
-    public static double takeWheel() {
-        double notches = wheel;
-        wheel = 0;
-        return notches;
     }
 
     public static void destroy() {

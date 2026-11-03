@@ -40,8 +40,7 @@ import java.util.logging.Logger;
  * <h3>Resize-aware ownership</h3>
  * <p>Each overlay renderer has different resize behavior:</p>
  * <ul>
- *   <li>{@link HUDRenderer} — invalidates cached dimensions so font size
- *       and orthographic projection are recalculated on next render</li>
+ *   <li>{@link HUDRenderer} — none: it sizes its text from the window each frame</li>
  *   <li>{@link PauseScreenRenderer} — no-op (quad vertices are recomputed
  *       from screen dimensions each frame)</li>
  * </ul>
@@ -162,7 +161,7 @@ public final class OverlayPipeline {
      *
      * <p>Each renderer handles resize according to its own needs:</p>
      * <ul>
-     *   <li>HUD — invalidates cached dimensions for font/projection recalc</li>
+     *   <li>HUD — nothing: it sizes its text from the window each frame</li>
      *   <li>Pause — no-op (recomputes quad geometry each frame anyway)</li>
      * </ul>
      *
@@ -170,7 +169,6 @@ public final class OverlayPipeline {
      * @param newHeight new viewport height in pixels
      */
     public void onResize(int newWidth, int newHeight) {
-        hudRenderer.onDisplayResize(newWidth, newHeight);
         pauseRenderer.onDisplayResize(newWidth, newHeight);
     }
 
