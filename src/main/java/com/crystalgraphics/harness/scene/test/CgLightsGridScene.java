@@ -16,6 +16,7 @@ import com.crystalgraphics.render.graph.CgComputePass;
 import com.crystalgraphics.render.graph.CgGraphBuffer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
+import com.crystalgraphics.render.world.CgPipelinePrecache;
 import com.crystalgraphics.render.world.CgWorldLights;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
@@ -67,6 +68,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
     private final List<CgRequest> requests = new ArrayList<>();
     private CgGraphBuffer placedBuffer;
     private CgKernel append;
+    private CgPipelinePrecache.Request kernels;
     private CgWorldLights.Appender appender;
     private ByteBuffer count, list, cells, indices;
     private double eyeX, eyeY, eyeZ;
@@ -135,6 +137,10 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         }
         append = CgCompute.load("harness:shaders/lights_append.compute").kernel("Append");
         falloff = CgCompute.load("harness:shaders/lights_falloff.compute").kernel("Falloff");
+        kernels = CgPipelinePrecache.request(p -> {
+            p.add(append);
+            p.add(falloff);
+        });
         falloffLightBuffer = upload("lights-grid.falloff-lights", falloffLights, CgWorldLights.FLOATS * 4);
         sampleBuffer = upload("lights-grid.samples", samples, 16);
         falloffOut = CgGraphBuffer.persistent("lights-grid.falloff",
@@ -149,6 +155,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         appender = new CgWorldLights.Appender() {
             @Override
             public boolean append(CgComputePass pass, CgWorldLights lights) {
+                if (!kernels.ready()) return false;   // the loading screen's warm frames fire the world already
                 lights.into(pass.dispatch(append, KERNEL)).bind("PLACED", placedBuffer);
                 return true;
             }
