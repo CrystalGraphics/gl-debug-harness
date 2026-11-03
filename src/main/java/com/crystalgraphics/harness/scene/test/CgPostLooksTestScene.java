@@ -49,16 +49,19 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
 
     private static final int W = 320, H = 240;
 
-    private CgMaterial wall, glow, glass;
+    private CgMaterial wall, glow, glass, solid;
     /** A translucent glow beside the ball, graded by {@link #glassGrade} when {@link #glassBall}. */
     private boolean glassBall;
     private CgPostSettings glassGrade;
+    /** An opaque ball left of the glow, graded by {@link #glassGrade} when {@link #solidBall}: a kit's masked draw. */
+    private boolean solidBall;
 
     @Override
     public void init(HarnessContext ctx) {
         wall = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         glow = CgMaterial.load("assets/harness/shader/bloom_glow.shader");
         glass = CgMaterial.load("assets/harness/shader/grade_glow.shader");
+        solid = CgMaterial.load("assets/harness/shader/grade_solid.shader");
     }
 
     @Override
@@ -162,6 +165,22 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         gradedSaturation[2] = beside;
         if (!(beside > 1f)) failures.add("a graded draw's own bloom: " + beside + " brighter beside it");
         glassBall = false;
+
+        // An opaque graded draw, drawn in the opaque firing: its layer covers what is behind it, whatever alpha it writes
+        solidBall = true;
+        glassGrade = null;
+        BufferedImage solidPlain = draw(ctx, world, "graded-solid-plain", v -> { });
+        glassGrade = grey;
+        BufferedImage solidGreyed = draw(ctx, world, "graded-solid", v -> { });
+        int solidAway = changed(solidPlain, solidGreyed, 150, 0, W - 150, H);
+        if (solidAway > 0) failures.add("an opaque graded draw changed " + solidAway + " pixels away from it");
+        float solidOwn = saturation(solidGreyed, W - 266 - 8, 116, 8, 8), solidWas = saturation(solidPlain, W - 266 - 8, 116, 8, 8);
+        gradedSaturation[3] = solidOwn;
+        gradedSaturation[4] = solidWas;
+        if (!(solidWas > 0.3f && solidOwn < solidWas * 0.5f)) {
+            failures.add("an opaque graded draw's look: saturation " + solidOwn + " against " + solidWas);
+        }
+        solidBall = false;
         glassGrade = null;
 
         CgGraphicsSettings.FLASHES.set(flashes);
@@ -178,6 +197,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         CgMesh cube = CgMeshShapes.cube(), ball = CgMeshShapes.sphere(24, 32);
         world.draw(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).submit();
         world.draw(ball, glow).at(0, 0, -3).transform(new Matrix4f().scale(0.6f)).submit();
+        if (solidBall) world.draw(ball, solid).at(-1.6, 0, -3).transform(new Matrix4f().scale(0.6f)).grade(glassGrade).submit();
         if (glassBall) world.draw(ball, glass).at(1.6, 0, -3).transform(new Matrix4f().scale(0.6f)).grade(glassGrade).submit();
         Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) W / H, 0.05f, 100f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
@@ -223,8 +243,8 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
 
     /** The grade's worst pixel against the CPU's, in codes: for the verdict. */
     private static double gradeWorst;
-    /** A graded draw's saturation, the ungraded one's, and its own bloom beside it: for the verdict. */
-    private static final float[] gradedSaturation = new float[3];
+    /** A graded draw's saturation, the ungraded one's, its own bloom beside it, then an opaque one's two: for the verdict. */
+    private static final float[] gradedSaturation = new float[5];
 
     /**
      * The most any of every 7th pixel of {@code graded} is from {@code plain}'s decoded through the packed grade and its
@@ -319,7 +339,8 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
                     + "priority overrides; the tonemapper within " + String.format("%.2f", toneWorst) + " codes of the CPU's table; "
                     + "the grade within " + String.format("%.2f", gradeWorst) + " codes of the CPU's, a neutral one exact; Unreal's Gaussian bloom spreads to the corners; a graded draw leaves the frame away from it exact, "
                     + "takes its look (saturation " + String.format("%.2f", gradedSaturation[0]) + " from " + String.format("%.2f", gradedSaturation[1])
-                    + ") and its own bloom (" + String.format("%.1f", gradedSaturation[2]) + " brighter beside it)");
+                    + ") and its own bloom (" + String.format("%.1f", gradedSaturation[2]) + " brighter beside it), an opaque one too (saturation "
+                    + String.format("%.2f", gradedSaturation[3]) + " from " + String.format("%.2f", gradedSaturation[4]) + ")");
         }
     }
 
