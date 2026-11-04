@@ -54,6 +54,7 @@ final class CueSelector {
     private final List<String> ids;
     private final IntConsumer picked;
     private final Map<String, List<Node>> roots = new LinkedHashMap<>();
+    /** Every open window's trees, so each lights the cue that plays. */
     private final List<TreeView<Node>> trees = new ArrayList<>();
     private int current;
     /** Whether its sheet is on the document already: a fresh window each launch, one sheet. */
@@ -61,7 +62,6 @@ final class CueSelector {
     private final ApplicationKind kind = ApplicationKind.of("harness:kit-cues", "Cues")
             .icon("harness:cues")
             .keywords("cues", "hits", "kit")
-            .singleInstance()
             .standalone()
             .launch(context -> new Instance(context.desktop()));
 
@@ -100,14 +100,13 @@ final class CueSelector {
         }
     }
 
-    /** The picker as an application: one window a desktop. */
+    /** The picker as an application: a window per launch. */
     ApplicationKind kind() {
         return kind;
     }
 
     /** The window's content: a column per namespace and the hint under them. */
     private UIElement build() {
-        trees.clear();
         UIElement screen = new UIElement();
         screen.addClass("cues");
         UIElement columns = new UIElement();
@@ -198,6 +197,8 @@ final class CueSelector {
     private final class Instance implements Application {
 
         private final WindowFrame window;
+        /** This window's trees, taken out of {@link #trees} when it closes. */
+        private final List<TreeView<Node>> own;
 
         Instance(Desktop desktop) {
             if (!styled) desktop.document().styles().addStylesheet(StyleSheetRegistry.of(STYLE));
@@ -206,7 +207,9 @@ final class CueSelector {
             window.setKey(WINDOW_KEY);
             window.setApplication(kind);
             window.markApplicationMain();
+            int from = trees.size();
             window.setContent(build());
+            own = new ArrayList<>(trees.subList(from, trees.size()));
             desktop.addWindow(window);
             // After addWindow, which places and sizes it.
             window.resizeTo(820f, 460f);
@@ -218,12 +221,14 @@ final class CueSelector {
 
         @Override
         public void activate() {
-            Desktop desktop = Desktop.ifPresent(window.document());
+            // The window's own desktop: a minimised one is detached, and has no document to find it by
+            Desktop desktop = window.desktop();
             if (desktop != null) desktop.activate(window, true);
         }
 
         @Override
         public void dispose() {
+            trees.removeAll(own);
             window.destroy();
         }
     }
