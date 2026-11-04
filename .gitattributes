@@ -1,2 +1,10 @@
-*.[hH][dD][rR] binary
+# Text is LF in the repository and on checkout, as CrystalGUI's: gradlew must stay LF to run on Linux, macOS and WSL.
+* text eol=lf
+# cmd.exe reads a batch file with LF endings wrongly at labels.
+*.[bB][aA][tT] text eol=crlf
+
+*.[jJ][aA][rR] binary
 *.[pP][nN][gG] binary
+*.[hH][dD][rR] binary
+*.[gG][lL][bB] binary
+*.[cC][gG][tT][eE][xX] binary
