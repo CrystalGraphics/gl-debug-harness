@@ -19,8 +19,8 @@ public class HarnessProjectionUtil {
     // RenderValidationScene, and any future 3D scene that needs a standard
     // perspective projection matching the floor/HUD/pause pipeline.
 
-    // Minecraft's own (GameRenderer.getProjectionMatrix, 1.20.1), so a frame here frames as the game's does; the near
-    // plane stays the harness's, far nearer than the game's 0.05.
+    // Minecraft's field of view (GameRenderer.getProjectionMatrix, 1.20.1), so a frame here frames as the game's does;
+    // the near and far planes stay the harness's, nearer and farther than the game's 0.05 and 768.
 
     /** Vertical field of view in degrees: Minecraft's default {@code fov} option. */
     public static final float FOV_DEGREES = 70.0f;
@@ -28,8 +28,8 @@ public class HarnessProjectionUtil {
     /** Near clipping plane in blocks. Depth is coarse for it: surfaces centimetres apart a few blocks off fight. */
     public static final float NEAR_PLANE = 0.001f;
 
-    /** Far clipping plane in blocks: {@code getDepthFar}, four times the default 12-chunk render distance. */
-    public static final float FAR_PLANE = 12 * 16 * 4.0f;
+    /** Far clipping plane in blocks. */
+    public static final float FAR_PLANE = 1000.0f;
 
     /**
      * Builds a perspective projection matrix using the shared harness constants.
