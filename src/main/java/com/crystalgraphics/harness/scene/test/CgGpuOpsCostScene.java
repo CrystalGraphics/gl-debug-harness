@@ -17,7 +17,7 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.graph.CgComputePass;
 import com.crystalgraphics.render.graph.CgExecutor;
@@ -194,7 +194,7 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
     }
 
     private void report() {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = (device == null ? CgGL.glGetString(CgGL.GL_RENDERER) : device.name()) + " at "
                 + CgCapabilities.detect().computeTier();
         System.out.println("[gpu-ops-cost] " + on + ", " + count + " elements, images " + WIDTH + "x" + HEIGHT

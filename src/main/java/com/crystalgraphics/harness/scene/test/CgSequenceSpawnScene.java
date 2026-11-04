@@ -22,7 +22,7 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.volume.CgPostVolumeSpawner;
 import com.crystalgraphics.render.world.CgWorldRenderer;
@@ -231,7 +231,7 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
     }
 
     private static String device() {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         return device == null ? "gl" : device.name();
     }
 

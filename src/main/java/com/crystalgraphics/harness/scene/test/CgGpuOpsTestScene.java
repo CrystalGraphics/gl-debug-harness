@@ -5,7 +5,7 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 
 /**
  * gpu-compute C7's gate: {@link CgGpuOpsCheck}, every {@code CgGpuOps} op at counts from none to 70,000, fixed and read
@@ -25,7 +25,7 @@ public class CgGpuOpsTestScene implements HarnessSceneLifecycle {
         long start = System.nanoTime();
         CgGpuOpsCheck.Result result = CgGpuOpsCheck.run();
         long ms = (System.nanoTime() - start) / 1_000_000;
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = (device == null ? "gl" : device.name()) + " at " + result.tier();
         int validation = PlatformServiceHarness.validationErrors();
         if (result.passed() && validation == 0) {

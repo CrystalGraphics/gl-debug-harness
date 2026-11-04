@@ -8,11 +8,8 @@ import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.lwjgl3.GlfwInputService;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLBackend;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLContext;
-import com.crystalgraphics.platform.CgPlatform;
-import com.crystalgraphics.platform.CgPlatformService;
-import com.crystalgraphics.platform.device.CgDevice;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
-import com.crystalgraphics.platform.device.recording.CgRecordingDevice;
+import com.crystalgraphics.platform.rhi.CgRHI;
+import com.crystalgraphics.platform.rhi.nulldrv.CgNullRHI;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
@@ -79,8 +76,8 @@ public final class PlatformServiceHarness implements CgPlatformService {
     public final CgSoundService soundImpl = soundId -> {};
 
     // ── --device=tracked and --device=vulkan ──────────────────────────────────
-    private CgDevice device;
-    private CgRecordingDevice recordingDevice;
+    private CgRHI device;
+    private CgNullRHI recordingDevice;
     private OwnedVulkanHost vulkanHost;
     private boolean vulkanValidated;
     private CgVulkanDevice vulkanDevice;
@@ -113,7 +110,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
     public static void onPreInit(String device, int width, int height) {
         PlatformServiceHarness p = getInstance();
         if (device.equals("tracked")) {
-            p.recordingDevice = new CgRecordingDevice(width, height).withoutLog();
+            p.recordingDevice = new CgNullRHI(width, height).withoutLog();
             p.device = p.recordingDevice;
         } else if (device.equals("vulkan")) {
             // -Dcrystalgraphics.harness.vulkanValidation=false for a timing run: the layer checks every command.
@@ -124,6 +121,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
             p.device = p.vulkanDevice;
         }
         if (p.device != null) {
+            CgRHI.install(p.device);
             p.tracked = new CgTrackedGLBackend(p.device, new ShadercGlslCompiler(CgCacheDirectory.of("spirv")), true)
                     .compileInBackground();
         }
@@ -164,8 +162,8 @@ public final class PlatformServiceHarness implements CgPlatformService {
     }
 
     /** The device under {@code --device=tracked|vulkan}: its name, vendor and driver. Null on GL. */
-    public static CgDeviceInfo deviceInfo() {
-        return tracked() == null ? null : INSTANCE.device.info();
+    public static CgRHI.Globals deviceInfo() {
+        return tracked() == null ? null : INSTANCE.device.globals();
     }
 
     private static long presentNanos;
@@ -267,7 +265,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
         if (tracked() == null) return null;
         String device = INSTANCE.recordingDevice != null
                 ? "deviceDraws=" + INSTANCE.recordingDevice.draws() + " liveObjects=" + INSTANCE.recordingDevice.liveObjects()
-                : INSTANCE.vulkanDevice.info().name() + " barriers=" + INSTANCE.vulkanDevice.barriers()
+                : INSTANCE.vulkanDevice.globals().name() + " barriers=" + INSTANCE.vulkanDevice.barriers()
                         + " pushes=" + INSTANCE.vulkanDevice.pushes + " pushWrites=" + INSTANCE.vulkanDevice.pushWrites + " pushesSkipped=" + INSTANCE.vulkanDevice.pushesSkipped
                         + " validationErrors=" + INSTANCE.vulkanDevice.validationErrors()
                         + " transferCopies=" + INSTANCE.vulkanDevice.transferCopies

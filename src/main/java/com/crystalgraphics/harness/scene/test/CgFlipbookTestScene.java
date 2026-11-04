@@ -11,7 +11,7 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
@@ -172,7 +172,7 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
     }
 
     private void report(HarnessContext ctx, boolean glErrors) {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         if (glErrors) {
             System.out.println("[flipbook] FAIL on " + on + ": GL errors, logged above");

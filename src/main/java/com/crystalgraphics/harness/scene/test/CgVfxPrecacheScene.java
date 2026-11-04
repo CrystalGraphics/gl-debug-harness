@@ -6,7 +6,7 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.HarnessJitWatch;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.graph.CgRehearsal;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.settings.CgGraphicsSettings;
@@ -231,7 +231,7 @@ public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
     }
 
     private static String device() {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         return device == null ? "gl" : device.name();
     }
 

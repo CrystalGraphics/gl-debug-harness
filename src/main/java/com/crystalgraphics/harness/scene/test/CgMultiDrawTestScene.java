@@ -11,7 +11,7 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
@@ -173,7 +173,7 @@ public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
     }
 
     private void compare(HarnessContext ctx, long[] calls, String[] captures, boolean glErrors) {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         boolean multi = CgCapabilities.detect().multiDraw();
         int validation = PlatformServiceHarness.validationErrors();

@@ -5,7 +5,7 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.object.value.CgUnits;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.CgImmediate;
@@ -837,7 +837,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
     }
 
     private void report() {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = (device == null ? "gl" : device.name()) + " at " + CgCapabilities.detect().computeTier();
         int validation = PlatformServiceHarness.validationErrors();
         if (GlErrorChecker.checkAndLog("vfx-forms")) {

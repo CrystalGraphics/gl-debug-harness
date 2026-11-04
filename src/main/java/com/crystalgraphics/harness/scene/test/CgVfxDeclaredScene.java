@@ -8,7 +8,7 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxOwner;
 import com.crystalgraphics.vfx.CgVfxRegistry;
@@ -94,7 +94,7 @@ public final class CgVfxDeclaredScene implements InteractiveSceneLifecycle {
         long compiles = CgMaterialShader.compileWaits() - waits, loads = CgTextureAbstract.loads() - textures;
         int validation = PlatformServiceHarness.validationErrors();
         boolean pass = compiles == 0 && loads == 0 && aliveA > 0 && aliveB > 0 && validation == 0;
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         System.out.println("[vfx-declared] " + (pass ? "PASS" : "FAIL") + " on " + (device == null ? "gl" : device.name())
                 + (OPT_OUT ? " (control: opted out)" : "") + ": in the first " + FRAMES + " frames of play " + compiles
                 + " compile waits, " + loads + " texture loads; particles in " + aliveA + " and " + aliveB + " frames"

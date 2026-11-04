@@ -5,7 +5,7 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 
 /**
  * gpu-compute's gate: the engine's compute self-test ({@link CgComputeSelfTest}), a kernel of every shape with every
@@ -23,7 +23,7 @@ public class CgComputeTiersTestScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgComputeSelfTest.Result result = CgComputeSelfTest.run();
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = (device == null ? "gl" : device.name()) + " at " + result.tier();
         int validation = PlatformServiceHarness.validationErrors();
         if (result.passed() && validation == 0) {

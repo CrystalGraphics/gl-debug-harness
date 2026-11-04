@@ -12,7 +12,7 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.state.CgGlScope;
 import com.crystalgraphics.platform.gl.state.CgGlSlot;
@@ -178,7 +178,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     }
 
     private void report() {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? CgGL.glGetString(CgGL.GL_RENDERER) : device.name();
         System.out.println("[hdr-scene] " + on + ", GPU ms per frame over " + MEASURED + " frames");
         boolean timed = CgGpuTrace.support() != CgGpuTrace.Support.UNSUPPORTED;

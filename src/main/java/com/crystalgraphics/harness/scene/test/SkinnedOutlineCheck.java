@@ -12,7 +12,7 @@ import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.post.CgPostMaterial;
 import com.crystalgraphics.render.stage.CgFrameKeys;
@@ -185,7 +185,7 @@ final class SkinnedOutlineCheck {
         done = true;
         reader.close();
         for (CgAnimInstance instance : held) instance.playing(true);
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name(), fail = null;
         if (GlErrorChecker.checkAndLog("outline-check")) fail = "GL errors, logged above";
         else if (PlatformServiceHarness.validationErrors() > 0) fail = "Vulkan validation errors, logged above";

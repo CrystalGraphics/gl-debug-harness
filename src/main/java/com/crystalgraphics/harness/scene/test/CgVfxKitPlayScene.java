@@ -7,7 +7,7 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.system.CgVfxSystemDefinition;
@@ -145,7 +145,7 @@ public final class CgVfxKitPlayScene implements InteractiveSceneLifecycle {
     }
 
     private static String device() {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         return device == null ? "gl" : device.name();
     }
 

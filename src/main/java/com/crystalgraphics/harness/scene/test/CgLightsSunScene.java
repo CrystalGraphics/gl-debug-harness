@@ -13,7 +13,7 @@ import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
@@ -155,7 +155,7 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
             failure = "the sun's visibility handed to a pane is wrong: " + readings;
         }
         boolean glErrors = GlErrorChecker.checkAndLog("lights-sun");
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
         if (glErrors) failure = "GL errors, logged above";

@@ -13,7 +13,7 @@ import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
@@ -213,7 +213,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
         else if (failure == null && spilt[3] > 0) failure = "the lamp's shadow spread past the exact one: " + readings;
         else if (failure == null && spilt[4] > 0) failure = "a shadow spread past the exact one from eye height: " + readings;
         boolean glErrors = GlErrorChecker.checkAndLog("lights-casters");
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
         if (glErrors) failure = "GL errors, logged above";

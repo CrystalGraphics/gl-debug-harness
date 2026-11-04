@@ -6,7 +6,7 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.CgGpuBudget;
 import com.crystalgraphics.render.CgImmediate;
@@ -76,7 +76,7 @@ public class CgGpuBudgetTestScene implements InteractiveSceneLifecycle {
     }
 
     private void report(float scale) {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = (device == null ? "gl" : device.name()) + " at " + CgCapabilities.detect().computeTier();
         float spent = budget.spent();
         String figures = String.format("%.3f ms at full size and %.3f at a tenth, budget %.3f ms, held at %.3f ms at"

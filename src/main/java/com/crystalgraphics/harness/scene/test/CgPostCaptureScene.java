@@ -16,7 +16,7 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.volume.CgPostVolumeSpawner;
@@ -286,7 +286,7 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle {
     }
 
     private static String device() {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         return device == null ? "gl" : device.name();
     }
 

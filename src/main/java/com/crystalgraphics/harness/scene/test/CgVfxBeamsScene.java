@@ -6,7 +6,7 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.graph.CgBufferDesc;
@@ -598,7 +598,7 @@ public class CgVfxBeamsScene implements InteractiveSceneLifecycle {
     }
 
     private static String on() {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         return (device == null ? "gl" : device.name()) + " at " + CgCapabilities.detect().computeTier();
     }
 

@@ -10,8 +10,8 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
-import com.crystalgraphics.platform.device.command.CgAccess;
+import com.crystalgraphics.platform.rhi.CgRHI;
+import com.crystalgraphics.platform.rhi.command.CgAccess;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.state.CgGlScope;
@@ -264,7 +264,7 @@ public class CgComputeSeamTestScene implements HarnessSceneLifecycle {
     // ── The verdict ────────────────────────────────────────────────────────────
 
     private static void compare(HarnessContext ctx, boolean glErrors, List<String> captures) {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
         if (glErrors) {

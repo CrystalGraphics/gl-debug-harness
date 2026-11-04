@@ -9,7 +9,7 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
@@ -97,7 +97,7 @@ public class CgGlobalParametersTestScene implements HarnessSceneLifecycle {
     }
 
     private void report(HarnessContext ctx, boolean glErrors) {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         if (glErrors) {
             System.out.println("[global-parameters] FAIL on " + on + ": GL errors, logged above");

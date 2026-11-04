@@ -18,7 +18,7 @@ import com.crystalgraphics.gl.material.parse.CgParsedShader;
 import com.crystalgraphics.gl.material.parse.CgShaderParser;
 import com.crystalgraphics.api.shader.CgShader;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
@@ -524,7 +524,7 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
         pw.println("=== CrystalGraphics Shader Compile Audit ===");
         pw.println("Every shipped .shader and keyword variant, compiled on this machine's driver.");
         pw.println();
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         if (device != null) {
             pw.println("-- Device --");
             pw.println("Name:   " + device.name());

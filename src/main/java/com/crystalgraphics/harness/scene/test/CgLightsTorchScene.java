@@ -13,7 +13,7 @@ import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
@@ -133,7 +133,7 @@ public class CgLightsTorchScene implements InteractiveSceneLifecycle {
         if (failure == null && at[0][0] > 0.8f * at[1][0]) failure = "our box does not shadow the torch's light: " + readings;
         else if (failure == null && Math.abs(at[0][1] - at[1][1]) > 2f) failure = "the open ground changed: " + readings;
         boolean glErrors = GlErrorChecker.checkAndLog("lights-torch");
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
         if (glErrors) failure = "GL errors, logged above";

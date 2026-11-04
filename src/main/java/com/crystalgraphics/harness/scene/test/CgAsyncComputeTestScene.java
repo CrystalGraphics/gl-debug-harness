@@ -13,7 +13,7 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
@@ -307,7 +307,7 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     }
 
     private void report() {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? CgGL.glGetString(CgGL.GL_RENDERER) : device.name();
         boolean queue = CgCapabilities.detect().asyncCompute();
         Map<String, long[]> totals = CgGpuTrace.totals();

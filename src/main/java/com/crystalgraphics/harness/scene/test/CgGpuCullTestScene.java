@@ -16,7 +16,7 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.gl.CgCapabilities.ComputeTier;
 import com.crystalgraphics.render.CgImmediate;
@@ -499,7 +499,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
 
     private void report(HarnessContext ctx, int[] kept, boolean levelsJoin, long callsSaved, long setCallsSaved,
                         boolean glErrors, String disorder) {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
         int[][] expected = expected();

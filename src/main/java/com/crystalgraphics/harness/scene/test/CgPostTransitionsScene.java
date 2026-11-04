@@ -6,7 +6,7 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.render.post.CgPostMaterial;
 import com.crystalgraphics.render.post.CgPostPoint;
@@ -132,7 +132,7 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
     }
 
     private void report(boolean glErrors) {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         if (glErrors) failure = "GL errors, logged above";
         int validation = PlatformServiceHarness.validationErrors();

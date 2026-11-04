@@ -11,7 +11,7 @@ import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
@@ -123,7 +123,7 @@ public class CgLightsShadowScene implements InteractiveSceneLifecycle {
             failure = "in the open the shadowed light adds " + openShadowed + ", the unshadowed " + openUnshadowed;
         }
         boolean glErrors = GlErrorChecker.checkAndLog("lights-shadow");
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
         if (glErrors) failure = "GL errors, logged above";

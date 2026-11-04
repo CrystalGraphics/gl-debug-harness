@@ -13,7 +13,7 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.device.CgDeviceInfo;
+import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.post.CgPostMaterial;
 import com.crystalgraphics.render.post.CgPostPoint;
@@ -160,7 +160,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
     }
 
     private void report() {
-        CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
+        CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         String fail = null;
         if (GlErrorChecker.checkAndLog("custom-depth")) fail = "GL errors, logged above";
