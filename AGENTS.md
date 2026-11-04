@@ -560,7 +560,7 @@ Config classes:
 | `ctx.getArtifactService()` | `ArtifactService` | Interactive scenes | Framework-owned capture with semantic suffix API |
 | `ctx.getCamera3D()` | `Camera3D` | Interactive scenes | Shared 3D camera |
 | `ctx.getTaskScheduler()` | `TaskScheduler` | Interactive scenes | Time-based callback system |
-| `ctx.getUi()` | `HarnessUi` | 3D scenes | The harness as a CrystalGUI host (`HostSession`), as Minecraft's screen is: a desktop over the world (cursor free, camera held, Escape closes), its applications `ApplicationKind`s. `bind(key, kind)` gives one a key for the scene's run, `open(kind)` opens it; F6 is VFX Lab's everywhere. Its javadoc has the example |
+| `ctx.getUi()` | `HarnessUi` | 3D scenes | The harness as a CrystalGUI host (`HostSession`), as Minecraft's screen is: a desktop over the world (cursor free, camera held, Escape closes), its applications `ApplicationKind`s. `bind(key, kind)` gives one a key for the scene's run, `open(kind)` opens it; F6 is VFX Lab's everywhere and F10 Crystal Editor's. Its workspace is `HarnessServer`'s: an in-memory connection serving the scratch project (`crystalgui/projects/scratch/`) as a single-player world's server does. A scene that is the desktop opens it with `openAtStart` and takes the keys its windows leave with `sceneKeys` (`cgui-desktop`). Its javadoc has the example |
 | `ctx.getLoadPlan()` | `CgLoadPlan` | Interactive scenes | The loading screen's tasks: one named in `init` holds the screen until it ends, so a scene's first frames load nothing (`CrystalGraphics/docs/LOADING.md` §3) |
 
 Legacy convenience accessors like `ctx.getScreenWidth()` and `ctx.getOutputDir()` still work, but new code should use the typed accessors directly.
@@ -719,6 +719,7 @@ The interactive runner sequences these steps every frame:
 | H | Half-resolution draws on or off (`CgWorldRenderer.halfResolution`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
 | J | The distortion target at half size or full size (`CgWorldRenderer.distortionScale`): the hazes' bend at a quarter of the pixels, or a pixel per texel to compare |
 | F6 | VFX Lab on the harness's desktop (`HarnessUi`); a scene binds its own applications' keys with `ctx.getUi().bind` |
+| F10 | Crystal Editor on the harness's desktop, over the scratch project |
 | F9 | Day or night, under VFX Lab's sky and floor (`HarnessEnvironment`): a scene opts in with `editorEnvironment()`, any scene with `-Dcrystalgraphics.harness.environment=editor`. Off by default, since gates check pixels against the plain clear colour and floor |
 
 ### HUD Display
@@ -925,6 +926,23 @@ reg.register(
 - **Debug tools**: `new HarnessDebugTools(ctx.getCamera3D(), ctx.getArtifactService())`
 - **Pause control**: `ctx.getRuntimeServices().setPaused(true)`
 - **Validation**: `new ValidationChoreographer(...)` + `ValidationCaptureStep.builder(...)` for scripted capture sequences
+
+### A CrystalGUI scene — `UiDocumentScene`
+
+A 2D scene that is one CrystalGUI document extends `ui.UiDocumentScene` and writes only its tree: the base owns the
+document and its `DocumentDriver`, the root filling the window, the scale (`HostServices.DEFAULT_UI_SCALE`, Ctrl+= and
+Ctrl+- to zoom, Ctrl+0 to reset), the stylesheets (`HarnessThemes`' stack, then the scene's), document-first input and
+teardown. Its javadoc lists the hooks: `theme`, `bare`, `attached`, `key`, `beforePaint`, `paintOver`, `tick`,
+`afterFrame`, `mode`, `painter`.
+
+```java
+public final class MyScene extends UiDocumentScene {
+    @Override protected UIElement build(HarnessContext ctx) { return new UIText("Hello"); }
+    @Override protected void style(StyleEngine styles) { styles.addStylesheet(StyleSheet.parse(".x { padding: 8px; }")); }
+}
+```
+
+A scene about the desktop is a 3D scene on `ctx.getUi()` instead: the desktop is the harness's, as in any 3D scene.
 
 ### Output Conventions
 
@@ -1148,6 +1166,11 @@ com.crystalgraphics.harness/
 │   └── CameraScene3D.java           # Camera validation: 4-angle cube captures
 ├── scheduler/
 │   └── TaskScheduler.java           # Time-based callback scheduling
+├── ui/
+│   ├── HarnessUi.java               # The desktop over every 3D scene (HostSession), its global keys
+│   ├── HarnessServer.java           # The in-memory server: the scratch project over the protocol
+│   ├── UiDocumentScene.java         # The base of a 2D scene that is one CrystalGUI document
+│   └── HarnessThemes.java           # The theme stack a scene installs
 ├── tool/
 │   ├── GlStateDumper.java           # GL state dump diagnostic
 │   ├── CapabilityReport.java        # Capabilities diagnostic

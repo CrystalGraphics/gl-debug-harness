@@ -31,7 +31,10 @@ local.getProperty("crystalGraphicsDir")?.let { path ->
 
 includeBuild(crystalGui) {
     name = "CrystalGUI"
-    dependencySubstitution { substitute(module("com.crystalgui:core")).using(project(":core")) }
+    dependencySubstitution {
+        substitute(module("com.crystalgui:core")).using(project(":core"))
+        substitute(module("com.crystalgui:language")).using(project(":language"))
+    }
 }
 
 // What the build script reads from CrystalGUI's checkout: the plan's kits, when it is there.

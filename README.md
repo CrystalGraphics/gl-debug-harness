@@ -5,7 +5,8 @@ A standalone LWJGL 3 window for CrystalGraphics and CrystalGUI: scenes, gates an
 ## What it needs
 
 **CrystalGUI and CrystalGraphics, from source.** The harness ships neither and holds no submodules. It names them by
-their coordinates (`com.crystalgui:core`, `com.crystalgraphics:*`), and the build it runs in supplies them.
+their coordinates (`com.crystalgui:core` and `com.crystalgui:language`, `com.crystalgraphics:*`), and the build it runs
+in supplies them.
 
 ## Building it
 

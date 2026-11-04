@@ -43,6 +43,8 @@ val crystalGuiRoot: File = (rootProject.findProperty("crystalGuiDir") as String?
 dependencies {
     // `api`: a scene an extension writes is handed CrystalGraphics, CrystalGUI and JOML types by HarnessContext.
     api("com.crystalgui:core:1.0.0")
+    // The languages the editor on the desktop runs: grammars, engines, Run
+    implementation("com.crystalgui:language:1.0.0")
     api("com.crystalgraphics:platform:1.0.0")
     api("com.crystalgraphics:freetype-msdfgen-harfbuzz-bindings:1.0.0")
     api("com.crystalgraphics:core:1.0.0")
