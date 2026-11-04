@@ -86,7 +86,12 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private CgTickFunction submit;
     private boolean sequencesDeclared;
     private final CgCueParameters params = new CgCueParameters();
-    private final Matrix4f dummyShape = new Matrix4f().translate(0f, 0.9f, 0f).scale(0.6f, 1.8f, 0.3f);
+    /**
+     * Steve's model as one box: arm to arm 16 px, feet to head 32, the head 8 deep (HumanoidModel), drawn at 0.9375
+     * of a block per 16 px (PlayerRenderer.scale).
+     */
+    private static final float STEVE = 0.9375f / 16f;
+    private final Matrix4f dummyShape = new Matrix4f().translate(0f, 16 * STEVE, 0f).scale(16 * STEVE, 32 * STEVE, 8 * STEVE);
     private final float fireEvery = Float.parseFloat(System.getProperty("crystalgraphics.harness.kitCues.fireEvery", "2"));
     private final int capture = Integer.getInteger("crystalgraphics.harness.kitCues.capture", 0);
     private HarnessKitSystems kit;
