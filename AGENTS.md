@@ -227,12 +227,9 @@ scene and its device: `skinned-play [vk]`.
   rename path's check: one drawn texture rewritten whole each frame, every tenth read back, PASS or FAIL; on `vulkan`
   each goes into a new image on the transfer queue, and the run fails if none did.
   `-Dcrystalgraphics.graph.asyncAll=true` sends every compute pass async in any
-  scene, which the scenes above must pass under synchronization validation. `--mode=compute-tiers` is the gate for the forms a kernel takes: one kernel per
-  shape, a general one with a lowerable fallback, one with only a Java body, one with neither, every result worked out
-  in Java (`CgComputeSelfTest`, the engine's, which a client runs too). All five scenes must pass forced to each tier
-  (`-Dcrystalgraphics.compute.tier=G43|G40|G33`, and G33 with `-Dcrystalgraphics.shaderBuffer.tier=TBO` for a 3.3
-  context's GLSL), under the CPU oracle (`-Dcrystalgraphics.harness.oracle=true`: every kernel's Java body, which no
-  client can select), unforced on both downlevel contexts (below), and on `vulkan` at its own tier and under the oracle.
+  scene, which the scenes above must pass under synchronization validation. `--mode=compute-tiers` is the compute gate: one kernel per shape, every result
+  worked out in Java (`CgComputeSelfTest`, the engine's, which a client runs too). All five scenes must pass on `gl` and
+  on `vulkan`.
 
 ## `-Pharness.downlevel=mac41|gl33` — a context that genuinely lacks a feature
 

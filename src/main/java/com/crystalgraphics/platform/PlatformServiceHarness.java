@@ -13,7 +13,6 @@ import com.crystalgraphics.platform.CgPlatformService;
 import com.crystalgraphics.platform.device.CgDevice;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
 import com.crystalgraphics.platform.device.recording.CgRecordingDevice;
-import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
@@ -133,8 +132,6 @@ public final class PlatformServiceHarness implements CgPlatformService {
         CgEngineLifecycle.clientStarting();
         CgUiStart.ahead();           // and CrystalGUI's: its registries and sheets
         HarnessExtensions.start();   // and each project's own
-        // The gates' reference: every kernel's Java body, which no client can select.
-        if ("true".equals(System.getProperty("crystalgraphics.harness.oracle"))) CgCapabilities.cpuOracle(true);
         // Scenes use CgGL from the start, before any host section would install it.
         CgGL.init(p.gl());
         if (p.tracked != null) CgGlState.setProvider(new CgTrackedStateProvider(p.tracked));

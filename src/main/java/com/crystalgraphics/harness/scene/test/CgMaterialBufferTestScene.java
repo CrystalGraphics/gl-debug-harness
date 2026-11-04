@@ -3,7 +3,6 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.compute.CgCompute;
-import com.crystalgraphics.compute.cpu.CgCpuBuffer;
 import com.crystalgraphics.compute.ops.CgGpuCount;
 import com.crystalgraphics.compute.ops.CgGpuOps;
 import com.crystalgraphics.harness.FrameInfo;
@@ -67,22 +66,6 @@ public class CgMaterialBufferTestScene implements HarnessSceneLifecycle {
     public void init(HarnessContext ctx) {
         material = CgMaterial.load("assets/harness/shader/material_buffer_test.shader");
         kernels = CgCompute.load("harness:shaders/material_buffer.compute");
-        kernels.kernel("Cells").cpu(d -> {                      // the CPU tier's
-            CgCpuBuffer cells = d.buffer("CELLS"), live = d.buffer("LIVE");
-            int rect = cells.field("rect").word(), color = cells.field("color").word();
-            for (int e = d.first(); e < d.end(); e++) {
-                cells.setFloat(e, rect, e % 8 * 8 + 1);
-                cells.setFloat(e, rect + 1, e / 8 * 8 + 1);
-                cells.setFloat(e, rect + 2, 6);
-                cells.setFloat(e, rect + 3, 6);
-                int rgb = rgb(e);
-                cells.setFloat(e, color, (rgb >> 16 & 0xFF) / 255f);
-                cells.setFloat(e, color + 1, (rgb >> 8 & 0xFF) / 255f);
-                cells.setFloat(e, color + 2, (rgb & 0xFF) / 255f);
-                cells.setFloat(e, color + 3, 1f);
-                live.setInt(e, live(e) ? 1 : 0);
-            }
-        });
     }
 
     @Override

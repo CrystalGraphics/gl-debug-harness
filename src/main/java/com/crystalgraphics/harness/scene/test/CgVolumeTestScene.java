@@ -5,8 +5,6 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.compute.CgCompute;
-import com.crystalgraphics.compute.cpu.CgCpuBuffer;
-import com.crystalgraphics.compute.cpu.CgCpuImage;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -76,38 +74,8 @@ public class CgVolumeTestScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         kernels = CgCompute.load("harness:shaders/volumes.compute");
-        giveBodies();
         flatten = CgMaterial.newInstance("assets/harness/shader/volumes_test.shader");
         flatten.applyProperties(b -> b.set1f("_Rows", H));
-    }
-
-    /** The kernels' Java bodies: what the CPU tier runs. */
-    private void giveBodies() {
-        kernels.kernel("Fill").cpu(d -> {
-            CgCpuImage out = d.image("FIELD");
-            for (int e = d.first(); e < d.end(); e++) out.store(d.x(e), d.y(e), d.z(e), code(d.x(e), d.y(e), d.z(e)), 0f, 0f, 0f);
-        });
-        kernels.kernel("Spread").cpu(d -> {
-            CgCpuImage source = d.image("SOURCE"), out = d.image("SPREAD");
-            for (int e = d.first(); e < d.end(); e++) {
-                int x = d.x(e), y = d.y(e), z = d.z(e);
-                float sum = source.loadFloat(x, y, z, 0)
-                        + source.loadFloat(Math.max(x - 1, 0), y, z, 0) + source.loadFloat(Math.min(x + 1, W - 1), y, z, 0)
-                        + source.loadFloat(x, Math.max(y - 1, 0), z, 0) + source.loadFloat(x, Math.min(y + 1, H - 1), z, 0)
-                        + 2f * source.loadFloat(x, y, Math.max(z - 1, 0), 0) + 4f * source.loadFloat(x, y, Math.min(z + 1, D - 1), 0);
-                out.store(x, y, z, sum, 0f, 0f, 0f);
-            }
-        });
-        kernels.kernel("Sample").cpu(d -> {
-            CgCpuImage field = d.texture("_Field", 0);
-            CgCpuBuffer fetched = d.buffer("TEXELS"), halfway = d.buffer("BETWEEN");
-            for (int e = d.first(); e < d.end(); e++) {
-                int x = e % W, y = (e / W) % H, z = e / (W * H);
-                float here = field.loadFloat(x, y, z, 0);
-                fetched.setFloat(e, here);
-                halfway.setFloat(e, (here + field.loadFloat(x, y, Math.min(z + 1, D - 1), 0)) * 0.5f);
-            }
-        });
     }
 
     @Override

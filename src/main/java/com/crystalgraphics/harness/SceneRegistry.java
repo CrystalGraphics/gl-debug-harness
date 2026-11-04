@@ -688,7 +688,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("compute-tiers").checksPixels()
-                .description("gpu-compute C5/C6: one kernel per shape, every buffer and image checked against Java's arithmetic; run at each forced tier (-Dcrystalgraphics.compute.tier=G43|G40|G33) and under the CPU oracle (-Dcrystalgraphics.harness.oracle=true), all must agree")
+                .description("gpu-compute C5/C6: one kernel per shape, every buffer and image checked against Java's arithmetic, on GL and the Vulkan device")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(true)

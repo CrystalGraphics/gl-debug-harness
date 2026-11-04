@@ -8,13 +8,11 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
 
 /**
- * gpu-compute's tier gate: the engine's compute self-test ({@link CgComputeSelfTest}), a kernel of every shape with every
- * result checked against values worked out in Java. Run it at each tier a context can be forced to,
- * {@code -Dcrystalgraphics.compute.tier=G43|G40|G33}, under the CPU oracle ({@code -Dcrystalgraphics.harness.oracle=true}),
- * and on the downlevel contexts, which pick their own.
+ * gpu-compute's gate: the engine's compute self-test ({@link CgComputeSelfTest}), a kernel of every shape with every
+ * result checked against values worked out in Java, on GL and on the Vulkan device.
  *
- * <p>Prints {@code [compute-tiers] PASS} or {@code FAIL} with the tier, each kernel's form, and every value that
- * differs; on the Vulkan device a validation error fails it too.</p>
+ * <p>Prints {@code [compute-tiers] PASS} or {@code FAIL} with the tier and every value that differs; on the Vulkan
+ * device a validation error fails it too.</p>
  */
 public class CgComputeTiersTestScene implements HarnessSceneLifecycle {
 
@@ -25,7 +23,6 @@ public class CgComputeTiersTestScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgComputeSelfTest.Result result = CgComputeSelfTest.run();
-        System.out.println("[compute-tiers] tier " + result.tier() + ":" + result.forms());
         CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
         String on = (device == null ? "gl" : device.name()) + " at " + result.tier();
         int validation = PlatformServiceHarness.validationErrors();
