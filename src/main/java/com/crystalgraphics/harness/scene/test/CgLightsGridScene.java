@@ -20,7 +20,6 @@ import com.crystalgraphics.render.world.CgPipelinePrecache;
 import com.crystalgraphics.render.world.CgWorldLights;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fc;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
