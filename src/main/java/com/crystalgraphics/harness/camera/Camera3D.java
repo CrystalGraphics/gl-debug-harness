@@ -37,8 +37,14 @@ public class Camera3D {
     /** Minimum camera Y position (slightly above floor to avoid z-fighting). */
     private static final float MIN_CAMERA_Y = FLOOR_Y + 1f;
 
-    /** Default mouse sensitivity (degrees per pixel of mouse movement). */
-    private static final float DEFAULT_SENSITIVITY = 0.05f;
+    /**
+     * Degrees a pixel of mouse movement turns: Minecraft's at its default sensitivity, 0.5
+     * ({@code MouseHandler.turnPlayer}: (0.5 * 0.6 + 0.2)^3 * 8 = 1, times {@code Entity.turn}'s 0.15).
+     */
+    private static final float DEFAULT_SENSITIVITY = 0.15f;
+
+    /** A standing player's eye above the floor: {@code Player.DEFAULT_EYE_HEIGHT}. */
+    public static final float EYE_HEIGHT = 1.62f;
 
     /** Default movement speed in metres a second: Minecraft's walk, among bodies metres tall. CTRL runs at 5x. */
     private static final float DEFAULT_MOVE_SPEED = 4.3f;
@@ -86,10 +92,10 @@ public class Camera3D {
     }
 
     /**
-     * Creates a camera at the default position (0, 2, 5), looking along -Z.
+     * Creates a camera at a standing player's eye, (0, 1.62, 5), looking along -Z.
      */
     public Camera3D() {
-        this(0.0f, 2.0f, 5.0f);
+        this(0.0f, EYE_HEIGHT, 5.0f);
     }
 
     /**
