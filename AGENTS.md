@@ -148,8 +148,8 @@ scene and its device: `skinned-play [vk]`.
   per system side by side, N/Shift+N between them, M every lane, R replay, the HUD naming the system and its beat in the game.
   `--mode=kit-cues` is a mod's hits without Minecraft: a kit's cues (`.kitCues.namespace`, `.kitCues.kit` its folder,
   `.kitCues.cues` paths under its `cues/`) fired at a dummy on a floor that writes depth, through the client world's
-  cue manager and the engine's sequencer (systems, post volumes, colour regions, shakes), under the kit's look. R fires
-  again, N/B change cue, Y/Shift+Y and P slow or pause time, Z/X step a frame back or forward, C the kit's colour grade; `.kitCues.regions=false` leaves the
+  cue manager and the engine's sequencer (systems, post volumes, colour regions, shakes), under the kit's look and VFX Lab's sky. ` fires
+  again, N/B change cue, Y/Shift+Y slow time and Tab pauses or plays it, Z/X step a frame back or forward, C the kit's colour grade; `.kitCues.regions=false` leaves the
   colour regions out, `.kitCues.capture=<n>` photographs n frames of play and exits. Its javadoc has Dragon Forge's s0.
   `--mode=kit-shading` is a kit's shading models drawing: its `shading.yaml` registered under
   `-Dcrystalgraphics.harness.kit.namespace`, the material `.kit.material` compiled from the kit folder `.kit` through its

@@ -44,7 +44,7 @@ import java.util.Locale;
  * ./gradlew :gl-debug-harness:runHarness -Pharness.assetRoots=$R --args="--mode=kit-cues" \
  *     -Dcrystalgraphics.harness.kitCues.namespace=s0 -Dcrystalgraphics.harness.kitCues.kit=$R/assets/s0 \
  *     -Dcrystalgraphics.harness.kitCues.cues=hit_spark/melee/light,hit_spark/melee/medium,hit_spark/melee/heavy
- * // R: fire again   N / B: next / previous cue   Y / Shift+Y: time faster / slower   P: pause time
+ * // `: fire again   N / B: next / previous cue   Y / Shift+Y: time faster / slower   Tab: pause or play time
  * // X / Z: pause and step 1/60 s forward / back, held to repeat; 0 to the end less 1/60 s, and round again
  * // C: the kit's colour grade on or off (each draw under its kit's look, or the frame's)
  *
@@ -55,6 +55,7 @@ import java.util.Locale;
  *
  * <ul>
  *   <li>A cue is named by its path under the kit's {@code cues/}; it fires by its own {@code tag}.</li>
+ *   <li>Under VFX Lab's sky (F9 day and night); the floor is the scene's own, which writes depth.</li>
  *   <li>The floor and the dummy are opaque world draws, so a colour region, a soft particle or a depth fade sees
  *       depth where the game would: the harness's own floor writes none.</li>
  *   <li>{@code .fireEvery=<seconds>} (2) fires the cue again on that clock while nothing is pressed; 0 fires once.
@@ -64,7 +65,7 @@ import java.util.Locale;
  *       still loading 0.2 s after it fires plays nothing, as in the game.</li>
  *   <li>The HUD's age is the hit's time over its duration, its longest sequence's length; it holds at the end.</li>
  *   <li>A step forward pauses and simulates one frame; a step back, and a step past the end, seek the hit, which
- *       keeps its seeds: only a fire (R, N, B) draws new ones.</li>
+ *       keeps its seeds: only a fire (`, N, B) draws new ones.</li>
  *   <li>A pixel check of the frame is the caller's: {@code .capture=<n>} writes frames 1 to n of play as
  *       {@code kit-cues-f<k>.png}.</li>
  * </ul>
@@ -288,7 +289,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         }
         if (event.repeat()) return true;
         switch (key) {
-            case CgKeyCodes.KEY_R -> fireNow = started;
+            case CgKeyCodes.KEY_GRAVE -> fireNow = started;
             case CgKeyCodes.KEY_N -> {
                 current = (current + 1) % Math.max(1, ids.size());
                 fireNow = started;
@@ -298,7 +299,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
                 fireNow = started;
             }
             case CgKeyCodes.KEY_Y -> speed = shift ? Math.max(0, speed - 1) : Math.min(SPEEDS.length - 1, speed + 1);
-            case CgKeyCodes.KEY_P -> speed = speed == 0 ? SPEEDS.length - 1 : 0;
+            case CgKeyCodes.KEY_TAB -> speed = speed == 0 ? SPEEDS.length - 1 : 0;
             case CgKeyCodes.KEY_C -> CgWorldRenderer.get().gradeDraws(!CgWorldRenderer.get().gradeDraws());
             default -> {
             }
@@ -310,8 +311,8 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     @Override
     public String hudLine() {
         String cue = ids.isEmpty() ? "-" : ids.get(current);
-        return String.format(Locale.ROOT, "%nCue [N/B]: %s | Fire [R]%n"
-                        + "Time [P]: %s | Speed [Y]: x%s | Step [Z X]%n"
+        return String.format(Locale.ROOT, "%nCue [N/B]: %s | Fire [`]%n"
+                        + "Time [Tab]: %s | Speed [Y]: x%s | Step [Z X]%n"
                         + "Age: %.3f / %.3f s%n"
                         + "Kit colour grade [C]: %s",
                 cue, speed == 0 ? "paused" : "playing", SPEEDS[speed], Math.min(sinceFire, duration), duration,
@@ -331,5 +332,6 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
 
     @Override public boolean isRunning() { return running; }
     @Override public boolean uses3DCamera() { return true; }
+    @Override public boolean editorEnvironment() { return true; }
     @Override public boolean shouldShutdownOnComplete() { return capture > 0; }
 }
