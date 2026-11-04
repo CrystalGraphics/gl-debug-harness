@@ -60,7 +60,7 @@ import java.util.function.Predicate;
  *   <li>A bound key whose application runs brings it forward, raised and given the keyboard, as a single-instance
  *       kind's second launch does; one whose window was closed starts it fresh. Escape closes the desktop.</li>
  *   <li>An application is an {@link ApplicationKind}: its window, its ticks and its cleanup are its own, so it runs
- *       on any CrystalGUI host. A kind not installed on the desktop is installed as it is first opened.</li>
+ *       on any CrystalGUI host. A kind bound to a key is installed on the desktop as soon as the desktop shows.</li>
  *   <li>3D scenes only; {@code ctx.getUi()} is null in a 2D one, which is a CrystalGUI document of its own.</li>
  * </ul>
  */
@@ -106,7 +106,7 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         if (taken != null) throw new IllegalStateException(kind.id() + " cannot take key " + key + ": " + taken.id() + " has it");
     }
 
-    /** Shows the desktop with {@code kind} launched, or brought forward if it runs. Render thread. */
+    /** Shows the desktop with {@code kind} brought forward if it runs, launched if not. Render thread. */
     public void open(ApplicationKind kind) {
         if (!HostSession.mayOpen()) return;
         HostSession session = HostSession.session();
@@ -114,11 +114,12 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         // The host's tick first: it binds the workspace an application launches against
         session.frame(0f);
         shown = true;
-        // A single-instance kind already running is activated rather than launched again
+        installBound(session);
+        // A KEY BRINGS BACK WHAT RUNS, and launches only when nothing does: a new instance is the menu's and Start's
         session.inDocument(() -> {
             Desktop desktop = session.desktop();
-            if (!desktop.applications().installed().contains(kind)) desktop.applications().install(kind);
-            desktop.applications().launch(kind, session.workspace());
+            if (desktop.applications().byId(kind.id()) == null) desktop.applications().install(kind);
+            desktop.applications().activateOrLaunch(kind, session.workspace());
         });
     }
 
@@ -127,6 +128,21 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         if (!HostSession.mayOpen()) return;
         HostSession.session().shown();
         shown = true;
+        installBound(HostSession.session());
+    }
+
+    /**
+     * Installs every application bound to a key, so the desktop offers it before it is first opened: in Start,
+     * and as a pin a previous run left on the taskbar.
+     */
+    private void installBound(HostSession session) {
+        session.inDocument(() -> {
+            Desktop desktop = session.desktop();
+            if (desktop == null) return;
+            for (ApplicationKind kind : keys.values()) {
+                if (desktop.applications().byId(kind.id()) == null) desktop.applications().install(kind);
+            }
+        });
     }
 
     /**
@@ -139,6 +155,7 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         session.shown();
         session.frame(0f);
         shown = true;
+        installBound(session);
         DocumentDriver<?> driver = session.document().driver();
         if (driver == null || !driver.isAsync()) {
             session.inDocument(build);
