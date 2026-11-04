@@ -3,7 +3,6 @@ package com.crystalgraphics.harness.camera;
 import com.crystalgraphics.api.font.CgDefaultFont;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.text.CgTextLayout;
-import com.crystalgraphics.harness.InteractiveSceneRunner;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.bloom.CgBloom;
@@ -25,7 +24,7 @@ import java.util.function.Supplier;
  *
  * Shake [C]: on, trauma t | off
  * HDR [G]: on | off | Glow [ ]: g
- * Bloom [L]: off | linear | blend | gaussian | Intensity [- =]: b
+ * Bloom [L]: off | linear | blend | Intensity [- =]: b
  * </pre>
  */
 public final class HUDRenderer {
@@ -109,7 +108,7 @@ public final class HUDRenderer {
                     ? String.format("\nShake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "\nShake [C]: off");
         }
         if (shakeAndGlow) text.append(String.format("\nGlow [ ]: %.2f", CgWorldRenderer.get().sceneEmission()));
-        text.append("\nBloom [L]: ").append(bloom.intensity() == 0f ? "off" : InteractiveSceneRunner.gaussianBloom() ? "gaussian" : bloom.linear() ? "linear" : "blend")
+        text.append("\nBloom [L]: ").append(bloom.intensity() == 0f ? "off" : bloom.linear() ? "linear" : "blend")
                 .append(String.format(" | Intensity [- =]: %.2f", bloom.intensity()));
         String own = sceneLines.get();
         if (own != null) text.append('\n').append(own);

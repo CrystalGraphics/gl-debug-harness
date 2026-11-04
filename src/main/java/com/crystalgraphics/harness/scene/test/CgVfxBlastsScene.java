@@ -2,7 +2,6 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.demo.CgVfxBlasts;
 import com.crystalgraphics.demo.CgVfxDemoControls;
-import com.crystalgraphics.demo.CgVfxShowcase;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -12,8 +11,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * {@link CgVfxBlasts} over the showcase's floor and under its sky: blasts as particles alone, about 360,000 alive at
- * once. Scene id {@code vfx-blasts}.
+ * {@link CgVfxBlasts} over the harness's own floor and clear colour, dark enough to judge bloom against: blasts as
+ * particles alone, about 360,000 alive at once. Scene id {@code vfx-blasts}.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-blasts"
@@ -27,7 +26,6 @@ public final class CgVfxBlastsScene implements InteractiveSceneLifecycle, CgSyst
     /** {@code -Dcrystalgraphics.harness.vfx.blasts=<n>}: how many, 120 by default. */
     private static final int BLASTS = Integer.getInteger("crystalgraphics.harness.vfx.blasts", 120);
 
-    private final CgVfxShowcase stage = new CgVfxShowcase();
     private final CgVfxBlasts blasts = new CgVfxBlasts(BLASTS);
     private final HarnessVfxControls controls = new HarnessVfxControls();
 
@@ -43,8 +41,6 @@ public final class CgVfxBlastsScene implements InteractiveSceneLifecycle, CgSyst
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgWorldRenderer world = CgWorldRenderer.get();
         blasts.submit(world, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(frame.getElapsedTime()));
-        stage.submitStage(world, 0.0, 0.0, 0.0, ctx.getCamera3D().getPosX(), ctx.getCamera3D().getPosY(),
-                ctx.getCamera3D().getPosZ());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }
 
@@ -61,7 +57,6 @@ public final class CgVfxBlastsScene implements InteractiveSceneLifecycle, CgSyst
     @Override
     public void dispose() {
         blasts.delete();
-        stage.delete();
     }
 
     @Override public boolean isRunning() { return true; }
