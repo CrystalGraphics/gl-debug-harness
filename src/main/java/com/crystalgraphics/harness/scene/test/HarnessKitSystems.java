@@ -47,6 +47,8 @@ import java.util.List;
  * <ul>
  *   <li>The kit is scanned on the workers: {@link #ref}, {@link #material} and {@link #sequence} answer null until
  *       {@link #declared()}, a frame or more later.</li>
+ *   <li>Made in a scene's {@code init}, its scan and load are the loading screen's tasks ({@code <namespace>:scan},
+ *       {@code :load}), so the bundle is ready before the hide; what a scene asks for after the hide loads in play.</li>
  *   <li>The kit's textures resolve as {@code <namespace>:textures/...} only through a resource root holding
  *       {@code assets/<namespace>}: the harness's build adds the plan's {@code local/kitroot} when it is there.</li>
  *   <li>A system's id is its path under the kit's {@code vfx/systems}, without {@code .yaml}; a material's and a

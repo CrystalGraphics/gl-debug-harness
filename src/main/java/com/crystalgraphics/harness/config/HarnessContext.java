@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.config;
 
+import com.crystalgraphics.loading.task.CgLoadPlan;
 import java.nio.file.Paths;
 import java.nio.file.Path;
 import com.crystalgraphics.harness.camera.Camera3D;
@@ -397,6 +398,19 @@ public final class HarnessContext {
      * before scene init.
      */
     public void setTaskScheduler(TaskScheduler taskScheduler) { this.taskScheduler = taskScheduler; }
+
+    /**
+     * The loading screen's plan: a task an interactive scene names in {@code init} keeps the screen up until it ends,
+     * so what the scene's first frames would load loads behind it. Render thread.
+     *
+     * <pre>{@code
+     * ctx.getLoadPlan().task("harness:my-scene").render(task -> {
+     *     declareOnceScanned();
+     *     return everythingReady();          // true once done; asked once a loading frame
+     * }).start();
+     * }</pre>
+     */
+    public CgLoadPlan getLoadPlan() { return CgLoadPlan.get(); }
 
     // ── Artifact service ──
 

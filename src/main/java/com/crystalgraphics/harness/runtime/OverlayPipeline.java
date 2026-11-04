@@ -12,6 +12,7 @@ import com.crystalgraphics.platform.gl.state.CgGlScope;
 import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.render.stage.CgRenderStage;
+import com.crystalgraphics.render.world.CgPipelinePrecache;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 
 import java.util.logging.Logger;
@@ -194,7 +195,8 @@ public final class OverlayPipeline {
 
     /**
      * Draws the HUD text into a scratch target behind the loading screen, which draws no overlay: its font at the
-     * window's size and its glyphs are made before it shows. Once a frame, since glyphs land at a frame's tick; true
+     * window's size and its glyphs are made before it shows, once the engine's precache has built: drawn sooner, its
+     * text pipelines build at the draw. Once a frame, since glyphs land at a frame's tick; true
      * once three frames' draws in a row left no glyph pending, or after {@link #HUD_WARM_FRAMES}, should glyph work for
      * others never go quiet.
      */
@@ -202,6 +204,7 @@ public final class OverlayPipeline {
         long frame = CgFrameClock.frameIndex();
         if (frame == hudWarmFrame) return false;
         hudWarmFrame = frame;
+        if (CgPipelinePrecache.remaining() > 0) return false;
         if (++hudWarmFrames > HUD_WARM_FRAMES) return true;
         if (hudWarmTarget == null) {
             hudWarmTarget = CgFrameBuffer.create("harness_hud_warm", 16, 16,

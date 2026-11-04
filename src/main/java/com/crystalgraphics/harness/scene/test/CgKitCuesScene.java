@@ -61,8 +61,8 @@ import java.util.Locale;
  *   <li>{@code .fireEvery=<seconds>} (2) fires the cue again on that clock while nothing is pressed; 0 fires once.
  *       {@code .distance=<blocks>} (3) is the camera's distance from the hit, at eye height.</li>
  *   <li>{@code .regions=false} plays the cues' sequences without their colour regions.</li>
- *   <li>A cue fires once it and the sequences its burst plays are {@code READY}, resident and precached: a burst
- *       still loading 0.2 s after it fires plays nothing, as in the game.</li>
+ *   <li>The cues and the sequences their bursts play load behind the loading screen, a task of its plan, until they
+ *       are {@code READY}: a burst still loading 0.2 s after it fires plays nothing, as in the game.</li>
  *   <li>The HUD's age is the hit's time over its duration, its longest sequence's length; it holds at the end.</li>
  *   <li>A step forward pauses and simulates one frame; a step back, and a step past the end, seek the hit, which
  *       keeps its seeds: only a fire (`, N, B) draws new ones.</li>
@@ -97,7 +97,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private CgMesh cube;
     private int current, speed = SPEEDS.length - 1, frames;
     private double sinceFire;
-    private boolean declared, started, fireNow, shift, running = true;
+    private boolean declared, loaded, started, fireNow, shift, running = true;
     /** The sequences the last fire plays, and the longest one's length in seconds: the hit's duration. */
     private final List<CgSequencePlayer> hit = new ArrayList<>();
     private double duration;
@@ -128,6 +128,23 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         submit = CgWorld.client().schedule().add(CgTickGroup.SUBMIT, "harness:kit-cues", dt -> {
             CgWorldRenderer.get().draw(cube, dummy).at(HIT_X, 0, HIT_Z - 0.4).transform(dummyShape).submit();
         });
+        ctx.getLoadPlan().task("harness:kit-cues").render(task -> {
+            prepare();
+            return loaded || !running || kit.failed();
+        }).start();
+    }
+
+    /** Declares the cues once the kit is scanned, then the sequences their bursts play, until all are loaded. */
+    private void prepare() {
+        if (!declared && kit.declared()) {
+            declared = true;
+            for (String id : ids) {
+                CgAssetRef<CgCueDefinition> ref = CgVfxAssets.instance().declare(CgGameplayKinds.CUE, id);
+                ref.request(CgLoadPriority.MOVE);
+                cues.add(ref);
+            }
+        }
+        if (!loaded && declared && allLoaded()) loaded = true;
     }
 
     private static String require(String key) {
@@ -145,18 +162,11 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         if (stepping) steps--;
         double rate = stepping ? STEP / dt : SPEEDS[speed];
         CgWorld.client().timeDilation((float) rate);
-        if (!declared && kit.declared()) {
-            declared = true;
-            for (String id : ids) {
-                CgAssetRef<CgCueDefinition> ref = CgVfxAssets.instance().declare(CgGameplayKinds.CUE, id);
-                ref.request(CgLoadPriority.MOVE);
-                cues.add(ref);
-            }
-        }
+        prepare();
         if (kit.failed()) {
             System.out.println(TAG + "FAIL: " + kit.failures());
             running = false;
-        } else if (!started && declared && allLoaded()) {
+        } else if (!started && loaded) {
             started = true;
             fireNow = true;
             System.out.println(TAG + cues.size() + " cues ready: " + ids);

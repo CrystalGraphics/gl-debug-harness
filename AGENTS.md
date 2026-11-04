@@ -560,6 +560,7 @@ Config classes:
 | `ctx.getArtifactService()` | `ArtifactService` | Interactive scenes | Framework-owned capture with semantic suffix API |
 | `ctx.getCamera3D()` | `Camera3D` | Interactive scenes | Shared 3D camera |
 | `ctx.getTaskScheduler()` | `TaskScheduler` | Interactive scenes | Time-based callback system |
+| `ctx.getLoadPlan()` | `CgLoadPlan` | Interactive scenes | The loading screen's tasks: one named in `init` holds the screen until it ends, so a scene's first frames load nothing (`CrystalGraphics/docs/LOADING.md` §3) |
 
 Legacy convenience accessors like `ctx.getScreenWidth()` and `ctx.getOutputDir()` still work, but new code should use the typed accessors directly.
 

@@ -27,6 +27,8 @@ import org.joml.Matrix4fc;
  * <ul>
  *   <li>Off by default: a gate's pixels are checked against the plain clear colour and floor.</li>
  *   <li>Drawn by {@code HarnessWorld.fire}, once a frame however often a scene fires.</li>
+ *   <li>Its pipelines are requested when the runner turns it on, before the scene's loading screen, which holds
+ *       until they are built; its draws wait for them too.</li>
  * </ul>
  */
 public final class HarnessEnvironment {
@@ -59,8 +61,23 @@ public final class HarnessEnvironment {
         return enabled;
     }
 
+    /** Turns it on or off for the run; on, its meshes and materials are made and its pipelines requested. Render thread. */
     public void enabled(boolean enabled) {
         this.enabled = enabled;
+        if (enabled && skyMaterial == null) prepare();
+    }
+
+    private void prepare() {
+        sky = CgMeshShapes.sphere(24, 32);
+        floor = CgMesh.build(CgVertexFormat.SPATIAL, m -> CgMeshShapes.plane(m, 1, 1, FLOOR_FADE * 2.5f, FLOOR_FADE * 2.5f));
+        skyMaterial = CgMaterial.newInstance(SKY_SHADER);
+        floorMaterial = CgMaterial.newInstance(FLOOR_SHADER).applyProperties(b -> b.set1f("_Fade", FLOOR_FADE));
+        groundMaterial = CgMaterial.load(GROUND_SHADER);
+        programs = CgPipelinePrecache.request(pipelines -> {
+            pipelines.add(skyMaterial, false);
+            pipelines.add(floorMaterial, false);
+            pipelines.add(groundMaterial, false);
+        });
     }
 
     public boolean night() {
@@ -88,18 +105,6 @@ public final class HarnessEnvironment {
     public void submit(Camera3D camera) {
         if (!enabled || submitted) return;
         submitted = true;
-        if (skyMaterial == null) {
-            sky = CgMeshShapes.sphere(24, 32);
-            floor = CgMesh.build(CgVertexFormat.SPATIAL, m -> CgMeshShapes.plane(m, 1, 1, FLOOR_FADE * 2.5f, FLOOR_FADE * 2.5f));
-            skyMaterial = CgMaterial.newInstance(SKY_SHADER);
-            floorMaterial = CgMaterial.newInstance(FLOOR_SHADER).applyProperties(b -> b.set1f("_Fade", FLOOR_FADE));
-            groundMaterial = CgMaterial.load(GROUND_SHADER);
-            programs = CgPipelinePrecache.request(pipelines -> {
-                pipelines.add(skyMaterial, false);
-                pipelines.add(floorMaterial, false);
-                pipelines.add(groundMaterial, false);
-            });
-        }
         if (!programs.ready()) return;
         CgWorldRenderer world = CgWorldRenderer.get();
         double x = camera.getPosX(), y = camera.getPosY(), z = camera.getPosZ();
