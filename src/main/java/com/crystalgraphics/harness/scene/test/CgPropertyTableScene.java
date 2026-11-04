@@ -24,7 +24,7 @@ import java.util.List;
  * each reading its own element. Past 16 elements a read takes the chunk of 16 holding it, so every chunk is crossed.
  *
  * <p>Prints {@code [property-table] PASS} or {@code FAIL}; run it on {@code gl} at each forced tier, with
- * {@code -Dcrystalgraphics.shaderBuffer.tier=TBO}, and on {@code vulkan}.</p>
+ * {@code -Dcrystalgraphics.shaderBuffer.tier=SSBO_ARB}, and on {@code vulkan}.</p>
  */
 public class CgPropertyTableScene implements HarnessSceneLifecycle {
 

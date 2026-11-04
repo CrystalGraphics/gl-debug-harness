@@ -58,7 +58,7 @@ scene and its device: `skinned-play [vk]`.
   Java. `--mode=raster-layers` is raster passes into array layers: 2 to 5 layers of one array drawn each frame and
   summed through a `sampler2DArray`, every layer and the sum checked, the array on one storage throughout.
   `--mode=skinned-mesh` is skinned meshes': a bar of three bones bent at both joints, skinned on the GPU from a
-  palette beside its CPU-skinned twin (`CgSkinning`), positions and normals matched; PASS at G43, G40, G33 (TBO too)
+  palette beside its CPU-skinned twin (`CgSkinning`), positions and normals matched; PASS at G43, G40, G33
   and on `vulkan`. `--mode=skinned-bench` is its cost, profiled with `.skinned.static=true` as the static comparison.
   `--mode=skinned-play` is to look at and play with: Goku (the kit) and Kurama (NSUNS4) playing their clips through
   `CgAnimation`; Tab picks one, N/B change clip with a cross-fade, P pauses, `,` `.` step a frame, U/I change rate, O cycles the outline's edge tests, E the ocean arena's post chain (on once the kit is ready; `.skinnedPlay.stage=false` starts it off). Unattended, `-Dcrystalgraphics.harness.skinnedPlay.cutAfter=3` presses X 3 s after Goku's kit is ready, and `.exitAfter=4` ends the run 4 s after the shot plays out; with `keyAt=1:V` for the bystander and `fixedDelta`, the cut runs the same however long the kit takes to load.
@@ -70,7 +70,7 @@ scene and its device: `skinned-play [vk]`.
   brute-force distance to solid; it prints the flood's GPU time. PASS at G43, G40, G33 and on `vulkan`.
   `--mode=vfx-events` is particle events' (X5): debris that report landing, an age and death, landing and the age each
   spawning dust in a second pool fed by two slots, every row heard once and every child where Java puts it from its
-  row. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
+  row. PASS at G43, G40, G33 and on `vulkan`.
   `--mode=vfx-sequence` is particle-played clips' (G2.1): one particle playing a clip, its part photographed where its
   node is (stepped up, then left) and gone once its opacity keys to 0, a node's event row at the node facing its +Y,
   and the clip's burst and stream spawning children a force carries, each dying into two grandchildren, every id and
@@ -78,23 +78,23 @@ scene and its device: `skinned-play [vk]`.
   `--mode=vfx-collide` is collisions' and repeating events' (X6): debris bounced off a ground and a wall by a kind given
   as GLSL text over the window's distance field, each fast impact a collision spawning dust under its firing's key, a
   rate reporting each debris every period, the fourth collision killing it; every firing heard once and numbered, every
-  child where Java puts it, nothing inside the solid. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
+  child where Java puts it, nothing inside the solid. PASS at G43, G40, G33 and on `vulkan`.
   `--mode=vfx-cascade-collide` is a collider's Cascade response through the engine's `CollideWorld`: per-axis damping
   rolled per particle against Java to 1e-4 with its turn scaled, freezing after 3 collisions, halting after a count rolled
   from 1 to 2 and falling through, and killing at the first contact past a delay of half its life. PASS at G43, G40, G33
   and on `vulkan`.
   `--mode=vfx-mesh-facing` is mesh particles' facing (`CgVfxMeshFacing`): seven facings in one pool, Niagara's modes and
   locked axis and Cascade's ups, rolls and pre-rotations, each mesh's axes against Java, and the camera-position mesh's x
-  on the eye. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
+  on the eye. PASS at G43, G40, G33 and on `vulkan`.
   `--mode=vfx-spawn-from` is particles born on another emitter's (`CgVfxSpawnFrom`): three sources at tier 0 publishing
   seeded particles, each read by an emitter at tier 1 bursting once; a random reader on still sources, every one exactly
   on a source particle; a sequential reader taking each moving source particle's half velocity once; an empty source's
   readers left at their origin; followers (`follow`) on the moving source particle of their id every step, its
-  place, velocity, age and life, and gone with it. PASS at G43, G40, G33 (TBO too) and on `vulkan`.
+  place, velocity, age and life, and gone with it. PASS at G43, G40, G33 and on `vulkan`.
   `--mode=vfx-fields` is force fields': each of Chaos's node kinds the GPU evaluates, a turned and a world-oriented
   placement and the four targets applied (`linear_force`, `linear_velocity`, `orbit`, `kill`), a station a group, 512
   particles seeded and stepped once, each one's change held to `CgFieldEval`, and a neighbour reading no group left as
-  it was. PASS at G43, G33 (TBO too) and on `vulkan`.
+  it was. PASS at G43, G33 and on `vulkan`.
   `--mode=vfx-stack` is shared pools' (`CgVfxShapeCoalescing`: stacked shapes, a pool's spawn shapes, its texture
   sets): nine definitions, six whose module stacks are some of one wide stack in order on six spawn shapes, two of one
   shape on different vector fields, a force stacked under those, a burst stepped twice, every particle written by id to
@@ -107,16 +107,16 @@ scene and its device: `skinned-play [vk]`.
   particles of known state stepped once, each one's change of velocity the form's Java evaluation, every lane; and
   spawn values in forms (P6.4): a lifetime as a pick and by id, a skewed size, a speed by a random draw and a swept
   radius, an orbit's rate by the loop and its offset picked, 512 spawned at a known loop time, each one's life, size, speed or distance the form's Java evaluation. PASS at
-  G43, G40, G33 (TBO too) and on `vulkan`.
+  G43, G40, G33 and on `vulkan`.
   `--mode=vfx-beams` is beams': Cascade's beam modules in twelve cases (straight, a Hermite under a turned effect, a far
   end travelling and arriving, noise re-picked each step, at a lock time, smoothed, oscillating, by distance,
   tessellated, on interpolation points, on the target), stepped 14 times beside a Java simulation of them, each beam's
   record, its run and the points the strip factory's `fx_beam_point` draws matched against it. PASS at G43, G40, G33
-  (TBO too) and on `vulkan`.
+  and on `vulkan`.
   `--mode=lights-grid` is the world's point lights' (`CgWorldLights`): 150 lights added from the CPU and 250 appended
   by a kernel each frame, 50 of them clustered so cells pass the 32-light cap, the list and the light grid read back
   and held to Java (the CPU's in order, the kernel's as a set, every cell Unreal's sphere-against-box binning). PASS at
-  G43, G40, G33 (TBO too) and on `vulkan`. `--mode=lights-bench` is their cost: `crystalgraphics.harness.lights` (1,000)
+  G43, G40, G33 and on `vulkan`. `--mode=lights-bench` is their cost: `crystalgraphics.harness.lights` (1,000)
   lights over the floor through the list, to profile: 1,000 drawn as spheres, one draw each, were 0.323 ms of GPU on gl.
   `--mode=lights-sun` and `--mode=lights-torch` are Minecraft's own light shadowed by our objects: a box of ours over
   the host's ground at noon and beside a torch at night, the ground behind it darkened, the open ground unchanged
@@ -137,7 +137,7 @@ scene and its device: `skinned-play [vk]`.
   haze, its base's per-pixel deviation over 30 frames with the history on and off, the same six blocks from the live
   demo's searchlight, and its beam over the haze side-on from 10 and 40 blocks; run it with `fixedDelta`.
   `--mode=lights-shadow` is their shadows': a light beside a wall of blocks in a world of its own, the light it adds
-  behind the wall gone and in the open the same as with `shadowed(false)`. PASS on `gl`, at G33 with TBO and on `vulkan`.
+  behind the wall gone and in the open the same as with `shadowed(false)`. PASS on `gl` and on `vulkan`.
   `--mode=vfx-renderers` is an emitter's renderers': a sprite, an arc, trails, a ribbon and a `#type spatial`
   material drawn as sprites (no vertex data) from material definitions over 100 effects, each renderer one particle
   set of every instance; PASS at G43, G40, G33 and on
@@ -158,7 +158,7 @@ scene and its device: `skinned-play [vk]`.
   `--mode=vfx-inputs` is what a kind samples besides the window (X6): a 3D vector field setting velocity, a 2D
   heightfield stopping a fall, and a depth pyramid of a wall and a floor under a turned camera that particles strike,
   once each, along the reconstructed normal; each against Java, the depth test replayed per pixel. PASS at G43, G40,
-  G33 (TBO too) and on `vulkan`.
+  G33 and on `vulkan`.
   `--mode=readback` is `CgRecording.readback`'s: kernel-written words, a float target, an unaligned byte target
   and a mip level read back every frame, each delivery checked against the frame that recorded it.
   `--mode=compute-check` is checked mode's (run it with `-Dcrystalgraphics.compute.checked=true`): a write past a
@@ -184,8 +184,8 @@ scene and its device: `skinned-play [vk]`.
   grid over a life, a range looped, random frames against `CgRng` and a blend, each particle's frame checked against
   Java; PASS on `gl`, `mac41` and `vulkan`. `--mode=global-parameters` is a `CgParameterCollection`'s: one value set
   once, read by two materials through the world renderer (one in its vertex stage too) and ignored by a third, each
-  quad's colour checked; PASS on `gl`, `mac41` and `vulkan`, and with `-Dcrystalgraphics.shaderBuffer.tier=TBO`. `--mode=property-table` is a material's `vec4[64]` read on the GPU, 64 quads each its own element's
-  colour across the table's four chunks; PASS at G43, G40, G33, with `-Dcrystalgraphics.shaderBuffer.tier=TBO` and on `vulkan`.
+  quad's colour checked; PASS on `gl`, `mac41` and `vulkan`. `--mode=property-table` is a material's `vec4[64]` read on the GPU, 64 quads each its own element's
+  colour across the table's four chunks; PASS at G43, G40, G33 and on `vulkan`.
   `--mode=vfx-sort-group` is a `CgVfxSortGroup`'s: two effects in one group, the layer of the higher hint drawn last
   whichever is nearer, and an ungrouped pair sorted by distance; PASS on `gl`, `mac41` and `vulkan`.
   `--mode=vfx-precache` is programs precached on load: a move's looks (the Kamehameha, the explosion, heat haze) precached

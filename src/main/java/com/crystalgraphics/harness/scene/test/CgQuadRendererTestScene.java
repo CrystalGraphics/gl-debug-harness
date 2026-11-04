@@ -14,7 +14,7 @@ import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
 
 /**
- * Interactive visual test for {@link CgQuadRenderer} — the new SSBO/TBO-backed general
+ * Interactive visual test for {@link CgQuadRenderer} — the new SSBO-backed general
  * quad-instancing renderer (see
  * {@code plan/text-instancing.md}).
  *

@@ -283,7 +283,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("quad-renderer-test")
-                .description("CgQuadRenderer: SSBO/TBO-backed instanced quad batching — grid + rotating spinners in one draw call")
+                .description("CgQuadRenderer: SSBO-backed instanced quad batching — grid + rotating spinners in one draw call")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
