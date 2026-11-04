@@ -51,6 +51,10 @@ public final class HUDRenderer {
     private CgFont font;
     private int fontPx;
     private CgTextRenderer renderer;
+    private static final long REFRESH_NANOS = 50_000_000L;
+    private CgTextLayout layout;
+    private int layoutPx;
+    private long layoutAt;
 
     private Supplier<String> sceneLines = () -> null;
     private boolean shakeAndGlow = true;
@@ -79,6 +83,19 @@ public final class HUDRenderer {
         sampleFps();
         sampleParticles();
 
+        // At most 20 times a second: in between the same layout is drawn, whose shaping and glyphs are kept
+        long now = System.nanoTime();
+        if (layout == null || layoutPx != px || now - layoutAt >= REFRESH_NANOS) {
+            layout = CgTextLayout.of(text(ctx), font).build();
+            layoutPx = px;
+            layoutAt = now;
+        }
+        renderer.beginBatch();
+        renderer.draw().layout(layout).font(font).at(4, 4).color(TEXT_COLOR).stroke(OUTLINE_EM, OUTLINE_COLOR).submit();
+        renderer.endBatch();
+    }
+
+    private String text(HarnessContext ctx) {
         Camera3D camera = ctx.getCamera3D();
         CgBloom bloom = CgPostStack.get().bloom();
         StringBuilder text = new StringBuilder()
@@ -96,11 +113,7 @@ public final class HUDRenderer {
                 .append(String.format(" | Intensity [- =]: %.2f", bloom.intensity()));
         String own = sceneLines.get();
         if (own != null) text.append('\n').append(own);
-
-        CgTextLayout layout = CgTextLayout.of(text.toString(), font).build();
-        renderer.beginBatch();
-        renderer.draw().layout(layout).font(font).at(4, 4).color(TEXT_COLOR).stroke(OUTLINE_EM, OUTLINE_COLOR).submit();
-        renderer.endBatch();
+        return text.toString();
     }
 
     public void delete() {
@@ -111,6 +124,7 @@ public final class HUDRenderer {
         // The default font is shared: dropped, never disposed
         font = null;
         fontPx = 0;
+        layout = null;
     }
 
     /** A window's average FPS, its 1% low (the slowest 1% of its frames, averaged: CapFrameX's) and its worst frame. */
