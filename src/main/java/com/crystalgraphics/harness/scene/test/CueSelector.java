@@ -62,6 +62,7 @@ final class CueSelector {
     private final ApplicationKind kind = ApplicationKind.of("harness:kit-cues", "Cues")
             .icon("harness:cues")
             .keywords("cues", "hits", "kit")
+            .windowSize(820, 460)
             .standalone()
             .launch(context -> new Instance(context.desktop()));
 
@@ -211,8 +212,6 @@ final class CueSelector {
             window.setContent(build());
             own = new ArrayList<>(trees.subList(from, trees.size()));
             desktop.addWindow(window);
-            // After addWindow, which places and sizes it.
-            window.resizeTo(820f, 460f);
         }
 
         @Override public ApplicationKind kind() { return kind; }
