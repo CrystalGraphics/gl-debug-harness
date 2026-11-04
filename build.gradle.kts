@@ -35,10 +35,14 @@ val lwjglNatives: String = run {
     }
 }
 
-// CrystalGraphics only. A project on top of it -- CrystalGUI -- adds its scenes as a HarnessExtension from
-// its own module, which puts itself on runHarness' classpath.
+// CrystalGUI's checkout: the root of the build this is a project of, or the one settings.gradle.kts includes.
+val crystalGuiRoot: File = (rootProject.findProperty("crystalGuiDir") as String?)?.let(::File) ?: rootProject.projectDir
+
+// CrystalGraphics and CrystalGUI, by coordinates the host build supplies (README.md). Another project's scenes come
+// in as a HarnessExtension from its own module, which puts itself on runHarness' classpath.
 dependencies {
-    // `api`: a scene an extension writes is handed CrystalGraphics and JOML types by HarnessContext.
+    // `api`: a scene an extension writes is handed CrystalGraphics, CrystalGUI and JOML types by HarnessContext.
+    api("com.crystalgui:core:1.0.0")
     api("com.crystalgraphics:platform:1.0.0")
     api("com.crystalgraphics:freetype-msdfgen-harfbuzz-bindings:1.0.0")
     api("com.crystalgraphics:core:1.0.0")
@@ -188,8 +192,8 @@ tasks.register<JavaExec>("runHarness") {
     // The format's example kits, each a resource root, where the private plan/ repository is checked out:
     // vfx-nova plays the Nova Cannon's from there; vfx-kamehameha the games' kits, through local/kitroot's
     // assets/<kit> links to the built kits.
-    val exampleRoots = listOf(rootProject.file("plan/crystalgraphics/vfx-aaa/examples/novamod"),
-            rootProject.file("plan/crystalgraphics/vfx-aaa/local/kitroot"))
+    val exampleRoots = listOf(crystalGuiRoot.resolve("plan/crystalgraphics/vfx-aaa/examples/novamod"),
+            crystalGuiRoot.resolve("plan/crystalgraphics/vfx-aaa/local/kitroot"))
         .filter { it.isDirectory }
 
     // Assets are read from the source trees with no setup: CgIO maps each project on the classpath back to
@@ -214,7 +218,7 @@ tasks.register<JavaExec>("runHarness") {
         systemProperty("crystalgraphics.resourceOverrideDirs", roots.joinToString(File.pathSeparator))
     }
     // The built kits are thousands of folders, seconds to watch at every launch: read, not watched (Ctrl+R reloads).
-    val kitRoot = rootProject.file("plan/crystalgraphics/vfx-aaa/local/kitroot")
+    val kitRoot = crystalGuiRoot.resolve("plan/crystalgraphics/vfx-aaa/local/kitroot")
     if (kitRoot.isDirectory && System.getProperty("crystalgraphics.hotReload.unwatched") == null) {
         systemProperty("crystalgraphics.hotReload.unwatched", kitRoot.absolutePath)
     }

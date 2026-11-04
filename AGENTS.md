@@ -476,7 +476,7 @@ Each entry has:
 
 ### Scenes from another project — `HarnessExtension`
 
-**The harness is CrystalGraphics-only and names no project built on it.** A project's scenes come in as a
+**The harness takes CrystalGraphics and CrystalGUI as libraries and names no project built on them.** A project's scenes come in as a
 `HarnessExtension`, found through `ServiceLoader`: CrystalGUI's live in its own `harness-scenes` module
 (`com.crystalgui.harness.CrystalGuiHarness`). One interface, five hooks — `registerScenes`, `beforeReload`
 (Ctrl+R, ahead of CrystalGraphics' `CgAssetReloader.reload()`), `shaderNamespaces` (what
@@ -1090,7 +1090,7 @@ Use `--output-name=PREFIX` to customize output filenames:
 
 ## Build Configuration
 
-The harness is a standalone Gradle subproject (`gl-debug-harness/build.gradle.kts`) that depends on CrystalGraphics alone — `platform`, `core`, the JNI bindings and the `lwjgl3` tier-1 runtime, by `com.crystalgraphics:*` coordinates a host resolves through its composite build — and names no project on top of it. It resolves LWJGL 3 through its BOM, with the natives for the running OS and architecture chosen at configuration time (no extraction step), plus the JNI bindings for freetype-harfbuzz and msdfgen.
+The harness depends on CrystalGUI's `core` and on CrystalGraphics — `platform`, `core`, the JNI bindings and the `lwjgl3` tier-1 runtime — by coordinates (`com.crystalgui:core`, `com.crystalgraphics:*`) the build it runs in supplies; it holds no submodule. It runs as one of CrystalGUI's projects, or as a build of its own that includes CrystalGUI from `local.properties`' `crystalGuiDir` (and CrystalGraphics from `crystalGraphicsDir`): [`README.md`](README.md). It resolves LWJGL 3 through its BOM, with the natives for the running OS and architecture chosen at configuration time (no extraction step), plus the JNI bindings for freetype-harfbuzz and msdfgen.
 
 Key tasks:
 - `compileJava` — Compile all harness code
