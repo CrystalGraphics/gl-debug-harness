@@ -106,7 +106,7 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         if (taken != null) throw new IllegalStateException(kind.id() + " cannot take key " + key + ": " + taken.id() + " has it");
     }
 
-    /** Shows the desktop with {@code kind} launched, or brought forward if it runs. Render thread. */
+    /** Shows the desktop with {@code kind} brought forward if it runs, launched if not. Render thread. */
     public void open(ApplicationKind kind) {
         if (!HostSession.mayOpen()) return;
         HostSession session = HostSession.session();
@@ -115,11 +115,11 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         session.frame(0f);
         shown = true;
         installBound(session);
-        // A single-instance kind already running is activated rather than launched again
+        // A KEY BRINGS BACK WHAT RUNS, and launches only when nothing does: a new instance is the menu's and Start's
         session.inDocument(() -> {
             Desktop desktop = session.desktop();
             if (desktop.applications().byId(kind.id()) == null) desktop.applications().install(kind);
-            desktop.applications().launch(kind, session.workspace());
+            desktop.applications().activateOrLaunch(kind, session.workspace());
         });
     }
 
