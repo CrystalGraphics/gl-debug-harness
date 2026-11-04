@@ -269,14 +269,10 @@ public final class ShaderCompileAuditScene implements HarnessSceneLifecycle {
             if (keywords.isEmpty()) continue;   // already covered by the base compile
             for (CgParsedPass pass : parsed.passes()) compileVariant(asset, pass.name(), keywords, capture, body);
         }
-        // What an executor binds for a run of draws joined into one call: every pass's, the generated ones too.
-        if (CgCapabilities.detect().multiDraw()) {
-            Set<String> multi = Set.of(CgMaterialShaderCompiler.MULTI_DRAW);
-            for (CgParsedPass pass : parsed.passes()) compileVariant(asset, pass.name(), multi, capture, body);
-            String depth = CgRenderPassVariant.DEPTH.lightModeName();
-            if (parsed.getPassByName(depth) == null && asset.hasCompiledPass(depth)) {
-                compileVariant(asset, depth, multi, capture, body);
-            }
+        // The generated depth pass, which no parsed pass names.
+        String depth = CgRenderPassVariant.DEPTH.lightModeName();
+        if (parsed.getPassByName(depth) == null && asset.hasCompiledPass(depth)) {
+            compileVariant(asset, depth, Set.of(), capture, body);
         }
     }
 

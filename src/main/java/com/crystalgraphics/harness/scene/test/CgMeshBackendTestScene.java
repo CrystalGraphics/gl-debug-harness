@@ -137,8 +137,8 @@ public class CgMeshBackendTestScene implements HarnessSceneLifecycle {
             for (int range = 0; range < 2; range++) {
                 baseVertex.setUniform1i(baseVertex.getUniformLocation("u_vertexBase"), quad * 4);
                 baseVertex.setUniform2f(baseVertex.getUniformLocation("u_offset"), range * 240f, 0f);
-                CgGL.glDrawElementsInstancedBaseVertex(CgGL.GL_TRIANGLES, 6, CgGL.GL_UNSIGNED_INT, range * 24L, 2,
-                        quad * 4);
+                CgGL.glDrawElementsInstancedBaseVertexBaseInstance(CgGL.GL_TRIANGLES, 6, CgGL.GL_UNSIGNED_INT,
+                        range * 24L, 2, quad * 4, 0);
             }
         }
         done(vao);
