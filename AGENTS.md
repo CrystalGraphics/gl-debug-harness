@@ -711,7 +711,7 @@ The interactive runner sequences these steps every frame:
 | ESCAPE or T | Opens the harness's desktop (`HarnessUi`), as a game's Escape opens its pause screen: the cursor free, the camera held, time running. Escape again closes it. A 2D scene pauses instead, with no overlay |
 | F1 | Hide or show the harness's HUD text, as a game's F1 hides its interface: a clean frame to compare against a game capture. The HUD stage still fires, so the engine's subtitles stay |
 | C | Camera shake on and off (the HUD says which); a scene whose HUD hides the shake (`hudShowsShakeAndGlow`, kit-cues) takes C for its own |
-| L | Bloom in the target's encoding, then in linear light, then off (the HUD says which) |
+| L | Bloom off and on (the HUD says which) |
 | [ ] | The HDR scene's glow gain down or up by a quarter (`CgWorldRenderer.sceneEmission`, 0.5 by default): how much an Emissive pass adds sharp into the scene. Held, it repeats; the HUD shows it |
 | - = | Bloom's intensity down or up by a quarter while it is on (`CgBloom.intensity`); the HUD shows it |
 | H | Half-resolution draws on or off (`CgWorldRenderer.halfResolution`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |

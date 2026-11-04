@@ -109,7 +109,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         if (changed(chromatic, linear) < 50) failures.add("chromatic aberration moved " + changed(chromatic, linear) + " pixels");
         // Unreal's Gaussian layers at its defaults: the glow spread round the ball, its widest layer reaching the corners
         BufferedImage unbloomed = draw(ctx, world, "no-bloom", v -> v.add(post.volume(0, new CgPostSettings().bloom(0f))));
-        BufferedImage gaussian = draw(ctx, world, "gaussian", v -> v.add(post.volume(0, new CgPostSettings().gaussianBloom())));
+        BufferedImage gaussian = draw(ctx, world, "gaussian", v -> v.add(post.volume(0, new CgPostSettings().bloomThreshold(-1f))));
         float near = mean(gaussian, W / 2 + 44, H / 2 - 4, 8, 8) - mean(unbloomed, W / 2 + 44, H / 2 - 4, 8, 8);
         float far = mean(gaussian, 0, 0, 24, 24) - mean(unbloomed, 0, 0, 24, 24);
         if (!(near > 2f && far > 0.05f && near > far)) {
@@ -161,7 +161,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         gradedSaturation[0] = own;
         gradedSaturation[1] = was;
         if (!(was > 0.3f && own < was * 0.5f)) failures.add("a graded draw's look: saturation " + own + " against " + was);
-        glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).gaussianBloom();
+        glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).bloomThreshold(-1f);
         BufferedImage bloomed = draw(ctx, world, "graded-bloom", v -> { });
         float beside = mean(bloomed, 204, 116, 12, 8) - mean(greyed, 204, 116, 12, 8);
         gradedSaturation[2] = beside;
@@ -177,7 +177,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
             CgRenderStage.Registration region = r == 1 ? box.show() : null;
             glassGrade = dark;
             BufferedImage regionDark = draw(ctx, world, "graded-region-" + r + "-dark", v -> { });
-            glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).gaussianBloom();
+            glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).bloomThreshold(-1f);
             BufferedImage bloomedHere = draw(ctx, world, "graded-region-" + r, v -> { });
             regionBeside[r] = mean(bloomedHere, 204, 116, 12, 8) - mean(regionDark, 204, 116, 12, 8);
             if (region != null) region.close();
@@ -202,7 +202,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         if (!(solidWas > 0.3f && solidOwn < solidWas * 0.5f)) {
             failures.add("an opaque graded draw's look: saturation " + solidOwn + " against " + solidWas);
         }
-        glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).gaussianBloom();
+        glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).bloomThreshold(-1f);
         BufferedImage solidBloomed = draw(ctx, world, "graded-solid-bloom", v -> { });
         float solidBeside = mean(solidBloomed, W - 204 - 12, 116, 12, 8) - mean(solidGreyed, W - 204 - 12, 116, 12, 8);
         gradedSaturation[5] = solidBeside;

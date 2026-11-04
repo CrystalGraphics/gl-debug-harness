@@ -108,7 +108,7 @@ public final class HUDRenderer {
                     ? String.format("\nShake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "\nShake [C]: off");
         }
         if (shakeAndGlow) text.append(String.format("\nGlow [ ]: %.2f", CgWorldRenderer.get().sceneEmission()));
-        text.append("\nBloom [L]: ").append(bloom.intensity() == 0f ? "off" : bloom.linear() ? "linear" : "blend")
+        text.append("\nBloom [L]: ").append(bloom.intensity() == 0f ? "off" : "on")
                 .append(String.format(" | Intensity [- =]: %.2f", bloom.intensity()));
         String own = sceneLines.get();
         if (own != null) text.append('\n').append(own);

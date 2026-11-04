@@ -736,7 +736,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     && letters && scene.hudShowsShakeAndGlow()) {
                 HarnessCameraShake.INSTANCE.toggle();
             }
-            // L: bloom in the target's encoding, then in linear light, then off, to compare the three.
+            // L: bloom off and on, to compare.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_L && !isCtrlDown()
                     && letters) {
                 cycleBloom();
@@ -847,19 +847,17 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         LOGGER.info("[InteractiveSceneRunner] profile split at frame " + split + ": before=" + before + " after=" + after);
     }
 
-    /** The intensity L's off state put aside, given back when the cycle returns to blend. */
+    /** The intensity L's off state put aside, given back when it turns bloom on again. */
     private static float bloomIntensity = 1f;
 
-    /** Blend, then linear, then off (intensity 0, its value kept), then blend again. */
+    /** Off (intensity 0, its value kept), then on again at that value. */
     private static void cycleBloom() {
         CgBloom bloom = CgPostStack.get().bloom();
         if (bloom.intensity() == 0f) {
-            bloom.intensity(bloomIntensity).linear(false);
-        } else if (bloom.linear()) {
+            bloom.intensity(bloomIntensity);
+        } else {
             bloomIntensity = bloom.intensity();
             bloom.intensity(0f);
-        } else {
-            bloom.linear(true);
         }
     }
 
