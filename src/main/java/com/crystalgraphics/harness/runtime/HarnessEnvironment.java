@@ -14,7 +14,7 @@ import org.joml.Matrix4fc;
 /**
  * VFX Lab's sky and floor (CrystalGUI's {@code VfxLab}) as a harness scene's world: {@code editor_sky.shader} on a
  * sphere round the eye and {@code editor_grid.shader} on a plane at y 0 under it, in place of the harness's own floor
- * and clear colour, the grid writing the floor's depth. F9 eases between day and night.
+ * and clear colour: an opaque ground, as a game's is, hiding what is under the floor. F9 eases between day and night.
  *
  * <pre>{@code
  * // a scene opts in:
@@ -102,7 +102,6 @@ public final class HarnessEnvironment {
         if (!programs.ready()) return;
         CgWorldRenderer world = CgWorldRenderer.get();
         double x = camera.getPosX(), y = camera.getPosY(), z = camera.getPosZ();
-        // The sky first: the grid writes the floor's depth, which the sky at the far plane would fail behind
         world.draw(sky, skyMaterial).at(x, y, z).transform(SKY_SCALE).layer(CgSortLayer.BACKGROUND).submit();
         // Under the eye, so flying never reaches its edge; the grid's lines are absolute and hold still.
         world.draw(floor, floorMaterial).at(x, 0.0, z).layer(CgSortLayer.BACKGROUND).submit();
