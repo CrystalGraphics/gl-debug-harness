@@ -14,6 +14,7 @@ import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.util.io.CgIO;
 import com.crystalgraphics.util.trace.CgChannels;
 import com.crystalgraphics.harness.trace.TraceDump;
+import javax.annotation.Nullable;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import java.io.File;
 import java.io.IOException;
@@ -29,6 +30,8 @@ import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.camera.HarnessCameraShake;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.bloom.CgBloom;
+import com.crystalgraphics.render.post.volume.CgPostSettings;
+import com.crystalgraphics.render.post.volume.CgPostVolume;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.harness.capture.ArtifactService;
 import com.crystalgraphics.harness.capture.CaptureCallback;
@@ -850,14 +853,27 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     /** The intensity L's off state put aside, given back when the cycle returns to blend. */
     private static float bloomIntensity = 1f;
 
-    /** Blend, then linear, then off (intensity 0, its value kept), then blend again. */
+    /** The global volume that turns the chain-matched Gaussian on, while {@link #cycleBloom} has it. */
+    @Nullable
+    private static CgPostVolume gaussianBloom;
+
+    /** Whether L's cycle is on the Gaussian: for the HUD. */
+    public static boolean gaussianBloom() {
+        return gaussianBloom != null;
+    }
+
+    /** Blend, then linear, then the Gaussian (in linear light), then off (intensity 0, its value kept), then blend again. */
     private static void cycleBloom() {
         CgBloom bloom = CgPostStack.get().bloom();
         if (bloom.intensity() == 0f) {
             bloom.intensity(bloomIntensity).linear(false);
-        } else if (bloom.linear()) {
+        } else if (gaussianBloom != null) {
+            gaussianBloom.close();
+            gaussianBloom = null;
             bloomIntensity = bloom.intensity();
             bloom.intensity(0f);
+        } else if (bloom.linear()) {
+            gaussianBloom = CgPostStack.get().volume(0, new CgPostSettings().chainGaussianBloom());
         } else {
             bloom.linear(true);
         }
