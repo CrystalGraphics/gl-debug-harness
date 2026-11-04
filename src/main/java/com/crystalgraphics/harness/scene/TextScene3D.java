@@ -56,7 +56,7 @@ import java.util.logging.Logger;
  * The scene schedules three automated screenshots:
  * <ol>
  *   <li><b>normal</b> (t=1.0s) — Front view: floor, text, HUD visible</li>
- *   <li><b>paused</b> (t=1.5s) — Same view with pause overlay at bottom</li>
+ *   <li><b>paused</b> (t=1.5s) — Same view, paused: the cursor free and the camera held</li>
  *   <li><b>topdown</b> (t=2.0s) — Camera looking straight down at floor + text</li>
  * </ol>
  *

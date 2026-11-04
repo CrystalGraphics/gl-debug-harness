@@ -25,7 +25,7 @@ import java.util.logging.Logger;
  *       from the configured output-name prefix.</li>
  *   <li><b>Post-render capture</b>: All interactive captures are scheduled
  *       as post-render callbacks via {@link CaptureCallback}, ensuring the
- *       screenshot includes the full frame (scene + floor + HUD + pause overlay).</li>
+ *       screenshot includes the full frame (scene + floor + HUD).</li>
  *   <li><b>No asset pipeline</b>: This is a simple capture service, not a
  *       generic asset management framework.</li>
  * </ul>
@@ -84,8 +84,8 @@ public final class ArtifactService {
      * Requests a full-frame backbuffer capture with the given semantic suffix.
      *
      * <p>The capture is scheduled as a post-render callback, meaning it will
-     * fire after the current frame is fully rendered (scene + floor + HUD +
-     * pause overlay) but before the buffer swap. This ensures the screenshot
+     * fire after the current frame is fully rendered (scene + floor +
+     * HUD) but before the buffer swap. This ensures the screenshot
      * captures the complete composed frame.</p>
      *
      * <p>The filename is composed as: {@code {outputName}-{suffix}.png}</p>

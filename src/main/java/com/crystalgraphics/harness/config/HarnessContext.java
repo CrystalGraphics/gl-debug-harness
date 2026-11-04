@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.capture.ArtifactService;
 import com.crystalgraphics.harness.scheduler.TaskScheduler;
+import com.crystalgraphics.harness.ui.HarnessUi;
 
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 
@@ -411,6 +412,18 @@ public final class HarnessContext {
      * }</pre>
      */
     public CgLoadPlan getLoadPlan() { return CgLoadPlan.get(); }
+
+    /**
+     * CrystalGUI over this 3D scene: a screen it shows over the world, and the desktop with VFX Lab. Null in a 2D
+     * scene, or before the runtime starts.
+     *
+     * <pre>{@code
+     * ctx.getUi().show(() -> new MyScreen());   // built on the document's thread; Escape closes it
+     * }</pre>
+     */
+    public HarnessUi getUi() {
+        return runtimeServices == null ? null : runtimeServices.ui();
+    }
 
     // ── Artifact service ──
 

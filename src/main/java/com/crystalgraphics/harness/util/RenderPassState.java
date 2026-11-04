@@ -11,7 +11,7 @@ import com.crystalgraphics.platform.gl.CgGL;
  *   <li><b>World pass</b> — Floor plane (depth ON, blend OFF, depth writes ON)</li>
  *   <li><b>Scene pass</b> — Scene content (state varies per scene; pre-set to safe defaults)</li>
  *   <li><b>Post-scene reset</b> — {@link GlStateResetHelper#resetAfterScene()} cleans up scene leftovers</li>
- *   <li><b>Overlay pass</b> — Pause overlay, HUD text (depth OFF, blend ON with src-alpha)</li>
+ *   <li><b>Overlay pass</b> — HUD text (depth OFF, blend ON with src-alpha)</li>
  *   <li><b>Capture point</b> — Post-render callback fires for screenshot capture</li>
  * </ol>
  *
@@ -76,18 +76,16 @@ public final class RenderPassState {
     }
 
     /**
-     * Sets up GL state for the <b>overlay pass</b> (pause overlay, HUD text).
+     * Sets up GL state for the <b>overlay pass</b> (HUD text).
      *
      * <p>Overlays are screen-aligned 2D quads rendered on top of the 3D scene.
      * They require:</p>
      * <ul>
      *   <li>Depth test OFF — overlays always render on top regardless of depth buffer content</li>
-     *   <li>Blend ON with standard alpha blending (SRC_ALPHA, ONE_MINUS_SRC_ALPHA) — pause overlay
-     *       is semi-transparent; HUD text has transparent backgrounds</li>
+     *   <li>Blend ON with standard alpha blending (SRC_ALPHA, ONE_MINUS_SRC_ALPHA): HUD text has transparent backgrounds</li>
      * </ul>
      *
-     * <p>Both PauseScreenRenderer and HUDRenderer should call this at the start of their
-     * render methods instead of managing their own save/restore blocks.</p>
+     * <p>An overlay calls this at the start of its render instead of managing its own save/restore block.</p>
      */
     public static void beginOverlayPass() {
         // No glGet to save the state first: it waits for the driver to drain the whole frame queued so far.

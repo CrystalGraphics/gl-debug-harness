@@ -46,11 +46,6 @@ public interface HarnessExtension {
         return List.of();
     }
 
-    /** The desktop kept over every 3D scene, made fresh for each run; null for none. The first extension's wins. */
-    default HarnessDesktop desktop() {
-        return null;
-    }
-
     /**
      * Work this project starts at launch on threads of its own, GL-free (a UI library's registries, its parsed sheets):
      * called at pre-init, and the scene's {@code init} waits behind the loading screen until it ends, so the scene

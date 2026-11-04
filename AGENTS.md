@@ -147,9 +147,9 @@ scene and its device: `skinned-play [vk]`.
   load or texture load after its bundle is ready. `--mode=vfx-kamehameha` is the same Kamehameha for watching: a lane
   per system side by side, N/Shift+N between them, M every lane, R replay, the HUD naming the system and its beat in the game.
   `--mode=kit-cues` is a mod's hits without Minecraft: a kit's cues (`.kitCues.namespace`, `.kitCues.kit` its folder,
-  `.kitCues.cues` paths under its `cues/`) fired at a dummy on the harness world's ground, which writes depth, through the client world's
+  `.kitCues.cues` paths under its `cues/`, every cue it declares without) fired at a dummy on the harness world's ground, which writes depth, through the client world's
   cue manager and the engine's sequencer (systems, post volumes, colour regions, shakes), under the kit's look and VFX Lab's sky. ` fires
-  again, N/B change cue, Y/Shift+Y slow time and Tab pauses or plays it, Z/X step a frame back or forward, C the kit's colour grade; `.kitCues.regions=false` leaves the
+  again, N/B change cue, Left Alt opens the cue picker on the desktop, a tree a namespace (a click plays a cue, folds a folder), Y/Shift+Y slow time and Tab pauses or plays it, Z/X step a frame back or forward, C the kit's colour grade; `.kitCues.regions=false` leaves the
   colour regions out, `.kitCues.capture=<n>` photographs n frames of play and exits. Its javadoc has Dragon Forge's s0.
   `--mode=kit-shading` is a kit's shading models drawing: its `shading.yaml` registered under
   `-Dcrystalgraphics.harness.kit.namespace`, the material `.kit.material` compiled from the kit folder `.kit` through its
@@ -478,10 +478,10 @@ Each entry has:
 
 **The harness takes CrystalGraphics and CrystalGUI as libraries and names no project built on them.** A project's scenes come in as a
 `HarnessExtension`, found through `ServiceLoader`: CrystalGUI's live in its own `harness-scenes` module
-(`com.crystalgui.harness.CrystalGuiHarness`). One interface, five hooks — `registerScenes`, `beforeReload`
+(`com.crystalgui.harness.CrystalGuiHarness`). One interface, four hooks — `registerScenes`, `beforeReload`
 (Ctrl+R, ahead of CrystalGraphics' `CgAssetReloader.reload()`), `shaderNamespaces` (what
 `shader-compile-audit` checks: each namespace's `.shader` and `.compute` under `shaders/`), and `start` (GL-free
-work begun at pre-init on the project's own threads; a scene's `init` waits behind the loading screen until it ends). Its javadoc has the example. The fourth, `desktop`, offers the `HarnessDesktop` the runtime keeps over every 3D scene: windows drawn over the HUD and given input ahead of the scene, apps opened by id through `RuntimeServices.desktop()` (its javadoc has the example).
+work begun at pre-init on the project's own threads; a scene's `init` waits behind the loading screen until it ends). Its javadoc has the example. CrystalGUI itself is the harness's own: its start and theme reload run here, and `ctx.getUi()` hosts CrystalGUI's desktop over a 3D scene (below); an application is CrystalGUI's own `ApplicationKind`, never a harness type.
 
 The harness cannot depend on the module holding them, so that module wires itself into the run:
 
@@ -560,6 +560,7 @@ Config classes:
 | `ctx.getArtifactService()` | `ArtifactService` | Interactive scenes | Framework-owned capture with semantic suffix API |
 | `ctx.getCamera3D()` | `Camera3D` | Interactive scenes | Shared 3D camera |
 | `ctx.getTaskScheduler()` | `TaskScheduler` | Interactive scenes | Time-based callback system |
+| `ctx.getUi()` | `HarnessUi` | 3D scenes | The harness as a CrystalGUI host (`HostSession`), as Minecraft's screen is: a desktop over the world (cursor free, camera held, Escape closes), its applications `ApplicationKind`s. `bind(key, kind)` gives one a key for the scene's run, `open(kind)` opens it; F6 is VFX Lab's everywhere. Its javadoc has the example |
 | `ctx.getLoadPlan()` | `CgLoadPlan` | Interactive scenes | The loading screen's tasks: one named in `init` holds the screen until it ends, so a scene's first frames load nothing (`CrystalGraphics/docs/LOADING.md` §3) |
 
 Legacy convenience accessors like `ctx.getScreenWidth()` and `ctx.getOutputDir()` still work, but new code should use the typed accessors directly.
@@ -587,7 +588,7 @@ The `ArtifactService` centralizes all interactive screenshot capture. Scenes req
 // In scene code:
 ArtifactService artifacts = ctx.getArtifactService();
 
-// Request a post-render capture (fires after full frame: scene + floor + HUD + pause):
+// Request a post-render capture (fires after full frame: scene + floor + HUD):
 artifacts.requestCapture("front-view");
 // Writes: {outputDir}/{outputName}-front-view.png
 
@@ -631,7 +632,7 @@ Pipeline order:
   beginWorldPass()    -> floor rendering (depth ON, blend OFF)
   beginScenePass()    -> scene content (safe defaults; scene may modify)
   resetAfterScene()   -> clean up scene leftovers
-  beginOverlayPass()  -> pause + HUD (depth OFF, blend ON with alpha)
+  beginOverlayPass()  -> HUD (depth OFF, blend ON with alpha)
   endOverlayPass()    -> restore prior state
   beginCapturePoint() -> post-render callback fires for screenshots
 ```
@@ -669,9 +670,9 @@ The interactive runtime decomposes into focused services instead of one monolith
 | `InteractiveSceneRunner` | `InteractiveSceneRunner.java` | Slim loop coordinator: sequences services, drives render loop |
 | `HarnessWindow` | `runtime/HarnessWindow.java` | The GLFW window and its core context (newest granted, 4.6 down to 3.3): swap, poll, pacing, resize, cursor grab, and the key/char/pointer events the runner hands to scenes. Key STATE is `CgPlatform.input()`'s, not this class's |
 | `FrameClock` | `runtime/FrameClock.java` | High-resolution frame timing (delta, elapsed, frame number) |
-| `InputPauseHandler` | `runtime/InputPauseHandler.java` | Keyboard pause toggle (ESC/T) + mouse grab management |
+| `InputPauseHandler` | `runtime/InputPauseHandler.java` | Pause state (a 2D scene's ESC/T, `setPaused`) + mouse grab management; a 3D scene's ESC/T open the desktop |
 | `ResizeHandler` | `runtime/ResizeHandler.java` | Framebuffer resize detection (`HarnessWindow.takeResized`) + propagation to viewport, GL, and renderers |
-| `OverlayPipeline` | `runtime/OverlayPipeline.java` | Coordinates HUD and pause overlays with resize awareness |
+| `OverlayPipeline` | `runtime/OverlayPipeline.java` | The HUD: its text on the HUD stage |
 | `WorldPassCoordinator` | `runtime/WorldPassCoordinator.java` | Coordinates world-base contributors like `FloorRenderer` |
 | `OverlayCaptureOrchestrator` | `runtime/OverlayCaptureOrchestrator.java` | Post-scene overlay rendering order + post-render capture callback |
 | `ArtifactService` | `capture/ArtifactService.java` | Semantic capture API (suffix-based filenames, live viewport) |
@@ -679,7 +680,6 @@ The interactive runtime decomposes into focused services instead of one monolith
 | `Camera3D` | `camera/Camera3D.java` | First-person camera with WASD/SPACE/SHIFT movement and mouse look |
 | `FloorRenderer` | `camera/FloorRenderer.java` | Infinite ground plane at Y=0 with grid pattern |
 | `HUDRenderer` | `camera/HUDRenderer.java` | On-screen position/rotation display (top-left corner) |
-| `PauseScreenRenderer` | `camera/PauseScreenRenderer.java` | Semi-transparent overlay shown when paused |
 | `TaskScheduler` | `scheduler/TaskScheduler.java` | Time-based callback system for automated events |
 | `HarnessDebugTools` | `debug/HarnessDebugTools.java` | Programmatic camera control + screenshot capture via `ArtifactService` |
 
@@ -696,7 +696,7 @@ The interactive runner sequences these steps every frame:
 7. **Scene pass**: `RenderPassState.beginScenePass()` then `scene.render(ctx, frameInfo)`
 8. **Post-scene sequence**: `OverlayCaptureOrchestrator.executePostSceneSequence()`:
    - GL state reset via `GlStateResetHelper.resetAfterScene()`
-   - Overlay pass (handled by `OverlayPipeline`: pause overlay if paused, HUD if 3D camera active)
+   - Overlay pass (handled by `OverlayPipeline`: the HUD if 3D camera active), then the desktop (`HarnessUi`)
    - Post-render capture callback (one-shot, after all overlays, before swap)
 9. **Swap buffers**: `HarnessWindow.swapBuffers()` + `HarnessWindow.sync(fps)`
 
@@ -709,7 +709,7 @@ The interactive runner sequences these steps every frame:
 | SPACE | Move up |
 | SHIFT | Move down |
 | Mouse | Look around (yaw/pitch) |
-| ESCAPE or T | Toggle pause (releases mouse cursor) |
+| ESCAPE or T | Opens the harness's desktop (`HarnessUi`), as a game's Escape opens its pause screen: the cursor free, the camera held, time running. Escape again closes it. A 2D scene pauses instead, with no overlay |
 | F1 | Hide or show the harness's HUD text, as a game's F1 hides its interface: a clean frame to compare against a game capture. The HUD stage still fires, so the engine's subtitles stay |
 | C | Camera shake on and off (the HUD says which); a scene whose HUD hides the shake (`hudShowsShakeAndGlow`, kit-cues) takes C for its own |
 | L | Bloom in the target's encoding, then in linear light, then off (the HUD says which) |
@@ -718,7 +718,7 @@ The interactive runner sequences these steps every frame:
 | - = | Bloom's intensity down or up by a quarter while it is on (`CgBloom.intensity`); the HUD shows it |
 | H | Half-resolution draws on or off (`CgWorldRenderer.halfResolution`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
 | J | The distortion target at half size or full size (`CgWorldRenderer.distortionScale`): the hazes' bend at a quarter of the pixels, or a pixel per texel to compare |
-| F6 | The VFX Lab window on the harness's desktop, when CrystalGUI is on the classpath (`HarnessDesktop`) |
+| F6 | VFX Lab on the harness's desktop (`HarnessUi`); a scene binds its own applications' keys with `ctx.getUi().bind` |
 | F9 | Day or night, under VFX Lab's sky and floor (`HarnessEnvironment`): a scene opts in with `editorEnvironment()`, any scene with `-Dcrystalgraphics.harness.environment=editor`. Off by default, since gates check pixels against the plain clear colour and floor |
 
 ### HUD Display
@@ -878,7 +878,7 @@ public class MyInteractiveScene implements InteractiveSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         // Render scene content each frame.
-        // Floor, HUD, and pause overlay are handled by the runtime.
+        // Floor and HUD are handled by the runtime.
         // GL state reset after this call is also handled by the runtime.
     }
 
@@ -1116,7 +1116,6 @@ com.crystalgraphics.harness/
 │   ├── Camera3D.java                # First-person 3D camera
 │   ├── FloorRenderer.java          # Ground plane at Y=0
 │   ├── HUDRenderer.java            # On-screen camera state text
-│   └── PauseScreenRenderer.java    # Semi-transparent pause overlay
 ├── capture/
 │   ├── ArtifactService.java         # Framework-owned capture API (suffix-based naming)
 │   └── CaptureCallback.java         # Post-render capture scheduling interface

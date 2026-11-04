@@ -8,7 +8,7 @@ import com.crystalgraphics.harness.InteractiveSceneRunner;
  * <p>Implemented by the {@link InteractiveSceneRunner}
  * to allow the {@link ArtifactService} to schedule screenshot captures at the
  * correct point in the frame pipeline — after all rendering (scene + floor +
- * HUD + pause overlay) but before the buffer swap.</p>
+ * HUD) but before the buffer swap.</p>
  *
  * <p>This abstraction decouples the artifact service from the runner
  * implementation, allowing scenes to request captures without knowing

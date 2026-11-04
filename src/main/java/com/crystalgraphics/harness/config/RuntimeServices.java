@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.config;
 
-import com.crystalgraphics.harness.HarnessDesktop;
+import com.crystalgraphics.harness.ui.HarnessUi;
 import com.crystalgraphics.harness.InteractiveSceneRunner;
 import com.crystalgraphics.harness.capture.ArtifactService;
 
@@ -44,7 +44,7 @@ public final class RuntimeServices {
      * Sets a one-shot post-render callback for the current frame.
      *
      * <p>The callback fires after the full frame is rendered (scene + floor +
-     * HUD + pause overlay) but BEFORE the buffer swap. This is the correct
+     * HUD) but BEFORE the buffer swap. This is the correct
      * point for screenshot capture.</p>
      *
      * @param callback the callback to fire after rendering, or null to clear
@@ -71,7 +71,6 @@ public final class RuntimeServices {
         return runner.isPaused();
     }
 
-    /** The desktop an extension keeps over this scene, or null: a 2D scene, or no extension offering one. */
     /**
      * Profiles the frames from the next one until {@link #profileEnd}, as {@code profile-<label>/}: a scene's own
      * event. Records only under {@code -Dcrystalgraphics.harness.profile.ring=<frames>}; otherwise does nothing.
@@ -90,8 +89,9 @@ public final class RuntimeServices {
         runner.profileEnd();
     }
 
-    public HarnessDesktop desktop() {
-        return runner.desktop();
+    /** CrystalGUI over this scene ({@link HarnessUi}), or null in a 2D scene. */
+    public HarnessUi ui() {
+        return runner.ui();
     }
 
     /**

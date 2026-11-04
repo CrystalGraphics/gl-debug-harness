@@ -30,7 +30,6 @@ import com.crystalgraphics.harness.camera.HarnessCameraShake;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.bloom.CgBloom;
 import com.crystalgraphics.render.world.CgWorldRenderer;
-import com.crystalgraphics.harness.camera.PauseScreenRenderer;
 import com.crystalgraphics.harness.capture.ArtifactService;
 import com.crystalgraphics.harness.capture.CaptureCallback;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -52,10 +51,13 @@ import com.crystalgraphics.harness.runtime.WorldPassCoordinator;
 import com.crystalgraphics.harness.scheduler.TaskScheduler;
 import com.crystalgraphics.harness.util.HarnessProjectionUtil;
 import com.crystalgraphics.harness.util.RenderPassState;
+import com.crystalgraphics.harness.ui.HarnessUi;
 import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.harness.runtime.FrameBench;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
+import com.crystalgui.lifecycle.CgUiStart;
+import com.crystalgui.style.theme.UiThemeManager;
 
 import com.sun.management.ThreadMXBean;
 import org.joml.Matrix4f;
@@ -98,7 +100,7 @@ import java.util.stream.Stream;
  *   <li>Floor rendering (if uses3DCamera)</li>
  *   <li>Scene pass GL state setup</li>
  *   <li>Scene content: {@code scene.render()}</li>
- *   <li>Post-scene GL state reset → pause overlay → HUD → capture callback</li>
+ *   <li>Post-scene GL state reset → HUD → capture callback</li>
  *   <li>Buffer swap + frame sync</li>
  * </ol>
  *
@@ -225,10 +227,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private List<CgSystemInput.Mouse> mouseListeners = new ArrayList<>();
     private List<CgSystemInput.Keyboard> keyboardListeners = new ArrayList<>();
-    /** The desktop an extension offers over a 3D scene, or null; the runtime's for the run. */
-    private HarnessDesktop desktop;
-    /** Whether the desktop was shown last frame, so the cursor is grabbed or freed once per change. */
-    private boolean desktopShown;
+    /** CrystalGUI over a 3D scene, or null in a 2D one; the runtime's for the run. */
+    private HarnessUi ui;
+    /** Whether it was up last frame, so the cursor is grabbed or freed once per change. */
+    private boolean uiShown;
 
     public InteractiveSceneRunner(InteractiveSceneLifecycle scene, HarnessContext ctx) {
         this.scene = scene;
@@ -281,8 +283,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         HUDRenderer hudRenderer = new HUDRenderer();
         hudRenderer.sceneLines(scene::hudLine);
         hudRenderer.shakeAndGlow(scene.hudShowsShakeAndGlow());
-        PauseScreenRenderer pauseRenderer = new PauseScreenRenderer();
-        overlayPipeline = new OverlayPipeline(hudRenderer, pauseRenderer);
+        overlayPipeline = new OverlayPipeline(hudRenderer);
         scheduler = new TaskScheduler();
 
         // Resolve immutable world settings from context (frozen at startup).
@@ -298,17 +299,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // ── Create runtime service collaborators ──
         frameClock = new FrameClock();
         inputPauseHandler = new InputPauseHandler(scene.uses3DCamera());
-        if (scene.uses3DCamera()) {
-            for (HarnessExtension extension : HarnessExtensions.all()) {
-                desktop = extension.desktop();
-                if (desktop != null) break;
-            }
-        }
-        // The desktop first: an open window takes the input aimed at it before the scene sees it.
-        if (desktop != null) {
-            desktop.attach(ctx);
-            registerInputHandler(desktop);
-        }
+        if (scene.uses3DCamera()) ui = new HarnessUi(ctx);
+        // The UI first: a screen or window that is up takes the input aimed at it before the scene sees it.
+        if (ui != null) registerInputHandler(ui);
         registerInputHandler(scene);
         registerInputHandler(inputPauseHandler);
         resizeHandler = new ResizeHandler(ctx, worldPassCoordinator, overlayPipeline);
@@ -339,9 +332,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // The loading screen from launch: the scene's init runs behind its first frame, a reason of its own.
         try (CgLoadingScreen.Task starting = CgLoadingScreen.task("starting " + ctx.getOutputName())) {
             presentLoadingFrame();
-            // The projects' own starts (CrystalGUI's registries and sheets) end on their threads first, the screen drawing
-            // meanwhile: a scene's init would otherwise run them, or build beside them
-            while (!HarnessExtensions.started() && !HarnessWindow.shouldClose()) loadingFrame();
+            // CrystalGUI's start (its registries and sheets) and the projects' own end on their threads first, the screen
+            // drawing meanwhile: a scene's init would otherwise run them, or build beside them
+            while (!(CgUiStart.done() && HarnessExtensions.started()) && !HarnessWindow.shouldClose()) loadingFrame();
             try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "scene.init")) {
                 init();
             }
@@ -449,9 +442,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             }
 
             // 4. Camera update (skipped when paused, and in an unattended capture)
-            boolean shown = desktop != null && desktop.shown();
-            if (shown != desktopShown) {
-                desktopShown = shown;
+            boolean shown = ui != null && ui.shown();
+            if (shown != uiShown) {
+                uiShown = shown;
                 HarnessWindow.setGrabbed(!shown && !inputPauseHandler.isPaused());
             }
             if (scene.uses3DCamera() && !inputPauseHandler.isPaused() && !shown && !UNATTENDED) {
@@ -530,12 +523,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                         mainTarget.end();
                     }
                 }
-                // 10-13. Post-scene sequence: GL reset → pause overlay → HUD → capture callback
+                // 10-13. Post-scene sequence: GL reset → HUD → capture callback
                 //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.overlay")) {
-                    // The desktop over the HUD, so its windows are never under the readout.
-                    overlayCaptureOrchestrator.executePostSceneSequence(inputPauseHandler.isPaused(), scene.uses3DCamera(),
-                            desktop == null ? null : () -> desktop.render(ctx, info));
+                    // The UI over the HUD, so it is never under the readout.
+                    overlayCaptureOrchestrator.executePostSceneSequence(scene.uses3DCamera(),
+                            ui == null ? null : () -> ui.render(info));
                 }
                 drawLoadingScreen();   // its fade-out
             } finally {
@@ -610,7 +603,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         inputPauseHandler.releaseCursor();
 
         scene.dispose();
-        if (desktop != null) desktop.dispose();
+        if (ui != null) ui.dispose();
         worldPassCoordinator.delete();
         overlayCaptureOrchestrator.deletePipeline();
         ctx.getTextContext().delete();
@@ -736,7 +729,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_R && isCtrlDown()) {
                 reloadAssets();
             }
-            boolean letters = scene.uses3DCamera() && (desktop == null || !desktop.shown());
+            boolean letters = scene.uses3DCamera() && (ui == null || !ui.shown());
             // C: camera shake on and off. Only with a 3D camera, since a UI scene's text field types the letter, and
             // only where the HUD shows the shake: a scene hiding it takes C for its own.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_C && !isCtrlDown()
@@ -881,8 +874,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     }
 
     /**
-     * What F3+T does in a game: each extension's {@link HarnessExtension#beforeReload} step, then
-     * CrystalGraphics' asset reload, which re-reads textures, shaders and materials and then calls every
+     * What F3+T does in a game: CrystalGUI's theme files and each extension's {@link HarnessExtension#beforeReload}
+     * step, then CrystalGraphics' asset reload, which re-reads textures, shaders and materials and then calls every
      * {@code CgReloadListener} -- CrystalGUI's stylesheets, icons and sprites among them.
      *
      * <p>Where the files are read FROM is {@code CgIO}'s business: {@code runHarness} points
@@ -953,6 +946,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private void reloadAssets() {
         try {
+            // Themes first: a theme takes its token table at registration, so the sheets the reload re-reads would
+            // otherwise substitute the old one.
+            int themes = UiThemeManager.getInstance().reloadFromDisk();
+            LOGGER.info("[InteractiveSceneRunner] Ctrl+R: reloaded " + themes + " theme file(s)");
             for (HarnessExtension extension : HarnessExtensions.all()) {
                 extension.beforeReload();
             }
@@ -990,10 +987,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             worldPassCoordinator.init();
             return;
         }
-        // Behind the screen, a renderer a slice: the HUD's fonts and the pause overlay's program held the scene's init
+        // Behind the screen, a renderer a slice: the HUD's fonts held the scene's init
         // 190 ms, and nothing draws them before the hide, which this task holds back until they are made. Then the HUD
         // drawn offscreen until its glyphs land: the loading frames draw no overlay, so they popped in after the hide
-        Runnable[] parts = {() -> overlayPipeline.initHud(ctx), overlayPipeline::initPause, worldPassCoordinator::init};
+        Runnable[] parts = {() -> overlayPipeline.initHud(ctx), worldPassCoordinator::init};
         int[] next = {0};
         CgLoadPlan.get().task("harness:overlays").render(task -> {
             if (next[0] < parts.length) {
@@ -1071,14 +1068,14 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         inputPauseHandler.setPaused(paused);
     }
 
-    /** The desktop an extension offers this scene, or null. */
-    public HarnessDesktop desktop() {
-        return desktop;
+    /** CrystalGUI over this scene, or null in a 2D one. */
+    public HarnessUi ui() {
+        return ui;
     }
 
     /**
      * Schedules a one-shot callback to fire after the CURRENT frame finishes
-     * rendering (floor, HUD, pause overlay all drawn) but BEFORE the buffer
+     * rendering (floor and HUD drawn) but BEFORE the buffer
      * swap. This is the correct point to capture screenshots that show the
      * current frame's content.
      * Delegates to the {@link OverlayCaptureOrchestrator} service.

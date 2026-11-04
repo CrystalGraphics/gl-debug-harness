@@ -5,6 +5,7 @@ import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.asset.kind.CgGameplayKinds;
 import com.crystalgraphics.asset.load.CgAssetRef;
+import com.crystalgraphics.asset.registry.CgAssetEntry;
 import com.crystalgraphics.asset.load.CgLoadPriority;
 import com.crystalgraphics.asset.load.CgVfxAssets;
 import com.crystalgraphics.cue.CgCueDefinition;
@@ -17,6 +18,8 @@ import com.crystalgraphics.frame.CgWorld;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.harness.ui.HarnessUi;
+import com.crystalgui.desktop.host.HostSession;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
@@ -44,7 +47,7 @@ import java.util.Locale;
  * ./gradlew :gl-debug-harness:runHarness -Pharness.assetRoots=$R --args="--mode=kit-cues" \
  *     -Dcrystalgraphics.harness.kitCues.namespace=s0 -Dcrystalgraphics.harness.kitCues.kit=$R/assets/s0 \
  *     -Dcrystalgraphics.harness.kitCues.cues=hit_spark/melee/light,hit_spark/melee/medium,hit_spark/melee/heavy
- * // `: fire again   N / B: next / previous cue   Y / Shift+Y: time faster / slower   Tab: pause or play time
+ * // `: fire again   N / B: next / previous cue   Left Alt: pick one   Y / Shift+Y: time faster / slower   Tab: pause or play time
  * // X / Z: pause and step 1/60 s forward / back, held to repeat; 0 to the end less 1/60 s, and round again
  * // C: the kit's colour grade on or off (each draw under its kit's look, or the frame's)
  *
@@ -54,7 +57,10 @@ import java.util.Locale;
  * }</pre>
  *
  * <ul>
- *   <li>A cue is named by its path under the kit's {@code cues/}; it fires by its own {@code tag}.</li>
+ *   <li>A cue is named by its path under the kit's {@code cues/}; it fires by its own {@code tag}. Without
+ *       {@code .cues}, every cue the kit declares, all loaded behind the loading screen.</li>
+ *   <li>Left Alt opens the cue picker on the harness's desktop, a tree a namespace: a click on a cue plays it, on a
+ *       folder folds it. Left Alt again brings it forward; its X closes it, Esc the desktop.</li>
  *   <li>Under VFX Lab's sky and floor; F9 day and night.</li>
  *   <li>The dummy is an opaque world draw and the ground under VFX Lab's sky writes depth, so a colour region, a soft
  *       particle or a depth fade sees depth where the game would.</li>
@@ -101,6 +107,12 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private CgMaterial dummy;
     private CgMesh cube;
     private int current, speed = SPEEDS.length - 1, frames;
+    private String namespace;
+    private HarnessUi ui;
+    /** The picker, made once the cues are known; the document's thread uses it. */
+    private CueSelector selector;
+    /** The cue a click picked, for the render thread to fire; -1 for none. */
+    private volatile int picked = -1;
     private double sinceFire;
     private boolean declared, loaded, started, fireNow, shift, running = true;
     /** The sequences the last fire plays, and the longest one's length in seconds: the hit's duration. */
@@ -114,9 +126,12 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
 
     @Override
     public void init(HarnessContext ctx) {
-        String namespace = require("namespace");
+        namespace = require("namespace");
         String folder = require("kit");
-        for (String id : require("cues").split(",")) if (!id.isBlank()) ids.add(namespace + ":" + id.trim());
+        for (String id : System.getProperty("crystalgraphics.harness.kitCues.cues", "").split(",")) {
+            if (!id.isBlank()) ids.add(namespace + ":" + id.trim());
+        }
+        ui = ctx.getUi();
         float distance = Float.parseFloat(System.getProperty("crystalgraphics.harness.kitCues.distance", "3"));
         ctx.getCamera3D().moveCamera((float) HIT_X, 1.62f, (float) HIT_Z + distance);
         ctx.getCamera3D().setPitch(-5f);
@@ -143,6 +158,14 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private void prepare() {
         if (!declared && kit.declared()) {
             declared = true;
+            if (ids.isEmpty()) {
+                for (CgAssetEntry e : CgVfxAssets.instance().registry().entries(CgGameplayKinds.CUE)) {
+                    if (e.namespace().equals(namespace)) ids.add(e.id());
+                }
+                if (ids.isEmpty()) throw new IllegalStateException(TAG + "the kit " + namespace + " declares no cue");
+            }
+            selector = new CueSelector(ids, index -> picked = index);
+            ui.bind(CgKeyCodes.KEY_LMENU, selector.kind());
             for (String id : ids) {
                 CgAssetRef<CgCueDefinition> ref = CgVfxAssets.instance().declare(CgGameplayKinds.CUE, id);
                 ref.request(CgLoadPriority.MOVE);
@@ -175,6 +198,11 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
             started = true;
             fireNow = true;
             System.out.println(TAG + cues.size() + " cues ready: " + ids);
+        }
+        int pick = picked;
+        if (pick >= 0) {
+            picked = -1;
+            choose(pick);
         }
         if (started) {
             if (collecting) collect();
@@ -301,14 +329,8 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         if (event.repeat()) return true;
         switch (key) {
             case CgKeyCodes.KEY_GRAVE -> fireNow = started;
-            case CgKeyCodes.KEY_N -> {
-                current = (current + 1) % Math.max(1, ids.size());
-                fireNow = started;
-            }
-            case CgKeyCodes.KEY_B -> {
-                current = (current + ids.size() - 1) % Math.max(1, ids.size());
-                fireNow = started;
-            }
+            case CgKeyCodes.KEY_N -> choose((current + 1) % Math.max(1, ids.size()));
+            case CgKeyCodes.KEY_B -> choose((current + ids.size() - 1) % Math.max(1, ids.size()));
             case CgKeyCodes.KEY_Y -> speed = shift ? Math.max(0, speed - 1) : Math.min(SPEEDS.length - 1, speed + 1);
             case CgKeyCodes.KEY_TAB -> speed = speed == 0 ? SPEEDS.length - 1 : 0;
             case CgKeyCodes.KEY_C -> CgWorldRenderer.get().gradeDraws(!CgWorldRenderer.get().gradeDraws());
@@ -318,11 +340,19 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         return true;
     }
 
+    /** Makes {@code index} the cue and fires it, lit in the picker if it was made. */
+    private void choose(int index) {
+        current = index;
+        fireNow = started;
+        CueSelector shown = selector;
+        if (shown != null) HostSession.session().inDocument(() -> shown.current(index));
+    }
+
     /** The HUD's lines in its own form, a name, its keys, then its state: what plays, its clock, what it is drawn under. */
     @Override
     public String hudLine() {
         String cue = ids.isEmpty() ? "-" : ids.get(current);
-        return String.format(Locale.ROOT, "%nCue [N/B]: %s | Fire [`]%n"
+        return String.format(Locale.ROOT, "%nCue [N/B, LAlt]: %s | Fire [`]%n"
                         + "Time [Tab]: %s | Speed [Y]: x%s | Step [Z X]%n"
                         + "Age: %.3f / %.3f s%n"
                         + "Kit colour grade [C]: %s",

@@ -3,6 +3,7 @@ package com.crystalgraphics.platform;
 import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.platform.world.CgWorldBegin;
 import com.crystalgraphics.harness.HarnessExtensions;
+import com.crystalgui.lifecycle.CgUiStart;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.lwjgl3.GlfwInputService;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLBackend;
@@ -130,7 +131,8 @@ public final class PlatformServiceHarness implements CgPlatformService {
         CgPlatform.register(p);
         // Always a client: the graphics start's GL-free work begins beside the rest of the harness's start
         CgEngineLifecycle.clientStarting();
-        HarnessExtensions.start();   // and each project's own: CrystalGUI's registries and sheets
+        CgUiStart.ahead();           // and CrystalGUI's: its registries and sheets
+        HarnessExtensions.start();   // and each project's own
         // The gates' reference: every kernel's Java body, which no client can select.
         if ("true".equals(System.getProperty("crystalgraphics.harness.oracle"))) CgCapabilities.cpuOracle(true);
         // Scenes use CgGL from the start, before any host section would install it.

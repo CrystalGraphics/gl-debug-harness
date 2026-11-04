@@ -80,7 +80,6 @@ public final class ResizeHandler {
         // Update GL viewport to match new window size
         CgGL.glViewport(0, 0, newWidth, newHeight);
 
-        overlayPipeline.onResize(newWidth, newHeight);
         worldPassCoordinator.onResize(newWidth, newHeight);
 
         LOGGER.fine("[ResizeHandler] Window resized to " + newWidth + "x" + newHeight);

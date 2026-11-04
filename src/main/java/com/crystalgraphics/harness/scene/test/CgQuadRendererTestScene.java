@@ -94,7 +94,7 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
 
         // Must be called every frame, not just once at setup: it (re)binds material on every
         // call regardless of whether it's the same instance as last time, since other harness
-        // rendering code (floor/HUD/pause overlay) rebinds its own shaders between our frames.
+        // rendering code (floor/HUD) rebinds its own shaders between our frames.
         renderer.begin();
         renderer.useMaterial(material);
 

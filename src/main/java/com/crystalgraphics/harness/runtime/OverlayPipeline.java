@@ -4,7 +4,6 @@ import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.harness.camera.HUDRenderer;
-import com.crystalgraphics.harness.camera.PauseScreenRenderer;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.platform.gl.CgGL;
@@ -18,50 +17,10 @@ import com.crystalgraphics.text.cache.CgFontRegistry;
 import java.util.logging.Logger;
 
 /**
- * Overlay pipeline coordinator that groups HUD and pause overlays under
- * a single owner with explicit render order, resize notification, and
- * lifecycle management.
- *
- * <p>This coordinator replaces the pattern where individual overlay renderers
- * (HUD, pause) were created and managed as loose fields scattered across
- * the runner and orchestrator. Instead, the overlay pipeline owns all
- * overlay renderers and presents a unified interface for:</p>
- * <ul>
- *   <li><b>Initialization</b> — {@link #init()} creates all overlay GL resources</li>
- *   <li><b>Rendering</b> — {@link #renderOverlays(HarnessContext, boolean, boolean)}
- *       renders pause and HUD in the correct order</li>
- *   <li><b>Resize</b> — {@link #onResize(int, int)} propagates resize events to
- *       all overlay renderers through one coordinator path</li>
- *   <li><b>Cleanup</b> — {@link #delete()} releases all overlay GL resources</li>
- * </ul>
- *
- * <h3>Render order contract</h3>
- * <p>Overlays are rendered in a fixed order after the scene pass and
- * post-scene GL state reset:</p>
- * <ol>
- *   <li>Pause overlay (if paused) — semi-transparent bar at bottom of screen</li>
- *   <li>{@link CgRenderStage#HUD} (if 3D camera active and not hidden with F1), fired as a game's host fires it: the
- *       HUD text at {@link #HUD_ORDER}, then anything else drawing over the HUD, the engine's subtitles among them</li>
- * </ol>
- * <p>This order ensures the HUD text renders on top of the pause overlay
- * when both are active simultaneously.</p>
- *
- * <h3>Resize-aware ownership</h3>
- * <p>Each overlay renderer has different resize behavior:</p>
- * <ul>
- *   <li>{@link HUDRenderer} — none: it sizes its text from the window each frame</li>
- *   <li>{@link PauseScreenRenderer} — no-op (quad vertices are recomputed
- *       from screen dimensions each frame)</li>
- * </ul>
- * <p>The pipeline routes resize notifications to all renderers uniformly,
- * so each renderer's resize behavior is encapsulated within its own class.
- * External callers (e.g. {@link ResizeHandler}) only need to notify the
- * pipeline, not each renderer individually.</p>
- *
- * <p><b>Thread safety</b>: Only used on the LWJGL render thread.</p>
- *
- * @see OverlayCaptureOrchestrator
- * @see RenderPassState
+ * The harness's HUD: its text on {@link CgRenderStage#HUD}, fired as a game's host fires it, after the scene pass
+ * and the post-scene GL reset, when the scene has a 3D camera. The text draws at {@link #HUD_ORDER} unless F1 hid it,
+ * then anything else drawing over the HUD: the engine's subtitles, CrystalGUI's pinned windows. It sizes itself
+ * from the window each frame.
  */
 public final class OverlayPipeline {
 
@@ -71,31 +30,25 @@ public final class OverlayPipeline {
     public static final int HUD_ORDER = 0;
 
     private final HUDRenderer hudRenderer;
-    private final PauseScreenRenderer pauseRenderer;
     private CgRenderStage.Registration hudStage;
     /** The context of the firing under way, for the HUD text's callback. */
     private HarnessContext firing;
     private final Runnable drawHud = this::renderHud;
 
     /**
-     * Creates a new overlay pipeline owning the given HUD and pause renderers.
+     * Creates the overlay pipeline owning the given HUD renderer.
      *
      * <p>The pipeline takes ownership of both renderer instances — callers
      * should not init, render, resize, or delete them directly after passing
      * them to this constructor.</p>
      *
      * @param hudRenderer   the HUD overlay renderer (must not be null)
-     * @param pauseRenderer the pause screen overlay renderer (must not be null)
      */
-    public OverlayPipeline(HUDRenderer hudRenderer, PauseScreenRenderer pauseRenderer) {
+    public OverlayPipeline(HUDRenderer hudRenderer) {
         if (hudRenderer == null) {
             throw new IllegalArgumentException("hudRenderer must not be null");
         }
-        if (pauseRenderer == null) {
-            throw new IllegalArgumentException("pauseRenderer must not be null");
-        }
         this.hudRenderer = hudRenderer;
-        this.pauseRenderer = pauseRenderer;
     }
 
     /**
@@ -106,19 +59,12 @@ public final class OverlayPipeline {
      */
     public void init(HarnessContext ctx) {
         initHud(ctx);
-        initPause();
     }
 
     /** The HUD text's half of {@link #init}: its fonts and renderer, and its place on the HUD stage. */
     public void initHud(HarnessContext ctx) {
         hudRenderer.init(ctx);
         hudStage = CgRenderStage.HUD.register(HUD_ORDER, frame -> frame.callback("harness.hud", drawHud));
-    }
-
-    /** The pause overlay's half of {@link #init}: its program, compiled now. */
-    public void initPause() {
-        pauseRenderer.init();
-        LOGGER.info("[OverlayPipeline] All overlay renderers initialized.");
     }
 
     /**
@@ -128,21 +74,11 @@ public final class OverlayPipeline {
      * {@link RenderPassState#beginOverlayPass()}
      * has set the required GL state (depth OFF, blend ON with alpha).</p>
      *
-     * <p><b>Render order</b>: pause overlay first, then HUD. This ensures
-     * the HUD text is drawn on top of the pause overlay when both are
-     * visible.</p>
-     *
      * @param ctx          the harness context (provides screen dimensions, camera)
-     * @param paused       whether the runner is currently paused
      * @param uses3DCamera whether the active scene uses the 3D camera system
      */
-    public void renderOverlays(HarnessContext ctx, boolean paused, boolean uses3DCamera) {
-        // Pause overlay renders first (below HUD text)
-        if (paused) {
-            pauseRenderer.render(ctx);
-        }
-
-        // The HUD stage second (on top of pause overlay if both active), into the window: the scene's target has been
+    public void renderOverlays(HarnessContext ctx, boolean uses3DCamera) {
+        // Into the window: the scene's target has been
         // blitted to it by now. The harness's GUI is unscaled.
         if (uses3DCamera) {
             firing = ctx;
@@ -161,25 +97,6 @@ public final class OverlayPipeline {
         hudHidden = !hudHidden;
     }
 
-    /**
-     * Propagates a display resize event to all overlay renderers.
-     *
-     * <p>This is the single resize notification path for overlays.
-     * External callers (e.g. {@link ResizeHandler}) should call this
-     * method rather than notifying individual renderers directly.</p>
-     *
-     * <p>Each renderer handles resize according to its own needs:</p>
-     * <ul>
-     *   <li>HUD — nothing: it sizes its text from the window each frame</li>
-     *   <li>Pause — no-op (recomputes quad geometry each frame anyway)</li>
-     * </ul>
-     *
-     * @param newWidth  new viewport width in pixels
-     * @param newHeight new viewport height in pixels
-     */
-    public void onResize(int newWidth, int newHeight) {
-        pauseRenderer.onDisplayResize(newWidth, newHeight);
-    }
 
     /**
      * Releases all GL resources held by overlay renderers.
@@ -226,7 +143,6 @@ public final class OverlayPipeline {
             hudWarmTarget = null;
         }
         hudRenderer.delete();
-        pauseRenderer.delete();
         LOGGER.info("[OverlayPipeline] All overlay renderers deleted.");
     }
 
@@ -237,12 +153,11 @@ public final class OverlayPipeline {
      * down overlay GL state (depth OFF, blend ON). If no overlays are
      * active, the state boundary can be skipped entirely.</p>
      *
-     * @param paused       whether the runner is currently paused
      * @param uses3DCamera whether the active scene uses the 3D camera system
      * @return true if at least one overlay would render
      */
-    public boolean hasActiveOverlays(boolean paused, boolean uses3DCamera) {
-        return paused || uses3DCamera;
+    public boolean hasActiveOverlays(boolean uses3DCamera) {
+        return uses3DCamera;
     }
 
     /**
@@ -258,21 +173,9 @@ public final class OverlayPipeline {
         return hudRenderer;
     }
 
-    /**
-     * Returns the pause renderer owned by this pipeline.
-     *
-     * <p><b>Internal use only</b> — exposed for the orchestrator and
-     * resize handler during the migration period. External code should
-     * interact with the pipeline, not individual renderers.</p>
-     *
-     * @return the pause screen renderer
-     */
-    PauseScreenRenderer getPauseRenderer() {
-        return pauseRenderer;
-    }
 
     @Override
     public String toString() {
-        return "OverlayPipeline[hud=" + hudRenderer + ", pause=" + pauseRenderer + "]";
+        return "OverlayPipeline[hud=" + hudRenderer + "]";
     }
 }

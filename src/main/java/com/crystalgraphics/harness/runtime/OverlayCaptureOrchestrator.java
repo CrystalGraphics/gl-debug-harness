@@ -12,7 +12,7 @@ import java.util.logging.Logger;
  * Overlay rendering and capture callback orchestrator for the interactive loop.
  *
  * <p>Owns the sequencing of post-scene rendering passes (GL state reset,
- * pause overlay, HUD overlay) and the post-render capture callback.
+ * HUD overlay) and the post-render capture callback.
  * Extracted from {@code InteractiveSceneRunner} to isolate overlay
  * composition and screenshot timing from the main loop body.</p>
  *
@@ -20,14 +20,14 @@ import java.util.logging.Logger;
  * <ol>
  *   <li>GL state reset after scene rendering ({@link GlStateResetHelper#resetAfterScene()})</li>
  *   <li>Overlay pass GL state setup ({@link RenderPassState#beginOverlayPass()})</li>
- *   <li>Overlay pipeline render (pause first, HUD second)</li>
+ *   <li>Overlay pipeline render (the HUD)</li>
  *   <li>Overlay pass GL state restore ({@link RenderPassState#endOverlayPass()})</li>
  *   <li>Capture point ({@link RenderPassState#beginCapturePoint()})</li>
  *   <li>Post-render capture callback (one-shot, after all overlays, before swap)</li>
  * </ol>
  *
  * <p><b>Capture callback semantics</b>: The callback is a one-shot Runnable
- * that fires after the full frame is rendered (scene + floor + HUD + pause)
+ * that fires after the full frame is rendered (scene + floor + HUD)
  * but BEFORE {@code HarnessWindow.swapBuffers()}. This is the correct capture point
  * for screenshot timing. The callback is cleared after firing.</p>
  *
@@ -42,7 +42,7 @@ public final class OverlayCaptureOrchestrator {
 
     /**
      * Post-render callback that fires after each frame is fully rendered
-     * (including floor, HUD, pause overlay) but BEFORE HarnessWindow.swapBuffers().
+     * (including floor and HUD) but BEFORE HarnessWindow.swapBuffers().
      * Used by test scenes that need to capture screenshots of the current
      * frame's rendered content rather than the previous frame.
      */
@@ -52,7 +52,7 @@ public final class OverlayCaptureOrchestrator {
      * Creates a new OverlayCaptureOrchestrator.
      *
      * @param ctx           the harness context
-     * @param overlayPipeline the owned overlay pipeline (HUD + pause render order)
+     * @param overlayPipeline the owned overlay pipeline (the HUD)
      */
     public OverlayCaptureOrchestrator(HarnessContext ctx,
                                       OverlayPipeline overlayPipeline) {
@@ -69,17 +69,15 @@ public final class OverlayCaptureOrchestrator {
      * <ol>
      *   <li>Reset GL state after scene rendering (unbind shaders, VAOs, etc.)</li>
      *   <li>Set overlay GL state (depth OFF, blend ON with alpha)</li>
-     *   <li>Render pause overlay if paused</li>
      *   <li>Render HUD overlay if the scene uses a 3D camera</li>
      *   <li>Restore prior GL state from before overlay pass</li>
      *   <li>Fire and clear the post-render capture callback</li>
      * </ol>
      *
-     * @param paused      whether the runner is currently paused
      * @param uses3DCamera whether the active scene uses the 3D camera system
      * @param afterOverlays drawn over the HUD and before the capture point (the harness's desktop), or null
      */
-    public void executePostSceneSequence(boolean paused, boolean uses3DCamera, Runnable afterOverlays) {
+    public void executePostSceneSequence(boolean uses3DCamera, Runnable afterOverlays) {
         // Post-scene reset: clean up whatever state the scene left dirty
         // (shaders, VAOs, textures, depth/blend flags)
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "overlay.reset")) {
@@ -87,14 +85,13 @@ public final class OverlayCaptureOrchestrator {
         }
 
         // Overlay pass: set overlay state (depth OFF, blend ON with alpha)
-        // Both pause overlay and HUD share this state boundary.
-        boolean hasOverlays = overlayPipeline.hasActiveOverlays(paused, uses3DCamera);
+        boolean hasOverlays = overlayPipeline.hasActiveOverlays(uses3DCamera);
         if (hasOverlays) {
             try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "overlay.begin")) {
                 RenderPassState.beginOverlayPass();
             }
             try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "overlay.render")) {
-                overlayPipeline.renderOverlays(ctx, paused, uses3DCamera);
+                overlayPipeline.renderOverlays(ctx, uses3DCamera);
             }
             RenderPassState.endOverlayPass();
         }
@@ -111,7 +108,7 @@ public final class OverlayCaptureOrchestrator {
 
     /**
      * Schedules a one-shot callback to fire after the CURRENT frame finishes
-     * rendering (floor, HUD, pause overlay all drawn) but BEFORE the buffer
+     * rendering (floor and HUD drawn) but BEFORE the buffer
      * swap. This is the correct point to capture screenshots that show the
      * current frame's content.
      *
@@ -126,7 +123,7 @@ public final class OverlayCaptureOrchestrator {
 
     /**
      * Deletes GL resources owned by the overlay pipeline.
-     * Called during runner shutdown to clean up HUD and pause screen resources.
+     * Called during runner shutdown to clean up the HUD's resources.
      */
     public void deletePipeline() {
         overlayPipeline.delete();

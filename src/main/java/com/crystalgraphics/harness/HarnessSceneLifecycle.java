@@ -53,7 +53,7 @@ public interface HarnessSceneLifecycle {
      * For interactive scenes, this is called once per frame in the render loop.
      * The {@link FrameInfo} parameter provides timing and frame numbering.</p>
      *
-     * <p>In the interactive runtime, floor rendering, HUD, and pause overlays
+     * <p>In the interactive runtime, floor rendering and the HUD
      * are handled by the runtime — scenes should only render their own content.</p>
      *
      * @param ctx   the harness context

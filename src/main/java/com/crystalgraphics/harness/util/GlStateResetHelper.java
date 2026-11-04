@@ -9,7 +9,7 @@ import com.crystalgraphics.platform.gl.CgGL;
  * bound (shader programs, VAOs, VBOs, textures) and state flags may be left in
  * non-default configurations (depth test off, blend on, cull face on). This
  * helper provides a single canonical reset sequence that restores GL state to
- * the baseline expected by subsequent pipeline passes (floor, pause overlay,
+ * the baseline expected by subsequent pipeline passes (floor,
  * HUD).</p>
  *
  * <p>This replaces the duplicated reset logic that previously existed in both
@@ -22,7 +22,7 @@ public final class GlStateResetHelper {
 
     /**
      * Resets GL state after a scene render pass to ensure subsequent overlay
-     * passes (pause screen, HUD) render correctly.
+     * passes (the HUD) render correctly.
      *
      * <p>Specifically:</p>
      * <ul>
@@ -56,7 +56,7 @@ public final class GlStateResetHelper {
         CgGL.glDepthMask(true);
         CgGL.glDepthFunc(CgGL.GL_LEQUAL);
 
-        // Disable blend — FloorRenderer expects blend OFF; HUD/pause manage their own
+        // Disable blend — FloorRenderer expects blend OFF; the HUD manages its own
         CgGL.glDisable(CgGL.GL_BLEND);
 
         // Disable cull face — world-text draw() enables GL_CULL_FACE for single-sided text

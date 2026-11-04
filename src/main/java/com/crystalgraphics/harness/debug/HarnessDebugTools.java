@@ -68,7 +68,7 @@ public final class HarnessDebugTools {
      *
      * <p>The capture is scheduled as a post-render callback via the
      * {@link ArtifactService}, meaning it fires after the full frame
-     * (scene + floor + HUD + pause overlay) is rendered. Viewport
+     * (scene + floor + HUD) is rendered. Viewport
      * dimensions are read live at capture time — never stale.</p>
      *
      * @param suffix the descriptive suffix (e.g. "front-view", "normal")

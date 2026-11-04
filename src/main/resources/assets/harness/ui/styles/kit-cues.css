@@ -1,0 +1,16 @@
+/* kit-cues' cue picker (CueSelector): a column a namespace, each its cues as a tree. Ctrl+R re-reads it. */
+.cues { width: 100%; height: 100%; flex-direction: column; padding: 6px; gap: 6px; }
+.cues-columns { width: 100%; height: 0px; flex-grow: 1; flex-direction: row; gap: 6px; }
+.cues-panel { width: 0px; flex-grow: 1; height: 100%; flex-direction: column;
+    background-color: #16181C; border: 1px solid #3A3D44; }
+.cues-header { width: 100%; padding: 4px; justify-content: center; background-color: #1E2025;
+    color: #FF4D5E; font-size: 12; }
+.cues-tree { width: 100%; height: 0px; flex-grow: 1; background: none; padding: 4px; }
+.cues-row { flex-direction: row; align-items: center; gap: 3px; color: #E8E8E8; font-size: 12; cursor: pointer; }
+.cues-row:hover { background-color: #FFFFFF14; }
+.cues-row.cues-lit { color: #FFC233; }
+.cues-row.cues-current { color: #FFC233; background-color: #3A3D44; }
+.cues-row .__twisty__ { width: 12px; height: 12px; flex-shrink: 0; color: #E8E8E8; }
+.cues-row.__collapsed__ .__twisty__ { overlay: shape("chevron-right"); }
+.cues-row.__expanded__ .__twisty__ { overlay: shape("chevron-down"); }
+.cues-hint { color: #C8C8C8; font-size: 11; align-self: center; }
