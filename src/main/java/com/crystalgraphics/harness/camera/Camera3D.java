@@ -18,11 +18,11 @@ import java.util.logging.Logger;
  *   <li><b>W/S</b>: forward/backward movement along the look direction</li>
  *   <li><b>A/D</b>: strafe left/right perpendicular to look direction</li>
  *   <li><b>SPACE</b>: move up (positive Y)</li>
- *   <li><b>SHIFT</b>: move down (negative Y), clamped to floor level (Y=0)</li>
+ *   <li><b>SHIFT</b>: move down (negative Y), down to a standing player's eye over the floor</li>
  * </ul>
  *
  * <p>The floor plane is at Y=0. When SHIFT is held, the camera Y position is
- * clamped so it never goes below {@link #FLOOR_Y}.</p>
+ * clamped so it never goes below {@link #EYE_HEIGHT} over {@link #FLOOR_Y}: landed, it stands as a player does.</p>
  *
  * <p>This class also exposes programmatic control methods for LLM debug tools:
  * {@link #rotateCamera(float, float)} and {@link #moveCamera(float, float, float)}.</p>
@@ -34,17 +34,17 @@ public class Camera3D {
     /** The Y coordinate of the floor plane. Camera Y is clamped above this. */
     public static final float FLOOR_Y = 0.0f;
 
-    /** Minimum camera Y position (slightly above floor to avoid z-fighting). */
-    private static final float MIN_CAMERA_Y = FLOOR_Y + 1f;
+    /** A standing player's eye above the floor: {@code Player.DEFAULT_EYE_HEIGHT}. */
+    public static final float EYE_HEIGHT = 1.62f;
+
+    /** The lowest the camera goes: landed on the floor, at a standing player's eye. */
+    private static final float MIN_CAMERA_Y = FLOOR_Y + EYE_HEIGHT;
 
     /**
      * Degrees a pixel of mouse movement turns: Minecraft's at its default sensitivity, 0.5
      * ({@code MouseHandler.turnPlayer}: (0.5 * 0.6 + 0.2)^3 * 8 = 1, times {@code Entity.turn}'s 0.15).
      */
     private static final float DEFAULT_SENSITIVITY = 0.15f;
-
-    /** A standing player's eye above the floor: {@code Player.DEFAULT_EYE_HEIGHT}. */
-    public static final float EYE_HEIGHT = 1.62f;
 
     /** Default movement speed in metres a second: Minecraft's walk, among bodies metres tall. CTRL runs at 5x. */
     private static final float DEFAULT_MOVE_SPEED = 4.3f;
@@ -194,7 +194,7 @@ public class Camera3D {
             dy += speed;
         }
         
-        // SHIFT: move down, clamped to floor level
+        // SHIFT: move down, to a standing player's eye over the floor
         if (key(CgKeyCodes.KEY_LSHIFT) || key(CgKeyCodes.KEY_RSHIFT)) {
             dy -= speed;
             speed *= 0.1f;
