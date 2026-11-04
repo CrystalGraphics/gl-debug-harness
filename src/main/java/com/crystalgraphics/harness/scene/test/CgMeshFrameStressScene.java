@@ -14,8 +14,7 @@ import java.time.LocalTime;
 
 /**
  * Many {@code FRAME} meshes rewritten every frame: {@code -Dcrystalgraphics.harness.frameStress.meshes} strips (64) of
- * {@code .points} vertex pairs (189), each its own mesh, waving. Profile it on the ring and, with
- * {@code -Dcrystalgraphics.mesh.frameRing=false}, on slabs. {@code .usage=DYNAMIC} builds them with another usage,
+ * {@code .points} vertex pairs (189), each its own mesh, waving, on the frame ring. {@code .usage=DYNAMIC} builds them with another usage,
  * which the store reports as edited every frame. {@code .logSlowMs=N} prints each frame interval over N ms with the
  * wall-clock time it ended, to line up against a JFR recording or another process's log.
  */

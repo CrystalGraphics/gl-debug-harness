@@ -25,8 +25,7 @@ import com.crystalgraphics.shape.bounds.CgAABBc;
  *   <li>Nowhere: a third quads draw whose stated bounds are far off screen, so it is culled even though its shader
  *       would draw over the grid.</li>
  *   <li>Below, rewritten every frame ({@code FRAME} meshes, on the frame ring): a pulsing sphere, a waving strip, and a
- *       strip in a 24-byte format sharing the ring region with the 32-byte ones. The same picture with
- *       {@code -Dcrystalgraphics.mesh.frameRing=false}, which places them in slabs.</li>
+ *       strip in a 24-byte format sharing the ring region with the 32-byte ones.</li>
  * </ul>
  */
 public class CgMeshDrawsScene implements InteractiveSceneLifecycle {

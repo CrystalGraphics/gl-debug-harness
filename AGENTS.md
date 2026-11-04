@@ -422,7 +422,7 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 ./gradlew :gl-debug-harness:runHarness --args="--mode=text-threaded"
 
 # CgWorldRenderer.text under load: a grid of outlined, shadowed labels; profile with crystalgraphics.world.
-# .labels.changing=true has some change, come and go; -Dcrystalgraphics.text.retainedLabels=false is the comparison
+# .labels.changing=true has some change, come and go
 ./gradlew :gl-debug-harness:runHarness --args="--mode=world-labels" -Dcrystalgraphics.harness.labels=10000
 
 # Run a 3D scene with custom output name

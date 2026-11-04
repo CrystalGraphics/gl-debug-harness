@@ -1357,7 +1357,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("mesh-frame-stress")
-                .description("64 FRAME meshes rewritten every frame: the frame ring against slabs (-Dcrystalgraphics.mesh.frameRing=false)")
+                .description("64 FRAME meshes rewritten every frame on the frame ring")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
