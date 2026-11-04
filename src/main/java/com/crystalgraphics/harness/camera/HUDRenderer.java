@@ -23,8 +23,7 @@ import java.util.function.Supplier;
  * Particles: n  (the median drawn a frame over the last 0.5 s)
  *
  * Shake [C]: on, trauma t | off
- * HDR [G]: on | off | Glow [ ]: g
- * Bloom [L]: off | linear | blend | Intensity [- =]: b
+ * Bloom [L]: on, b [- =] | off | Emission [ ]: g
  * </pre>
  */
 public final class HUDRenderer {
@@ -107,9 +106,8 @@ public final class HUDRenderer {
             text.append(HarnessCameraShake.INSTANCE.on()
                     ? String.format("\nShake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "\nShake [C]: off");
         }
-        if (shakeAndGlow) text.append(String.format("\nGlow [ ]: %.2f", CgWorldRenderer.get().sceneEmission()));
-        text.append("\nBloom [L]: ").append(bloom.intensity() == 0f ? "off" : bloom.linear() ? "linear" : "blend")
-                .append(String.format(" | Intensity [- =]: %.2f", bloom.intensity()));
+        text.append(bloom.intensity() == 0f ? "\nBloom [L]: off" : String.format("\nBloom [L]: on, %.2f [- =]", bloom.intensity()));
+        if (shakeAndGlow) text.append(String.format(" | Emission [ ]: %.2f", CgWorldRenderer.get().sceneEmission()));
         String own = sceneLines.get();
         if (own != null) text.append('\n').append(own);
         return text.toString();
