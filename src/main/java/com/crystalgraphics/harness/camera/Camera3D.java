@@ -40,8 +40,8 @@ public class Camera3D {
     /** Default mouse sensitivity (degrees per pixel of mouse movement). */
     private static final float DEFAULT_SENSITIVITY = 0.05f;
 
-    /** Default movement speed (units per second). */
-    private static final float DEFAULT_MOVE_SPEED = 0.25f;
+    /** Default movement speed in metres a second: Minecraft's walk, among bodies metres tall. CTRL runs at 5x. */
+    private static final float DEFAULT_MOVE_SPEED = 4.3f;
 
     /** Pitch limits to prevent gimbal lock (in degrees). */
     private static final float MAX_PITCH = 89.0f;

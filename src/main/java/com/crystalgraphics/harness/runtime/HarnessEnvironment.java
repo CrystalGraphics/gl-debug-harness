@@ -14,7 +14,8 @@ import org.joml.Matrix4fc;
 /**
  * VFX Lab's sky and floor (CrystalGUI's {@code VfxLab}) as a harness scene's world: {@code editor_sky.shader} on a
  * sphere round the eye and {@code editor_grid.shader} on a plane at y 0 under it, in place of the harness's own floor
- * and clear colour. F9 eases between day and night.
+ * and clear colour. F9 eases between day and night. Under the grid, an opaque ground writes depth alone, so a colour
+ * region, a soft particle or a depth fade meets the floor where a game's ground would stand.
  *
  * <pre>{@code
  * // a scene opts in:
@@ -37,6 +38,9 @@ public final class HarnessEnvironment {
 
     private static final String SKY_SHADER = "crystalgraphics:shaders/demo/editor_sky.shader";
     private static final String FLOOR_SHADER = "crystalgraphics:shaders/demo/editor_grid.shader";
+    private static final String GROUND_SHADER = "assets/harness/shader/ground_depth.shader";
+    /** The ground's depth this far under the grid's lines, so they draw over it. */
+    private static final double GROUND_BELOW = 0.01;
     private static final Matrix4fc SKY_SCALE = new Matrix4f().scale(600f);
     /** Metres the grid fades out by, from a quarter of it; the plane spans past it, so its edge never shows. */
     private static final float FLOOR_FADE = 100f;
@@ -44,7 +48,7 @@ public final class HarnessEnvironment {
     private static final float NIGHT_RATE = 2.5f;
 
     private CgMesh sky, floor;
-    private CgMaterial skyMaterial, floorMaterial;
+    private CgMaterial skyMaterial, floorMaterial, groundMaterial;
     private boolean enabled, night, submitted;
     private float nightMix;
 
@@ -89,15 +93,18 @@ public final class HarnessEnvironment {
             floor = CgMesh.build(CgVertexFormat.SPATIAL, m -> CgMeshShapes.plane(m, 1, 1, FLOOR_FADE * 2.5f, FLOOR_FADE * 2.5f));
             skyMaterial = CgMaterial.newInstance(SKY_SHADER);
             floorMaterial = CgMaterial.newInstance(FLOOR_SHADER).applyProperties(b -> b.set1f("_Fade", FLOOR_FADE));
+            groundMaterial = CgMaterial.load(GROUND_SHADER);
             programs = CgPipelinePrecache.request(pipelines -> {
                 pipelines.add(skyMaterial, false);
                 pipelines.add(floorMaterial, false);
+                pipelines.add(groundMaterial, false);
             });
         }
         if (!programs.ready()) return;
         CgWorldRenderer world = CgWorldRenderer.get();
         double x = camera.getPosX(), y = camera.getPosY(), z = camera.getPosZ();
         // Under the eye, so flying never reaches its edge; the grid's lines are absolute and hold still.
+        world.draw(floor, groundMaterial).at(x, -GROUND_BELOW, z).submit();
         world.draw(floor, floorMaterial).at(x, 0.0, z).layer(CgSortLayer.BACKGROUND).submit();
         world.draw(sky, skyMaterial).at(x, y, z).transform(SKY_SCALE).layer(CgSortLayer.BACKGROUND).submit();
     }

@@ -129,8 +129,6 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private static final String GOKU_PREFAB = "prefabs/Blueprints/Character/C001A/AT_Character_cpl001_BP.yaml";
     /** The namespace the kit's materials name their shading models by ({@code kakarot:cell_tone}). */
     private static final String SHADING = "kakarot";
-    /** The camera at Minecraft's walk, metres a second: the harness's 0.25 crawls between bodies metres tall. */
-    private static final float WALK = 4.3f;
     private static final float[] RATES = {0.1f, 0.25f, 0.5f, 1f, 1.5f, 2f};
 
     /** One skinned mesh on the floor, its clips, and the one playing; a sequence's role, its clips by their id's last segment. */
@@ -427,7 +425,6 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 .travel(-0.5567f, -0.766f, 0.3214f);
         ctx.getCamera3D().moveCamera(2f, 3f, 6f);
         ctx.getCamera3D().setPitch(-10f);
-        ctx.getCamera3D().setMoveSpeed(WALK);
     }
 
     /**

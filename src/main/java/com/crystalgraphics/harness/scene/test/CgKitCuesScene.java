@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * A kit's cues fired at a dummy standing on a floor, through the engine's own path: the client world's cue manager,
+ * A kit's cues fired at a dummy standing on the harness's ground, through the engine's own path: the client world's cue manager,
  * its sequencer with the engine's spawners (systems, post volumes, colour regions, shakes) and the kit's look. What a
  * mod's hit plays in Minecraft, without launching it. Scene id {@code kit-cues}.
  *
@@ -55,9 +55,9 @@ import java.util.Locale;
  *
  * <ul>
  *   <li>A cue is named by its path under the kit's {@code cues/}; it fires by its own {@code tag}.</li>
- *   <li>Under VFX Lab's sky (F9 day and night); the floor is the scene's own, which writes depth.</li>
- *   <li>The floor and the dummy are opaque world draws, so a colour region, a soft particle or a depth fade sees
- *       depth where the game would: the harness's own floor writes none.</li>
+ *   <li>Under VFX Lab's sky and floor; F9 day and night.</li>
+ *   <li>The dummy is an opaque world draw and the ground under VFX Lab's sky writes depth, so a colour region, a soft
+ *       particle or a depth fade sees depth where the game would.</li>
  *   <li>{@code .fireEvery=<seconds>} (2) fires the cue again on that clock while nothing is pressed; 0 fires once.
  *       {@code .distance=<blocks>} (3) is the camera's distance from the hit, at eye height.</li>
  *   <li>{@code .regions=false} plays the cues' sequences without their colour regions.</li>
@@ -86,7 +86,6 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private CgTickFunction submit;
     private boolean sequencesDeclared;
     private final CgCueParameters params = new CgCueParameters();
-    private final Matrix4f floorShape = new Matrix4f().translate(0f, -0.5f, 0f).scale(64f, 1f, 64f);
     private final Matrix4f dummyShape = new Matrix4f().translate(0f, 0.9f, 0f).scale(0.6f, 1.8f, 0.3f);
     private final float fireEvery = Float.parseFloat(System.getProperty("crystalgraphics.harness.kitCues.fireEvery", "2"));
     private final int capture = Integer.getInteger("crystalgraphics.harness.kitCues.capture", 0);
@@ -94,7 +93,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private CgSequencer sequencer;
     /** The looping cue playing, stopped as the next fires. */
     private CgCuePlaying looping;
-    private CgMaterial floor, dummy;
+    private CgMaterial dummy;
     private CgMesh cube;
     private int current, speed = SPEEDS.length - 1, frames;
     private double sinceFire;
@@ -123,14 +122,11 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         if (!Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.kitCues.regions", "true"))) {
             sequencer.spawner("colour_region", (player, spawnable, at) -> new CgSequenceSpawnScene.Fixture());
         }
-        floor = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         dummy = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         cube = CgMeshShapes.cube();
         // Submitted in the world's frame, as a mod's draws are: before it, the world's frame drops them
         submit = CgWorld.client().schedule().add(CgTickGroup.SUBMIT, "harness:kit-cues", dt -> {
-            CgWorldRenderer world = CgWorldRenderer.get();
-            world.draw(cube, floor).at(0, 0, 0).transform(floorShape).submit();
-            world.draw(cube, dummy).at(HIT_X, 0, HIT_Z - 0.4).transform(dummyShape).submit();
+            CgWorldRenderer.get().draw(cube, dummy).at(HIT_X, 0, HIT_Z - 0.4).transform(dummyShape).submit();
         });
     }
 
