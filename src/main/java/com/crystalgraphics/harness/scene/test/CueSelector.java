@@ -59,6 +59,7 @@ final class CueSelector {
     /** Whether its sheet is on the document already: a fresh window each launch, one sheet. */
     private boolean styled;
     private final ApplicationKind kind = ApplicationKind.of("harness:kit-cues", "Cues")
+            .icon("harness:cues")
             .keywords("cues", "hits", "kit")
             .singleInstance()
             .standalone()
