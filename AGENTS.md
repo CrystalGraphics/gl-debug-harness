@@ -408,10 +408,9 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 # The world's bloom: a glowing ball behind a wall changes no pixel, one in front does; PASS/FAIL, run on gl and vulkan
 ./gradlew :gl-debug-harness:runHarness --args="--mode=bloom-occlusion --seconds=20"
 
-# The post stack: each look through a volume; a mod effect at each point; colour and emission in one MRT pass
+# The post stack: each look through a volume; a mod effect at each point
 ./gradlew :gl-debug-harness:runHarness --args="--mode=post-looks --seconds=30"
 ./gradlew :gl-debug-harness:runHarness --args="--mode=post-effects --seconds=30"
-./gradlew :gl-debug-harness:runHarness --args="--mode=mrt-emission --seconds=20"
 
 # The HDR scene's cost: an 8-bit host into a linear scene and back, timed at 1080p and 4K; the round trip must be exact,
 # the engine's too, and through the opaque firing's scene: every pixel outside an opaque cube of 4x red back byte for
@@ -713,7 +712,6 @@ The interactive runner sequences these steps every frame:
 | F1 | Hide or show the harness's HUD text, as a game's F1 hides its interface: a clean frame to compare against a game capture. The HUD stage still fires, so the engine's subtitles stay |
 | C | Camera shake on and off (the HUD says which); a scene whose HUD hides the shake (`hudShowsShakeAndGlow`, kit-cues) takes C for its own |
 | L | Bloom in the target's encoding, then in linear light, then off (the HUD says which) |
-| G | The HDR scene on or off for the run (`CgWorldRenderer.hdrScene`, overriding the `CgGraphicsSettings.HDR` setting, on by default, unsaved; `-Dcrystalgraphics.world.hdrScene=false` at launch): the transparent stage drawn into a linear RGBA16F scene and composited back, or straight into the target as before. Takes effect the next frame |
 | [ ] | The HDR scene's glow gain down or up by a quarter (`CgWorldRenderer.sceneEmission`, 0.5 by default): how much an Emissive pass adds sharp into the scene. Held, it repeats; the HUD shows it |
 | - = | Bloom's intensity down or up by a quarter while it is on (`CgBloom.intensity`); the HUD shows it |
 | H | Half-resolution draws on or off (`CgWorldRenderer.halfResolution`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |

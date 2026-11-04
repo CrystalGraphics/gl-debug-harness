@@ -29,8 +29,7 @@ import java.util.List;
  *   <li>a post material ({@link CgPostMaterial}) inverting the picture at weights 1, 0.5 and 0;</li>
  *   <li>a post material of three passes, two into targets at half and a quarter size, each reading the one before at
  *       its size;</li>
- *   <li>a fade ({@link CgPostSettings#fade}) halfway to red, with the HDR scene off (the composite's blend form) and on
- *       (its copy form);</li>
+ *   <li>a fade ({@link CgPostSettings#fade}) halfway to red, in the composite's copy form;</li>
  *   <li>a crossfade ({@link CgPostStack#crossfade}) of 1 s from one colour into another: three quarters the old a
  *       quarter of the way in, the new alone after.</li>
  * </ul>
@@ -57,7 +56,6 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
         CgPostStack.get().install();
-        boolean hdr = world.hdrScene();
         target = HarnessFboHelper.create(SIZE, SIZE, false);
         try {
             CgPostMaterial invert = CgPostMaterial.of("harness:shader/post_invert.shader", CgPostPoint.AFTER_COMPOSITE);
@@ -76,12 +74,8 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
             on.close();
 
             CgPostVolume red = CgPostStack.get().volume(100, new CgPostSettings().fade(0xFFFF0000, 0.5f));
-            world.hdrScene(false);
-            check("a fade, blend form", fire(A, 0f), mix(A[0], 1f), mix(A[1], 0f), mix(A[2], 0f));
-            world.hdrScene(true);
             check("a fade, copy form", fire(A, 0f), mix(A[0], 1f), mix(A[1], 0f), mix(A[2], 0f));
             red.close();
-            world.hdrScene(hdr);
 
             CgPostStack.get().crossfade(1f);
             fire(A, 10f);
@@ -90,7 +84,6 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
                     B[2] + (A[2] - B[2]) * 0.75f);
             check("a crossfade done", fire(B, 11.5f), B[0], B[1], B[2]);
         } finally {
-            world.hdrScene(hdr);
             target.delete();
         }
         report(GlErrorChecker.checkAndLog("post-transitions"));
@@ -149,8 +142,8 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
         } else if (failure != null) {
             System.out.println("[post-transitions] FAIL on " + on + ": " + failure);
         } else {
-            System.out.println("[post-transitions] PASS on " + on + ": a post material by its weight and through three passes, a fade in either "
-                    + "composite form, and a cut's held frame crossfaded out");
+            System.out.println("[post-transitions] PASS on " + on + ": a post material by its weight and through three passes, a fade, and a cut's "
+                    + "held frame crossfaded out");
         }
     }
 

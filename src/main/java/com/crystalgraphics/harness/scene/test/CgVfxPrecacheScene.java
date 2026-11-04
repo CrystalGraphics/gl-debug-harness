@@ -77,7 +77,6 @@ public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
     private boolean running = true, playing;
     private int frames, warmFrames;
     private long before, unreadyBefore, mostDrawn;
-    private boolean hdrWas;
     private CgQuality qualityWas;
     private CgRehearsal rehearsal;
     private HarnessJitWatch jit;
@@ -143,9 +142,7 @@ public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
         }
         if (!playing) warmFrames++;
         if (playing && !SKIP && frames == FRAMES / 2) {
-            hdrWas = CgGraphicsSettings.HDR.get();
             qualityWas = CgGraphicsSettings.QUALITY.get();
-            CgGraphicsSettings.HDR.set(!hdrWas);
             CgGraphicsSettings.QUALITY.set(qualityWas == CgQuality.LOW ? CgQuality.HIGH : CgQuality.LOW);
         }
         vfx.update(frame.getElapsedTime());
@@ -269,7 +266,6 @@ public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
 
     private void restoreSettings() {
         if (qualityWas == null) return;
-        CgGraphicsSettings.HDR.set(hdrWas);
         CgGraphicsSettings.QUALITY.set(qualityWas);
         qualityWas = null;
     }

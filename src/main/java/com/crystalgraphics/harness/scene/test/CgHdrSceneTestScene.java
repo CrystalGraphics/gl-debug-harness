@@ -232,8 +232,6 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
         CgPostStack.get().install();
-        boolean was = world.hdrScene();
-        world.hdrScene(true);
         // A host draws its world with its target bound at its own size: the stages take both from GL.
         try (CgGlScope ignored = CgGlState.save(CgGlSlot.FBO, CgGlSlot.VIEWPORT)) {
             host.bind();
@@ -243,8 +241,6 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
                 stage.host().set(0f, w, h, host.getId()).view().set(0, 0, 0, new Matrix4f(), projection);
                 stage.fire();
             }
-        } finally {
-            world.hdrScene(was);
         }
         if (gl && CgGL.glGetBoolean(GL_FRAMEBUFFER_SRGB)) return "GL_FRAMEBUFFER_SRGB is on";
         int changed = changed(host.getColorTexture(0).getId(), w, h, true);
@@ -280,7 +276,6 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     private String opaqueRoundTrip(CgFrameBuffer host, int w, int h, boolean overdraw, boolean blooming) {
         String which = blooming ? "opaque scene, blooming" : overdraw ? "opaque scene under the host's overdraw" : "opaque scene";
         CgWorldRenderer world = CgWorldRenderer.get();
-        if (!world.hdrSceneDrawn()) return which + ": the HDR scene is not drawn yet";
         upload(host, pattern(w, h), w, h);
         boolean wasSkipping = world.skipUnready();
         world.skipUnready(false);

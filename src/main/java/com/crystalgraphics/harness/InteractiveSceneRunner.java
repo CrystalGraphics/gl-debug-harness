@@ -741,11 +741,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     && letters) {
                 cycleBloom();
             }
-            // G: the transparent stage into a linear HDR scene, or straight into the target as before, to compare.
-            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_G && !isCtrlDown()
-                    && letters) {
-                CgWorldRenderer.get().hdrScene(!CgWorldRenderer.get().hdrScene());
-            }
             // [ ]: the HDR scene's glow gain down or up; - =: bloom's intensity, while it is on. Held, they repeat.
             if (event.pressed() && !isCtrlDown() && letters) {
                 CgWorldRenderer world = CgWorldRenderer.get();

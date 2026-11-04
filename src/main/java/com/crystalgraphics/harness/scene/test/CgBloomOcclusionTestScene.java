@@ -11,8 +11,6 @@ import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.device.CgDeviceInfo;
-import com.crystalgraphics.render.draw.CgInstanceKind;
-import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
@@ -30,11 +28,9 @@ import java.util.List;
 /**
  * The world bloom's gate: an opaque ball with an Emissive pass, drawn through {@code CgWorldRenderer} and bloomed by
  * {@code CgPostStack}, once with bloom off and once on. Behind a wall, bloom must change no pixel; in front of it, it
- * must. Each at every quality tier (each its own chain), three target sizes, one odd and one tall enough to halve the emission first, and at emission scales 1, 0.5 and the
- * tier's own (0), since the Emissive pass reads the scene's depth by its own pixel's share of the screen.
+ * must. Each at every quality tier (each its own chain) and three target sizes, one odd and one tall.
  *
- * <p>Under the HDR scene (on by default; {@code -Dcrystalgraphics.world.hdrScene=false} for the old path) a glow is light in the scene and bloom takes
- * what passes white, so the emission's scales and merging mean nothing: it checks instead that a pane in front covers
+ * <p>A glow is light in the HDR scene and bloom takes what passes white, so it checks too that a pane in front covers
  * a glow as it covers the colour ({@link #covered}).</p>
  *
  * <p>Prints {@code [bloom-occlusion] PASS} or {@code FAIL}; on Vulkan a validation error fails it. Captures land in its
@@ -44,11 +40,10 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
 
     /** The tall one makes the chain halve its emission first: twice at scale 1, once at 0.5. */
     private static final int[][] SIZES = {{320, 240}, {321, 241}, {640, 2100}};
-    private static final float[] SCALES = {0f, 1f, 0.5f};
     /** How many pixels the ball in front must brighten: its halo, past its own silhouette. */
     private static final int FRONT_MIN_CHANGED = 50;
 
-    private CgMaterial wall, glow, emissionOnly, glowAlpha, glowPremultiplied, pane, translucentPane;
+    private CgMaterial wall, glow, emissionOnly, glowAlpha, pane, translucentPane;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -58,7 +53,6 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         // Its javadoc's glow: past white under the HDR scene's glow gain, as a glow meant to bloom is.
         emissionOnly.applyProperties(b -> b.set1f("_EmissionStrength", 3f));
         glowAlpha = CgMaterial.load("assets/harness/shader/bloom_glow_alpha.shader");
-        glowPremultiplied = CgMaterial.load("assets/harness/shader/bloom_glow_premul.shader");
         pane = CgMaterial.newInstance("assets/harness/shader/bloom_cover.shader");
         translucentPane = CgMaterial.newInstance("assets/harness/shader/bloom_cover.shader");
         translucentPane.applyProperties(b -> b.set1f("_Alpha", 0.5f));
@@ -70,49 +64,37 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         world.install();
         CgPostStack.get().install();
         List<String> failures = new ArrayList<>();
-        boolean scene = world.hdrScene();
         CgQuality original = CgGraphicsSettings.QUALITY.get();
         for (CgQuality tier : CgQuality.values()) {
             CgGraphicsSettings.QUALITY.set(tier);
             for (int[] size : SIZES) {
-                for (float scale : scene ? new float[]{0f} : SCALES) {
-                    world.emissionScale(scale);
-                    for (boolean hidden : new boolean[]{true, false}) {
-                        String name = tier.name().toLowerCase() + "-" + size[0] + "x" + size[1] + "-" + scale + "-"
-                                + (hidden ? "hidden" : "front");
-                        draw(ctx, world, size[0], size[1], glow, hidden, 1f, 0f, name + "-off.png");
-                        draw(ctx, world, size[0], size[1], glow, hidden, 1f, 1f, name + "-on.png");
-                        String failure = compare(ctx, name, hidden);
-                        if (failure != null) failures.add(name + ": " + failure);
-                    }
+                for (boolean hidden : new boolean[]{true, false}) {
+                    String name = tier.name().toLowerCase() + "-" + size[0] + "x" + size[1] + "-" + (hidden ? "hidden" : "front");
+                    draw(ctx, world, size[0], size[1], glow, hidden, 1f, 0f, name + "-off.png");
+                    draw(ctx, world, size[0], size[1], glow, hidden, 1f, 1f, name + "-on.png");
+                    String failure = compare(ctx, name, hidden);
+                    if (failure != null) failures.add(name + ": " + failure);
                 }
             }
         }
         CgGraphicsSettings.QUALITY.set(original);
-        world.emissionScale(0f);
         // .emission(0) takes a ball in front out of the bloom
         draw(ctx, world, 320, 240, glow, false, 0f, 0f, "emission0-off.png");
         draw(ctx, world, 320, 240, glow, false, 0f, 1f, "emission0-on.png");
         String failure = compare(ctx, "emission0", true);
         if (failure != null) failures.add("emission(0): " + failure);
-        // An emission-only ball draws nothing into the scene, and blooms; under the HDR scene its glow is in the scene
+        // An emission-only ball's glow is in the scene, and blooms
         draw(ctx, world, 320, 240, null, false, 1f, 0f, "emission-only-scene-off.png");
         draw(ctx, world, 320, 240, emissionOnly, false, 1f, 0f, "emission-only-scene-on.png");
-        failure = compare(ctx, "emission-only-scene", !scene);
+        failure = compare(ctx, "emission-only-scene", false);
         if (failure != null) failures.add("emission-only, bloom off: " + failure);
         draw(ctx, world, 320, 240, emissionOnly, false, 1f, 0f, "emission-only-off.png");
         draw(ctx, world, 320, 240, emissionOnly, false, 1f, 1f, "emission-only-on.png");
         failure = compare(ctx, "emission-only", false);
         if (failure != null) failures.add("emission-only: " + failure);
-        if (scene) {
-            covered(ctx, world, failures);
-        } else {
-            merged(ctx, world, failures);
-            fallback(ctx, world, failures);   // last: a refusal holds for the framebuffer's name, which the next target reuses
-        }
+        covered(ctx, world, failures);
         CgPostStack.get().bloom().intensity(1f);
-        world.emissionScale(0f);
-        report(failures, GlErrorChecker.checkAndLog("bloom-occlusion"), scene);
+        report(failures, GlErrorChecker.checkAndLog("bloom-occlusion"));
     }
 
     /**
@@ -157,56 +139,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
     }
 
     /**
-     * A transparent glow whose Emissive pass folds into its Forward draw, one blended by alpha and one premultiplied
-     * with an adding Emissive pass: drawn with merging off and on at emission scale 1, the pictures must be the same
-     * byte for byte, and the merged one in front must still bloom. The opaque ball's authored Emissive pass never merges.
-     */
-    private void merged(HarnessContext ctx, CgWorldRenderer world, List<String> failures) {
-        if (glow.pipeline(CgInstanceKind.OBJECT).emissionTarget() != null) failures.add("merge: an authored Emissive pass merged");
-        world.emissionScale(1f);
-        for (CgMaterial ball : List.of(glowAlpha, glowPremultiplied)) {
-            String kind = ball == glowAlpha ? "alpha" : "premultiplied";
-            if (ball.pipeline(CgInstanceKind.OBJECT).emissionTarget() == null) {
-                failures.add("merge-" + kind + ": its Emissive pass does not merge");
-                continue;
-            }
-            for (boolean hidden : new boolean[]{true, false}) {
-                String name = "merge-" + kind + "-" + (hidden ? "hidden" : "front");
-                world.mergeEmission(false);
-                draw(ctx, world, 321, 241, ball, hidden, 1f, 1f, name + "-apart.png");
-                world.mergeEmission(true);
-                draw(ctx, world, 321, 241, ball, hidden, 1f, 1f, name + "-on.png");
-                if (world.mergedDraws() == 0) failures.add(name + ": nothing was merged, so the comparison proves nothing");
-                draw(ctx, world, 321, 241, ball, hidden, 1f, 0f, name + "-off.png");
-                String failure = same(ctx, name + "-apart.png", name + "-on.png");
-                if (failure == null) failure = compare(ctx, name, hidden);
-                if (failure != null) failures.add(name + ": " + failure);
-            }
-        }
-        world.mergeEmission(true);
-    }
-
-    /**
-     * A host target that takes no second attachment (here its stated size is not the viewport's) is drawn without one,
-     * refused for good, and from then on drawn the old way: the same picture as with merging off.
-     */
-    private void fallback(HarnessContext ctx, CgWorldRenderer world, List<String> failures) {
-        HarnessFboHelper target = HarnessFboHelper.create(321, 241, true);
-        world.mergeEmission(false);
-        drawInto(ctx, world, target, 323, 241, glowAlpha, false, 1f, 1f, null, "fallback-apart.png");
-        world.mergeEmission(true);
-        drawInto(ctx, world, target, 323, 241, glowAlpha, false, 1f, 1f, null, "fallback-refused.png");
-        if (!CgRasterPass.refusesAttachment(target.getFboId())) failures.add("fallback: a target of another size was not refused");
-        drawInto(ctx, world, target, 323, 241, glowAlpha, false, 1f, 1f, null, "fallback-on.png");
-        if (world.mergedDraws() != 0) failures.add("fallback: a refused target merged again");
-        String failure = same(ctx, "fallback-apart.png", "fallback-on.png");
-        if (failure != null) failures.add("fallback: " + failure);
-        target.unbind();
-        target.delete();
-    }
-
-    /**
-     * Under the HDR scene a glow is light in the scene, so a pane in front covers it as it covers the colour: behind an
+     * A glow is light in the scene, so a pane in front covers it as it covers the colour: behind an
      * opaque pane, an opaque ball's glow (added before the transparent pass) and a transparent ball's (added after its
      * own draw) leave the picture the pane alone makes, bloom on, byte for byte. Behind a translucent pane the halo
      * beside the ball blooms less than bare, or not at all once the pane takes the glow under white.
@@ -302,7 +235,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         return null;
     }
 
-    private static void report(List<String> failures, boolean glErrors, boolean scene) {
+    private static void report(List<String> failures, boolean glErrors) {
         CgDeviceInfo device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
@@ -314,14 +247,10 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
             System.out.println("[bloom-occlusion] PASS on recording: every command validated; a recording device draws nothing to compare");
         } else if (!failures.isEmpty()) {
             for (String failure : failures) System.out.println("[bloom-occlusion] FAIL on " + on + ": " + failure);
-        } else if (scene) {
-            System.out.println("[bloom-occlusion] PASS on " + on + " under the HDR scene: a ball behind the wall blooms nowhere"
+        } else {
+            System.out.println("[bloom-occlusion] PASS on " + on + ": a ball behind the wall blooms nowhere"
                     + " and one in front blooms, at every tier and three sizes; emission(0), an emission-only ball's glow in the"
                     + " scene, an opaque pane hiding an opaque and a transparent glow byte for byte, and a translucent one dimming the bloom");
-        } else {
-            System.out.println("[bloom-occlusion] PASS on " + on + ": a ball behind the wall blooms nowhere and one in "
-                    + "front blooms, at every tier, three sizes and emission scales 1, 0.5 and the tier's; emission(0), an emission-only ball, "
-                    + "two transparent glows the same merged into one draw as apart, and a target that takes no second attachment drawn the old way");
         }
     }
 

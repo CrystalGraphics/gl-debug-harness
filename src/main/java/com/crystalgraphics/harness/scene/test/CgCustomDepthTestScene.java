@@ -66,7 +66,6 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
 
     private CgRenderStage.Registration asking, reader, probing;
     private CgPostMaterial probe;
-    private boolean wasHdr;
     private volatile byte[] stencil;
     private volatile float[] normal, data, hiddenData;
     /** The hidden cube's pixel, behind the wall: its custom data must read the clear, DefaultLit's (256, 0). */
@@ -90,10 +89,9 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
         target = HarnessFboHelper.create(W, H, true);
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
-        wasHdr = world.hdrScene();
-        world.hdrScene(false);   // the probe draws into the host's RGBA8, read back as it stands
         asking = CgRenderStage.WORLD_OPAQUE.register(0, stage -> stage.resources().put(CgFrameKeys.WORLD_NORMALS_READ, Boolean.TRUE));
-        probe = CgPostMaterial.of("assets/harness/shader/scene_textures_probe.shader", CgPostPoint.AFTER_WORLD);
+        // After the composite, onto the host's RGBA8, read back as it stands: in the scene its values would be encoded
+        probe = CgPostMaterial.of("assets/harness/shader/scene_textures_probe.shader", CgPostPoint.AFTER_COMPOSITE);
         probing = CgPostStack.get().add(probe);
         reader = CgRenderStage.WORLD_TRANSPARENT.register(CgWorldRenderer.ORDER + 1, stage -> {
             CgGraphTexture mask = stage.resources().get(CgFrameKeys.CUSTOM_DEPTH);
@@ -226,7 +224,6 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
         asking.close();
         reader.close();
         probing.close();
-        CgWorldRenderer.get().hdrScene(wasHdr);
         quad.release();
         target.delete();
     }

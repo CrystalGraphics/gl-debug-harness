@@ -8,7 +8,7 @@ import com.crystalgraphics.platform.gl.CgGL;
 /**
  * The interactive runner's main target, as Minecraft draws its world into one: the world pass and the scene draw into
  * a framebuffer of the window's size, blitted into the window before the overlays. What only a framebuffer of our own
- * takes -- the normal target the world lights read, the world's merged emission -- then runs as it does in the game.
+ * takes -- the normal target the world lights read -- then runs as it does in the game.
  * RGBA8 as Minecraft's: with {@code GL_FRAMEBUFFER_SRGB} off, the window's sRGB backbuffer takes its bytes unchanged.
  *
  * <pre>{@code
