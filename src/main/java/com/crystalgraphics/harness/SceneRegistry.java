@@ -5,6 +5,7 @@ import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.ImageScene;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
+import com.crystalgraphics.harness.scene.test.CgRhiTestScene;
 import com.crystalgraphics.harness.scene.test.CgHdrSceneTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLayersTestScene;
 import com.crystalgraphics.harness.scene.test.CgPostCaptureScene;
@@ -349,6 +350,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgComputeGraphTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("rhi-scene").checksPixels()
+                .description("rhi S1: a kernel writes a square's corners and a draw pulls them, coloured through a binding set and a push constant, read back without a stall: through CgRHI alone on Vulkan, through GL on GL; both must match the picture worked out on the CPU")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(64)
+                .defaultHeight(64)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgRhiTestScene()
         );
 
         reg.register(
