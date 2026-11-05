@@ -4,6 +4,7 @@ import com.crystalgraphics.harness.config.SceneDescriptor;
 import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
+import com.crystalgraphics.harness.scene.test.CgDeviceMeshTestScene;
 import com.crystalgraphics.harness.scene.test.CgDeviceSetsTestScene;
 import com.crystalgraphics.harness.scene.test.CgRhiTestScene;
 import com.crystalgraphics.harness.scene.test.CgHdrSceneTestScene;
@@ -332,6 +333,20 @@ public final class SceneRegistry {
                 .clearColor(0f, 0f, 0f, 1.0f)
                 .build(),
             () -> new CgDeviceSetsTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("device-mesh").checksPixels()
+                .description("rhi GL6: meshes drawn through CgMeshStore's device draws (a slab's indexed mesh, an unindexed one, a ring frame mesh, two joined into one indirect call) read back and compared with the picture worked out on the CPU")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(64)
+                .defaultHeight(64)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgDeviceMeshTestScene()
         );
 
         reg.register(
