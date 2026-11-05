@@ -13,28 +13,29 @@ public final class HarnessFboHelper {
 
     private int fboId;
     private int colorTexId;
-    private int depthRbId;
+    private int depthTexId;
     private final int width;
     private final int height;
     private final boolean hasDepth;
 
-    private HarnessFboHelper(int fboId, int colorTexId, int depthRbId,
+    private HarnessFboHelper(int fboId, int colorTexId, int depthTexId,
                              int width, int height, boolean hasDepth) {
         this.fboId = fboId;
         this.colorTexId = colorTexId;
-        this.depthRbId = depthRbId;
+        this.depthTexId = depthTexId;
         this.width = width;
         this.height = height;
         this.hasDepth = hasDepth;
     }
 
     /**
-     * Create an FBO with a color texture and optional depth renderbuffer.
+     * Create an FBO with a color texture and an optional depth texture: textures both, as Minecraft's targets are, so a
+     * device can import them.
      */
     public static HarnessFboHelper create(int width, int height, boolean withDepth) {
         int fbo = CgGL.glGenFramebuffers();
         int colorTex = CgGL.glGenTextures();
-        int depthRb = 0;
+        int depthTex = 0;
 
         CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, colorTex);
         CgGL.glTexImage2D(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA8,
@@ -45,19 +46,22 @@ public final class HarnessFboHelper {
         CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
 
         if (withDepth) {
-            depthRb = CgGL.glGenRenderbuffers();
-            CgGL.glBindRenderbuffer(CgGL.GL_RENDERBUFFER, depthRb);
-            CgGL.glRenderbufferStorage(CgGL.GL_RENDERBUFFER, CgGL.GL_DEPTH_COMPONENT,
-                    width, height);
-            CgGL.glBindRenderbuffer(CgGL.GL_RENDERBUFFER, 0);
+            // 32-bit float: every Vulkan device takes it, where 24-bit depth is not on all.
+            depthTex = CgGL.glGenTextures();
+            CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, depthTex);
+            CgGL.glTexImage2D(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_DEPTH_COMPONENT32F, width, height, 0,
+                    CgGL.GL_DEPTH_COMPONENT, CgGL.GL_FLOAT, (java.nio.ByteBuffer) null);
+            CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MIN_FILTER, CgGL.GL_NEAREST);
+            CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MAG_FILTER, CgGL.GL_NEAREST);
+            CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
         }
 
         CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fbo);
         CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER,
                 CgGL.GL_COLOR_ATTACHMENT0, CgGL.GL_TEXTURE_2D, colorTex, 0);
         if (withDepth) {
-            CgGL.glFramebufferRenderbuffer(CgGL.GL_FRAMEBUFFER,
-                    CgGL.GL_DEPTH_ATTACHMENT, CgGL.GL_RENDERBUFFER, depthRb);
+            CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER,
+                    CgGL.GL_DEPTH_ATTACHMENT, CgGL.GL_TEXTURE_2D, depthTex, 0);
         }
 
         int status = CgGL.glCheckFramebufferStatus(CgGL.GL_FRAMEBUFFER);
@@ -68,7 +72,7 @@ public final class HarnessFboHelper {
         LOGGER.info("[Harness] FBO created: " + width + "x" + height
                 + " depth=" + withDepth + " id=" + fbo);
 
-        return new HarnessFboHelper(fbo, colorTex, depthRb, width, height, withDepth);
+        return new HarnessFboHelper(fbo, colorTex, depthTex, width, height, withDepth);
     }
 
     /** Bind this FBO and set viewport. */
@@ -109,9 +113,9 @@ public final class HarnessFboHelper {
             CgGL.glDeleteTextures(colorTexId);
             colorTexId = 0;
         }
-        if (depthRbId != 0) {
-            CgGL.glDeleteRenderbuffers(depthRbId);
-            depthRbId = 0;
+        if (depthTexId != 0) {
+            CgGL.glDeleteTextures(depthTexId);
+            depthTexId = 0;
         }
     }
 
