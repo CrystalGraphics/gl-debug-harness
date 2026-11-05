@@ -4,6 +4,7 @@ import com.crystalgraphics.harness.config.SceneDescriptor;
 import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
+import com.crystalgraphics.harness.scene.test.CgDeviceSetsTestScene;
 import com.crystalgraphics.harness.scene.test.CgRhiTestScene;
 import com.crystalgraphics.harness.scene.test.CgHdrSceneTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLayersTestScene;
@@ -317,6 +318,20 @@ public final class SceneRegistry {
                 .clearColor(0f, 0f, 0f, 1.0f)
                 .build(),
             () -> new CgRhiTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("device-sets")
+                .description("rhi GL6: every shipped material's set 2 made on the device from its recorded bindings, against its device pipeline's layout: no slot defaulted, a second frame making none, a changed block making one")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(64)
+                .defaultHeight(64)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgDeviceSetsTestScene()
         );
 
         reg.register(
