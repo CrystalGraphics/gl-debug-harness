@@ -10,6 +10,7 @@ import com.crystalgraphics.lwjgl3.Lwjgl3GLBackend;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLDriver;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLContext;
 import com.crystalgraphics.platform.rhi.CgRHI;
+import com.crystalgraphics.platform.rhi.shader.CgGlslCompiler;
 import com.crystalgraphics.platform.rhi.nulldrv.CgNullRHI;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgGLDevice;
@@ -134,13 +135,16 @@ public final class PlatformServiceHarness implements CgPlatformService {
                         GLHostState.sharedWithCgGL());
                 CgRHI.install(p.glDevice);
                 CgGLImports.install(p.glDevice.imports());
+                CgGlslCompiler.install(new ShadercGlslCompiler(CgCacheDirectory.of("spirv")));
             } catch (IllegalStateException e) {
                 System.out.println("[Harness] no GL device: " + e.getMessage());
             }
         }
         if (p.device != null) {
             CgRHI.install(p.device);
-            p.tracked = new CgTrackedGLBackend(p.device, new ShadercGlslCompiler(CgCacheDirectory.of("spirv")), true)
+            ShadercGlslCompiler compiler = new ShadercGlslCompiler(CgCacheDirectory.of("spirv"));
+            CgGlslCompiler.install(compiler);
+            p.tracked = new CgTrackedGLBackend(p.device, compiler, true)
                     .compileInBackground();
             CgGLImports.install(new CgTrackedImports(p.tracked));
         }
