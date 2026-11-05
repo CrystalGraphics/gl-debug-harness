@@ -21,6 +21,7 @@ import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.platform.gl.state.GLHostState;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLContext;
+import com.crystalgraphics.platform.gl.tracked.CgTrackedImports;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedStateProvider;
 import com.crystalgraphics.platform.service.CgCacheDirectory;
 import com.crystalgraphics.platform.service.CgInputService;
@@ -141,6 +142,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
             CgRHI.install(p.device);
             p.tracked = new CgTrackedGLBackend(p.device, new ShadercGlslCompiler(CgCacheDirectory.of("spirv")), true)
                     .compileInBackground();
+            CgGLImports.install(new CgTrackedImports(p.tracked));
         }
         CgPlatform.register(p);
         // Always a client: the graphics start's GL-free work begins beside the rest of the harness's start
