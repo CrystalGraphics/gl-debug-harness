@@ -8,8 +8,6 @@ import com.crystalgraphics.net.protocol.CgProtocolConnection;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgui.app.crystaleditor.CrystalEditor;
-import com.crystalgui.app.vfxlab.VfxLab;
 import com.crystalgui.core.async.HostThread;
 import com.crystalgui.core.window.DesktopPresentation;
 import com.crystalgui.desktop.Desktop;
@@ -54,9 +52,9 @@ import java.util.function.Predicate;
  * }</pre>
  *
  * <ul>
- *   <li>F6 is VFX Lab's in every scene and F10 Crystal Editor's, on the scratch project {@link HarnessServer} serves;
- *       nothing opens unasked, so the desktop Escape opens starts empty. A scene binding a key another binding has
- *       throws.</li>
+ *   <li>No key is global: the engine's applications (VFX Lab, Crystal Editor) are in the launcher on every scene,
+ *       on the scratch project {@link HarnessServer} serves, and a scene gives its own applications a key with {@code bind}. Nothing opens
+ *       unasked, so the desktop Escape opens starts empty. A scene binding a key another binding has throws.</li>
  *   <li>A bound key whose application runs brings it forward, raised and given the keyboard, as a single-instance
  *       kind's second launch does; one whose window was closed starts it fresh. Escape closes the desktop.</li>
  *   <li>An application is an {@link ApplicationKind}: its window, its ticks and its cleanup are its own, so it runs
@@ -66,15 +64,10 @@ import java.util.function.Predicate;
  */
 public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    /** The harness's own bindings, in every scene. */
-    private static final Map<Integer, ApplicationKind> GLOBAL = Map.of(
-            CgKeyCodes.KEY_F6, VfxLab.KIND,
-            CgKeyCodes.KEY_F10, CrystalEditor.KIND);
-
     /** What the desktop's workspace is served by, as a single-player world's server. */
     private final HarnessServer server = new HarnessServer();
 
-    private final Map<Integer, ApplicationKind> keys = new HashMap<>(GLOBAL);
+    private final Map<Integer, ApplicationKind> keys = new HashMap<>();
     private final Queue<Runnable> onRenderThread = new ConcurrentLinkedQueue<>();
     private final Thread renderThread = Thread.currentThread();
     private final HostSession.PaintHost paintHost = new HostSession.PaintHost() {
@@ -139,10 +132,12 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         session.inDocument(() -> {
             Desktop desktop = session.desktop();
             if (desktop == null) return;
-            for (ApplicationKind kind : keys.values()) {
-                if (desktop.applications().byId(kind.id()) == null) desktop.applications().install(kind);
-            }
+            for (ApplicationKind kind : keys.values()) install(desktop, kind);
         });
+    }
+
+    private static void install(Desktop desktop, ApplicationKind kind) {
+        if (desktop.applications().byId(kind.id()) == null) desktop.applications().install(kind);
     }
 
     /**

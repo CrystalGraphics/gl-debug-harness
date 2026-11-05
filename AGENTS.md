@@ -556,7 +556,7 @@ Config classes:
 | `ctx.getArtifactService()` | `ArtifactService` | Interactive scenes | Framework-owned capture with semantic suffix API |
 | `ctx.getCamera3D()` | `Camera3D` | Interactive scenes | Shared 3D camera |
 | `ctx.getTaskScheduler()` | `TaskScheduler` | Interactive scenes | Time-based callback system |
-| `ctx.getUi()` | `HarnessUi` | 3D scenes | The harness as a CrystalGUI host (`HostSession`), as Minecraft's screen is: a desktop over the world (cursor free, camera held, Escape closes), its applications `ApplicationKind`s. `bind(key, kind)` gives one a key for the scene's run, `open(kind)` opens it; F6 is VFX Lab's everywhere and F10 Crystal Editor's. Its workspace is `HarnessServer`'s: an in-memory connection serving the scratch project (`crystalgui/projects/scratch/`) as a single-player world's server does. A scene that is the desktop opens it with `openAtStart` and takes the keys its windows leave with `sceneKeys` (`cgui-desktop`). Its javadoc has the example |
+| `ctx.getUi()` | `HarnessUi` | 3D scenes | The harness as a CrystalGUI host (`HostSession`), as Minecraft's screen is: a desktop over the world (cursor free, camera held, Escape closes), its applications `ApplicationKind`s. `bind(key, kind)` gives one a key for the scene's run, `open(kind)` opens it; VFX Lab and Crystal Editor are in the launcher on every scene, with no key. Its workspace is `HarnessServer`'s: an in-memory connection serving the scratch project (`crystalgui/projects/scratch/`) as a single-player world's server does. A scene that is the desktop opens it with `openAtStart` and takes the keys its windows leave with `sceneKeys` (`cgui-desktop`). Its javadoc has the example |
 | `ctx.getLoadPlan()` | `CgLoadPlan` | Interactive scenes | The loading screen's tasks: one named in `init` holds the screen until it ends, so a scene's first frames load nothing (`CrystalGraphics/docs/LOADING.md` §3) |
 
 Legacy convenience accessors like `ctx.getScreenWidth()` and `ctx.getOutputDir()` still work, but new code should use the typed accessors directly.
@@ -713,8 +713,6 @@ The interactive runner sequences these steps every frame:
 | - = | Bloom's intensity down or up by a quarter while it is on (`CgBloom.intensity`); the HUD shows it |
 | H | Half-resolution draws on or off (`CgWorldRenderer.halfResolution`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
 | J | The distortion target at half size or full size (`CgWorldRenderer.distortionScale`): the hazes' bend at a quarter of the pixels, or a pixel per texel to compare |
-| F6 | VFX Lab on the harness's desktop (`HarnessUi`); a scene binds its own applications' keys with `ctx.getUi().bind` |
-| F10 | Crystal Editor on the harness's desktop, over the scratch project |
 | F9 | Day or night, under VFX Lab's sky and floor (`HarnessEnvironment`): a scene opts in with `editorEnvironment()`, any scene with `-Dcrystalgraphics.harness.environment=editor`. Off by default, since gates check pixels against the plain clear colour and floor |
 
 ### HUD Display
