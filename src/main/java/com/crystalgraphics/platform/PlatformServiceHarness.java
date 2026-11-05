@@ -318,9 +318,9 @@ public final class PlatformServiceHarness implements CgPlatformService {
         if (tracked() != null) {
             INSTANCE.tracked.endFrame();
         } else if (INSTANCE != null && INSTANCE.glDevice != null) {
-            INSTANCE.glDevice.fromHost();
+            // No section: a frame's end fences, flushes and retires, touching nothing CgGL keeps; a section would drop
+            // CgGL's shadow every frame, and a scope restoring the viewport would restore nothing.
             INSTANCE.glDevice.endFrame();
-            INSTANCE.glDevice.toHost();
         }
     }
 
