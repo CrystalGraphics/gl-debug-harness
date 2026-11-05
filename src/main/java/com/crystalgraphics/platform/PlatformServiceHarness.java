@@ -1,5 +1,6 @@
 package com.crystalgraphics.platform;
 
+import com.crystalgraphics.platform.rhi.CgDeviceSection;
 import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.platform.world.CgWorldBegin;
 import com.crystalgraphics.harness.HarnessExtensions;
@@ -134,6 +135,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
                 p.glDevice = new CgGLDevice(new Lwjgl3GLDriver(), new SpvcGlslTranslator(), width, height, false,
                         GLHostState.sharedWithCgGL());
                 CgRHI.install(p.glDevice);
+                CgDeviceSection.install(SECTION);
                 CgGLImports.install(p.glDevice.imports());
                 CgGlslCompiler.install(new ShadercGlslCompiler(CgCacheDirectory.of("spirv")));
             } catch (IllegalStateException e) {
@@ -142,6 +144,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
         }
         if (p.device != null) {
             CgRHI.install(p.device);
+            CgDeviceSection.install(SECTION);
             ShadercGlslCompiler compiler = new ShadercGlslCompiler(CgCacheDirectory.of("spirv"));
             CgGlslCompiler.install(compiler);
             p.tracked = new CgTrackedGLBackend(p.device, compiler, true)
@@ -189,6 +192,19 @@ public final class PlatformServiceHarness implements CgPlatformService {
         if (INSTANCE != null && INSTANCE.glDevice != null) return INSTANCE.glDevice.globals();
         return tracked() == null ? null : INSTANCE.device.globals();
     }
+
+    /** {@link CgDeviceSection}'s host: the sections below. */
+    private static final CgDeviceSection.Host SECTION = new CgDeviceSection.Host() {
+        @Override
+        public void begin() {
+            beginDeviceSection();
+        }
+
+        @Override
+        public void end() {
+            endDeviceSection();
+        }
+    };
 
     /** The device's command list is the caller's until {@link #endDeviceSection}: CgGL draws nothing in between. */
     public static void beginDeviceSection() {
@@ -294,9 +310,18 @@ public final class PlatformServiceHarness implements CgPlatformService {
         INSTANCE.vulkanDevice = null;
     }
 
-    /** Ends the tracked backend's frame; once a frame, after everything drawn in it. Nothing on GL. */
+    /**
+     * Ends the device's frame, once a frame after everything drawn in it: the tracked backend's on Vulkan, the GL
+     * device's on GL, whose frames retire what its draws used (its rings, views, framebuffers) by fence.
+     */
     public static void endTrackedFrame() {
-        if (tracked() != null) INSTANCE.tracked.endFrame();
+        if (tracked() != null) {
+            INSTANCE.tracked.endFrame();
+        } else if (INSTANCE != null && INSTANCE.glDevice != null) {
+            INSTANCE.glDevice.fromHost();
+            INSTANCE.glDevice.endFrame();
+            INSTANCE.glDevice.toHost();
+        }
     }
 
     /** Whether this run's Vulkan device asked for the validation layer: its CPU times are the layer's, not ours. */
