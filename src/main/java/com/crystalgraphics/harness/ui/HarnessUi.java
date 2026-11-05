@@ -190,8 +190,14 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         replacement = present;
     }
 
-    /** Closes the desktop; every window on it is kept for the next time. */
+    /** Closes the desktop once it has played itself off screen; every window on it is kept for the next time. */
     public void hide() {
+        if (!shown) return;
+        // The close runs from a later frame's session.frame, which render calls while shown
+        if (!HostSession.session().requestHide(this::closeNow)) closeNow();
+    }
+
+    private void closeNow() {
         if (!shown) return;
         shown = false;
         HostSession.session().hidden();
