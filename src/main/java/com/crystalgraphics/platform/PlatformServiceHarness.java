@@ -7,14 +7,18 @@ import com.crystalgui.lifecycle.CgUiStart;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.lwjgl3.GlfwInputService;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLBackend;
+import com.crystalgraphics.lwjgl3.Lwjgl3GLDriver;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLContext;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.rhi.nulldrv.CgNullRHI;
 import com.crystalgraphics.platform.gl.CgGL;
+import com.crystalgraphics.platform.gl.CgGLDevice;
+import com.crystalgraphics.platform.gl.CgGLImports;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
 import com.crystalgraphics.platform.gl.state.CgGlGetProvider;
 import com.crystalgraphics.platform.gl.state.CgGlState;
+import com.crystalgraphics.platform.gl.state.GLHostState;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLContext;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedStateProvider;
@@ -34,6 +38,7 @@ import com.crystalgraphics.vulkan.host.CgVulkanHost;
 import com.crystalgraphics.vulkan.host.CgVulkanImage;
 import com.crystalgraphics.vulkan.host.OwnedVulkanHost;
 import com.crystalgraphics.vulkan.shader.ShadercGlslCompiler;
+import com.crystalgraphics.vulkan.shader.SpvcGlslTranslator;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkInstance;
@@ -82,6 +87,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
     private boolean vulkanValidated;
     private CgVulkanDevice vulkanDevice;
     private CgTrackedGLBackend tracked;
+    private CgGLDevice glDevice;
 
     @Override public CgGLBackend       gl()           { return tracked != null ? tracked : glDispatchImpl; }
     @Override public CgGLContext         capabilities() { return tracked != null ? new CgTrackedGLContext() : glContextImpl; }
@@ -119,6 +125,17 @@ public final class PlatformServiceHarness implements CgPlatformService {
             p.vulkanHost = new OwnedVulkanHost(HarnessWindow.handle(), validate);
             p.vulkanDevice = new CgVulkanDevice(new PresentTimed(p.vulkanHost), width, height, CgCacheDirectory.of("vulkan"));
             p.device = p.vulkanDevice;
+        }
+        if (device.equals("gl") && !"false".equals(System.getProperty("crystalgraphics.harness.glDevice"))) {
+            // CgRHI on GL beside CgGL, the two handing the context over at each device section
+            try {
+                p.glDevice = new CgGLDevice(new Lwjgl3GLDriver(), new SpvcGlslTranslator(), width, height, false,
+                        GLHostState.sharedWithCgGL());
+                CgRHI.install(p.glDevice);
+                CgGLImports.install(p.glDevice.imports());
+            } catch (IllegalStateException e) {
+                System.out.println("[Harness] no GL device: " + e.getMessage());
+            }
         }
         if (p.device != null) {
             CgRHI.install(p.device);
@@ -161,9 +178,22 @@ public final class PlatformServiceHarness implements CgPlatformService {
         return INSTANCE == null ? null : INSTANCE.tracked;
     }
 
-    /** The device under {@code --device=tracked|vulkan}: its name, vendor and driver. Null on GL. */
+    /** The device: its name, vendor and driver; null where none runs (GL with no 4.5 context). */
     public static CgRHI.Globals deviceInfo() {
+        if (INSTANCE != null && INSTANCE.glDevice != null) return INSTANCE.glDevice.globals();
         return tracked() == null ? null : INSTANCE.device.globals();
+    }
+
+    /** The device's command list is the caller's until {@link #endDeviceSection}: CgGL draws nothing in between. */
+    public static void beginDeviceSection() {
+        if (INSTANCE.glDevice != null) INSTANCE.glDevice.fromHost();
+        else INSTANCE.tracked.toHost();
+    }
+
+    /** CgGL draws again. */
+    public static void endDeviceSection() {
+        if (INSTANCE.glDevice != null) INSTANCE.glDevice.toHost();
+        else INSTANCE.tracked.fromHost();
     }
 
     private static long presentNanos;
@@ -236,6 +266,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
 
     /** The device's surface follows the window's framebuffer. Nothing on GL. */
     public static void resizeSurface(int width, int height) {
+        if (INSTANCE != null && INSTANCE.glDevice != null) INSTANCE.glDevice.resize(width, height);
         if (tracked() == null) return;
         if (INSTANCE.recordingDevice != null) INSTANCE.recordingDevice.resize(width, height);
         else INSTANCE.vulkanDevice.resize(width, height);
@@ -243,6 +274,12 @@ public final class PlatformServiceHarness implements CgPlatformService {
 
     /** Closes the Vulkan device and its host; before the window goes. Nothing otherwise. */
     public static void shutdown() {
+        if (INSTANCE != null && INSTANCE.glDevice != null) {
+            INSTANCE.glDevice.fromHost();
+            INSTANCE.glDevice.close();
+            INSTANCE.glDevice.toHost();
+            INSTANCE.glDevice = null;
+        }
         if (INSTANCE == null || INSTANCE.vulkanDevice == null) return;
         INSTANCE.vulkanDevice.close();
         // After the device, so what its teardown raised is counted; the tracked: line came before it.
