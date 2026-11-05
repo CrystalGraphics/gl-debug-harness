@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.api.shader.CgShaderProgram;
+import com.crystalgraphics.gl.shader.CgProgram;
 import com.crystalgraphics.compute.CgCompute;
 import com.crystalgraphics.compute.emit.CgKernelTarget;
 import com.crystalgraphics.compute.program.CgKernelProgram;
@@ -102,7 +102,7 @@ public class CgComputeSeamTestScene implements HarnessSceneLifecycle {
     private enum Source { SEAM, CPU, FILE, FILE_EMULATED }
 
     private int fill, paint;
-    private CgShaderProgram quads, image;
+    private CgProgram quads, image;
     private CgKernelProgram place, colour, colourEmulated, painter;
 
     @Override
@@ -110,8 +110,8 @@ public class CgComputeSeamTestScene implements HarnessSceneLifecycle {
         if (!CgCapabilities.detect().compute() || !CgCapabilities.detect().storageImages()) return;
         fill = computeProgram(FILL, "fill");
         paint = computeProgram(PAINT, "paint");
-        quads = CgShaderProgram.compile(QUAD_VERTEX, QUAD_FRAGMENT, null);
-        image = CgShaderProgram.compile(IMAGE_VERTEX, IMAGE_FRAGMENT, null);
+        quads = CgProgram.compile(QUAD_VERTEX, QUAD_FRAGMENT, null);
+        image = CgProgram.compile(IMAGE_VERTEX, IMAGE_FRAGMENT, null);
         storageBlock(quads.getId());
         CgCompute seam = CgCompute.load("harness:shaders/compute_seam.compute");
         place = seam.kernel("Place").program();

@@ -2,7 +2,7 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.animation.CgAnimInstance;
 import com.crystalgraphics.api.material.CgMaterial;
-import com.crystalgraphics.api.shader.CgShaderBindings;
+import com.crystalgraphics.api.material.CgMaterialValues;
 import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.asset.codec.CgAssetYaml;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
@@ -177,7 +177,7 @@ final class SkinnedOutlineCheck {
                 .vec4("Tex_Threshold", id ? 1f : 1e6f, id ? 2f : 1e6f, 0f, 1000f));
     }
 
-    private static void set(CgMaterial pass, Consumer<CgShaderBindings> values) {
+    private static void set(CgMaterial pass, Consumer<CgMaterialValues> values) {
         pass.applyProperties(values::accept);
     }
 
