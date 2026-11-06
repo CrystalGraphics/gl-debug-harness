@@ -62,7 +62,7 @@ final class CueSelector {
     private final ApplicationKind kind = ApplicationKind.of("harness:kit-cues", "Cues")
             .icon("harness:cues")
             .keywords("cues", "hits", "kit")
-            .windowSize(820, 460)
+            .windowFraction(0.5f)
             .standalone()
             .launch(context -> new Instance(context.desktop()));
 

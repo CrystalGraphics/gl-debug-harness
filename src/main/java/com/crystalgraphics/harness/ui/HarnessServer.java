@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.ui;
 
+import com.crystalgraphics.lifecycle.CgEngineLifecycle;
+import com.crystalgui.app.machine.MachineExample;
 import com.crystalgui.core.storage.CrystalGuiStorage;
 import com.crystalgraphics.net.CgInMemoryTransport;
 import com.crystalgraphics.net.protocol.CgProtocolConnection;
@@ -10,6 +12,7 @@ import com.crystalgui.core.trace.UiTrace;
 import com.crystalgui.fs.server.WorkspaceActor;
 import com.crystalgui.fs.server.WorkspaceHost;
 import com.crystalgui.fs.server.WorkspacePermission;
+import com.crystalgui.net.window.WindowProtocol;
 import com.crystalgui.language.java.JavaLanguage;
 import com.crystalgui.language.js.JsLanguage;
 import com.crystalgui.language.run.ScriptPolicy;
@@ -58,6 +61,9 @@ public final class HarnessServer {
     /** The one player this process has. */
     private static final Object PEER = new Object();
 
+    private static final float WORLD_TICK = 1f / 20f;
+
+    private float worldClock;
     private final WorkspaceHost workspace;
     private final CgProtocolConnection<Object> serverEnd;
     private final CgProtocolConnection<Object> clientEnd;
@@ -75,6 +81,10 @@ public final class HarnessServer {
         });
         // Before the server end opens: a contribution binds to the connections opened after it
         workspace.contribute();
+        // CgUiCommonLifecycle.onInit, by hand: preInit mounts every asset root, which the scenes that scan a kit
+        // themselves then register a second time.
+        WindowProtocol.register();
+        MachineExample.registerServer();
         CgInMemoryTransport<Object>[] link = CgInMemoryTransport.pair();
         // Each end's pump delivers what it sent, so a tick moves, drains and expires in one call
         serverEnd = CgProtocols.open(link[0], CgPlainOps.INSTANCE, link[0]::deliver, PEER);
@@ -88,6 +98,12 @@ public final class HarnessServer {
 
     /** One network tick and the workspace's: what both ends sent is delivered, and file changes fan out. */
     public void tick(float deltaSeconds) {
+        // The world's 20 Hz, as a server's tick: what listeners registered with onServerTick run on
+        worldClock += deltaSeconds;
+        while (worldClock >= WORLD_TICK) {
+            worldClock -= WORLD_TICK;
+            CgEngineLifecycle.serverTick();
+        }
         try (CgTrace.Zone ignored = CgTrace.zone(UiTrace.FRAME, "workspace:transport")) {
             serverEnd.tick();
             clientEnd.tick();
