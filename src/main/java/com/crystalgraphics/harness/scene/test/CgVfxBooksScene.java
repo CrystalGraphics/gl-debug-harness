@@ -137,7 +137,7 @@ public final class CgVfxBooksScene implements InteractiveSceneLifecycle {
             Reading r = new Reading(openings);
             r.layout = pool.record();
             now.put(pool, r);
-            if (pool.records() == null || pool.storage() == 0 || pool.liveOffset() < 0) {   // precached, not stepped
+            if (!pool.stepped() || pool.storage() == 0) {   // precached, not stepped
                 r.live = 0;
                 r.records = ByteBuffer.allocate(0);
                 continue;
