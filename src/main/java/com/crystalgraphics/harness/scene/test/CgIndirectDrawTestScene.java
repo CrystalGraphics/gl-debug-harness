@@ -15,6 +15,7 @@ import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgIndirect;
 import com.crystalgraphics.render.draw.CgInstanceKind;
+import com.crystalgraphics.render.draw.CgPrimitiveTable;
 import com.crystalgraphics.render.draw.CgOrder;
 import com.crystalgraphics.render.draw.CgPassConstants;
 import com.crystalgraphics.render.draw.CgPipeline;
@@ -105,7 +106,7 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         CgGraphBuffer counts = CgGraphBuffer.persistent("counts", desc);
         CgGraphBuffer worldCounts = CgGraphBuffer.persistent("world-counts", desc);
         CgGraphBuffer records = CgGraphBuffer.persistent("records",
-                CgBufferDesc.elements(RECORDS, CgInstanceKind.OBJECT.floats() * 4, CgBufferUsage.STORAGE));
+                CgBufferDesc.elements(RECORDS, CgPrimitiveTable.FLOATS * 4, CgBufferUsage.STORAGE));
         Matrix4f projection = new Matrix4f().setOrtho(0, w, h, 0, -1, 1);
 
         HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
