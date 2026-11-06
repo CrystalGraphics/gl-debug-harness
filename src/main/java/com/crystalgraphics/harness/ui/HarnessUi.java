@@ -8,7 +8,9 @@ import com.crystalgraphics.net.protocol.CgProtocolConnection;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgui.core.async.HostThread;
+import com.crystalgraphics.platform.service.CgGameDirectory;
+import com.crystalgraphics.platform.service.CgGameThreads;
+import com.crystalgraphics.platform.service.CgHostWindow;
 import com.crystalgui.core.window.DesktopPresentation;
 import com.crystalgui.desktop.Desktop;
 import com.crystalgui.desktop.app.ApplicationKind;
@@ -20,7 +22,6 @@ import javax.annotation.Nullable;
 
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -88,6 +89,7 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
     /** The runtime's, once a run, on the render thread. */
     public HarnessUi(HarnessContext ctx) {
         // No primary: every application opens on its own key, and the desktop Escape opens starts empty
+        HarnessHost.bind(onRenderThread, renderThread, ctx.installation());
         HostSession.install(new Services(ctx), null);
         // The pinned windows over the world while the desktop is down
         HostSession.attachStages(paintHost);
@@ -273,7 +275,37 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         if (HostSession.isInstalled()) HostSession.session().dispose();
     }
 
-    /** What the harness answers a host's questions with, and its threads. */
+    /**
+     * What the harness answers CrystalGraphics' platform services with: its render thread is the client thread, its
+     * window the surface, its installation the game directory, and there is no world. Provided once, since each service
+     * keeps the host it is first given; each run points it at its own queue.
+     */
+    private static final class HarnessHost implements CgGameThreads.Host, CgGameDirectory.Host, CgHostWindow.Host {
+
+        private static final HarnessHost INSTANCE = new HarnessHost();
+        private static volatile CgGameThreads.Binding client;
+        private static volatile Path installation;
+
+        static void bind(Queue<Runnable> queue, Thread thread, Path installationDirectory) {
+            installation = installationDirectory;
+            client = new CgGameThreads.Binding() {
+                @Override public void execute(Runnable work) { queue.add(work); }
+                @Override public boolean isCurrent() { return Thread.currentThread() == thread; }
+            };
+            CgPlatform.provide(CgGameThreads.HOST, INSTANCE);
+            CgPlatform.provide(CgGameDirectory.HOST, INSTANCE);
+            CgPlatform.provide(CgHostWindow.HOST, INSTANCE);
+        }
+
+        @Override public CgGameThreads.Binding client() { return client; }
+        @Override public CgGameThreads.Binding server() { return null; }
+        @Override public Path game() { return installation; }
+        @Override public Path world() { return null; }
+        @Override public int width() { return HarnessWindow.width(); }
+        @Override public int height() { return HarnessWindow.height(); }
+    }
+
+    /** What the harness answers a host's questions with. */
     private final class Services implements HostServices {
 
         private final HarnessContext ctx;
@@ -282,29 +314,13 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
             this.ctx = ctx;
         }
 
-        @Override public Path installationDirectory() { return ctx.installation(); }
-        @Override public Path localWorldDirectory() { return null; }
-        @Override public float uiScale() { return DEFAULT_UI_SCALE; }
-        @Override public int surfaceWidth() { return HarnessWindow.width(); }
-        @Override public int surfaceHeight() { return HarnessWindow.height(); }
         @Override public String desktopId() { return "harness"; }
         @Override public CgProtocolConnection<Object> connection() { return server.client(); }
-        @Override public Locale locale() { return Locale.getDefault(); }
 
         /** A key the desktop left, a frame late. */
         @Override
         public void reinjectKey(CgSystemInput.Keyboard.Event key) {
             left(key);
         }
-
-        @Override
-        public HostThread.Binding clientThread() {
-            return new HostThread.Binding() {
-                @Override public void execute(Runnable work) { onRenderThread.add(work); }
-                @Override public boolean isCurrent() { return Thread.currentThread() == renderThread; }
-            };
-        }
-
-        @Override public HostThread.Binding serverThread() { return null; }
     }
 }
