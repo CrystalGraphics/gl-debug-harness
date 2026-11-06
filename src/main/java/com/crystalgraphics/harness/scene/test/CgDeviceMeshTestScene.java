@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.platform.rhi.CgDeviceSection;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshWriter;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
@@ -103,7 +104,7 @@ public class CgDeviceMeshTestScene implements HarnessSceneLifecycle {
 
         CgRHI rhi = CgRHI.get();
         List<CgRHIResource> made = new ArrayList<>();
-        PlatformServiceHarness.beginDeviceSection();
+        CgDeviceSection.begin();
         try {
             CgGlslCompiler.Explicit program = CgGlslCompiler.get().compileExplicit(VERTEX, FRAGMENT, Map.of(), "device-mesh");
             CgShaderModule vs = keep(made, rhi.createShaderModule(CgShaderModule.Stage.VERTEX, program.vertex(), "device-mesh"));
@@ -164,7 +165,7 @@ public class CgDeviceMeshTestScene implements HarnessSceneLifecycle {
                     + "indirect call, drawn on the device through the store, match the picture pixel for pixel";
         } finally {
             for (CgRHIResource o : made) rhi.release(o);
-            PlatformServiceHarness.endDeviceSection();
+            CgDeviceSection.end();
             for (CgMesh m : new CgMesh[] {slab, run, ring, left, right}) m.release();
         }
     }

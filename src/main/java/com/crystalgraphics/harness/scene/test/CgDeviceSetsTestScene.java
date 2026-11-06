@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.platform.rhi.CgDeviceSection;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.gl.buffer.CgStreamBuffer;
 import com.crystalgraphics.gl.material.CgMaterialProperty;
@@ -94,7 +95,7 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
             int[] ids = capture(table, ring, drawn, failures);
             sets.prepare(table);
             long defaultedBefore = sets.defaulted();
-            PlatformServiceHarness.beginDeviceSection();
+            CgDeviceSection.begin();
             try {
                 for (int i = 0; i < drawn.size(); i++) {
                     if (ids[i] < 0) continue;
@@ -103,7 +104,7 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
                     if (sets.defaulted() != before) failures.add(drawn.get(i).path() + ": " + sets.lastDefaulted() + " defaulted");
                 }
             } finally {
-                PlatformServiceHarness.endDeviceSection();
+                CgDeviceSection.end();
             }
             long firstMade = sets.made();
 
@@ -111,13 +112,13 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
             table.reset();
             ids = capture(table, ring, drawn, failures);
             sets.prepare(table);
-            PlatformServiceHarness.beginDeviceSection();
+            CgDeviceSection.begin();
             try {
                 for (int i = 0; i < drawn.size(); i++) {
                     if (ids[i] >= 0) sets.set(rhi, table, ids[i], drawn.get(i).layout(), CgBindingModel.MATERIAL, null);
                 }
             } finally {
-                PlatformServiceHarness.endDeviceSection();
+                CgDeviceSection.end();
             }
             long secondMade = sets.made() - firstMade;
             if (secondMade != 0) failures.add("a second frame of the same captures made " + secondMade + " sets");
@@ -130,13 +131,13 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
                 ids = capture(table, ring, drawn, failures);
                 sets.prepare(table);
                 long before = sets.made();
-                PlatformServiceHarness.beginDeviceSection();
+                CgDeviceSection.begin();
                 try {
                     for (int i = 0; i < drawn.size(); i++) {
                         if (ids[i] >= 0) sets.set(rhi, table, ids[i], drawn.get(i).layout(), CgBindingModel.MATERIAL, null);
                     }
                 } finally {
-                    PlatformServiceHarness.endDeviceSection();
+                    CgDeviceSection.end();
                 }
                 changeMade = sets.made() - before;
                 if (changeMade != 1) failures.add("changing " + changed + " made " + changeMade + " sets, not 1");
@@ -154,9 +155,9 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
                     + (sets.defaulted() - defaultedBefore) + "); a second frame made none; changing " + changed
                     + " made " + changeMade;
         } finally {
-            PlatformServiceHarness.beginDeviceSection();
+            CgDeviceSection.begin();
             sets.release();
-            PlatformServiceHarness.endDeviceSection();
+            CgDeviceSection.end();
             for (Drawn d : drawn) d.material().delete();
             ring.delete();
         }

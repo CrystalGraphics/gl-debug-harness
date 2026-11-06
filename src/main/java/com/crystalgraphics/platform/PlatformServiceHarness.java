@@ -1,6 +1,5 @@
 package com.crystalgraphics.platform;
 
-import com.crystalgraphics.platform.rhi.CgDeviceSection;
 import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.platform.world.CgWorldBegin;
 import com.crystalgraphics.harness.HarnessExtensions;
@@ -11,11 +10,9 @@ import com.crystalgraphics.lwjgl3.Lwjgl3GLBackend;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLDriver;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLContext;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.platform.rhi.shader.CgGlslCompiler;
 import com.crystalgraphics.platform.rhi.nulldrv.CgNullRHI;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgGLDevice;
-import com.crystalgraphics.platform.gl.CgGLImports;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
 import com.crystalgraphics.platform.gl.state.CgGlGetProvider;
@@ -23,8 +20,6 @@ import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.platform.gl.state.GLHostState;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLContext;
-import com.crystalgraphics.platform.gl.tracked.CgTrackedImports;
-import com.crystalgraphics.platform.gl.tracked.CgTrackedStateProvider;
 import com.crystalgraphics.platform.service.CgCacheDirectory;
 import com.crystalgraphics.platform.service.CgInputService;
 import com.crystalgraphics.platform.service.CgLifecycleService;
@@ -133,23 +128,14 @@ public final class PlatformServiceHarness implements CgPlatformService {
             // CgRHI on GL beside CgGL, the two handing the context over at each device section
             try {
                 p.glDevice = new CgGLDevice(new Lwjgl3GLDriver(), new SpvcGlslTranslator(), width, height, false,
-                        GLHostState.sharedWithCgGL());
-                CgRHI.install(p.glDevice);
-                CgDeviceSection.install(SECTION);
-                CgGLImports.install(p.glDevice.imports());
-                CgGlslCompiler.install(new ShadercGlslCompiler(CgCacheDirectory.of("spirv")));
+                        GLHostState.sharedWithCgGL()).installBesideCgGL(new ShadercGlslCompiler(CgCacheDirectory.of("spirv")));
             } catch (IllegalStateException e) {
                 System.out.println("[Harness] no GL device: " + e.getMessage());
             }
         }
         if (p.device != null) {
-            CgRHI.install(p.device);
-            CgDeviceSection.install(SECTION);
-            ShadercGlslCompiler compiler = new ShadercGlslCompiler(CgCacheDirectory.of("spirv"));
-            CgGlslCompiler.install(compiler);
-            p.tracked = new CgTrackedGLBackend(p.device, compiler, true)
-                    .compileInBackground();
-            CgGLImports.install(new CgTrackedImports(p.tracked));
+            p.tracked = new CgTrackedGLBackend(p.device, new ShadercGlslCompiler(CgCacheDirectory.of("spirv")), true)
+                    .compileInBackground().install();
         }
         CgPlatform.register(p);
         // Always a client: the graphics start's GL-free work begins beside the rest of the harness's start
@@ -158,10 +144,10 @@ public final class PlatformServiceHarness implements CgPlatformService {
         HarnessExtensions.start();   // and each project's own
         // Scenes use CgGL from the start, before any host section would install it.
         CgGL.init(p.gl());
-        if (p.tracked != null) CgGlState.setProvider(new CgTrackedStateProvider(p.tracked));
-        // Every draw here is CgGL's, the raw host scene's inside hostForeign: a stage entry reads nothing.
-        // -Dcrystalgraphics.harness.keepShadow=false measures or rules that out.
-        else if (!"false".equals(System.getProperty("crystalgraphics.harness.keepShadow"))) {
+        // The tracked backend's state is CgGlState's already (its install). Every draw here is CgGL's, the raw host
+        // scene's inside hostForeign: a stage entry reads nothing. -Dcrystalgraphics.harness.keepShadow=false measures
+        // or rules that out.
+        if (p.tracked == null && !"false".equals(System.getProperty("crystalgraphics.harness.keepShadow"))) {
             CgGlState.setProvider(new KeptShadow());
         }
         // NATIVE CONTENT IS NOT DECLARED HERE, and it used to be.
@@ -193,30 +179,6 @@ public final class PlatformServiceHarness implements CgPlatformService {
         return tracked() == null ? null : INSTANCE.device.globals();
     }
 
-    /** {@link CgDeviceSection}'s host: the sections below. */
-    private static final CgDeviceSection.Host SECTION = new CgDeviceSection.Host() {
-        @Override
-        public void begin() {
-            beginDeviceSection();
-        }
-
-        @Override
-        public void end() {
-            endDeviceSection();
-        }
-    };
-
-    /** The device's command list is the caller's until {@link #endDeviceSection}: CgGL draws nothing in between. */
-    public static void beginDeviceSection() {
-        if (INSTANCE.glDevice != null) INSTANCE.glDevice.fromHost();
-        else INSTANCE.tracked.toHost();
-    }
-
-    /** CgGL draws again. */
-    public static void endDeviceSection() {
-        if (INSTANCE.glDevice != null) INSTANCE.glDevice.toHost();
-        else INSTANCE.tracked.fromHost();
-    }
 
     private static long presentNanos;
 
