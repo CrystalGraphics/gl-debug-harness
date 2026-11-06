@@ -5,7 +5,8 @@
     background-color: #16181C; border: 1px solid #3A3D44; }
 .cues-header { width: 100%; padding: 4px; justify-content: center; background-color: #1E2025;
     color: #FF4D5E; font-size: 12; }
-.cues-tree { width: 100%; height: 0px; flex-grow: 1; background: none; padding: 4px; }
+/* Three rows at the window's smallest (18px each, inside its 4px padding): a picker showing no cue is no picker. */
+.cues-tree { width: 100%; height: 0px; flex-grow: 1; min-height: 62px; background: none; padding: 4px; }
 .cues-row { flex-direction: row; align-items: center; gap: 3px; color: #E8E8E8; font-size: 12; cursor: pointer; }
 .cues-row:hover { background-color: #FFFFFF14; }
 .cues-row.cues-lit { color: #FFC233; }
@@ -13,4 +14,6 @@
 .cues-row .__twisty__ { width: 12px; height: 12px; flex-shrink: 0; color: #E8E8E8; }
 .cues-row.__collapsed__ .__twisty__ { overlay: shape("chevron-right"); }
 .cues-row.__expanded__ .__twisty__ { overlay: shape("chevron-down"); }
-.cues-hint { color: #C8C8C8; font-size: 11; align-self: center; }
+/* One line: narrowed, it elides rather than wrapping, so the window's smallest height does not depend on its width. */
+.cues-hint { color: #C8C8C8; font-size: 11; align-self: center; max-width: 100%; white-space: nowrap;
+    text-overflow: ellipsis; }

@@ -1,11 +1,11 @@
 package com.crystalgraphics.harness.ui;
 
+import com.crystalgui.core.storage.CrystalGuiStorage;
 import com.crystalgraphics.net.CgInMemoryTransport;
 import com.crystalgraphics.net.protocol.CgProtocolConnection;
 import com.crystalgraphics.net.protocol.CgProtocols;
 import com.crystalgraphics.serialization.CgPlainOps;
 import com.crystalgraphics.trace.CgTrace;
-import com.crystalgui.core.storage.StorageLayout;
 import com.crystalgui.core.trace.UiTrace;
 import com.crystalgui.fs.server.WorkspaceActor;
 import com.crystalgui.fs.server.WorkspaceHost;
@@ -129,7 +129,7 @@ public final class HarnessServer {
 
     /** {@code crystalgui/projects/scratch/}, outside {@code harness-output/}, which a clean deletes. */
     private static Path seedScratchProject() {
-        Path root = StorageLayout.projectsIn(Paths.get(".").toAbsolutePath().normalize()).resolve("scratch").normalize();
+        Path root = CrystalGuiStorage.projectsIn(Paths.get(".").toAbsolutePath().normalize()).resolve("scratch").normalize();
         try {
             Files.createDirectories(root.resolve("src"));
             writeIfAbsent(root.resolve("README.md"), "# Scratch project\n\nEdit these on disk, then save here to see a conflict.\n");

@@ -8,9 +8,9 @@ import com.crystalgraphics.net.protocol.CgProtocolConnection;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgui.app.crystaleditor.CrystalEditor;
-import com.crystalgui.app.vfxlab.VfxLab;
-import com.crystalgui.core.async.HostThread;
+import com.crystalgraphics.platform.service.CgGameDirectory;
+import com.crystalgraphics.platform.service.CgGameThreads;
+import com.crystalgraphics.platform.service.CgHostWindow;
 import com.crystalgui.core.window.DesktopPresentation;
 import com.crystalgui.desktop.Desktop;
 import com.crystalgui.desktop.app.ApplicationKind;
@@ -22,7 +22,6 @@ import javax.annotation.Nullable;
 
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -54,9 +53,9 @@ import java.util.function.Predicate;
  * }</pre>
  *
  * <ul>
- *   <li>F6 is VFX Lab's in every scene and F10 Crystal Editor's, on the scratch project {@link HarnessServer} serves;
- *       nothing opens unasked, so the desktop Escape opens starts empty. A scene binding a key another binding has
- *       throws.</li>
+ *   <li>No key is global: the engine's applications (VFX Lab, Crystal Editor) are in the launcher on every scene,
+ *       on the scratch project {@link HarnessServer} serves, and a scene gives its own applications a key with {@code bind}. Nothing opens
+ *       unasked, so the desktop Escape opens starts empty. A scene binding a key another binding has throws.</li>
  *   <li>A bound key whose application runs brings it forward, raised and given the keyboard, as a single-instance
  *       kind's second launch does; one whose window was closed starts it fresh. Escape closes the desktop.</li>
  *   <li>An application is an {@link ApplicationKind}: its window, its ticks and its cleanup are its own, so it runs
@@ -66,15 +65,10 @@ import java.util.function.Predicate;
  */
 public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mouse {
 
-    /** The harness's own bindings, in every scene. */
-    private static final Map<Integer, ApplicationKind> GLOBAL = Map.of(
-            CgKeyCodes.KEY_F6, VfxLab.KIND,
-            CgKeyCodes.KEY_F10, CrystalEditor.KIND);
-
     /** What the desktop's workspace is served by, as a single-player world's server. */
     private final HarnessServer server = new HarnessServer();
 
-    private final Map<Integer, ApplicationKind> keys = new HashMap<>(GLOBAL);
+    private final Map<Integer, ApplicationKind> keys = new HashMap<>();
     private final Queue<Runnable> onRenderThread = new ConcurrentLinkedQueue<>();
     private final Thread renderThread = Thread.currentThread();
     private final HostSession.PaintHost paintHost = new HostSession.PaintHost() {
@@ -95,6 +89,7 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
     /** The runtime's, once a run, on the render thread. */
     public HarnessUi(HarnessContext ctx) {
         // No primary: every application opens on its own key, and the desktop Escape opens starts empty
+        HarnessHost.bind(onRenderThread, renderThread, ctx.installation());
         HostSession.install(new Services(ctx), null);
         // The pinned windows over the world while the desktop is down
         HostSession.attachStages(paintHost);
@@ -139,10 +134,12 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         session.inDocument(() -> {
             Desktop desktop = session.desktop();
             if (desktop == null) return;
-            for (ApplicationKind kind : keys.values()) {
-                if (desktop.applications().byId(kind.id()) == null) desktop.applications().install(kind);
-            }
+            for (ApplicationKind kind : keys.values()) install(desktop, kind);
         });
+    }
+
+    private static void install(Desktop desktop, ApplicationKind kind) {
+        if (desktop.applications().byId(kind.id()) == null) desktop.applications().install(kind);
     }
 
     /**
@@ -190,8 +187,14 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         replacement = present;
     }
 
-    /** Closes the desktop; every window on it is kept for the next time. */
+    /** Closes the desktop once it has played itself off screen; every window on it is kept for the next time. */
     public void hide() {
+        if (!shown) return;
+        // The close runs from a later frame's session.frame, which render calls while shown
+        if (!HostSession.session().requestHide(this::closeNow)) closeNow();
+    }
+
+    private void closeNow() {
         if (!shown) return;
         shown = false;
         HostSession.session().hidden();
@@ -272,7 +275,37 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         if (HostSession.isInstalled()) HostSession.session().dispose();
     }
 
-    /** What the harness answers a host's questions with, and its threads. */
+    /**
+     * What the harness answers CrystalGraphics' platform services with: its render thread is the client thread, its
+     * window the surface, its installation the game directory, and there is no world. Provided once, since each service
+     * keeps the host it is first given; each run points it at its own queue.
+     */
+    private static final class HarnessHost implements CgGameThreads.Host, CgGameDirectory.Host, CgHostWindow.Host {
+
+        private static final HarnessHost INSTANCE = new HarnessHost();
+        private static volatile CgGameThreads.Binding client;
+        private static volatile Path installation;
+
+        static void bind(Queue<Runnable> queue, Thread thread, Path installationDirectory) {
+            installation = installationDirectory;
+            client = new CgGameThreads.Binding() {
+                @Override public void execute(Runnable work) { queue.add(work); }
+                @Override public boolean isCurrent() { return Thread.currentThread() == thread; }
+            };
+            CgPlatform.provide(CgGameThreads.HOST, INSTANCE);
+            CgPlatform.provide(CgGameDirectory.HOST, INSTANCE);
+            CgPlatform.provide(CgHostWindow.HOST, INSTANCE);
+        }
+
+        @Override public CgGameThreads.Binding client() { return client; }
+        @Override public CgGameThreads.Binding server() { return null; }
+        @Override public Path game() { return installation; }
+        @Override public Path world() { return null; }
+        @Override public int width() { return HarnessWindow.width(); }
+        @Override public int height() { return HarnessWindow.height(); }
+    }
+
+    /** What the harness answers a host's questions with. */
     private final class Services implements HostServices {
 
         private final HarnessContext ctx;
@@ -281,29 +314,13 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
             this.ctx = ctx;
         }
 
-        @Override public Path installationDirectory() { return ctx.installation(); }
-        @Override public Path localWorldDirectory() { return null; }
-        @Override public float uiScale() { return DEFAULT_UI_SCALE; }
-        @Override public int surfaceWidth() { return HarnessWindow.width(); }
-        @Override public int surfaceHeight() { return HarnessWindow.height(); }
         @Override public String desktopId() { return "harness"; }
         @Override public CgProtocolConnection<Object> connection() { return server.client(); }
-        @Override public Locale locale() { return Locale.getDefault(); }
 
         /** A key the desktop left, a frame late. */
         @Override
         public void reinjectKey(CgSystemInput.Keyboard.Event key) {
             left(key);
         }
-
-        @Override
-        public HostThread.Binding clientThread() {
-            return new HostThread.Binding() {
-                @Override public void execute(Runnable work) { onRenderThread.add(work); }
-                @Override public boolean isCurrent() { return Thread.currentThread() == renderThread; }
-            };
-        }
-
-        @Override public HostThread.Binding serverThread() { return null; }
     }
 }
