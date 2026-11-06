@@ -11,6 +11,7 @@ import com.crystalgraphics.harness.tool.GlErrorChecker;
 import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
+import com.crystalgraphics.render.CgWarmBudget;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.look.CgColorGrade;
 import com.crystalgraphics.render.post.look.CgFilmLut;
@@ -21,6 +22,7 @@ import com.crystalgraphics.render.post.volume.CgPostSettings.Control;
 import com.crystalgraphics.render.post.volume.CgPostSettings.Region;
 import com.crystalgraphics.render.post.volume.CgPostVolume;
 import com.crystalgraphics.render.stage.CgRenderStage;
+import com.crystalgraphics.render.world.CgPipelinePrecache;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.settings.CgGraphicsSettings;
 import org.joml.Matrix4f;
@@ -32,6 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
 /**
@@ -50,6 +53,7 @@ import java.util.function.Consumer;
 public class CgPostLooksTestScene implements HarnessSceneLifecycle {
 
     private static final int W = 320, H = 240;
+    private static final long WARM_NANOS = 30_000_000_000L;
 
     private CgMaterial wall, glow, glass, solid;
     /** A translucent glow beside the ball, graded by {@link #glassGrade} when {@link #glassBall}. */
@@ -72,6 +76,17 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         world.install();
         CgPostStack post = CgPostStack.get();
         post.install();
+        // Every program built first, as a loading screen leaves them: a cold one draws its fallback for a frame, and each
+        // case here is one frame. Each wait stands for a loading frame, with its own warm budget.
+        CgPipelinePrecache.Request warm = CgPipelinePrecache.request(p -> {
+            for (CgMaterial m : List.of(wall, glow, glass, solid)) p.add(m, false);
+        });
+        long until = System.nanoTime() + WARM_NANOS;
+        while (!warm.ready() && System.nanoTime() < until) {
+            LockSupport.parkNanos(1_000_000L);
+            CgWarmBudget.nextFrame();
+        }
+        if (!warm.ready()) System.out.println("[post-looks] its programs were not built in " + WARM_NANOS / 1_000_000_000L + " s");
         post.bloom().intensity(1f);
         List<String> failures = new ArrayList<>();
         float flashes = CgGraphicsSettings.FLASHES.get();
