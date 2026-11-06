@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.tool;
 
+import com.crystalgraphics.platform.gl.state.CgGlScope;
+import com.crystalgraphics.platform.gl.state.CgGlSlot;
+import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.harness.util.ScreenshotUtil;
 
@@ -30,6 +33,7 @@ public final class FboInspector {
                 + " color attachment (" + width + "x" + height + ") -> " + filename);
 
         // We need the color texture attached to this FBO
+        CgGlScope bound = CgGlState.save(CgGlSlot.FBO);
         CgGL.glBindFramebuffer(CgGL.GL_READ_FRAMEBUFFER, fboId);
 
         // Query the attached texture
@@ -38,7 +42,7 @@ public final class FboInspector {
                 CgGL.GL_COLOR_ATTACHMENT0,
                 GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME);
 
-        CgGL.glBindFramebuffer(CgGL.GL_READ_FRAMEBUFFER, 0);
+        bound.close();
 
         if (attachedTex != 0) {
             ScreenshotUtil.captureFboColorTexture(fboId, attachedTex,

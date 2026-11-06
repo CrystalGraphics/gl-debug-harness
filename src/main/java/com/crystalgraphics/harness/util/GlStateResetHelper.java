@@ -33,10 +33,11 @@ public final class GlStateResetHelper {
      *   <li>Enables depth test with LEQUAL func and depth writes on</li>
      *   <li>Disables blend (FloorRenderer expects blend OFF)</li>
      *   <li>Disables cull face (world-text draw() may leave GL_CULL_FACE enabled)</li>
-     *   <li>Unbinds FBO to ensure we render to the default backbuffer</li>
+     *   <li>Binds the frame's target ({@code HarnessContext.getTargetFramebuffer}): the main target, or the window
+     *       without one</li>
      * </ul>
      */
-    public static void resetAfterScene() {
+    public static void resetAfterScene(int frameTarget) {
         // Unbind shader program — scenes may leave MSDF/bitmap shaders bound
         CgGL.glUseProgram(0);
 
@@ -62,7 +63,6 @@ public final class GlStateResetHelper {
         // Disable cull face — world-text draw() enables GL_CULL_FACE for single-sided text
         CgGL.glDisable(CgGL.GL_CULL_FACE);
 
-        // Ensure we're rendering to the default framebuffer (backbuffer)
-        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, frameTarget);
     }
 }

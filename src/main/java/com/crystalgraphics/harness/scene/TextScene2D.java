@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene;
 
+import com.crystalgraphics.platform.gl.state.CgGlScope;
+import com.crystalgraphics.platform.gl.state.CgGlSlot;
+import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.PoseStack;
@@ -134,6 +137,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
         CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MAG_FILTER, CgGL.GL_LINEAR);
         CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
 
+        CgGlScope bound = CgGlState.save(CgGlSlot.FBO, CgGlSlot.VIEWPORT);
         CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fbo);
         CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER,
                 CgGL.GL_COLOR_ATTACHMENT0, CgGL.GL_TEXTURE_2D, colorTex, 0);
@@ -214,7 +218,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
             }
         }
 
-        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+        bound.close();
         renderer.delete();
         registry.releaseAll();
         font.dispose();

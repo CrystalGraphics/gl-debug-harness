@@ -1,6 +1,9 @@
 package com.crystalgraphics.harness.util;
 
 
+import com.crystalgraphics.platform.gl.state.CgGlScope;
+import com.crystalgraphics.platform.gl.state.CgGlSlot;
+import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.platform.gl.CgGL;
 import java.util.logging.Logger;
 
@@ -17,6 +20,8 @@ public final class HarnessFboHelper {
     private final int width;
     private final int height;
     private final boolean hasDepth;
+    /** What was bound before {@link #bind}, put back by {@link #unbind}; null while unbound. */
+    private CgGlScope bound;
 
     private HarnessFboHelper(int fboId, int colorTexId, int depthTexId,
                              int width, int height, boolean hasDepth) {
@@ -56,17 +61,18 @@ public final class HarnessFboHelper {
             CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
         }
 
-        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fbo);
-        CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER,
-                CgGL.GL_COLOR_ATTACHMENT0, CgGL.GL_TEXTURE_2D, colorTex, 0);
-        if (withDepth) {
+        try (CgGlScope ignored = CgGlState.save(CgGlSlot.FBO)) {
+            CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fbo);
             CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER,
-                    CgGL.GL_DEPTH_ATTACHMENT, CgGL.GL_TEXTURE_2D, depthTex, 0);
-        }
-
-        int status = CgGL.glCheckFramebufferStatus(CgGL.GL_FRAMEBUFFER);
-        if (status != CgGL.GL_FRAMEBUFFER_COMPLETE) {
-            throw new RuntimeException("FBO incomplete: status=0x" + Integer.toHexString(status));
+                    CgGL.GL_COLOR_ATTACHMENT0, CgGL.GL_TEXTURE_2D, colorTex, 0);
+            if (withDepth) {
+                CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER,
+                        CgGL.GL_DEPTH_ATTACHMENT, CgGL.GL_TEXTURE_2D, depthTex, 0);
+            }
+            int status = CgGL.glCheckFramebufferStatus(CgGL.GL_FRAMEBUFFER);
+            if (status != CgGL.GL_FRAMEBUFFER_COMPLETE) {
+                throw new RuntimeException("FBO incomplete: status=0x" + Integer.toHexString(status));
+            }
         }
 
         LOGGER.info("[Harness] FBO created: " + width + "x" + height
@@ -75,15 +81,18 @@ public final class HarnessFboHelper {
         return new HarnessFboHelper(fbo, colorTex, depthTex, width, height, withDepth);
     }
 
-    /** Bind this FBO and set viewport. */
+    /** Binds this FBO and its viewport; {@link #unbind} puts back what was bound. */
     public void bind() {
+        if (bound == null) bound = CgGlState.save(CgGlSlot.FBO, CgGlSlot.VIEWPORT);
         CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fboId);
         CgGL.glViewport(0, 0, width, height);
     }
 
-    /** Unbind FBO (bind default framebuffer 0). */
+    /** Puts back the framebuffer and viewport bound before {@link #bind}. */
     public void unbind() {
-        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+        if (bound == null) return;
+        bound.close();
+        bound = null;
     }
 
     /** Clear color (and optionally depth) buffers. */
@@ -104,7 +113,7 @@ public final class HarnessFboHelper {
 
     /** Delete all GL resources. */
     public void delete() {
-        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+        unbind();   // deleting it bound would leave GL's binding at 0, not what was bound before it
         if (fboId != 0) {
             CgGL.glDeleteFramebuffers(fboId);
             fboId = 0;

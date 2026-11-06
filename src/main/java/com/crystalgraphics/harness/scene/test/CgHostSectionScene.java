@@ -89,7 +89,7 @@ public final class CgHostSectionScene implements InteractiveSceneLifecycle {
             drawSlab(0.2f, -0.3f, 0.6f, 1.0f, 0.2f, 0.2f, 0.35f, 0.9f);  // blue, at red's depth
 
             CgGL.glBindFramebuffer(CgGL.GL_READ_FRAMEBUFFER, target.getId());
-            CgGL.glBindFramebuffer(CgGL.GL_DRAW_FRAMEBUFFER, 0);
+            CgGL.glBindFramebuffer(CgGL.GL_DRAW_FRAMEBUFFER, ctx.getTargetFramebuffer());
             CgGL.glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, CgGL.GL_COLOR_BUFFER_BIT, CgGL.GL_NEAREST);
         }
     }
