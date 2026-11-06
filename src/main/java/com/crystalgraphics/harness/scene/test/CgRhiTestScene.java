@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.platform.rhi.CgDeviceSection;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.FrameInfo;
@@ -130,8 +131,8 @@ public class CgRhiTestScene implements HarnessSceneLifecycle {
     private int[] throughRhi() {
         CgRHI rhi = CgRHI.get();
         List<CgRHIResource> made = new ArrayList<>();
-        // The tracked backend ends its pass and compute: until it draws again, the device's list is ours.
-        PlatformServiceHarness.tracked().toHost();
+        // CgGL ends what it had open: until it draws again, the device's list is ours.
+        CgDeviceSection.begin();
         try {
             CgBindingLayout corners = keep(made, rhi.createBindingLayout("rhi-scene corners",
                     List.of(new CgBindingLayout.Slot(0, CgBindingLayout.Type.STORAGE_BUFFER)), true));
@@ -194,7 +195,7 @@ public class CgRhiTestScene implements HarnessSceneLifecycle {
             return pixels;
         } finally {
             for (CgRHIResource o : made) rhi.release(o);
-            PlatformServiceHarness.tracked().fromHost();
+            CgDeviceSection.end();
         }
     }
 

@@ -2,9 +2,10 @@ package com.crystalgraphics.harness;
 
 import com.crystalgraphics.harness.config.SceneDescriptor;
 import com.crystalgraphics.harness.scene.*;
-import com.crystalgraphics.harness.scene.test.ImageScene;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
+import com.crystalgraphics.harness.scene.test.CgDeviceMeshTestScene;
+import com.crystalgraphics.harness.scene.test.CgDeviceSetsTestScene;
 import com.crystalgraphics.harness.scene.test.CgRhiTestScene;
 import com.crystalgraphics.harness.scene.test.CgHdrSceneTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLayersTestScene;
@@ -88,10 +89,7 @@ import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
 import com.crystalgraphics.harness.scene.test.CgHostSectionScene;
-import com.crystalgraphics.harness.scene.test.ReviewScene;
-import com.crystalgraphics.harness.scene.test.ShaderLibTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
-import com.crystalgraphics.harness.scene.test.CgAttachedBufferStressScene;
 import com.crystalgraphics.harness.scene.test.CgVectorRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgTextThreadedTestScene;
 import com.crystalgraphics.harness.scene.test.CgGraphExecutorTestScene;
@@ -112,7 +110,6 @@ import com.crystalgraphics.harness.scene.test.CgVfxTrailsScene;
 import com.crystalgraphics.harness.scene.test.CgCollisionShapesScene;
 import com.crystalgraphics.harness.tool.CapabilityReport;
 import com.crystalgraphics.harness.tool.GlStateDumper;
-import com.crystalgraphics.harness.tool.ShaderCompileAuditScene;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -179,25 +176,6 @@ public final class SceneRegistry {
     public static SceneRegistry createDefault() {
         SceneRegistry reg = new SceneRegistry();
 
-        reg.register(SceneDescriptor.builder("light")
-                .description("Light")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsDepthBuffer(true)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new ReviewScene()
-        );
-        reg.register(
-            SceneDescriptor.builder("image")
-                .description("Image")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsDepthBuffer(true)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new ImageScene()
-        );
         // ── Rendering scenes ──
         reg.register(
             SceneDescriptor.builder("triangle-2d")
@@ -234,17 +212,6 @@ public final class SceneRegistry {
                 () -> new TextScene3D()
         );
         
-        reg.register(
-            SceneDescriptor.builder("shader-lib-test").checksPixels()
-                .description("Tests GLSL library #include chain: noise, color, UV operations")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.05f, 0.05f, 0.05f, 1.0f)
-                .build(),
-            () -> new ShaderLibTestScene()
-        );
 
         reg.register(
             SceneDescriptor.builder("host-section")
@@ -268,18 +235,6 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.12f, 1.0f)
                 .build(),
             () -> new CgMaterialDualPathScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("attached-buffer-stress")
-                .description("Stress-tests attached buffer GLSL injection: 5 materials × mixed SSBO/UBO combos, 703 instanced draws")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(true)
-                .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
-                .build(),
-            () -> new CgAttachedBufferStressScene()
         );
 
         reg.register(
@@ -364,6 +319,34 @@ public final class SceneRegistry {
                 .clearColor(0f, 0f, 0f, 1.0f)
                 .build(),
             () -> new CgRhiTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("device-sets")
+                .description("rhi GL6: every shipped material's set 2 made on the device from its recorded bindings, against its device pipeline's layout: no slot defaulted, a second frame making none, a changed block making one")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(64)
+                .defaultHeight(64)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgDeviceSetsTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("device-mesh").checksPixels()
+                .description("rhi GL6: meshes drawn through CgMeshStore's device draws (a slab's indexed mesh, an unindexed one, a ring frame mesh, two joined into one indirect call) read back and compared with the picture worked out on the CPU")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(false)
+                .defaultWidth(64)
+                .defaultHeight(64)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgDeviceMeshTestScene()
         );
 
         reg.register(
@@ -1750,15 +1733,6 @@ public final class SceneRegistry {
                 () -> new GlStateDumper()
         );
 
-        reg.register(
-            SceneDescriptor.builder("shader-compile-audit")
-                .description("Compile every shipped .shader + keyword variant on this driver; one report, no crash on first failure")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.DIAGNOSTIC)
-                .category(SceneDescriptor.Category.DIAGNOSTIC_TOOL)
-                .needsFbo(false)
-                .build(),
-                () -> new ShaderCompileAuditScene()
-        );
 
         reg.register(
             SceneDescriptor.builder("capability-report")

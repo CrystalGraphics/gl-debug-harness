@@ -81,7 +81,7 @@ public final class OverlayCaptureOrchestrator {
         // Post-scene reset: clean up whatever state the scene left dirty
         // (shaders, VAOs, textures, depth/blend flags)
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "overlay.reset")) {
-            GlStateResetHelper.resetAfterScene();
+            GlStateResetHelper.resetAfterScene(ctx.getTargetFramebuffer());
         }
 
         // Overlay pass: set overlay state (depth OFF, blend ON with alpha)

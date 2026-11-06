@@ -7,17 +7,19 @@ import com.crystalgui.lifecycle.CgUiStart;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.lwjgl3.GlfwInputService;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLBackend;
+import com.crystalgraphics.lwjgl3.Lwjgl3GLDriver;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLContext;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.rhi.nulldrv.CgNullRHI;
 import com.crystalgraphics.platform.gl.CgGL;
+import com.crystalgraphics.platform.gl.CgGLDevice;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
 import com.crystalgraphics.platform.gl.state.CgGlGetProvider;
 import com.crystalgraphics.platform.gl.state.CgGlState;
+import com.crystalgraphics.platform.gl.state.GLHostState;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLContext;
-import com.crystalgraphics.platform.gl.tracked.CgTrackedStateProvider;
 import com.crystalgraphics.platform.service.CgCacheDirectory;
 import com.crystalgraphics.platform.service.CgInputService;
 import com.crystalgraphics.platform.service.CgLifecycleService;
@@ -34,6 +36,7 @@ import com.crystalgraphics.vulkan.host.CgVulkanHost;
 import com.crystalgraphics.vulkan.host.CgVulkanImage;
 import com.crystalgraphics.vulkan.host.OwnedVulkanHost;
 import com.crystalgraphics.vulkan.shader.ShadercGlslCompiler;
+import com.crystalgraphics.vulkan.shader.SpvcGlslTranslator;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkInstance;
@@ -82,6 +85,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
     private boolean vulkanValidated;
     private CgVulkanDevice vulkanDevice;
     private CgTrackedGLBackend tracked;
+    private CgGLDevice glDevice;
 
     @Override public CgGLBackend       gl()           { return tracked != null ? tracked : glDispatchImpl; }
     @Override public CgGLContext         capabilities() { return tracked != null ? new CgTrackedGLContext() : glContextImpl; }
@@ -120,10 +124,18 @@ public final class PlatformServiceHarness implements CgPlatformService {
             p.vulkanDevice = new CgVulkanDevice(new PresentTimed(p.vulkanHost), width, height, CgCacheDirectory.of("vulkan"));
             p.device = p.vulkanDevice;
         }
+        if (device.equals("gl") && !"false".equals(System.getProperty("crystalgraphics.harness.glDevice"))) {
+            // CgRHI on GL beside CgGL, the two handing the context over at each device section
+            try {
+                p.glDevice = new CgGLDevice(new Lwjgl3GLDriver(), new SpvcGlslTranslator(), width, height, false,
+                        GLHostState.sharedWithCgGL()).installBesideCgGL(new ShadercGlslCompiler(CgCacheDirectory.of("spirv")));
+            } catch (IllegalStateException e) {
+                System.out.println("[Harness] no GL device: " + e.getMessage());
+            }
+        }
         if (p.device != null) {
-            CgRHI.install(p.device);
             p.tracked = new CgTrackedGLBackend(p.device, new ShadercGlslCompiler(CgCacheDirectory.of("spirv")), true)
-                    .compileInBackground();
+                    .compileInBackground().install();
         }
         CgPlatform.register(p);
         // Always a client: the graphics start's GL-free work begins beside the rest of the harness's start
@@ -132,10 +144,10 @@ public final class PlatformServiceHarness implements CgPlatformService {
         HarnessExtensions.start();   // and each project's own
         // Scenes use CgGL from the start, before any host section would install it.
         CgGL.init(p.gl());
-        if (p.tracked != null) CgGlState.setProvider(new CgTrackedStateProvider(p.tracked));
-        // Every draw here is CgGL's, the raw host scene's inside hostForeign: a stage entry reads nothing.
-        // -Dcrystalgraphics.harness.keepShadow=false measures or rules that out.
-        else if (!"false".equals(System.getProperty("crystalgraphics.harness.keepShadow"))) {
+        // The tracked backend's state is CgGlState's already (its install). Every draw here is CgGL's, the raw host
+        // scene's inside hostForeign: a stage entry reads nothing. -Dcrystalgraphics.harness.keepShadow=false measures
+        // or rules that out.
+        if (p.tracked == null && !"false".equals(System.getProperty("crystalgraphics.harness.keepShadow"))) {
             CgGlState.setProvider(new KeptShadow());
         }
         // NATIVE CONTENT IS NOT DECLARED HERE, and it used to be.
@@ -161,10 +173,12 @@ public final class PlatformServiceHarness implements CgPlatformService {
         return INSTANCE == null ? null : INSTANCE.tracked;
     }
 
-    /** The device under {@code --device=tracked|vulkan}: its name, vendor and driver. Null on GL. */
+    /** The device: its name, vendor and driver; null where none runs (GL with no 4.5 context). */
     public static CgRHI.Globals deviceInfo() {
+        if (INSTANCE != null && INSTANCE.glDevice != null) return INSTANCE.glDevice.globals();
         return tracked() == null ? null : INSTANCE.device.globals();
     }
+
 
     private static long presentNanos;
 
@@ -203,6 +217,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
         @Override public boolean indirectFirstInstance() { return host.indirectFirstInstance(); }
         @Override public boolean drawParameters() { return host.drawParameters(); }
         @Override public boolean independentBlend() { return host.independentBlend(); }
+        @Override public boolean bindless() { return host.bindless(); }
         @Override public boolean textureCompressionBC() { return host.textureCompressionBC(); }
         @Override public boolean asyncCompute() { return host.asyncCompute(); }
         @Override public int asyncFamily() { return host.asyncFamily(); }
@@ -235,6 +250,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
 
     /** The device's surface follows the window's framebuffer. Nothing on GL. */
     public static void resizeSurface(int width, int height) {
+        if (INSTANCE != null && INSTANCE.glDevice != null) INSTANCE.glDevice.resize(width, height);
         if (tracked() == null) return;
         if (INSTANCE.recordingDevice != null) INSTANCE.recordingDevice.resize(width, height);
         else INSTANCE.vulkanDevice.resize(width, height);
@@ -242,6 +258,12 @@ public final class PlatformServiceHarness implements CgPlatformService {
 
     /** Closes the Vulkan device and its host; before the window goes. Nothing otherwise. */
     public static void shutdown() {
+        if (INSTANCE != null && INSTANCE.glDevice != null) {
+            INSTANCE.glDevice.fromHost();
+            INSTANCE.glDevice.close();
+            INSTANCE.glDevice.toHost();
+            INSTANCE.glDevice = null;
+        }
         if (INSTANCE == null || INSTANCE.vulkanDevice == null) return;
         INSTANCE.vulkanDevice.close();
         // After the device, so what its teardown raised is counted; the tracked: line came before it.
@@ -250,9 +272,18 @@ public final class PlatformServiceHarness implements CgPlatformService {
         INSTANCE.vulkanDevice = null;
     }
 
-    /** Ends the tracked backend's frame; once a frame, after everything drawn in it. Nothing on GL. */
+    /**
+     * Ends the device's frame, once a frame after everything drawn in it: the tracked backend's on Vulkan, the GL
+     * device's on GL, whose frames retire what its draws used (its rings, views, framebuffers) by fence.
+     */
     public static void endTrackedFrame() {
-        if (tracked() != null) INSTANCE.tracked.endFrame();
+        if (tracked() != null) {
+            INSTANCE.tracked.endFrame();
+        } else if (INSTANCE != null && INSTANCE.glDevice != null) {
+            // No section: a frame's end fences, flushes and retires, touching nothing CgGL keeps; a section would drop
+            // CgGL's shadow every frame, and a scope restoring the viewport would restore nothing.
+            INSTANCE.glDevice.endFrame();
+        }
     }
 
     /** Whether this run's Vulkan device asked for the validation layer: its CPU times are the layer's, not ours. */

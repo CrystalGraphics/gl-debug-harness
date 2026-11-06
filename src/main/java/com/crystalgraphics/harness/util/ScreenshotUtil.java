@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.util;
 
+import com.crystalgraphics.platform.gl.state.CgGlScope;
+import com.crystalgraphics.platform.gl.state.CgGlSlot;
+import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.platform.gl.CgGL;
 import org.lwjgl.BufferUtils;
 
@@ -95,13 +98,14 @@ public final class ScreenshotUtil {
                                                   int width, int height,
                                                   String outputDir, String filename) {
         int fbo = CgGL.glGenFramebuffers();
+        CgGlScope bound = CgGlState.save(CgGlSlot.FBO);
         CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fbo);
         CgGL.glFramebufferTextureLayer(CgGL.GL_FRAMEBUFFER, CgGL.GL_COLOR_ATTACHMENT0,
                 arrayTextureId, 0, layer);
 
         int status = CgGL.glCheckFramebufferStatus(CgGL.GL_FRAMEBUFFER);
         if (status != CgGL.GL_FRAMEBUFFER_COMPLETE) {
-            CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+            bound.close();
             CgGL.glDeleteFramebuffers(fbo);
             throw new IllegalStateException(
                     "Framebuffer incomplete capturing array layer " + layer + " of texture "
@@ -133,7 +137,7 @@ public final class ScreenshotUtil {
             }
             writePng(image, outputDir, filename);
         } finally {
-            CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+            bound.close();
             CgGL.glDeleteFramebuffers(fbo);
         }
     }
@@ -142,11 +146,12 @@ public final class ScreenshotUtil {
                                        int width, int height,
                                        String outputDir, String filename) {
         // Read from the FBO directly via glReadPixels bound to the FBO
-        CgGL.glBindFramebuffer(CgGL.GL_READ_FRAMEBUFFER, fboId);
         ByteBuffer pixels = BufferUtils.createByteBuffer(width * height * 4);
-        CgGL.glPixelStorei(CgGL.GL_PACK_ALIGNMENT, 1);
-        CgGL.glReadPixels(0, 0, width, height, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, pixels);
-        CgGL.glBindFramebuffer(CgGL.GL_READ_FRAMEBUFFER, 0);
+        try (CgGlScope ignored = CgGlState.save(CgGlSlot.FBO)) {
+            CgGL.glBindFramebuffer(CgGL.GL_READ_FRAMEBUFFER, fboId);
+            CgGL.glPixelStorei(CgGL.GL_PACK_ALIGNMENT, 1);
+            CgGL.glReadPixels(0, 0, width, height, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, pixels);
+        }
 
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         for (int y = 0; y < height; y++) {

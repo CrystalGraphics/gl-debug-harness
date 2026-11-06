@@ -576,6 +576,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         for (Actor actor : actors) {
             animation.add(actor.instance);
             actor.play(0);
+            if (!Double.isNaN(PAUSED_AT)) {
+                actor.instance.playing(false);
+                actor.instance.seek(PAUSED_AT);
+            }
             LOGGER.info("[skinned-play] {}: {} bones, {} clips{}", actor.name, actor.mesh.skeleton().boneCount(),
                     actor.clips.size(), actor.kit ? ", K charges the kit's Kamehameha" : "");
         }
@@ -812,6 +816,11 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             EXIT_AFTER = seconds("crystalgraphics.harness.skinnedPlay.exitAfter");
     /** How many scripted cuts: each after the last plays out by {@link #CUT_AFTER}; the run ends after the last. */
     private static final int CUTS = Integer.getInteger("crystalgraphics.harness.skinnedPlay.cuts", 1);
+    /**
+     * {@code -Dcrystalgraphics.harness.skinnedPlay.pausedAt=<seconds>}: every actor made paused at that time of its first
+     * clip, so captures of a shading change hold one pose from the first frame; NaN plays as ever.
+     */
+    private static final double PAUSED_AT = seconds("crystalgraphics.harness.skinnedPlay.pausedAt");
     /**
      * Seconds of steady play profiled either side of the cuts, as {@code steady-before} (ending at the first cut) and
      * {@code steady-after} (from a second after the last plays out, then the run ends); NaN for neither. Under

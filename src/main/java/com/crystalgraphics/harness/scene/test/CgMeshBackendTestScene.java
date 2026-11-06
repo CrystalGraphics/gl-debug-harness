@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.api.shader.CgShaderProgram;
+import com.crystalgraphics.gl.shader.CgProgram;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -68,14 +68,14 @@ public class CgMeshBackendTestScene implements HarnessSceneLifecycle {
             + "    gl_Position = place(vec2(float(quad % 4) * 50.0, float(quad / 4) * 50.0) + TRIANGLES[gl_VertexID % 6] * 40.0);\n"
             + "}\n";
 
-    private CgShaderProgram plain, baseVertex, integers, noAttributes;
+    private CgProgram plain, baseVertex, integers, noAttributes;
 
     @Override
     public void init(HarnessContext ctx) {
-        plain = CgShaderProgram.compile(PLAIN, FRAG, null);
-        baseVertex = CgShaderProgram.compile(BASE_VERTEX, FRAG, null);
-        integers = CgShaderProgram.compile(INTEGERS, FRAG, null);
-        noAttributes = CgShaderProgram.compile(NO_ATTRIBUTES, FRAG, null);
+        plain = CgProgram.compile(PLAIN, FRAG, null);
+        baseVertex = CgProgram.compile(BASE_VERTEX, FRAG, null);
+        integers = CgProgram.compile(INTEGERS, FRAG, null);
+        noAttributes = CgProgram.compile(NO_ATTRIBUTES, FRAG, null);
     }
 
     @Override
@@ -137,8 +137,8 @@ public class CgMeshBackendTestScene implements HarnessSceneLifecycle {
             for (int range = 0; range < 2; range++) {
                 baseVertex.setUniform1i(baseVertex.getUniformLocation("u_vertexBase"), quad * 4);
                 baseVertex.setUniform2f(baseVertex.getUniformLocation("u_offset"), range * 240f, 0f);
-                CgGL.glDrawElementsInstancedBaseVertex(CgGL.GL_TRIANGLES, 6, CgGL.GL_UNSIGNED_INT, range * 24L, 2,
-                        quad * 4);
+                CgGL.glDrawElementsInstancedBaseVertexBaseInstance(CgGL.GL_TRIANGLES, 6, CgGL.GL_UNSIGNED_INT,
+                        range * 24L, 2, quad * 4, 0);
             }
         }
         done(vao);
@@ -368,7 +368,7 @@ public class CgMeshBackendTestScene implements HarnessSceneLifecycle {
         CgGL.glDrawArrays(CgGL.GL_TRIANGLES, 0, vertices);
     }
 
-    private static void use(CgShaderProgram program, int w, int h, float x, float y) {
+    private static void use(CgProgram program, int w, int h, float x, float y) {
         program.bind();
         program.setUniform2f(program.getUniformLocation("u_size"), w, h);
         program.setUniform2f(program.getUniformLocation("u_offset"), x, y);
@@ -399,7 +399,7 @@ public class CgMeshBackendTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void dispose() {
-        for (CgShaderProgram p : new CgShaderProgram[]{plain, baseVertex, integers, noAttributes}) {
+        for (CgProgram p : new CgProgram[]{plain, baseVertex, integers, noAttributes}) {
             if (p != null) p.delete();
         }
     }

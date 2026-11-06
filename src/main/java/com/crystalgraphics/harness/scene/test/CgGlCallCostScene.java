@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.platform.gl.state.CgGlScope;
+import com.crystalgraphics.platform.gl.state.CgGlSlot;
+import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -191,13 +194,17 @@ public final class CgGlCallCostScene implements InteractiveSceneLifecycle {
         }));
     }
 
+    /** What was bound before {@link #target}, put back by {@link #untarget}. */
+    private CgGlScope targeted;
+
     private void target() {
+        targeted = CgGlState.save(CgGlSlot.FBO, CgGlSlot.VIEWPORT);
         CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fboA);
         CgGL.glViewport(0, 0, 64, 64);
     }
 
     private void untarget() {
-        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+        targeted.close();
         CgGL.glUseProgram(0);
         CgGL.glBindVertexArray(0);
     }
@@ -231,8 +238,7 @@ public final class CgGlCallCostScene implements InteractiveSceneLifecycle {
     }
 
     private void draw(Runnable apply) {
-        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fboA);
-        CgGL.glViewport(0, 0, 64, 64);
+        target();
         CgGL.glUseProgram(programA);
         CgGL.glBindVertexArray(vaoA);
         CgGL.glActiveTexture(CgGL.GL_TEXTURE0);
@@ -244,9 +250,7 @@ public final class CgGlCallCostScene implements InteractiveSceneLifecycle {
             apply.run();
             CgGL.glDrawArrays(CgGL.GL_TRIANGLES, 0, 3);
         }
-        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
-        CgGL.glUseProgram(0);
-        CgGL.glBindVertexArray(0);
+        untarget();
         CgGL.glDisable(CgGL.GL_BLEND);
     }
 
@@ -288,9 +292,10 @@ public final class CgGlCallCostScene implements InteractiveSceneLifecycle {
 
     private static int framebuffer(int colour) {
         int id = CgGL.glGenFramebuffers();
-        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, id);
-        CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER, CgGL.GL_COLOR_ATTACHMENT0, CgGL.GL_TEXTURE_2D, colour, 0);
-        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
+        try (CgGlScope ignored = CgGlState.save(CgGlSlot.FBO)) {
+            CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, id);
+            CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER, CgGL.GL_COLOR_ATTACHMENT0, CgGL.GL_TEXTURE_2D, colour, 0);
+        }
         return id;
     }
 

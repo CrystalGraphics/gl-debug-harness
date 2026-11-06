@@ -6,8 +6,9 @@ import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.platform.gl.CgGL;
 
 /**
- * The interactive runner's main target, as Minecraft draws its world into one: the world pass and the scene draw into
- * a framebuffer of the window's size, blitted into the window before the overlays. What only a framebuffer of our own
+ * The interactive runner's main target, as Minecraft draws its frame into one: the world pass, the scene, the overlays
+ * and the loading screen draw into a framebuffer of the window's size, blitted into the window once at the frame's end
+ * (Unreal's back buffer, copied to the window at present). The window itself is never a pass's target. What only a framebuffer of our own
  * takes -- the normal target the world lights read -- then runs as it does in the game.
  * RGBA8 as Minecraft's: with {@code GL_FRAMEBUFFER_SRGB} off, the window's sRGB backbuffer takes its bytes unchanged.
  *
@@ -36,13 +37,17 @@ public final class MainTarget {
         return target.getId();
     }
 
-    /** Copies its colour into the window and binds the window again. */
+    /** Before the overlays: its depth cleared, which their text tests against, not the world's. */
+    public void overlays() {
+        target.bind();
+        CgGL.glClear(CgGL.GL_DEPTH_BUFFER_BIT);
+    }
+
+    /** Copies its colour into the window and binds the window: the frame's end. */
     public void end() {
         int w = target.getWidth(), h = target.getHeight();
         CgFrameBuffer.blitFrom(target.getId(), 0, 0, 0, w, h, 0, 0, w, h, CgGL.GL_COLOR_BUFFER_BIT, CgGL.GL_NEAREST);
         CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, 0);
-        // The world pass cleared ours, not the window's: the overlays' text depth-tests against it.
-        CgGL.glClear(CgGL.GL_DEPTH_BUFFER_BIT);
     }
 
     public void delete() {

@@ -9,7 +9,6 @@ import com.crystalgraphics.loading.CgLoadingScreen;
 import com.crystalgraphics.loading.task.CgLoadPlan;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.gl.CgGlRecording;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.util.io.CgIO;
 import com.crystalgraphics.util.trace.CgChannels;
@@ -59,9 +58,7 @@ import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgui.lifecycle.CgUiStart;
 import com.crystalgui.style.theme.UiThemeManager;
 
-import com.sun.management.ThreadMXBean;
 import org.joml.Matrix4f;
-import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -188,15 +185,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
      */
     private static final boolean UNATTENDED = CAPTURE_AT > 0 || FRAME_TIMES > 0 || MOTION > 0
             || Boolean.getBoolean("crystalgraphics.harness.unattended");
-    /** {@code -Dcrystalgraphics.harness.record=<frame>}: from that frame on, the scene pass is recorded and replayed
-     * instead of drawn, so a capture shows the replay. Logs what a recorded frame allocates beside a direct one. */
-    private static final int RECORD_FROM = Integer.getInteger("crystalgraphics.harness.record", 0);
-    private static final int ALLOCATION_SAMPLE = 30;
-    private final CgGlRecording recording = new CgGlRecording();
     /** The scene's own world view this frame, where it has one ({@code InteractiveSceneLifecycle.worldView}). */
     private final Matrix4f worldView = new Matrix4f(), worldProjection = new Matrix4f();
-    private long directAllocated, recordedAllocated;
-    private int directFrames, recordedFrames;
     /**
      * The scene driven by this runner, accessed through the unified lifecycle contract.
      */
@@ -248,30 +238,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     private void renderScene(HarnessContext ctx, FrameInfo info) {
         // The frame's time from the harness's own clock, so a fixed delta gives the same capture on every run.
         CgFrameClock.set(loadingSeconds + info.getElapsedTime());
-        long frame = info.getFrameNumber();
-        boolean sample = RECORD_FROM > 0 && frame >= RECORD_FROM - ALLOCATION_SAMPLE;
-        long before = sample ? allocatedBytes() : 0;
-        if (RECORD_FROM <= 0 || frame < RECORD_FROM) {
-            scene.render(ctx, info);
-            if (sample) { directAllocated += allocatedBytes() - before; directFrames++; }
-            return;
-        }
-        recording.begin();
-        try {
-            scene.render(ctx, info);
-        } finally {
-            recording.end();
-        }
-        // The first recorded frame builds the recording's tape and scratch; a frame after it is what recording costs.
-        if (frame > RECORD_FROM) {
-            recordedAllocated += allocatedBytes() - before;
-            recordedFrames++;
-        }
-        recording.replay();
-    }
-
-    private static long allocatedBytes() {
-        return ((ThreadMXBean) ManagementFactory.getThreadMXBean()).getCurrentThreadAllocatedBytes();
+        scene.render(ctx, info);
     }
 
     public void run() {
@@ -518,11 +485,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     motionDone = motion.sample(frameClock.getFrameNumber(), ctx.getScreenWidth(), ctx.getScreenHeight());
                 }
 
-                if (MainTarget.ON) {
-                    try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.mainTarget")) {
-                        mainTarget.end();
-                    }
-                }
+                if (MainTarget.ON) mainTarget.overlays();
                 // 10-13. Post-scene sequence: GL reset → HUD → capture callback
                 //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.overlay")) {
@@ -531,6 +494,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                             ui == null ? null : () -> ui.render(info));
                 }
                 drawLoadingScreen();   // its fade-out
+                if (MainTarget.ON) {
+                    try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.mainTarget")) {
+                        mainTarget.end();
+                    }
+                }
             } finally {
                 CgGL.toHost();
             }
@@ -593,11 +561,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
         LOGGER.info("[InteractiveSceneRunner] Render loop exited after "
                 + frameClock.getFrameNumber() + " frames");
-        if (RECORD_FROM > 0 && recordedFrames > 0) {
-            LOGGER.info("[InteractiveSceneRunner] record: " + recording.size() + " bytes a frame; allocated "
-                    + (directFrames == 0 ? "?" : String.valueOf(directAllocated / directFrames)) + " bytes a direct frame, "
-                    + (recordedAllocated / recordedFrames) + " a recorded one (" + directFrames + " and " + recordedFrames + " frames)");
-        }
 
         // Ensure cursor is released on exit
         inputPauseHandler.releaseCursor();
@@ -659,7 +622,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // No world of the scene's: the screen fires its own, where pipelines settle and effects warm and rehearse.
         CgGL.fromHost();
         try {
+            if (MainTarget.ON) ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
             drawLoadingScreen();
+            if (MainTarget.ON) mainTarget.end();
         } finally {
             CgGL.toHost();
         }
@@ -680,7 +645,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         CgFrameClock.set(loadingSeconds);   // the harness's clock from the first world frame: it never runs backwards
         CgGL.fromHost();
         try {
+            if (MainTarget.ON) ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
             drawLoadingScreen();
+            if (MainTarget.ON) mainTarget.end();
         } finally {
             CgGL.toHost();
         }
@@ -688,10 +655,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         HarnessWindow.swapBuffers();
     }
 
-    /** Over the window's framebuffer, after the overlays and the capture callback, so no capture holds it. */
+    /** Over the frame's target, after the overlays and the capture callback, so no capture holds it. */
     private void drawLoadingScreen() {
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.loadingScreen")) {
-            CgLoadingScreen.draw(0, ctx.getScreenWidth(), ctx.getScreenHeight());
+            CgLoadingScreen.draw(ctx.getTargetFramebuffer(), ctx.getScreenWidth(), ctx.getScreenHeight());
         }
     }
 

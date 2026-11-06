@@ -10,7 +10,6 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.capture.ArtifactService;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.object.WorldAxisRenderer;
 import com.crystalgraphics.harness.scene.test.HarnessWorld;
 import com.crystalgraphics.harness.scheduler.TaskScheduler;
 import com.crystalgraphics.render.world.CgWorldRenderer;
@@ -42,12 +41,10 @@ public class MeshTestScene implements InteractiveSceneLifecycle {
     private CgMaterial checker, tint;
     private CgMeshLoader.Model obj, glb, parts;
     private final Matrix4f scale = new Matrix4f();
-    private final WorldAxisRenderer axis = new WorldAxisRenderer();
 
     @Override
     public void init(HarnessContext ctx) {
         this.ctx = ctx;
-        axis.init(ctx);
         checker = CgMaterial.load("assets/harness/shader/mesh_test.shader");
         tint = CgMaterial.load("assets/harness/shader/dual_path_test.shader");
         obj = load("harness:meshes/test_model.obj");
@@ -71,7 +68,6 @@ public class MeshTestScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        axis.render(ctx);
         CgWorldRenderer world = CgWorldRenderer.get();
         world.draw(CgMeshShapes.cube(FORMAT), checker).at(-6f, 0f, 0f).submit();
         world.draw(CgMeshShapes.quad(FORMAT), checker).at(-3f, 0f, 0f).submit();
