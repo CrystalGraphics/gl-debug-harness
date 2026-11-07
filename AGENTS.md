@@ -445,7 +445,9 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 - **What is left at the GL level goes through `CgGL`, never `org.lwjgl.opengl`.** CrystalGraphics' state
   shadow sees only `CgGL`, so a raw write makes it skip a later call it thinks is redundant. Two exceptions:
   the host layer (`HarnessWindow`, `HarnessContext`) is the harness's LWJGL host, and a scene playing a
-  foreign host (`CgHostSectionScene`) draws raw inside `CgGlState.hostForeign` on purpose. For an upload
+  foreign host (`CgHostSectionScene`) draws raw inside `CgGlState.hostForeign` on purpose, and so do the
+  hand-written GL scenes (`image`, `light`, `light-source`: `ImageScene`, `ReviewScene`, `LightScene`, with
+  `RawGlProgram`), their author's own: GL device only. For an upload
   from a `FloatBuffer`/`IntBuffer`, `HarnessBuffers.bytes(buffer)` is the byte view `CgGL` takes.
 
 ---
