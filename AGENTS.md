@@ -149,7 +149,7 @@ scene and its device: `skinned-play [vk]`.
   `--mode=kit-cues` is a mod's hits without Minecraft: a kit's cues (`.kitCues.namespace`, `.kitCues.kit` its folder,
   `.kitCues.cues` paths under its `cues/`, every cue it declares without) fired at a dummy on the harness world's ground, which writes depth, through the client world's
   cue manager and the engine's sequencer (systems, post volumes, colour regions, shakes), under the kit's look and VFX Lab's sky. ` fires
-  again, N/B change cue, Left Alt opens the cue picker on the desktop, a tree a namespace (a click plays a cue, folds a folder), Y/Shift+Y slow time and Tab pauses or plays it, Z/X step a frame back or forward, C the kit's colour grade; `.kitCues.regions=false` leaves the
+  again, N/B change cue, Left Alt opens the desktop, with the cue picker in its launcher, a tree a namespace (a click plays a cue, folds a folder), Y/Shift+Y slow time and Tab pauses or plays it, Z/X step a frame back or forward, C the kit's colour grade; `.kitCues.regions=false` leaves the
   colour regions out, `.kitCues.capture=<n>` photographs n frames of play and exits. Its javadoc has Dragon Forge's s0.
   `--mode=kit-shading` is a kit's shading models drawing: its `shading.yaml` registered under
   `-Dcrystalgraphics.harness.kit.namespace`, the material `.kit.material` compiled from the kit folder `.kit` through its

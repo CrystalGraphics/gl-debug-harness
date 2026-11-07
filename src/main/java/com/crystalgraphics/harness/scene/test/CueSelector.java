@@ -26,7 +26,7 @@ import java.util.function.IntConsumer;
  *
  * <pre>{@code
  * CueSelector picker = new CueSelector(ids, index -> picked = index);   // ids as "ns:path/to/cue"
- * ctx.getUi().bind(CgKeyCodes.KEY_LMENU, picker.kind());
+ * ctx.getUi().offer(picker.kind());
  * HostSession.session().inDocument(() -> picker.current(3));           // after N or B
  * }</pre>
  *

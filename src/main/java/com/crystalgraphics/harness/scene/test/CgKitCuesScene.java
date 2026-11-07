@@ -47,7 +47,7 @@ import java.util.Locale;
  * ./gradlew :gl-debug-harness:runHarness -Pharness.assetRoots=$R --args="--mode=kit-cues" \
  *     -Dcrystalgraphics.harness.kitCues.namespace=s0 -Dcrystalgraphics.harness.kitCues.kit=$R/assets/s0 \
  *     -Dcrystalgraphics.harness.kitCues.cues=hit_spark/melee/light,hit_spark/melee/medium,hit_spark/melee/heavy
- * // `: fire again   N / B: next / previous cue   Left Alt: pick one   Y / Shift+Y: time faster / slower   Tab: pause or play time
+ * // `: fire again   N / B: next / previous cue   Left Alt: desktop   Y / Shift+Y: time faster / slower   Tab: pause or play time
  * // X / Z: pause and step 1/60 s forward / back, held to repeat; 0 to the end less 1/60 s, and round again
  * // C: the kit's colour grade on or off (each draw under its kit's look, or the frame's)
  *
@@ -59,8 +59,8 @@ import java.util.Locale;
  * <ul>
  *   <li>A cue is named by its path under the kit's {@code cues/}; it fires by its own {@code tag}. Without
  *       {@code .cues}, every cue the kit declares, all loaded behind the loading screen.</li>
- *   <li>Left Alt opens the cue picker on the harness's desktop, a tree a namespace: a click on a cue plays it, on a
- *       folder folds it. Left Alt again brings it forward; its X closes it, Esc the desktop.</li>
+ *   <li>Left Alt opens the harness's desktop, where the cue picker is in the launcher, a tree a namespace: a click on a cue plays it, on a
+ *       folder folds it. its X closes it, Esc the desktop.</li>
  *   <li>Under VFX Lab's sky and floor; F9 day and night.</li>
  *   <li>The dummy is an opaque world draw and the ground under VFX Lab's sky writes depth, so a colour region, a soft
  *       particle or a depth fade sees depth where the game would.</li>
@@ -165,7 +165,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
                 if (ids.isEmpty()) throw new IllegalStateException(TAG + "the kit " + namespace + " declares no cue");
             }
             selector = new CueSelector(ids, index -> picked = index);
-            ui.bind(CgKeyCodes.KEY_LMENU, selector.kind());
+            ui.offer(selector.kind());
             for (String id : ids) {
                 CgAssetRef<CgCueDefinition> ref = CgVfxAssets.instance().declare(CgGameplayKinds.CUE, id);
                 ref.request(CgLoadPriority.MOVE);
@@ -352,7 +352,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     @Override
     public String hudLine() {
         String cue = ids.isEmpty() ? "-" : ids.get(current);
-        return String.format(Locale.ROOT, "%nCue [N/B, LAlt]: %s | Fire [`]%n"
+        return String.format(Locale.ROOT, "%nCue [N/B]: %s | Fire [`]%n"
                         + "Time [Tab]: %s | Speed [Y]: x%s | Step [Z X]%n"
                         + "Age: %.3f / %.3f s%n"
                         + "Kit colour grade [C]: %s",
