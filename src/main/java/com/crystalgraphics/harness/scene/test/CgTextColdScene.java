@@ -27,7 +27,8 @@ import com.crystalgraphics.text.render.CgTextRenderer;
  *   <li>{@code -Dcrystalgraphics.harness.textCold.font=<path>}: the face; IBM Plex Sans Regular by default</li>
  *   <li>{@code .size=<px>}: the size the font is loaded at, 11 by default</li>
  *   <li>{@code .scale=<f>}: the pose's scale, 2 by default, so the glyphs raster at size times scale</li>
- *   <li>{@code .warm=true}: {@code warmAscii} at that raster size first, as a stylesheet warm does</li>
+ *   <li>{@code .warm=true}: {@code warmAscii} at that raster size before the primer, as a stylesheet warm runs
+ *   before anything opens</li>
  *   <li>{@code .prime=false}: no primer, so the first draw pays every first use as well</li>
  *   <li>{@code .tail=<frames>}: frames drawn once whole, 5 by default; past a profile window's end to get its report</li>
  * </ul>
@@ -66,6 +67,7 @@ public class CgTextColdScene implements InteractiveSceneLifecycle {
         font = CgFont.load(fontPath, CgFontStyle.REGULAR, size);
         primer = CgFont.load(fontPath, CgFontStyle.REGULAR, PRIMER_SIZE);
         text = CgTextRenderer.createManualSized();
+        if (warm) CgFontRegistry.get().warmAscii(font, Math.round(size * scale));
         System.out.println("[text-cold] " + fontPath + " at " + size + " x " + scale + " = " + Math.round(size * scale)
                 + "px" + (warm ? ", warmed" : ", cold") + (prime ? ", primed" : ", unprimed") + ", " + LABELS.length
                 + " labels");
@@ -78,7 +80,6 @@ public class CgTextColdScene implements InteractiveSceneLifecycle {
             drawPrimer(w, h);
             return;
         }
-        if (framesDrawn == 0 && warm) CgFontRegistry.get().warmAscii(font, Math.round(size * scale));
         long start = System.nanoTime();
         if (framesDrawn == 0) firstDrawNanos = start;
 
