@@ -105,6 +105,7 @@ import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshFrameStressScene;
 import com.crystalgraphics.harness.scene.test.CgVfxFluidScene;
 import com.crystalgraphics.harness.scene.test.CgVfxModulesScene;
+import com.crystalgraphics.harness.scene.test.CgWarmFrameLoadScene;
 import com.crystalgraphics.harness.scene.test.CgWorldLabelsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBlastsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxParticlesScene;
@@ -1481,6 +1482,18 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxModulesScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("warm-frame-load")
+                .description("The loading screen's 256x256 warm frame under every module station, 900 frames: no stage firing past crystalgraphics.gpu.slowZoneMillis on the GPU")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .build(),
+            () -> new CgWarmFrameLoadScene()
         );
 
         reg.register(
