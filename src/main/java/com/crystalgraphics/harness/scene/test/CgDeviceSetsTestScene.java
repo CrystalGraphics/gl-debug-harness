@@ -33,7 +33,8 @@ import java.util.stream.Stream;
 
 /**
  * Every shipped material's set 2 made on the device from its recorded bindings ({@code CgDeviceSets}), against its
- * device pipeline's layout: no slot left to a default, a second frame making no set, a changed block making one. On
+ * device pipeline's layout: no slot left to a default, a second frame making no set, a changed block making one, or,
+ * where the material's values live in its shader's arena, none and a new slot. On
  * {@code --device=vulkan} and {@code --device=gl}.
  *
  * <pre>
@@ -123,9 +124,12 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
             long secondMade = sets.made() - firstMade;
             if (secondMade != 0) failures.add("a second frame of the same captures made " + secondMade + " sets");
 
-            // A changed block: one new set.
+            // A changed block: one new set, or in an arena none, the material taking another slot of the arena's one set.
+            int[] slotsBefore = new int[drawn.size()];
+            for (int i = 0; i < drawn.size(); i++) slotsBefore[i] = ids[i] < 0 ? 0 : table.slotOf(ids[i]);
             String changed = changeOne(drawn);
             long changeMade = -1;
+            boolean moved = false;
             if (changed != null) {
                 table.reset();
                 ids = capture(table, ring, drawn, failures);
@@ -140,7 +144,12 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
                     CgDeviceSection.end();
                 }
                 changeMade = sets.made() - before;
-                if (changeMade != 1) failures.add("changing " + changed + " made " + changeMade + " sets, not 1");
+                for (int i = 0; i < drawn.size(); i++) moved |= ids[i] >= 0 && table.slotOf(ids[i]) != slotsBefore[i];
+                long expected = moved ? 0 : 1;
+                if (changeMade != expected) {
+                    failures.add("changing " + changed + " made " + changeMade + " sets, not " + expected
+                            + (moved ? " (its arena's set holds every slot)" : ""));
+                }
             }
             int validation = PlatformServiceHarness.validationErrors();
             if (validation > 0) failures.add(validation + " Vulkan validation errors, logged above");
@@ -153,7 +162,7 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
             return "PASS on " + on + ": " + drawn.size() + " materials' sets made against their device pipelines ("
                     + firstMade + " sets, " + skipped + " materials reading nothing of their own), no slot defaulted ("
                     + (sets.defaulted() - defaultedBefore) + "); a second frame made none; changing " + changed
-                    + " made " + changeMade;
+                    + " made " + changeMade + (moved ? ", its values moving to another slot of its arena" : "");
         } finally {
             CgDeviceSection.begin();
             sets.release();
