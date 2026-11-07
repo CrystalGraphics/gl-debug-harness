@@ -8,7 +8,11 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
+import com.crystalgraphics.platform.gl.CgGLImports;
 import com.crystalgraphics.platform.rhi.CgRHI;
+import com.crystalgraphics.platform.rhi.binding.CgBindingLayout;
+import com.crystalgraphics.platform.rhi.binding.CgBindingSet;
+import com.crystalgraphics.platform.rhi.binding.CgBindings;
 import com.crystalgraphics.platform.rhi.command.CgAccess;
 import com.crystalgraphics.platform.rhi.command.CgCommandList;
 import com.crystalgraphics.platform.rhi.command.CgPassDesc;
@@ -17,6 +21,8 @@ import com.crystalgraphics.platform.rhi.command.CgTransition;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
 import com.crystalgraphics.platform.rhi.pipeline.CgGraphicsPipeline;
 import com.crystalgraphics.platform.rhi.pipeline.CgGraphicsPipelineDesc;
+import com.crystalgraphics.platform.rhi.pipeline.CgPipelineLayout;
+import com.crystalgraphics.platform.rhi.resource.CgGpuBuffer;
 import com.crystalgraphics.platform.rhi.resource.CgGpuTexture;
 import com.crystalgraphics.platform.rhi.resource.CgRHIResource;
 import com.crystalgraphics.platform.rhi.resource.CgTextureRegion;
@@ -35,10 +41,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Meshes drawn through {@code CgMeshStore}'s device draws ({@code drawOn}, {@code drawJoinedOn}) on {@code CgRHI}: an
- * indexed mesh in its pool's slab, one drawn without indices (the store's run of 0, 1, 2 ...), a frame mesh on the
- * ring, and two joined into one indirect call, each a band of its own colour, read back and compared with the picture
- * worked out here. On {@code --device=vulkan} and {@code --device=gl}.
+ * Meshes drawn through {@code CgMeshStore}'s device draws ({@code drawOn}, {@code drawJoinedOn}) on {@code CgRHI}, their
+ * vertices pulled from the store's words ({@code vertexWords}) with no vertex input: an indexed mesh in its format's
+ * pool, one drawn without indices (the store's run of 0, 1, 2 ...), a frame mesh on the ring, and two joined into one
+ * indirect call, each a band of its own colour, read back and compared with the picture worked out here. On
+ * {@code --device=vulkan} and {@code --device=gl}.
  *
  * <pre>
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=device-mesh --device=vulkan"
@@ -50,8 +57,11 @@ public class CgDeviceMeshTestScene implements HarnessSceneLifecycle {
     /** Each band's colour, ARGB: the slab's, the run's, the ring's, the joined pair's. */
     static final int[] COLOURS = {0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFF00};
 
-    private static final String VERTEX = "#version 450\nlayout(location = 0) in vec2 position;\n"
-            + "void main() { gl_Position = vec4(position, 0.5, 1.0); }\n";
+    /** POS2_UV2_COL4UB's position, the first two of its five words a vertex, pulled at the store's slot (1, 4). */
+    private static final String VERTEX = "#version 450\n"
+            + "layout(std430, set = 1, binding = 4) readonly buffer W { uint w[]; };\n"
+            + "void main() { uint v = uint(gl_VertexIndex) * 5u;\n"
+            + "    gl_Position = vec4(uintBitsToFloat(w[v]), uintBitsToFloat(w[v + 1u]), 0.5, 1.0); }\n";
     private static final String FRAGMENT = "#version 450\nlayout(push_constant) uniform P { vec4 colour; } p;\n"
             + "layout(location = 0) out vec4 o;\nvoid main() { o = p.colour; }\n";
 
@@ -109,8 +119,11 @@ public class CgDeviceMeshTestScene implements HarnessSceneLifecycle {
             CgGlslCompiler.Explicit program = CgGlslCompiler.get().compileExplicit(VERTEX, FRAGMENT, Map.of(), "device-mesh");
             CgShaderModule vs = keep(made, rhi.createShaderModule(CgShaderModule.Stage.VERTEX, program.vertex(), "device-mesh"));
             CgShaderModule fs = keep(made, rhi.createShaderModule(CgShaderModule.Stage.FRAGMENT, program.fragment(), "device-mesh"));
+            CgPipelineLayout layout = CgDeviceStates.layout(rhi, program);
+            CgBindingSet pooled = keep(made, words(rhi, layout, store.vertexWords(slab)));
+            CgBindingSet paged = keep(made, words(rhi, layout, store.vertexWords(ring)));
             CgGraphicsPipeline pipeline = keep(made, rhi.createPipeline(new CgGraphicsPipelineDesc("device-mesh",
-                    CgDeviceStates.layout(rhi, program), vs, fs, CgDeviceStates.vertexBuffers(format),
+                    layout, vs, fs, List.of(),
                     CgMeshStore.topology(slab), CgGraphicsPipelineDesc.Raster.DEFAULT, CgGraphicsPipelineDesc.DepthStencil.OFF,
                     List.of(new CgGraphicsPipelineDesc.ColorTarget(CgFormat.RGBA8_UNORM, null, 0xF)), null, 1)));
             CgGpuTexture target = keep(made, rhi.createTexture(new CgGpuTexture.Desc("device-mesh target",
@@ -127,12 +140,15 @@ public class CgDeviceMeshTestScene implements HarnessSceneLifecycle {
             cache.reset();
             cache.pipeline(pass, pipeline);
             push(pass, colour, COLOURS[0]);
+            pass.setBindingSet(1, pooled);
             store.drawOn(pass, cache, slab, 1, 0, -1, 0, -1);
             push(pass, colour, COLOURS[1]);
             store.drawOn(pass, cache, run, 1, 0, -1, 0, -1);
             push(pass, colour, COLOURS[2]);
+            pass.setBindingSet(1, paged);
             store.drawOn(pass, cache, ring, 1, 0, -1, 0, -1);
             push(pass, colour, COLOURS[3]);
+            pass.setBindingSet(1, pooled);
             if (!store.join(left, 1, -1, 0, -1, 0) || !store.join(right, 1, -1, 0, -1, 0)) {
                 store.dropJoined();
                 throw new IllegalStateException("the two static quads did not join");
@@ -161,13 +177,22 @@ public class CgDeviceMeshTestScene implements HarnessSceneLifecycle {
                 return "FAIL on " + on + ": " + differing + " pixels differ, the first at (" + first % SIZE + ", " + first / SIZE
                         + "): 0x" + Integer.toHexString(firstGot) + " for 0x" + Integer.toHexString(expected(first % SIZE, first / SIZE));
             }
-            return "PASS on " + on + ": a slab's indexed mesh, an unindexed one, a ring frame mesh and two joined into one "
+            return "PASS on " + on + ": a pooled indexed mesh, an unindexed one, a ring frame mesh and two joined into one "
                     + "indirect call, drawn on the device through the store, match the picture pixel for pixel";
         } finally {
             for (CgRHIResource o : made) rhi.release(o);
             CgDeviceSection.end();
             for (CgMesh m : new CgMesh[] {slab, run, ring, left, right}) m.release();
         }
+    }
+
+    /** A set of the store's words {@code name} at (1, 4), where the program pulls from. */
+    private static CgBindingSet words(CgRHI rhi, CgPipelineLayout layout, int name) {
+        CgGLImports imports = CgGLImports.get();
+        CgGpuBuffer buffer = imports.buffer(name);
+        long offset = imports.bufferOffset(name);
+        return rhi.createBindingSet("device-mesh words", layout.sets().get(1),
+                new CgBindings().buffer(4, CgBindingLayout.Type.STORAGE_BUFFER, buffer, offset, buffer.size() - offset));
     }
 
     private static void push(CgRenderPass pass, ByteBuffer colour, int argb) {
