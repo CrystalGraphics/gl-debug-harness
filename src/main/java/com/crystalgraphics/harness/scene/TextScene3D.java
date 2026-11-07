@@ -287,13 +287,13 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
         // The helper handles perspective projection, model-view setup,
         // text positioning, and world-text draw() with correct winding order.
 
-        float worldScale = 0.0005f;
+        float worldScale = 0.005f;
         float textWorldWidth = kanjiWorldLayout.totalWidth() * worldScale;
         
         PoseStack poseStack = new PoseStack();
         Matrix4f modelView = poseStack.last().pose();
         modelView.set(viewMatrix);
-        modelView.translate(-textWorldWidth * 0.5f, 1.5f, -0.2f);
+        modelView.translate(-textWorldWidth * 0.5f, 10f, -0.2f);
         modelView.scale(worldScale, -worldScale, worldScale);
 
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "kanjiWorldDraw")) {
