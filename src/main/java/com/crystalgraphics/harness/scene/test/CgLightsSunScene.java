@@ -72,7 +72,7 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        CgPlatform.provide(CgLevels.SERVICE, CgLevels.single(world, CgEntityQuery.NONE));
+        CgPlatform.provide(CgLevels.HOST, CgLevels.single(world, CgEntityQuery.NONE));
         CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         handed = CgMaterial.load("assets/harness/shader/handed_sun_pane.shader");
@@ -191,7 +191,7 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
     public void dispose() {
         if (target != null) target.delete();
         if (lightmap != null) lightmap.delete();
-        CgPlatform.provide(CgLevels.SERVICE, null);
+        CgPlatform.provide(CgLevels.HOST, null);
     }
 
     @Override public boolean isRunning() { return running; }

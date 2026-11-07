@@ -59,7 +59,7 @@ public final class CgLightsShadowsBenchScene implements InteractiveSceneLifecycl
 
     @Override
     public void init(HarnessContext ctx) {
-        CgPlatform.provide(CgLevels.SERVICE, CgLevels.single(new Flat(), ENTITIES > 0 ? new Herd() : CgEntityQuery.NONE));
+        CgPlatform.provide(CgLevels.HOST, CgLevels.single(new Flat(), ENTITIES > 0 ? new Herd() : CgEntityQuery.NONE));
         CgWorldRenderer.get().install();
         floor = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         demo.precache();

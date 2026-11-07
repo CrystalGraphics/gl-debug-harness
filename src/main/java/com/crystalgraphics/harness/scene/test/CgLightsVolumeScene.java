@@ -72,7 +72,7 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        CgPlatform.provide(CgLevels.SERVICE, CgLevels.single(world, CgEntityQuery.NONE));
+        CgPlatform.provide(CgLevels.HOST, CgLevels.single(world, CgEntityQuery.NONE));
         CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         glass = CgMaterial.load("assets/harness/shader/forward_transparent_test.shader");
@@ -203,7 +203,7 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         if (target != null) target.delete();
-        CgPlatform.provide(CgLevels.SERVICE, null);
+        CgPlatform.provide(CgLevels.HOST, null);
     }
 
     @Override public boolean isRunning() { return running; }

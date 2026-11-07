@@ -114,7 +114,7 @@ public class CgVfxCascadeCollideScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        CgPlatform.provide(CgLevels.SERVICE, CgLevels.single(world, CgEntityQuery.NONE));
+        CgPlatform.provide(CgLevels.HOST, CgLevels.single(world, CgEntityQuery.NONE));
         Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, 0.1f, -0.45f, -1f, 0f, 1f, 0f);
         view.set(CX, 76.0, CZ + 20.5, look, new Matrix4f().perspective((float) Math.toRadians(80), 16f / 9f, 0.05f, 300f));
         CgVfxParticlePool.precacheAhead("harness:vfx-cascade-collide", Arrays.asList(emitters).subList(0, 4), 0);
@@ -379,7 +379,7 @@ public class CgVfxCascadeCollideScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
-        CgPlatform.provide(CgLevels.SERVICE, null);
+        CgPlatform.provide(CgLevels.HOST, null);
     }
 
     @Override public boolean isRunning() { return running; }

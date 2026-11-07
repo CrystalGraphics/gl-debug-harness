@@ -84,7 +84,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        CgPlatform.provide(CgLevels.SERVICE, CgLevels.single(new Flat(), CgEntityQuery.NONE));
+        CgPlatform.provide(CgLevels.HOST, CgLevels.single(new Flat(), CgEntityQuery.NONE));
         CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         CgWorldRenderer.get().media().add(haze);
@@ -238,7 +238,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
         demo.delete();
         if (target != null) target.delete();
         CgWorldRenderer.get().media().remove(haze);
-        CgPlatform.provide(CgLevels.SERVICE, null);
+        CgPlatform.provide(CgLevels.HOST, null);
     }
 
     @Override public boolean isRunning() { return running; }

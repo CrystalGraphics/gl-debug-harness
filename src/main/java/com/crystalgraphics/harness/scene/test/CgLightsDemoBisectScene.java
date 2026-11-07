@@ -119,7 +119,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        CgPlatform.provide(CgLevels.SERVICE, CgLevels.single(new Flat(), CgEntityQuery.NONE));
+        CgPlatform.provide(CgLevels.HOST, CgLevels.single(new Flat(), CgEntityQuery.NONE));
         CgWorldRenderer.get().install();
         floor = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         demo.precache();
@@ -221,7 +221,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
     public void dispose() {
         demo.delete();
         if (target != null) target.delete();
-        CgPlatform.provide(CgLevels.SERVICE, null);
+        CgPlatform.provide(CgLevels.HOST, null);
     }
 
     @Override public boolean isRunning() { return running; }
