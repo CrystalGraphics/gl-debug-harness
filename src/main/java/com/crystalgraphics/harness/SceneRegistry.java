@@ -94,6 +94,7 @@ import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
 import com.crystalgraphics.harness.scene.test.CgHostSectionScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
 import com.crystalgraphics.harness.scene.test.CgVectorRendererTestScene;
+import com.crystalgraphics.harness.scene.test.CgTextColdScene;
 import com.crystalgraphics.harness.scene.test.CgTextThreadedTestScene;
 import com.crystalgraphics.harness.scene.test.CgGraphExecutorTestScene;
 import com.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
@@ -1320,6 +1321,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgTextThreadedTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("text-cold")
+                .description("A face at a size nothing has drawn: frames and ms until a list of labels draws whole (crystalgraphics.harness.textCold.*)")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(800)
+                .defaultHeight(600)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgTextColdScene()
         );
 
         reg.register(
