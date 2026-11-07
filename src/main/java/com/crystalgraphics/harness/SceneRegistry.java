@@ -3,6 +3,9 @@ package com.crystalgraphics.harness;
 import com.crystalgraphics.harness.config.SceneDescriptor;
 import com.crystalgraphics.harness.scene.*;
 import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
+import com.crystalgraphics.harness.scene.test.ImageScene;
+import com.crystalgraphics.harness.scene.test.LightScene;
+import com.crystalgraphics.harness.scene.test.ReviewScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
 import com.crystalgraphics.harness.scene.test.CgDeviceMeshTestScene;
 import com.crystalgraphics.harness.scene.test.CgDeviceSetsTestScene;
@@ -175,6 +178,37 @@ public final class SceneRegistry {
      */
     public static SceneRegistry createDefault() {
         SceneRegistry reg = new SceneRegistry();
+
+        // Hand-written GL scenes: raw LWJGL, the GL device only
+        reg.register(SceneDescriptor.builder("light")
+                .description("Light")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsDepthBuffer(true)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new ReviewScene()
+        );
+        reg.register(
+            SceneDescriptor.builder("image")
+                .description("Image")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsDepthBuffer(true)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new ImageScene()
+        );
+        reg.register(
+            SceneDescriptor.builder("light-source")
+                .description("A lit cube and its orbiting light")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsDepthBuffer(true)
+                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
+                .build(),
+            () -> new LightScene()
+        );
 
         // ── Rendering scenes ──
         reg.register(
