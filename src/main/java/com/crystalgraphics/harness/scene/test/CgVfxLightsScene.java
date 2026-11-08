@@ -71,7 +71,7 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
     private ByteBuffer records, drawn, live, list, count;
     private double eyeX, eyeY, eyeZ;
     private final double[][] origins = new double[64][];
-    private int frames;
+    private int frames, askedAt;
     private boolean running = true, asked, compared;
 
     private static CgVfxEmitter emitter() {
@@ -108,29 +108,31 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         frames++;
         if (!running || compared) return;
-        if (frames == WARM) ask();
+        if (frames >= WARM && !asked) ask();
         boolean answered = asked;
         for (CgRequest r : requests) answered &= r.status() != CgRequest.Status.PENDING;
         if (answered && records != null && drawn != null && live != null && list != null && count != null) {
             compare();
             compared = true;
             running = PROFILED;
-        } else if (frames > DRAIN) {
-            System.out.println("[vfx-lights] FAIL: the readbacks never answered");
+        } else if (asked && frames - askedAt > DRAIN || frames > WARM + 10 * DRAIN) {
+            System.out.println("[vfx-lights] FAIL: " + (asked ? "the readbacks never answered"
+                    : "no pool gives light, or its buffers were never made"));
             running = false;
         }
     }
 
     /** The firing's lights, the pool's records and drawn parts and its live count, with the eye and slot origins they were made at. */
     private void ask() {
-        asked = true;
         for (CgVfxParticlePool p : CgVfxParticlePool.pools()) if (p.shape().lights()) pool = p;
-        if (pool == null) {
-            System.out.println("[vfx-lights] FAIL: no pool gives light");
-            running = false;
+        CgWorldLights lights = CgWorldRenderer.get().lights();
+        // Asked once what it reads exists: the warm-up makes the pool's storage and the light list in its own time
+        if (pool == null || pool.records() == null || pool.drawn() == null || pool.liveBuffer() == null
+                || lights.list() == null || lights.count() == null) {
             return;
         }
-        CgWorldLights lights = CgWorldRenderer.get().lights();
+        asked = true;
+        askedAt = frames;
         eyeX = lights.cameraX();
         eyeY = lights.cameraY();
         eyeZ = lights.cameraZ();
