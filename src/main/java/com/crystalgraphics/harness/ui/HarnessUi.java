@@ -21,7 +21,9 @@ import com.crystalgui.ui.dom.DocumentDriver;
 import javax.annotation.Nullable;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -31,12 +33,12 @@ import java.util.function.Predicate;
 /**
  * The harness as a CrystalGUI host, as Minecraft's screen and HUD are: one desktop a run, over every 3D scene, its
  * applications opened by key. Up, it is a game's screen: the cursor is free, the camera holds, every key and click is
- * the desktop's but Ctrl+R, and Escape that nothing in it wants closes it. Down, Escape (or T) opens it, as a game's opens
+ * the desktop's but Ctrl+R, and Escape that nothing in it wants closes it. Down, Escape (or T, or Left Alt) opens it, as a game's opens
  * its pause screen, and its pinned windows stay over the world.
  *
  * <pre>{@code
  * // a scene's init: its own application, on a key for this run
- * ctx.getUi().bind(CgKeyCodes.KEY_LMENU, MyPicker.KIND);
+ * ctx.getUi().bind(CgKeyCodes.KEY_F4, MyPicker.KIND);
  *
  * // any application, by code
  * ctx.getUi().open(VfxLab.KIND);
@@ -53,7 +55,7 @@ import java.util.function.Predicate;
  * }</pre>
  *
  * <ul>
- *   <li>No key is global: the engine's applications (VFX Lab, Crystal Editor) are in the launcher on every scene,
+ *   <li>No key opens an application unasked (Escape, T and Left Alt open the desktop): the engine's applications (VFX Lab, Crystal Editor) are in the launcher on every scene,
  *       on the scratch project {@link HarnessServer} serves, and a scene gives its own applications a key with {@code bind}. Nothing opens
  *       unasked, so the desktop Escape opens starts empty. A scene binding a key another binding has throws.</li>
  *   <li>A bound key whose application runs brings it forward, raised and given the keyboard, as a single-instance
@@ -69,6 +71,8 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
     private final HarnessServer server = new HarnessServer();
 
     private final Map<Integer, ApplicationKind> keys = new HashMap<>();
+    /** Kinds offered in the launcher with no key. */
+    private final List<ApplicationKind> offered = new ArrayList<>();
     private final Queue<Runnable> onRenderThread = new ConcurrentLinkedQueue<>();
     private final Thread renderThread = Thread.currentThread();
     private final HostSession.PaintHost paintHost = new HostSession.PaintHost() {
@@ -99,6 +103,11 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
     public void bind(int key, ApplicationKind kind) {
         ApplicationKind taken = keys.putIfAbsent(key, kind);
         if (taken != null) throw new IllegalStateException(kind.id() + " cannot take key " + key + ": " + taken.id() + " has it");
+    }
+
+    /** Offers {@code kind} in the launcher for this run, with no key: the desktop installs it as it shows. */
+    public void offer(ApplicationKind kind) {
+        offered.add(kind);
     }
 
     /** Shows the desktop with {@code kind} brought forward if it runs, launched if not. Render thread. */
@@ -135,6 +144,7 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
             Desktop desktop = session.desktop();
             if (desktop == null) return;
             for (ApplicationKind kind : keys.values()) install(desktop, kind);
+            for (ApplicationKind kind : offered) install(desktop, kind);
         });
     }
 
@@ -233,8 +243,9 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         ApplicationKind bound = event.pressed() && !event.repeat() ? keys.get(event.key()) : null;
         if (!shown) {
             if (bound != null) open(bound);
-            // Escape opens the desktop, as a game's opens its pause screen; T, the harness's old pause key, too
-            else if (event.pressed() && !event.repeat() && (event.key() == CgKeyCodes.KEY_ESCAPE || event.key() == CgKeyCodes.KEY_T)) {
+            // Escape opens the desktop, as a game's opens its pause screen; T, the harness's old pause key, and Left Alt too
+            else if (event.pressed() && !event.repeat() && (event.key() == CgKeyCodes.KEY_ESCAPE || event.key() == CgKeyCodes.KEY_T
+                    || event.key() == CgKeyCodes.KEY_LMENU)) {
                 showDesktop();
                 return false;
             }
@@ -252,8 +263,9 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         return false;
     }
 
-    /** A key the desktop left: the scene's, else Escape closes the desktop, as a game's screen. */
+    /** A key the desktop left: the listeners' ({@code HostSession.onKeyLeft}), the scene's, else Escape closes the desktop, as a game's screen. */
     private void left(CgSystemInput.Keyboard.Event event) {
+        if (HostSession.session().offerLeftKey(event)) return;
         Predicate<CgSystemInput.Keyboard.Event> keys = sceneKeys;
         if (keys != null && keys.test(event)) return;
         if (event.pressed() && event.key() == CgKeyCodes.KEY_ESCAPE) hide();
