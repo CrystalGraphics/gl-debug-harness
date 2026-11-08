@@ -4,6 +4,7 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.gl.buffer.CgFrameRing;
+import com.crystalgraphics.gl.buffer.CgReadback;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -12,6 +13,7 @@ import com.crystalgraphics.harness.util.HarnessFboHelper;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.CgWarmBudget;
+import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.look.CgColorGrade;
 import com.crystalgraphics.render.post.look.CgFilmLut;
@@ -43,7 +45,8 @@ import java.util.function.Consumer;
  * weight 0, one out of reach and a flash with the player's flashes at 0 change nothing; a flash brightens, a vignette
  * darkens the corners, an inverted impact frame is the negative, chromatic aberration moves edges, focus lines darken,
  * a drawn frame fills the glowing ball and not the wall; a volume of higher priority overrides a lower one exactly; and
- * Unreal 4.21's tonemapper draws each pixel as the CPU's bake of its table reads it, Unreal's colour grading each as
+ * Unreal 4.21's tonemapper draws each pixel as the CPU's bake of its table reads it, the GPU's table holds the CPU's
+ * bake cell by cell for 4.21's and 5.1's curves (within a 10-bit table's step), Unreal's colour grading each as
  * the CPU grades it, and a neutral grade changes nothing; Unreal's Gaussian bloom brightens beside the ball and, its
  * widest layer, the corners.
  *
@@ -137,6 +140,16 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         CgFilmLut.bake(stage, table);
         toneWorst = toneError(linear, toned, table);
         if (toneWorst > 3) failures.add("the tonemapper: a pixel " + toneWorst + " codes from the CPU's table");
+        // The GPU's table itself against the CPU's bake: 4.21's, 5.1's at its defaults, and 5.1's graded and balanced
+        CgPostSettings filmic = new CgPostSettings().filmic();
+        CgPostSettings filmicGraded = new CgPostSettings().filmic().whiteBalance(5500f, 0f).expandGamut(0.5f)
+                .grade(Region.SHADOWS, Control.GAIN, 0.8f, 0.9f, 1.2f, 1f).grade(Region.MIDTONES, Control.GAMMA, 1.1f, 1f, 0.9f, 1f)
+                .grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0.7f).tint(1f, 0.95f, 0.9f);
+        List<CgPostSettings> tables = List.of(stage, filmic, filmicGraded);
+        for (int t = 0; t < tables.size(); t++) {
+            tableWorst[t] = tableError(world, tables.get(t));
+            if (!(tableWorst[t] <= TABLE_STEP)) failures.add("the GPU's table " + t + ": a cell " + tableWorst[t] + " from the CPU's");
+        }
         // Unreal's colour grading: each pixel as the CPU grades the untoned picture, then tinted.
         CgPostSettings cold = new CgPostSettings().grade(Region.SHADOWS, Control.GAIN, 0.8f, 0.9f, 1.2f, 1f)
                 .grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0.7f).grade(Region.HIGHLIGHTS, Control.GAIN, 1f, 1f, 1f, 0.9f)
@@ -229,13 +242,56 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         report(failures, GlErrorChecker.checkAndLog("post-looks"));
     }
 
-    /** The wall and the ball in front of it under the volumes {@code setup} opens, captured; then the volumes closed. */
-    private BufferedImage draw(HarnessContext ctx, CgWorldRenderer world, String name, Consumer<List<CgPostVolume>> setup) {
-        List<CgPostVolume> open = new ArrayList<>();
-        setup.accept(open);
+    /** A 10-bit table's step, Unreal's own table's precision: what the GPU's may differ from the CPU's by. */
+    private static final double TABLE_STEP = 1.0 / 1023.0;
+    /** Each table's worst cell against the CPU's bake: for the verdict. */
+    private static final double[] tableWorst = new double[3];
+
+    /**
+     * {@code s}'s table as the GPU builds it ({@code CgFilmLut}), read back, against {@link CgFilmLut#bake}'s: the most
+     * any channel of any cell differs; infinity if it never came back.
+     */
+    private double tableError(CgWorldRenderer world, CgPostSettings s) {
+        int n = CgFilmLut.SIZE;
+        CgFilmLut lut = new CgFilmLut();
+        float[] got = new float[CgFilmLut.CELLS * 4];
+        boolean[] read = new boolean[2];
+        CgRenderStage.Registration reading = CgRenderStage.WORLD_TRANSPARENT.register(CgWorldRenderer.ORDER + 1, stage -> {
+            if (read[0]) return;
+            read[0] = true;
+            CgGraphTexture table = lut.texture(stage.recording(), s);
+            stage.recording().readback(table, 0, 0, 0, 0, n, n, n, d -> {
+                for (int i = 0; i < got.length; i++) got[i] = d.getFloat(i * 4);
+                read[1] = true;
+            });
+        });
+        // A managed scene renders once, so no frame of the device's ends by itself: a readback lands when one does
+        for (int f = 0; f < 10 && !read[1]; f++) {
+            fire(world);
+            CgRHI.get().endFrame();
+            CgReadback.poll();
+        }
+        reading.close();
+        if (!read[1]) return Double.POSITIVE_INFINITY;
+        float[] want = new float[CgFilmLut.CELLS * 3];
+        CgFilmLut.bake(s, want);
+        double worst = 0;
+        for (int c = 0; c < CgFilmLut.CELLS; c++) {
+            for (int k = 0; k < 3; k++) worst = Math.max(worst, Math.abs(got[c * 4 + k] - want[c * 3 + k]));
+        }
+        return worst;
+    }
+
+    /** One frame of the stages over the wall and the ball, into a target of its own, not kept. */
+    private void fire(CgWorldRenderer world) {
         HarnessFboHelper target = HarnessFboHelper.create(W, H, true);
         target.bind();
-        target.clear(0.25f, 0.3f, 0.4f, 1f);
+        fire(world, target);
+        target.unbind();
+        target.delete();
+    }
+
+    private void fire(CgWorldRenderer world, HarnessFboHelper target) {
         CgMesh cube = CgMeshShapes.cube(), ball = CgMeshShapes.sphere(24, 32);
         world.draw(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).submit();
         world.draw(ball, glow).at(0, 0, -3).transform(new Matrix4f().scale(0.6f)).submit();
@@ -247,6 +303,16 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
             stage.fire();
         }
         CgFrameRing.endFrame();
+    }
+
+    /** The wall and the ball in front of it under the volumes {@code setup} opens, captured; then the volumes closed. */
+    private BufferedImage draw(HarnessContext ctx, CgWorldRenderer world, String name, Consumer<List<CgPostVolume>> setup) {
+        List<CgPostVolume> open = new ArrayList<>();
+        setup.accept(open);
+        HarnessFboHelper target = HarnessFboHelper.create(W, H, true);
+        target.bind();
+        target.clear(0.25f, 0.3f, 0.4f, 1f);
+        fire(world, target);
         target.captureToFile(ctx.getOutputDir(), name + ".png");
         target.unbind();
         target.delete();
@@ -379,6 +445,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
             System.out.println("[post-looks] PASS on " + on + ": weight 0, out of reach and flashes 0 change nothing; "
                     + "flash, vignette, invert, aberration and focus lines each show; a drawn frame's subject is the glow; "
                     + "priority overrides; the tonemapper within " + String.format("%.2f", toneWorst) + " codes of the CPU's table; "
+                    + "the GPU's tables within " + String.format("%.1e, %.1e, %.1e", tableWorst[0], tableWorst[1], tableWorst[2]) + " of the CPU's bake; "
                     + "the grade within " + String.format("%.2f", gradeWorst) + " codes of the CPU's, a neutral one exact; Unreal's Gaussian bloom spreads to the corners; a graded draw leaves the frame away from it exact, "
                     + "takes its look (saturation " + String.format("%.2f", gradedSaturation[0]) + " from " + String.format("%.2f", gradedSaturation[1])
                     + ") and its own bloom (" + String.format("%.1f", gradedSaturation[2]) + " brighter beside it), an opaque one too (saturation "
