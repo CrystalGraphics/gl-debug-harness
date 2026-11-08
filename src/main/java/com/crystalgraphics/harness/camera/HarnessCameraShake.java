@@ -38,7 +38,7 @@ public final class HarnessCameraShake implements CgHostCamera {
 
     @Override
     public int capabilities() {
-        return ROTATION | ROLL | FOV;
+        return ROTATION | ROLL | FOV | TRANSLATION;
     }
 
     @Override

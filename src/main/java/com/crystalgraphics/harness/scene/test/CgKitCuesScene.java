@@ -9,12 +9,15 @@ import com.crystalgraphics.asset.registry.CgAssetEntry;
 import com.crystalgraphics.asset.load.CgLoadPriority;
 import com.crystalgraphics.asset.load.CgVfxAssets;
 import com.crystalgraphics.cue.CgCueDefinition;
+import com.crystalgraphics.cue.CgCueInspector;
 import com.crystalgraphics.cue.CgCueManager;
 import com.crystalgraphics.cue.CgCueParameters;
 import com.crystalgraphics.cue.CgCuePlaying;
 import com.crystalgraphics.frame.CgTickFunction;
 import com.crystalgraphics.frame.CgTickGroup;
 import com.crystalgraphics.frame.CgWorld;
+import com.crystalgraphics.harness.camera.Camera3D;
+import com.crystalgraphics.harness.camera.HarnessCameraShake;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -33,8 +36,10 @@ import org.joml.Matrix4f;
 
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * A kit's cues fired at a dummy standing on the harness's ground, through the engine's own path: the client world's cue manager,
@@ -47,6 +52,7 @@ import java.util.Locale;
  * ./gradlew :gl-debug-harness:runHarness -Pharness.assetRoots=$R --args="--mode=kit-cues" \
  *     -Dcrystalgraphics.harness.kitCues.namespace=s0 -Dcrystalgraphics.harness.kitCues.kit=$R/assets/s0 \
  *     -Dcrystalgraphics.harness.kitCues.cues=hit_spark/melee/light,hit_spark/melee/medium,hit_spark/melee/heavy
+ * // more kits in the Cues picker: -Dcrystalgraphics.harness.kitCues.extraKits=kk=$R/assets/kk,rpgcore=$R/assets/rpgcore
  * // `: fire again   N / B: next / previous cue   Left Alt: desktop   Y / Shift+Y: time faster / slower   Tab: pause or play time
  * // X / Z: pause and step 1/60 s forward / back, held to repeat; 0 to the end less 1/60 s, and round again
  * // C: the kit's colour grade on or off (each draw under its kit's look, or the frame's)
@@ -69,9 +75,10 @@ import java.util.Locale;
  *   <li>{@code .regions=false} plays the cues' sequences without their colour regions.</li>
  *   <li>The cues and the sequences their bursts play load behind the loading screen, a task of its plan, until they
  *       are {@code READY}: a burst still loading 0.2 s after it fires plays nothing, as in the game.</li>
- *   <li>The HUD's age is the hit's time over its duration, its longest sequence's length; it holds at the end.</li>
- *   <li>A step forward pauses and simulates one frame; a step back, and a step past the end, seek the hit, which
- *       keeps its seeds: only a fire (`, N, B) draws new ones.</li>
+ *   <li>The HUD's age is the hit's time over its duration: its longest sequence's, or when its last system completed
+ *       ({@code ?} until it has); it holds at the end.</li>
+ *   <li>A step forward pauses and simulates one frame; a step back, and a step past the end, seek the hit (its
+ *       sequences and particle systems), which keeps its seeds: only a fire (`, N, B) draws new ones.</li>
  *   <li>A pixel check of the frame is the caller's: {@code .capture=<n>} writes frames 1 to n of play as
  *       {@code kit-cues-f<k>.png}.</li>
  * </ul>
@@ -82,8 +89,6 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     /** The dummy's feet and the hit at its chest, the camera on +z looking down -z. */
     private static final double HIT_X = 0, HIT_Y = 1.2, HIT_Z = 0;
     private static final float[] SPEEDS = {0f, 0.01f, 0.05f, 0.1f, 0.25f, 0.5f, 1f};
-    /** A paused step, in the hit's seconds. */
-    private static final double STEP = 1.0 / 60.0;
 
     private final List<String> ids = new ArrayList<>();
     private final List<CgAssetRef<CgCueDefinition>> cues = new ArrayList<>();
@@ -101,6 +106,10 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private final float fireEvery = Float.parseFloat(System.getProperty("crystalgraphics.harness.kitCues.fireEvery", "2"));
     private final int capture = Integer.getInteger("crystalgraphics.harness.kitCues.capture", 0);
     private HarnessKitSystems kit;
+    private boolean shakeWasOn;
+    private final List<HarnessKitSystems> extraKits = new ArrayList<>();
+    /** What the extra kits load: a failure there is named and skipped, as the main kit's is fatal. */
+    private final Set<CgAssetRef<?>> extras = new HashSet<>(), warned = new HashSet<>();
     private CgSequencer sequencer;
     /** Takes the HUD's keys off the desktop's left keys at the end. */
     private Runnable keysLeft;
@@ -108,9 +117,9 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private CgMesh cube;
     private int speed = SPEEDS.length - 1, frames;
     private String namespace;
-    private boolean declared, loaded, started, fireNow, shift, running = true;
-    /** Steps forward asked for and not yet simulated: one a frame, so a held key's repeats each step once. */
-    private int steps;
+    private boolean extrasDeclared, declared, loaded, started, fireNow, shift, running = true;
+    /** The engine's transport over the last burst: its sequences and particle systems, paused, stepped and sought. */
+    private CgCueInspector inspector;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -123,9 +132,27 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         ctx.getCamera3D().moveCamera((float) HIT_X, 1.62f, (float) HIT_Z + distance);
         ctx.getCamera3D().setPitch(-5f);
         selection.at(HIT_X, HIT_Y, HIT_Z).normal(0f, 0f, 1f);
+        // A cue's camera shake reaches the view only while the harness camera applies it, and C is this scene's grade key
+        shakeWasOn = HarnessCameraShake.INSTANCE.on();
+        if (!shakeWasOn) HarnessCameraShake.INSTANCE.toggle();
         kit = HarnessKitSystems.load(CgVfx.world(), namespace, Paths.get(folder), List.of());
+        // Further kits, for the picker: registered beside the first, not stepped through or waited on
+        for (String entry : System.getProperty("crystalgraphics.harness.kitCues.extraKits", "").split(",")) {
+            int eq = entry.indexOf('=');
+            if (eq > 0) extraKits.add(HarnessKitSystems.load(CgVfx.world(), entry.substring(0, eq).trim(), Paths.get(entry.substring(eq + 1).trim()), List.of()));
+        }
         // The engine's sequencer, as a client's: a burst's sequences play through it
         sequencer = CgVfxSequencer.install(CgWorld.client(), CgVfx.world());
+        // Made before any burst: it follows only what plays after it
+        inspector = CgCueInspector.client();
+        // The harness has no player or level, so an in-world shake would find no viewer and never play: the camera is it
+        Camera3D camera = ctx.getCamera3D();
+        CgCueManager.client().viewer(out -> {
+            out[0] = camera.getPosX();
+            out[1] = camera.getPosY();
+            out[2] = camera.getPosZ();
+            return true;
+        });
         // Its colour regions left out, to tell what they grade from what the rest of the hit does
         if (!Boolean.parseBoolean(System.getProperty("crystalgraphics.harness.kitCues.regions", "true"))) {
             sequencer.spawner("colour_region", (player, spawnable, at) -> new CgSequenceSpawnScene.Fixture());
@@ -158,7 +185,22 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
                 cues.add(ref);
             }
         }
-        if (!loaded && declared && allLoaded()) loaded = true;
+        // The other kits' cues load behind the loading screen too, so a pick in the picker plays at once
+        if (declared && !extrasDeclared) {
+            boolean scanned = true;
+            for (HarnessKitSystems extra : extraKits) scanned &= extra.declared() || extra.failed();
+            if (scanned) {
+                extrasDeclared = true;
+                for (CgAssetEntry e : CgVfxAssets.instance().registry().entries(CgGameplayKinds.CUE)) {
+                    if (e.namespace().equals(namespace)) continue;
+                    CgAssetRef<CgCueDefinition> ref = CgVfxAssets.instance().declare(CgGameplayKinds.CUE, e.id());
+                    ref.request(CgLoadPriority.MOVE);
+                    cues.add(ref);
+                    extras.add(ref);
+                }
+            }
+        }
+        if (!loaded && declared && extrasDeclared && allLoaded()) loaded = true;
     }
 
     private static String require(String key) {
@@ -169,13 +211,14 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        // A step simulates exactly STEP in one frame: the frame's dilation is what moves the world on by it. A fire's
-        // own frame moves nothing, so stepping from it starts at the cue's frame 0
-        double dt = frame.getDeltaTime();
-        boolean stepping = speed == 0 && dt > 0 && !fireNow && steps > 0;
-        if (stepping) steps--;
-        double rate = stepping ? STEP / dt : SPEEDS[speed];
-        CgWorld.client().timeDilation((float) rate);
+        // Paused, the inspector owns the clock (it releases one queued step a frame); playing, the speed is ours, set
+        // after unpausing since the inspector puts back what it found
+        if (speed == 0) {
+            if (!inspector.paused()) inspector.setPaused(true);
+        } else {
+            if (inspector.paused()) inspector.setPaused(false);
+            CgWorld.client().timeDilation(SPEEDS[speed]);
+        }
         // The session may not be up in init: listen for the keys the desktop leaves from the first frame
         if (keysLeft == null && HostSession.isInstalled()) {
             HostSession session = HostSession.session();
@@ -208,31 +251,42 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private boolean allLoaded() {
         for (CgAssetRef<CgCueDefinition> ref : cues) {
             if (ref.failure() != null) {
-                System.out.println(TAG + "FAIL: " + ref.failure());
-                running = false;
-                return false;
+                if (!skipped(ref)) return false;
+                continue;
             }
             if (!ref.ready()) return false;
         }
         if (!sequencesDeclared) {
             sequencesDeclared = true;
             for (CgAssetRef<CgCueDefinition> ref : cues) {
+                if (ref.failure() != null) continue;
                 for (CgCueDefinition.SequenceEntry e : ref.loaded().burst().sequences()) {
                     CgAssetRef<CgSequenceDefinition> seq = CgVfxAssets.instance().declare(CgSequenceKinds.SEQUENCE, e.sequence());
                     seq.request(CgLoadPriority.MOVE);
                     sequences.add(seq);
+                    if (extras.contains(ref)) extras.add(seq);
                 }
             }
         }
         for (CgAssetRef<CgSequenceDefinition> seq : sequences) {
             if (seq.failure() != null) {
-                System.out.println(TAG + "FAIL: " + seq.failure());
-                running = false;
-                return false;
+                if (!skipped(seq)) return false;
+                continue;
             }
             if (!seq.ready()) return false;
         }
         return true;
+    }
+
+    /** A failed extra-kit asset is named once and left out; the main kit's stops the scene. False when it stopped it. */
+    private boolean skipped(CgAssetRef<?> ref) {
+        if (extras.contains(ref)) {
+            if (warned.add(ref)) System.out.println(TAG + "WARN, skipped: " + ref.failure());
+            return true;
+        }
+        System.out.println(TAG + "FAIL: " + ref.failure());
+        running = false;
+        return false;
     }
 
     private void fire() {
@@ -241,39 +295,14 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         else selection.fire();
     }
 
-    /** Where the hit stands once the steps forward still queued are simulated. */
-    private double at() {
-        return Math.min(selection.age(), selection.duration()) + steps * STEP;
-    }
-
     /**
-     * Pauses and steps forward a frame, simulated. The frames run from 0 to the end less a frame and round again: from
-     * the last, it seeks back to 0; from a hit played out to its end, to its first frame. Seeks keep the hit's seeds.
+     * Pauses and steps the hit {@code frames} frames, through the engine's inspector: forward simulates one a frame, back
+     * seeks, its sequences and particle systems both, keeping their seeds; round from either end.
      */
-    private void stepForward() {
-        if (!started || selection.duration() <= 0) return;
+    private void step(int frames) {
+        if (!started) return;
         speed = 0;
-        double from = at();
-        if (from >= selection.duration() - 1e-6) seek(STEP);
-        else if (from >= selection.duration() - STEP - 1e-6) seek(0);
-        else steps++;
-    }
-
-    /** Pauses and seeks a frame back; from 0, or the end, to the end less a frame. */
-    private void stepBack() {
-        if (!started || selection.duration() <= 0) return;
-        speed = 0;
-        double from = at();
-        seek(from >= selection.duration() - 1e-6 || from <= 1e-6 ? selection.duration() - STEP : from - STEP);
-    }
-
-    /**
-     * The hit at {@code seconds}, as a scrub lands: each of its sequences sought there, and each system they play
-     * played again from its age with the seed it drew, so the frame is the one play showed.
-     */
-    private void seek(double seconds) {
-        steps = 0;
-        selection.seek(seconds);
+        inspector.step(frames);
     }
 
     @Override
@@ -289,8 +318,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         if (!event.pressed()) return false;
         // A held step key steps once a repeat, as the OS repeats it; every other key acts on its press alone
         if (key == CgKeyCodes.KEY_X || key == CgKeyCodes.KEY_Z) {
-            if (key == CgKeyCodes.KEY_X) stepForward();
-            else stepBack();
+            step(key == CgKeyCodes.KEY_X ? 1 : -1);
             return true;
         }
         if (event.repeat()) return false;
@@ -324,9 +352,11 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         String cue = selection.current().isEmpty() ? "-" : selection.current();
         return String.format(Locale.ROOT, "%nCue [N/B]: %s | Fire [`]%n"
                         + "Time [Tab]: %s | Speed [Y]: x%s | Step [Z X]%n"
-                        + "Age: %.3f / %.3f s | %s | fires %d | hit players %d%n"
+                        + "Age: %.3f / %s s | %s | fires %d | hit players %d%n"
                         + "Kit colour grade [C]: %s",
-                cue, speed == 0 ? "paused" : "playing", SPEEDS[speed], Math.min(selection.age(), selection.duration()), selection.duration(),
+                cue, speed == 0 ? "paused" : "playing", SPEEDS[speed],
+                inspector.age(),
+                Double.isNaN(inspector.duration()) ? "?" : String.format(Locale.ROOT, "%.3f", inspector.duration()),
                 selection.state(), selection.fires(), selection.hit().size(),
                 CgWorldRenderer.get().gradeDraws() ? "on" : "off").replace("\r", "");
     }
@@ -338,6 +368,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
 
     @Override
     public void dispose() {
+        if (!shakeWasOn && HarnessCameraShake.INSTANCE.on()) HarnessCameraShake.INSTANCE.toggle();
         if (submit != null) submit.close();
         if (keysLeft != null) keysLeft.run();
     }
