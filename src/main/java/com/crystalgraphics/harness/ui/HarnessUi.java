@@ -263,8 +263,9 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         return false;
     }
 
-    /** A key the desktop left: the scene's, else Escape closes the desktop, as a game's screen. */
+    /** A key the desktop left: the listeners' ({@code HostSession.onKeyLeft}), the scene's, else Escape closes the desktop, as a game's screen. */
     private void left(CgSystemInput.Keyboard.Event event) {
+        if (HostSession.session().offerLeftKey(event)) return;
         Predicate<CgSystemInput.Keyboard.Event> keys = sceneKeys;
         if (keys != null && keys.test(event)) return;
         if (event.pressed() && event.key() == CgKeyCodes.KEY_ESCAPE) hide();
