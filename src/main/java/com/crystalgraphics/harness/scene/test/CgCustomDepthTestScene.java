@@ -28,8 +28,8 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 /**
- * The gate for CustomDepth and CustomStencil ({@code Draw.customDepth}, aaa-milestones OL2): the stencil byte read back
- * from {@link CgFrameKeys#CUSTOM_DEPTH} at five pixels. A cube hidden behind an unmarked wall must still be written (3:
+ * The gate for CustomDepth and CustomStencil ({@code Draw.customDepth}, aaa-milestones OL2): the stencil byte of
+ * {@link CgFrameKeys#CUSTOM_DEPTH}, sampled as a reader samples it ({@link StencilProbe}), at five pixels. A cube hidden behind an unmarked wall must still be written (3:
  * tested against CustomDepth alone); a near cube (0x0F, mask 0xFF) in front of a larger far one (0x30, mask 0xF0) must
  * read 0x3F where they overlap (the far one fails depth and replaces its bits, Unreal's partial-mask rule) and 0x30
  * where the far one shows alone; a skinned quad reads 0x80; the empty background 0.
@@ -66,6 +66,8 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
 
     private CgRenderStage.Registration asking, reader, probing;
     private CgPostMaterial probe;
+    /** CustomStencil as a reader samples it: the bytes compared at the five pixels. */
+    private StencilProbe stencilProbe;
     private volatile byte[] stencil;
     private volatile float[] normal, data, hiddenData;
     /** The hidden cube's pixel, behind the wall: its custom data must read the clear, DefaultLit's (256, 0). */
@@ -93,6 +95,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
         // After the composite, onto the host's RGBA8, read back as it stands: in the scene its values would be encoded
         probe = CgPostMaterial.of("assets/harness/shader/scene_textures_probe.shader", CgPostPoint.AFTER_COMPOSITE);
         probing = CgPostStack.get().add(probe);
+        stencilProbe = new StencilProbe();
         reader = CgRenderStage.WORLD_TRANSPARENT.register(CgWorldRenderer.ORDER + 1, stage -> {
             CgGraphTexture mask = stage.resources().get(CgFrameKeys.CUSTOM_DEPTH);
             CgGraphTexture normals = stage.resources().get(CgFrameKeys.WORLD_NORMALS);
@@ -101,7 +104,8 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
             stage.recording().readback(normals, 0, NX, NY, 1, 1, this::readNormal);
             stage.recording().readback(custom, 0, NX, NY, 1, 1, d -> data = new float[]{d.getFloat(0), d.getFloat(4)});
             stage.recording().readback(custom, 0, HX, HY, 1, 1, d -> hiddenData = new float[]{d.getFloat(0), d.getFloat(4)});
-            stage.recording().readback(mask, 0, 0, 0, W, H, this::read);
+            CgGraphTexture bytes = stencilProbe.record(stage, mask);
+            if (bytes != null) stage.recording().readback(bytes, 0, 0, 0, W, H, this::read);
         });
     }
 

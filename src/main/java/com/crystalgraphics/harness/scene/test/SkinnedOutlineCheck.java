@@ -56,6 +56,8 @@ final class SkinnedOutlineCheck {
     private final CgMaterial pass;
     private final List<CgAnimInstance> held;
     private final CgRenderStage.Registration reader;
+    /** Goku's CustomStencil as the outline samples it. */
+    private final StencilProbe stencilProbe = new StencilProbe();
     private volatile byte[] stencil;
     /** The custom data's packed x per pixel: 0 where no writer's redraw landed. */
     private volatile float[] packed;
@@ -83,8 +85,10 @@ final class SkinnedOutlineCheck {
         this.reader = CgRenderStage.WORLD_TRANSPARENT.register(CgWorldRenderer.ORDER + 1, stage -> {
             CgGraphTexture mask = stage.resources().get(CgFrameKeys.CUSTOM_DEPTH);
             if (!readStencil || mask == null) return;
+            CgGraphTexture bytes = stencilProbe.record(stage, mask);
+            if (bytes == null) return;   // the probe's program is still building: the next frame reads
             readStencil = false;
-            stage.recording().readback(mask, 0, 0, 0, mask.getWidth(), mask.getHeight(), d -> stencil = copy(d, mask.getWidth() * mask.getHeight()));
+            stage.recording().readback(bytes, 0, 0, 0, mask.getWidth(), mask.getHeight(), d -> stencil = copy(d, mask.getWidth() * mask.getHeight()));
             CgGraphTexture data = stage.resources().get(CgFrameKeys.CUSTOM_DATA);
             if (data != null) {
                 int n = data.getWidth() * data.getHeight();
