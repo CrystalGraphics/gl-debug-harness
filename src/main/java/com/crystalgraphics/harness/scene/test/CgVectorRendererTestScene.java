@@ -55,7 +55,7 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
     public void init(HarnessContext ctx) {
         // The shipped reference material — no Properties to bind, since a stroke's colour, width and
         // softness are all per-instance data rather than material state.
-        material = CgMaterial.load("crystalgraphics:shaders/curve.shader");
+        material = CgMaterial.load("crystalgraphics:shaders/canvas/curve.shader");
     }
 
     @Override
