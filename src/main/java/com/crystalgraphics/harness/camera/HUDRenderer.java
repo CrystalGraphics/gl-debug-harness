@@ -7,7 +7,7 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.bloom.CgBloom;
 import com.crystalgraphics.render.world.CgWorldRenderer;
-import com.crystalgraphics.text.render.CgTextRenderer;
+import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.camera.CgCameraShake;
 
@@ -49,7 +49,6 @@ public final class HUDRenderer {
 
     private CgFont font;
     private int fontPx;
-    private CgTextRenderer renderer;
     private static final long REFRESH_NANOS = 50_000_000L;
     private CgTextLayout layout;
     private int layoutPx;
@@ -67,13 +66,8 @@ public final class HUDRenderer {
         shakeAndGlow = shown;
     }
 
-    /** Once, on the render thread. */
-    public void init(HarnessContext ctx) {
-        if (renderer == null) renderer = CgTextRenderer.create();
-    }
-
-    public void render(HarnessContext ctx) {
-        if (renderer == null) throw new IllegalStateException("HUDRenderer.init() must be called before render()");
+    /** Draws the HUD on {@code canvas}, in the window's pixels. */
+    public void render(CgCanvas canvas, HarnessContext ctx) {
         int px = Math.round(BASE_FONT_PX * Math.max(1f, Math.min(ctx.getScreenWidth(), ctx.getScreenHeight()) / BASE_SIDE));
         if (px != fontPx) {
             font = CgDefaultFont.regular(px);
@@ -89,9 +83,7 @@ public final class HUDRenderer {
             layoutPx = px;
             layoutAt = now;
         }
-        renderer.beginBatch();
-        renderer.draw().layout(layout).font(font).at(4, 4).color(TEXT_COLOR).stroke(OUTLINE_EM, OUTLINE_COLOR).submit();
-        renderer.endBatch();
+        canvas.text().layout(layout).font(font).at(4, 4).color(TEXT_COLOR).stroke(OUTLINE_EM, OUTLINE_COLOR).submit();
     }
 
     private String text(HarnessContext ctx) {
@@ -114,10 +106,6 @@ public final class HUDRenderer {
     }
 
     public void delete() {
-        if (renderer != null) {
-            renderer.delete();
-            renderer = null;
-        }
         // The default font is shared: dropped, never disposed
         font = null;
         fontPx = 0;

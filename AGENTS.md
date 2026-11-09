@@ -611,6 +611,7 @@ The service reads viewport dimensions live from `ViewportState` at capture time,
 | `HarnessBitmapUtil` | `util/` | FreeType bitmap normalization (pitch/row-order) |
 | `HarnessProjectionUtil` | `util/` | Orthographic + perspective projection. Owns shared constants: `FOV_DEGREES`, `NEAR_PLANE`, `FAR_PLANE` |
 | `HarnessTarget` | `util/` | A scene's offscreen host target: RGBA8 and depth, made on the device; bind, clear, capture, delete |
+| `HarnessCanvas` | `util/` | The camera an immediate `CgCanvas` draws under: `screen(w, h)` or `world(projection, w, h)`, set before the draws, then `flush()` |
 | `ObjectDraws` | `util/` | Object records drawn now through `CgImmediate`: a mesh under a material, one instance a record |
 | `ValidationCube` | `util/` | The reference cube on the floor, a colour a face, as `flat_colour` draws |
 | `HarnessCapture` | `capture/` | PNGs from a target, a framebuffer id or a texture layer: readbacks |
@@ -629,10 +630,10 @@ for the next pass to reset, and starts from nothing it can rely on either.
 
 | Mode ID                | Output Directory                                                                 | Lifecycle | Description |
 |------------------------|----------------------------------------------------------------------------------|---|---|
-| `text-2d`              | `text-2d/text-scene.png` + `atlas/atlas-dump-<size>px.png`                       | MANAGED | Full text rendered via CgTextRenderer + FBO |
+| `text-2d`              | `text-2d/text-scene.png` + `atlas/atlas-dump-<size>px.png`                       | MANAGED | Full text drawn on a canvas into a target |
 | `text-3d`              | `text-3d/{name}-normal.png`, `{name}-paused.png`, `{name}-topdown.png`           | INTERACTIVE | Interactive 3D world-space text with camera controls. Implemented by `TextScene3D`. |
 | `camera-3d` | `camera-3d/{name}-front-view.png`, etc. (4 angles)                     | INTERACTIVE | 3D camera validation with cube + floor |
-| `atlas-dump`           | `atlas-dump/atlas/atlas-dump-24px.png` + `atlas/atlas-dump-32px.png`             | MANAGED | Glyph atlas dump via CgTextRenderer production pipeline |
+| `atlas-dump`           | `atlas-dump/atlas/atlas-dump-24px.png` + `atlas/atlas-dump-32px.png`             | MANAGED | Glyph atlas dump via the production text path |
 
 
 All outputs go into scene-specific subdirectories under `harness-output/`. The `{name}` placeholder defaults to the scene mode ID, overridable with `--output-name=PREFIX`.
@@ -1044,7 +1045,7 @@ Use `--output-name=PREFIX` to customize output filenames:
 | Mode ID             | Type | Description |
 |---------------------|---|---|
 | `atlas-dump`        | MANAGED | Glyph atlas texture dump |
-| `text-2d`           | MANAGED | Full text rendering via CgTextRenderer |
+| `text-2d`           | MANAGED | Full text drawn on a canvas |
 | `text-3d`           | INTERACTIVE | Interactive 3D world-space text with camera |
 | `camera-3d`         | INTERACTIVE | Camera validation: cube from 4 angles |
 | `capability-report` | DIAGNOSTIC | CgCapabilities + environment report |
@@ -1158,6 +1159,7 @@ com.crystalgraphics.harness/
 │   └── ValidationCaptureStep.java    # Value object for a single capture step
 └── util/
     ├── HarnessTarget.java           # A scene's offscreen host target, made on the device
+    ├── HarnessCanvas.java           # The camera an immediate canvas draws under
     ├── ObjectDraws.java             # Object records drawn now through CgImmediate
     ├── ValidationCube.java          # The reference cube, a colour a face
     ├── HarnessProjectionUtil.java   # Projection matrices + shared FOV/near/far constants

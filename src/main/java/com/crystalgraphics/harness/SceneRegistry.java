@@ -1638,7 +1638,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("text-stress")
-                .description("CrystalGraphics text engine benchmark: 1000 shaped labels, no CrystalGUI — pure CgTextRenderer + FreeType/HarfBuzz")
+                .description("CrystalGraphics text engine benchmark: 1000 shaped labels, no CrystalGUI — canvas text + FreeType/HarfBuzz")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)

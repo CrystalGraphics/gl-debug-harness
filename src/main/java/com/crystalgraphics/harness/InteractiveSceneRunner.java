@@ -447,11 +447,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                             own ? worldProjection : ctx.getProjection(), scene.uses3DCamera());
                 }
 
-                // Text context
-                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.textContext")) {
-                    ctx.getTextContext().update(ctx);
-                }
-
                 // 9. Scene pass
                 long framedAs = CgTrace.currentFrameIndex();
                 FrameInfo info = new FrameInfo(frameClock.getDeltaTime(),
@@ -557,7 +552,6 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         if (ui != null) ui.dispose();
         mainTarget.delete();
         overlayCaptureOrchestrator.deletePipeline();
-        ctx.getTextContext().delete();
 
         LOGGER.info("[InteractiveSceneRunner] Cleanup complete. shouldShutdown="
                 + scene.shouldShutdownOnComplete());

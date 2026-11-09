@@ -9,12 +9,13 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.text.cache.CgFontRegistry;
-import com.crystalgraphics.text.render.CgTextRenderer;
+import com.crystalgraphics.harness.util.HarnessCanvas;
+import com.crystalgraphics.render.canvas.CgCanvas;
 
 /**
  * How long a face at a size nothing has drawn takes to appear whole: a list of short labels drawn every frame from a
- * cold registry, as a menu opening at a new size draws them. Each label is its own draw, so the renderer's degraded
- * count says how many are still missing a glyph.
+ * cold registry, as a menu opening at a new size draws them. Each label is its own draw, so whether its submit came
+ * back whole says how many are still missing a glyph.
  *
  * <p>First a primer, the same face at another size, is drawn until whole and then for {@value #PRIMER_SETTLE} more
  * frames, as a running UI has already drawn text: the first layout, the text pipeline and the workers' copy of the face
@@ -55,7 +56,7 @@ public class CgTextColdScene implements InteractiveSceneLifecycle {
 
     private CgFont font, primer;
     private int primedFor = -1;
-    private CgTextRenderer text;
+    private final CgCanvas text = new CgCanvas();
     private final PoseStack pose = new PoseStack();
     private long firstDrawNanos;
     private long firstDrawCost, worstDrawCost;
@@ -66,7 +67,6 @@ public class CgTextColdScene implements InteractiveSceneLifecycle {
     public void init(HarnessContext ctx) {
         font = CgFont.load(fontPath, CgFontStyle.REGULAR, size);
         primer = CgFont.load(fontPath, CgFontStyle.REGULAR, PRIMER_SIZE);
-        text = CgTextRenderer.createManualSized();
         if (warm) CgFontRegistry.get().warmAscii(font, Math.round(size * scale));
         System.out.println("[text-cold] " + fontPath + " at " + size + " x " + scale + " = " + Math.round(size * scale)
                 + "px" + (warm ? ", warmed" : ", cold") + (prime ? ", primed" : ", unprimed") + ", " + LABELS.length
@@ -84,18 +84,16 @@ public class CgTextColdScene implements InteractiveSceneLifecycle {
         if (framesDrawn == 0) firstDrawNanos = start;
 
         int incomplete = 0;
-        text.context().updateOrtho(w, h);
-        text.beginBatch();
+        HarnessCanvas.screen(w, h);
         for (int i = 0; i < LABELS.length; i++) {
-            long before = text.getDegradedDrawCount();
             pose.setIdentity();
             pose.translate(20f, 20f + i * 18f * scale, 0f);
             pose.scale(scale, scale, 1f);
-            text.draw().layout(CgTextLayout.of(LABELS[i], font).build())
+            boolean whole = text.text().layout(CgTextLayout.of(LABELS[i], font).build())
                     .font(font).pose(pose).at(0f, 0f).color(0xFFFFFFFF).submit();
-            if (text.getDegradedDrawCount() != before) incomplete++;
+            if (!whole) incomplete++;
         }
-        text.endBatch();
+        text.flush();
 
         long cost = System.nanoTime() - start;
         if (framesDrawn == 0) firstDrawCost = cost;
@@ -121,16 +119,14 @@ public class CgTextColdScene implements InteractiveSceneLifecycle {
 
     /** The same face at another size, scaled as the labels are, until it has drawn whole for a while. */
     private void drawPrimer(int w, int h) {
-        text.context().updateOrtho(w, h);
-        text.beginBatch();
-        long before = text.getDegradedDrawCount();
+        HarnessCanvas.screen(w, h);
         pose.setIdentity();
         pose.translate(20f, h - 60f, 0f);
         pose.scale(scale, scale, 1f);
-        text.draw().layout(CgTextLayout.of(PRIMER, primer).build())
+        boolean whole = text.text().layout(CgTextLayout.of(PRIMER, primer).build())
                 .font(primer).pose(pose).at(0f, 0f).color(0xFF9FD8FF).submit();
-        text.endBatch();
-        if (text.getDegradedDrawCount() == before) primedFor++;
+        text.flush();
+        if (whole) primedFor++;
     }
 
     @Override
@@ -150,6 +146,5 @@ public class CgTextColdScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
-        if (text != null) text.delete();
     }
 }
