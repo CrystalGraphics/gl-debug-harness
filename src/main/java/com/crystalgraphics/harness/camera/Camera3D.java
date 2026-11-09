@@ -3,7 +3,7 @@ package com.crystalgraphics.harness.camera;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
-import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.platform.input.CgInput;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 
@@ -162,7 +162,7 @@ public class Camera3D {
     }
 
     private static boolean key(int cgKey) {
-        return CgPlatform.input().isKeyDown(cgKey);
+        return CgInput.isKeyDown(cgKey);
     }
 
     /**

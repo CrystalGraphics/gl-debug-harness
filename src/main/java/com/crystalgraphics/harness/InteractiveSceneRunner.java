@@ -6,7 +6,7 @@ import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.loading.CgLoadingScreen;
 import com.crystalgraphics.loading.task.CgLoadPlan;
-import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.platform.input.CgInput;
 import com.crystalgraphics.platform.service.CgHostPaint;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.trace.CgTrace;
@@ -486,12 +486,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 CgHostPaint.leave();
             }
 
-            // 13b. Whole frame (world + scene + HUD overlay) is now fully rendered — the
-            //      canonical per-frame tick point (ticks CgFontRegistry's frame clock via
-            //      the platform lifecycle service, not called directly by feature code
-            //      like HUDRenderer/CgUiPaintContext).
+            // 13b. The whole frame is drawn: the engine's frame tick, never feature code's.
             try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.onFrameRendered")) {
-                CgPlatform.lifecycle().onFrameRendered();
+                PlatformServiceHarness.endFrame();
             }
             // The CPU mark: everything above was the frame's own work, and the swap below is waiting.
             if (!sceneFrames) CgTrace.frameEnd();
@@ -610,7 +607,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         } finally {
             CgHostPaint.leave();
         }
-        CgPlatform.lifecycle().onFrameRendered();
+        PlatformServiceHarness.endFrame();
         CgTrace.frameEnd();
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, SWAP)) {
             HarnessWindow.swapBuffers();
@@ -633,7 +630,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         } finally {
             CgHostPaint.leave();
         }
-        CgPlatform.lifecycle().onFrameRendered();
+        PlatformServiceHarness.endFrame();
         HarnessWindow.swapBuffers();
     }
 
@@ -811,8 +808,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     }
 
     private static boolean isCtrlDown() {
-        return CgPlatform.input().isKeyDown(CgKeyCodes.KEY_LCONTROL)
-                || CgPlatform.input().isKeyDown(CgKeyCodes.KEY_RCONTROL);
+        return CgInput.isKeyDown(CgKeyCodes.KEY_LCONTROL) || CgInput.isKeyDown(CgKeyCodes.KEY_RCONTROL);
     }
 
     /**

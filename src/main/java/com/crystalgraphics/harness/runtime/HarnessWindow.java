@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.runtime;
 
-import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.platform.input.CgInput;
 import com.crystalgraphics.platform.gl.CgDisabledExtensions;
 import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.input.CgKeyCodes;
@@ -57,7 +57,7 @@ import javax.imageio.ImageIO;
  *       and {@code glViewport} expect; on a HiDPI display the window's own size is smaller.</li>
  *   <li>A key and its character arrive as two events, as GLFW reports them and as CrystalGUI's modern hosts
  *       deliver them: the key with no character, then the character with {@link CgKeyCodes#KEY_NONE}.</li>
- *   <li>Key state is read through {@code CgPlatform.input()}, not from here.</li>
+ *   <li>Key state is read through {@code CgInput}, not from here.</li>
  * </ul>
  */
 public final class HarnessWindow {
@@ -246,7 +246,7 @@ public final class HarnessWindow {
             resized = true;
         });
         GLFW.glfwSetKeyCallback(window, (win, key, scancode, action, mods) -> {
-            int local = CgPlatform.input().translateKeyboardCodes(key);
+            int local = CgInput.key(key);
             keyboard.add(new CgSystemInput.Keyboard.Event((char) 0, local, action != GLFW.GLFW_RELEASE,
                     action == GLFW.GLFW_REPEAT, System.currentTimeMillis()));
         });
@@ -270,7 +270,7 @@ public final class HarnessWindow {
         });
         GLFW.glfwSetMouseButtonCallback(window, (win, button, action, mods) ->
                 mouse.add(new CgSystemInput.Mouse.Event((int) cursorX, (int) cursorY, 0, 0,
-                        CgPlatform.input().translateMouseCodes(button), action == GLFW.GLFW_PRESS, 0f,
+                        CgInput.mouseButton(button), action == GLFW.GLFW_PRESS, 0f,
                         System.currentTimeMillis())));
         GLFW.glfwSetScrollCallback(window, (win, dx, dy) -> {
             // GLFW reports a roll away from the user as positive; the event's convention is the reverse.

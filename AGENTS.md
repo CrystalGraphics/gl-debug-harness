@@ -653,7 +653,7 @@ The interactive runtime decomposes into focused services instead of one monolith
 | Component | Location | Purpose |
 |---|---|---|
 | `InteractiveSceneRunner` | `InteractiveSceneRunner.java` | Slim loop coordinator: sequences services, drives render loop |
-| `HarnessWindow` | `runtime/HarnessWindow.java` | The GLFW window and its core context (newest granted, 4.6 down to 3.3): swap, poll, pacing, resize, cursor grab, and the key/char/pointer events the runner hands to scenes. Key STATE is `CgPlatform.input()`'s, not this class's |
+| `HarnessWindow` | `runtime/HarnessWindow.java` | The GLFW window and its core context (newest granted, 4.6 down to 3.3): swap, poll, pacing, resize, cursor grab, and the key/char/pointer events the runner hands to scenes. Key STATE is `CgInput`', not this class's |
 | `FrameClock` | `runtime/FrameClock.java` | High-resolution frame timing (delta, elapsed, frame number) |
 | `InputPauseHandler` | `runtime/InputPauseHandler.java` | Pause state (a 2D scene's ESC/T, `setPaused`) + mouse grab management; a 3D scene's ESC/T open the desktop |
 | `ResizeHandler` | `runtime/ResizeHandler.java` | Framebuffer resize detection (`HarnessWindow.takeResized`) into the context's dimensions |

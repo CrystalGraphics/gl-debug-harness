@@ -5,7 +5,13 @@ import com.crystalgraphics.platform.world.CgWorldBegin;
 import com.crystalgraphics.harness.HarnessExtensions;
 import com.crystalgui.lifecycle.CgUiStart;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
-import com.crystalgraphics.lwjgl3.GlfwInputService;
+import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
+import com.crystalgraphics.lwjgl3.ClipboardGlfw;
+import com.crystalgraphics.lwjgl3.InputGlfw;
+import com.crystalgraphics.platform.input.CgClipboard;
+import com.crystalgraphics.platform.input.CgInput;
+import com.crystalgraphics.trace.CgTrace;
+import com.crystalgraphics.util.trace.CgChannels;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLBackend;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLDriver;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLContext;
@@ -21,16 +27,6 @@ import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLContext;
 import com.crystalgraphics.platform.service.CgCacheDirectory;
 import com.crystalgraphics.platform.service.CgHostPaint;
-import com.crystalgraphics.platform.service.CgInputService;
-import com.crystalgraphics.platform.service.CgLifecycleService;
-import com.crystalgraphics.platform.service.CgReloadService;
-import com.crystalgraphics.platform.service.CgRenderingService;
-import com.crystalgraphics.platform.service.CgResourceService;
-import com.crystalgraphics.platform.service.CgSoundService;
-import com.crystalgraphics.platform.service.LifecycleServiceHarness;
-import com.crystalgraphics.platform.service.ReloadServiceHarness;
-import com.crystalgraphics.platform.service.RenderingServiceHarness;
-import com.crystalgraphics.platform.service.ResourceServiceHarness;
 import com.crystalgraphics.vulkan.CgVulkanDevice;
 import com.crystalgraphics.vulkan.host.CgVulkanHost;
 import com.crystalgraphics.vulkan.host.CgVulkanImage;
@@ -54,7 +50,7 @@ import org.lwjgl.vulkan.VkQueue;
  * PlatformServiceHarness.onPreInit("vulkan", w, h);   // after the window exists
  * CgHostPaint.enter();                                // each frame: the host section
  * try { frame(); } finally { CgHostPaint.leave(); }
- * PlatformServiceHarness.endDeviceFrame();
+ * PlatformServiceHarness.endFrame();                  // the engine's frame tick, then the device's frame
  * PlatformServiceHarness.shutdown();                  // before the window goes
  * }</pre>
  */
@@ -73,18 +69,8 @@ public final class PlatformServiceHarness implements CgPlatformService {
     
     // ── Services ─────────────────────────────────────────────────────────────
 
-    public final RenderingServiceHarness renderingImpl = new RenderingServiceHarness();
-    public final LifecycleServiceHarness lifecycleImpl = new LifecycleServiceHarness();
-    public final ResourceServiceHarness resourceImpl = new ResourceServiceHarness();
-    public final ReloadServiceHarness reloadImpl = new ReloadServiceHarness();
     public final Lwjgl3GLBackend glDispatchImpl = new Lwjgl3GLBackend();
     public final Lwjgl3GLContext glContextImpl = new Lwjgl3GLContext();
-    public final GlfwInputService inputImpl = new GlfwInputService(HarnessWindow::handle);
-    /**
-     * The harness has no audio backend, so this is the "empty method body" case the platform SPI expects
-     * rather than a shared no-op borrowed from it — there is deliberately no {@code CgSoundService.NOOP}.
-     */
-    public final CgSoundService soundImpl = soundId -> {};
 
     // ── --rhi=gl and --rhi=vulkan ─────────────────────────────────────────────
     private CgRHI device;
@@ -96,12 +82,6 @@ public final class PlatformServiceHarness implements CgPlatformService {
 
     @Override public CgGLBackend       gl()           { return tracked != null ? tracked : glDispatchImpl; }
     @Override public CgGLContext         capabilities() { return tracked != null ? new CgTrackedGLContext() : glContextImpl; }
-    @Override public CgResourceService  resources()    { return resourceImpl; }
-    @Override public CgRenderingService rendering()    { return renderingImpl; }
-    @Override public CgLifecycleService lifecycle()    { return lifecycleImpl; }
-    @Override public CgReloadService    reload()       { return reloadImpl; }
-    @Override public CgInputService     input()        { return inputImpl; }
-    @Override public CgSoundService     sound()        { return soundImpl; }
     
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -148,6 +128,9 @@ public final class PlatformServiceHarness implements CgPlatformService {
         }
         CgPlatform.register(p);
         CgPlatform.provide(CgHostPaint.HOST, new HostSection());
+        CgPlatform.provide(CgInput.HOST, new InputGlfw(HarnessWindow::handle));
+        CgPlatform.provide(CgClipboard.HOST, new ClipboardGlfw(HarnessWindow::handle));
+        // No resource packs: CgIO reads the classpath and the asset roots
         // Always a client: the graphics start's GL-free work begins beside the rest of the harness's start
         CgEngineLifecycle.clientStarting();
         CgUiStart.ahead();           // and CrystalGUI's: its registries and sheets
@@ -326,6 +309,16 @@ public final class PlatformServiceHarness implements CgPlatformService {
         System.out.println("[Harness] vulkan after teardown: validationErrors=" + INSTANCE.vulkanHost.validationErrors());
         INSTANCE.vulkanHost.close();
         INSTANCE.vulkanDevice = null;
+    }
+
+    private static final int TRACKED_END = CgTrace.name("frame.trackedEnd");
+
+    /** The frame's end, once a frame after everything drawn in it: the engine's frame tick, then the device's frame. */
+    public static void endFrame() {
+        CgGraphicsLifecycle.tickFrame();
+        try (CgTrace.Zone z = CgTrace.zone(CgChannels.MISC, TRACKED_END)) {
+            endDeviceFrame();
+        }
     }
 
     /**

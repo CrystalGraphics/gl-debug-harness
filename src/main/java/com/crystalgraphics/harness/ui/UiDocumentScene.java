@@ -3,7 +3,7 @@ package com.crystalgraphics.harness.ui;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.platform.input.CgInput;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgui.desktop.host.HostServices;
@@ -234,6 +234,6 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
     }
 
     private static boolean ctrlDown() {
-        return CgPlatform.input().isKeyDown(CgKeyCodes.KEY_LCONTROL) || CgPlatform.input().isKeyDown(CgKeyCodes.KEY_RCONTROL);
+        return CgInput.isKeyDown(CgKeyCodes.KEY_LCONTROL) || CgInput.isKeyDown(CgKeyCodes.KEY_RCONTROL);
     }
 }
