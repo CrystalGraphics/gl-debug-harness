@@ -7,8 +7,8 @@ import com.crystalgraphics.gl.buffer.CgFrameRing;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.post.CgPostStack;
@@ -94,7 +94,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         if (failure != null) failures.add("emission-only: " + failure);
         covered(ctx, world, failures);
         CgPostStack.get().bloom().intensity(1f);
-        report(failures, GlErrorChecker.checkAndLog("bloom-occlusion"));
+        report(failures, DeviceErrors.checkAndLog("bloom-occlusion"));
     }
 
     /**
@@ -109,14 +109,14 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
     /** As {@link #draw}, with {@code cover} (none if null) a pane at 2 blocks, in front of a ball in front. */
     private void draw(HarnessContext ctx, CgWorldRenderer world, int w, int h, CgMaterial ball, boolean hidden,
                       float emission, float bloom, CgMaterial cover, String file) {
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, true);
+        HarnessTarget target = HarnessTarget.create(w, h, true);
         drawInto(ctx, world, target, w, h, ball, hidden, emission, bloom, cover, file);
         target.unbind();
         target.delete();
     }
 
     /** As {@link #draw}, into {@code target}, the stages told the host's size is {@code w} x {@code h}. */
-    private void drawInto(HarnessContext ctx, CgWorldRenderer world, HarnessFboHelper target, int w, int h, CgMaterial ball,
+    private void drawInto(HarnessContext ctx, CgWorldRenderer world, HarnessTarget target, int w, int h, CgMaterial ball,
                           boolean hidden, float emission, float bloom, CgMaterial cover, String file) {
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
@@ -243,8 +243,6 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
             System.out.println("[bloom-occlusion] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[bloom-occlusion] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-        } else if ("recording".equals(on)) {
-            System.out.println("[bloom-occlusion] PASS on recording: every command validated; a recording device draws nothing to compare");
         } else if (!failures.isEmpty()) {
             for (String failure : failures) System.out.println("[bloom-occlusion] FAIL on " + on + ": " + failure);
         } else {

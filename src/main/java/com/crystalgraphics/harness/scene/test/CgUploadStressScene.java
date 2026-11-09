@@ -2,6 +2,7 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.texture.CgTextureSpec;
+import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.gl.render.CgQuadRenderer;
 import com.crystalgraphics.gl.texture.CgFallbackTextures;
 import com.crystalgraphics.gl.texture.CgTexture2D;
@@ -9,10 +10,7 @@ import com.crystalgraphics.gl.texture.CgTexture3D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.runtime.SharedContextUploader;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.gl.CgGL;
-import com.crystalgraphics.platform.gl.tracked.tracker.CgTrackerStats;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgPassConstants;
 import com.crystalgraphics.trace.CgGpuTrace;
@@ -36,7 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * frames and milliseconds from asking to landed, and the render thread's own time for a render-thread burst.
  *
  * <pre>
- *   ./gradlew :gl-debug-harness:runHarness --args="--mode=upload-stress --device=vulkan" \
+ *   ./gradlew :gl-debug-harness:runHarness --args="--mode=upload-stress --rhi=vulkan" \
  *       -Dcrystalgraphics.harness.profile=600 -Dcrystalgraphics.trace.channels=crystalgraphics.gl,crystalgraphics.gl.detail,gpu
  * </pre>
  *
@@ -52,9 +50,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  *       {@code -Dcrystalgraphics.vulkan.transfer=false} keeps them all on the frame's queue, to compare.
  *       {@code .load=<n>} draws n full-window quads a frame first, which gives the frame's queue work for those copies
  *       to overlap: without it the GPU idles, and the frame's queue can only wait for them.</li>
- *   <li>On {@code gl}, {@code .shared=true} makes the worker bursts in a second context sharing the window's
- *       ({@link SharedContextUploader}, U5), landing once its fence signals: nothing reaches the render thread but the
- *       poll.</li>
  *   <li>{@code .rewrite=true} rewrites one drawn texture whole each frame from the render thread and reads every tenth
  *       back, printing PASS or FAIL. On {@code vulkan} such an upload goes into a new image on the transfer queue, and
  *       the run fails if none did.</li>
@@ -62,7 +57,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class CgUploadStressScene implements InteractiveSceneLifecycle {
 
-    private static final int GL_RGBA = 0x1908, GL_UNSIGNED_BYTE = 0x1401;
     private static final int RENDER_THREAD_GPU = CgGpuTrace.name("upload-stress.render-thread");
     /** The frame's drawing, and any wait on the frame's queue for copies elsewhere, which comes before its first pass. */
     private static final int DRAW_GPU = CgGpuTrace.name("upload-stress.draw");
@@ -74,7 +68,6 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
     private final int bursts = Integer.getInteger("crystalgraphics.harness.upload.bursts", 6);
     /** Full-window quads drawn under the grid each frame, so the GPU has work a copy elsewhere can overlap. */
     private final int load = Integer.getInteger("crystalgraphics.harness.upload.load", 0);
-    private final boolean shared = Boolean.getBoolean("crystalgraphics.harness.upload.shared");
     /** One drawn texture rewritten whole each frame: the path a whole upload into a texture in use takes. */
     private final boolean rewrite = Boolean.getBoolean("crystalgraphics.harness.upload.rewrite");
 
@@ -93,16 +86,9 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
     private int frame, burst, burstFrame, copiesAtStart;
     private long burstStart;
     private boolean landing, wasTracingGpu, running = true;
-    private SharedContextUploader uploader;
-    /** The shared context's burst: its fence, written last, then its names; the names the window's context deletes. */
-    private volatile long sharedFence;
-    private volatile int[] sharedNames;
-    private volatile double sharedMs;
-    private int[] ownedNames;
     /** Two patterns no burst uses, each rewrite the one its texture does not hold; what each texture last got. */
     private ByteBuffer[] rewritePixels;
     private final Map<CgTexture2D, ByteBuffer> rewritten = new IdentityHashMap<>();
-    private ByteBuffer readBack;
     private int rewrites, renamed, checks, failed;
 
     @Override
@@ -115,20 +101,15 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
         volumePixels = pattern(volumeSize * volumeSize * volumeSize, textures);
         if (rewrite) {
             rewritePixels = new ByteBuffer[] {pattern(size * size, textures + 1), pattern(size * size, textures + 2)};
-            readBack = ByteBuffer.allocateDirect(4 * size * size).order(ByteOrder.nativeOrder());
         }
         wasTracingGpu = CgTrace.isEnabled(CgGpuTrace.GPU);
         CgTrace.setEnabled(CgGpuTrace.GPU, true);
-        if (shared) {
-            if (PlatformServiceHarness.deviceInfo() != null) throw new IllegalStateException(".shared is GL's: no context to share");
-            uploader = SharedContextUploader.open();
-        }
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo info) {
-        // Every worker done: this frame's execution applies their work. The shared context's: its fence signalled.
-        boolean landsNow = landing && (uploader == null ? outstanding.get() == 0 : sharedLanded());
+        // Every worker done: this frame's execution applies their work.
+        boolean landsNow = landing && outstanding.get() == 0;
         if (landsNow) landed();
         if (frame >= every && frame % every == 0 && !landing) {
             if (burst == bursts) {
@@ -152,30 +133,21 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
     }
 
     /**
-     * Rewrites one drawn texture whole from the render thread, and reads every tenth back. A tracked device's rename
+     * Rewrites one drawn texture whole from the render thread, and reads every tenth back. The Vulkan device's rename
      * count says whether the upload went into a new image.
      */
     private void rewriteOne() {
         CgTexture2D t = shown.get(frame % shown.size());
         ByteBuffer source = rewritten.get(t) == rewritePixels[0] ? rewritePixels[1] : rewritePixels[0];
         rewritten.put(t, source);
-        CgTrackerStats stats = PlatformServiceHarness.tracked() == null ? null : PlatformServiceHarness.tracked().tracker().stats();
-        long before = stats == null ? 0 : stats.textureRenames;
-        t.uploadRegion(0, 0, 0, size, size, source, GL_RGBA, GL_UNSIGNED_BYTE);
-        if (stats != null) renamed += (int) (stats.textureRenames - before);
-        if (++rewrites % 10 != 0 || recording()) return;
-        readBack.clear();
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, t.getId());
-        CgGL.glGetTexImage(CgGL.GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, readBack);
+        long before = PlatformServiceHarness.textureRenames();
+        t.uploadRegion(0, 0, 0, size, size, source);
+        renamed += (int) (PlatformServiceHarness.textureRenames() - before);
+        if (++rewrites % 10 != 0) return;
         checks++;
-        boolean same = readBack.rewind().equals(source.duplicate().rewind());
+        boolean same = CgFrameBuffer.readTexture(t, 0).equals(source.duplicate().rewind());
         if (!same) failed++;
         System.out.printf("[upload-stress] rewrite %d: %s%n", rewrites, same ? "PASS, read back as written" : "FAIL, read back differs");
-    }
-
-    /** The recording device, whose readbacks come back black. */
-    private static boolean recording() {
-        return PlatformServiceHarness.deviceInfo() != null && "recording".equals(PlatformServiceHarness.deviceInfo().name());
     }
 
     /** Frees the last burst's textures and starts the next: from the workers, or here. */
@@ -185,25 +157,9 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
         rewritten.clear();
         if (volume != null) volume.delete();
         volume = null;
-        if (ownedNames != null) for (int name : ownedNames) CgGL.glDeleteTextures(name);
-        ownedNames = null;
         burstStart = System.nanoTime();
         burstFrame = frame;
         copiesAtStart = PlatformServiceHarness.transferCopies();
-        if (fromWorkers && uploader != null) {
-            uploader.execute(() -> {
-                long begun = System.nanoTime();
-                int[] names = new int[textures + 1];
-                for (int i = 0; i < textures; i++) names[i] = uploader.texture2D(pixels[i], size, size);
-                names[textures] = uploader.texture3D(volumePixels, volumeSize);
-                long fence = uploader.fence();
-                sharedMs = (System.nanoTime() - begun) / 1e6;
-                sharedNames = names;
-                sharedFence = fence;
-            });
-            landing = true;
-            return;
-        }
         if (fromWorkers) {
             outstanding.set(textures + 1);
             synchronized (made) {
@@ -243,38 +199,19 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
             made.clear();
         }
         double ms = (System.nanoTime() - burstStart) / 1e6;
-        if (uploader != null) {
-            ownedNames = sharedNames;
-            for (int i = 0; i < textures; i++) shown.add(CgTexture2D.wrap(ownedNames[i], size, size));
-            System.out.printf("[upload-stress] burst %d from a shared context: %s, landed %d frames and %.2f ms after "
-                    + "asking; %.2f ms on the uploader's thread%n", burst, bytes(), frame - burstFrame, ms, sharedMs);
-            return;
-        }
         System.out.printf("[upload-stress] burst %d from workers: %s, landed %d frames and %.2f ms after asking%n",
                 burst, bytes(), frame - burstFrame, ms);
     }
 
-    /** Whether the shared context's burst has reached the GPU; never waits. */
-    private boolean sharedLanded() {
-        long fence = sharedFence;
-        if (fence == 0L) return false;
-        int state = CgGL.glClientWaitSync(fence, 0, 0L);
-        if (state == CgGL.GL_TIMEOUT_EXPIRED) return false;
-        if (state == CgGL.GL_WAIT_FAILED) throw new IllegalStateException("the shared context's fence failed");
-        CgGL.glDeleteSync(fence);
-        sharedFence = 0L;
-        return true;
-    }
-
     private CgTexture2D make(ByteBuffer source) {
         CgTexture2D t = CgTexture2D.createEmpty(size, size, CgTextureSpec.RGBA8_LINEAR);
-        t.uploadRegion(0, 0, 0, size, size, source, GL_RGBA, GL_UNSIGNED_BYTE);
+        t.uploadRegion(0, 0, 0, size, size, source);
         return t;
     }
 
     private CgTexture3D makeVolume() {
         CgTexture3D v = CgTexture3D.createEmpty(volumeSize, volumeSize, volumeSize, CgTextureSpec.RGBA8_LINEAR);
-        v.uploadRegion(0, 0, 0, 0, volumeSize, volumeSize, volumeSize, volumePixels, GL_RGBA, GL_UNSIGNED_BYTE);
+        v.uploadRegion(0, 0, 0, 0, volumeSize, volumeSize, volumeSize, volumePixels);
         return v;
     }
 
@@ -330,8 +267,6 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
         CgTrace.setEnabled(CgGpuTrace.GPU, wasTracingGpu);
         for (CgTexture2D t : shown) t.delete();
         if (volume != null) volume.delete();
-        if (ownedNames != null) for (int name : ownedNames) CgGL.glDeleteTextures(name);
-        if (uploader != null) uploader.close();
         if (renderer != null) renderer.delete();
         if (material != null) material.delete();
     }

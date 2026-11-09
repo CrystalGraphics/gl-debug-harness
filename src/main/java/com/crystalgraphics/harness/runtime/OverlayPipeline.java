@@ -5,10 +5,6 @@ import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.util.RenderPassState;
-import com.crystalgraphics.platform.gl.CgGL;
-import com.crystalgraphics.platform.gl.state.CgGlScope;
-import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgPipelinePrecache;
@@ -68,22 +64,13 @@ public final class OverlayPipeline {
     }
 
     /**
-     * Renders active overlays in the correct order.
-     *
-     * <p>This method should be called during the overlay pass, after
-     * {@link RenderPassState#beginOverlayPass()}
-     * has set the required GL state (depth OFF, blend ON with alpha).</p>
-     *
-     * @param ctx          the harness context (provides screen dimensions, camera)
-     * @param uses3DCamera whether the active scene uses the 3D camera system
+     * Fires the HUD stage over the frame's target when the scene has a 3D camera. Its pipelines declare their own state.
+     * The harness's GUI is unscaled.
      */
     public void renderOverlays(HarnessContext ctx, boolean uses3DCamera) {
-        // Into the window: the scene's target has been
-        // blitted to it by now. The harness's GUI is unscaled.
-        if (uses3DCamera) {
-            firing = ctx;
-            CgRenderStage.HUD.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, 0);
-        }
+        if (!uses3DCamera) return;
+        firing = ctx;
+        CgRenderStage.HUD.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTargetFramebuffer());
     }
 
     private void renderHud() {
@@ -98,12 +85,6 @@ public final class OverlayPipeline {
     }
 
 
-    /**
-     * Releases all GL resources held by overlay renderers.
-     *
-     * <p>Called during runner shutdown. After this call, no overlay
-     * methods should be invoked.</p>
-     */
     /** {@link #warmHud}'s target: drawn into, never read. */
     private CgFrameBuffer hudWarmTarget;
     private static final int HUD_WARM_FRAMES = 240;
@@ -127,15 +108,14 @@ public final class OverlayPipeline {
             hudWarmTarget = CgFrameBuffer.create("harness_hud_warm", 16, 16,
                     CgFrameBufferFormat.builder("harness_hud_warm").color(0, CgTextureType.RGBA8).build());
         }
-        try (CgGlScope ignored = CgGlState.saveAll()) {
-            CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, hudWarmTarget.getId());
-            CgGL.glViewport(0, 0, 16, 16);
+        try (CgFrameBuffer.Drawing ignored = hudWarmTarget.drawInto()) {
             hudRenderer.render(ctx);
         }
         hudWarmQuiet = CgFontRegistry.get().getPendingAsyncGlyphCount() == 0 ? hudWarmQuiet + 1 : 0;
         return hudWarmQuiet >= 3;
     }
 
+    /** Releases the HUD's stage, its warm target and its renderer: at the runner's shutdown. */
     public void delete() {
         if (hudStage != null) hudStage.close();
         if (hudWarmTarget != null) {
@@ -144,20 +124,6 @@ public final class OverlayPipeline {
         }
         hudRenderer.delete();
         LOGGER.info("[OverlayPipeline] All overlay renderers deleted.");
-    }
-
-    /**
-     * Returns whether any overlay would render given the current state.
-     *
-     * <p>Used by the orchestrator to decide whether to set up and tear
-     * down overlay GL state (depth OFF, blend ON). If no overlays are
-     * active, the state boundary can be skipped entirely.</p>
-     *
-     * @param uses3DCamera whether the active scene uses the 3D camera system
-     * @return true if at least one overlay would render
-     */
-    public boolean hasActiveOverlays(boolean uses3DCamera) {
-        return uses3DCamera;
     }
 
     /**

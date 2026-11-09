@@ -2,7 +2,7 @@ package com.crystalgraphics.harness.debug;
 
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.capture.ArtifactService;
-import com.crystalgraphics.harness.util.ScreenshotUtil;
+import com.crystalgraphics.harness.capture.HarnessCapture;
 
 import java.util.logging.Logger;
 
@@ -131,20 +131,10 @@ public final class HarnessDebugTools {
         return artifacts.getOutputSettings().buildFilename(suffix);
     }
 
-    /**
-     * Captures a screenshot from an FBO's color texture.
-     *
-     * @param fboId     the framebuffer object ID
-     * @param texId     the color attachment texture ID
-     * @param width     FBO width
-     * @param height    FBO height
-     * @param filename  output filename
-     */
-    public void screenshotFbo(int fboId, int texId, int width, int height, String filename) {
-        LOGGER.info("[DebugTools] screenshotFbo: fbo=" + fboId + " tex=" + texId
-                + " " + width + "x" + height + " -> " + filename);
-        ScreenshotUtil.captureFboColorTexture(
-                fboId, texId, width, height, artifacts.getOutputDir(), filename);
+    /** Captures a framebuffer's colour, {@code width} x {@code height}, to {@code filename}. */
+    public void screenshotFbo(int fboId, int width, int height, String filename) {
+        LOGGER.info("[DebugTools] screenshotFbo: fbo=" + fboId + " " + width + "x" + height + " -> " + filename);
+        HarnessCapture.framebuffer(fboId, width, height, artifacts.getOutputDir(), filename);
     }
 
     public Camera3D getCamera() { return camera; }

@@ -8,11 +8,10 @@ import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
@@ -70,7 +69,7 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
             }
         }
         texels.flip();
-        sheet.uploadRegion(0, 0, 0, SHEET, SHEET, texels, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE);
+        sheet.uploadRegion(0, 0, 0, SHEET, SHEET, texels);
 
         float[] rects = new float[PERM.length * 4];
         for (int i = 0; i < PERM.length; i++) {
@@ -131,7 +130,7 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
+        HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
         try {
             target.clear(0f, 0f, 0f, 1f);
@@ -141,7 +140,7 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
             target.unbind();
             target.delete();
         }
-        report(ctx, GlErrorChecker.checkAndLog("flipbook"));
+        report(ctx, DeviceErrors.checkAndLog("flipbook"));
     }
 
     private CgRecording record(int w, int h) {
@@ -181,10 +180,6 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
         int validation = PlatformServiceHarness.validationErrors();
         if (validation > 0) {
             System.out.println("[flipbook] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[flipbook] PASS on recording: every command validated; nothing drawn to compare");
             return;
         }
         BufferedImage picture;

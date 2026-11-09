@@ -9,7 +9,6 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.rhi.pipeline.CgPipelineLayout;
 import com.crystalgraphics.platform.rhi.shader.CgGlslCompiler;
@@ -35,10 +34,10 @@ import java.util.stream.Stream;
  * Every shipped material's set 2 made on the device from its recorded bindings ({@code CgDeviceSets}), against its
  * device pipeline's layout: no slot left to a default, a second frame making no set, a changed block making one, or,
  * where the material's values live in its shader's arena, none and a new slot. On
- * {@code --device=vulkan} and {@code --device=gl}.
+ * {@code --rhi=vulkan} and {@code --rhi=gl}.
  *
  * <pre>
- *   ./gradlew :gl-debug-harness:runHarness --args="--mode=device-sets --device=vulkan"
+ *   ./gradlew :gl-debug-harness:runHarness --args="--mode=device-sets --rhi=vulkan"
  * </pre>
  *
  * <p>Prints {@code [device-sets] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -70,7 +69,7 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
     private static String check(String on) throws Exception {
         CgRHI rhi = CgRHI.get();
         CgBindingTable table = new CgBindingTable();
-        CgStreamBuffer ring = CgStreamBuffer.createFrameLocal(CgGL.GL_UNIFORM_BUFFER, 1 << 20);
+        CgStreamBuffer ring = CgStreamBuffer.frameLocalUniforms(1 << 20);
         CgDeviceSets sets = new CgDeviceSets();
         List<Drawn> drawn = new ArrayList<>();
         List<String> failures = new ArrayList<>();

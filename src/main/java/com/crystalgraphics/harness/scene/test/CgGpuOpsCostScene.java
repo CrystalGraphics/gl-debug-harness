@@ -18,7 +18,8 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.platform.gl.CgGL;
+import com.crystalgraphics.render.graph.CgBufferDesc;
+import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
 import com.crystalgraphics.render.graph.CgExecutor;
 import com.crystalgraphics.render.graph.CgFrame;
@@ -46,7 +47,7 @@ import java.util.function.Consumer;
  * <pre>
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=gpu-ops-cost"
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=gpu-ops-cost" -Dcrystalgraphics.compute.tier=G40
- *   ./gradlew :gl-debug-harness:runHarness --args="--mode=gpu-ops-cost --device=vulkan"
+ *   ./gradlew :gl-debug-harness:runHarness --args="--mode=gpu-ops-cost --rhi=vulkan"
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=gpu-ops-cost" -Dcrystalgraphics.harness.opsCost.count=65536
  * </pre>
  *
@@ -70,7 +71,9 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
     private record Op(String name, Consumer<CgRecording> setup, Consumer<CgComputePass> body) {}
 
     private final List<Op> ops = new ArrayList<>();
-    private final List<Integer> buffers = new ArrayList<>();
+    private final List<CgGraphBuffer> buffers = new ArrayList<>();
+    /** The buffers' and textures' first contents, recorded once, on the first frame. */
+    private final List<Consumer<CgRecording>> seeds = new ArrayList<>();
     private final List<CgFrameBuffer> textures = new ArrayList<>();
     private final CgFrameBuilder builder = new CgFrameBuilder();
     private final CgFrameGraph graph = new CgFrameGraph();
@@ -148,6 +151,7 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo info) {
         CgGpuTrace.collect();
         boolean measuring = frame >= WARMUP && frame < WARMUP + MEASURED;
+        if (frame == 0) execute(rec -> seeds.forEach(s -> s.accept(rec)), null, -1, false);
         if (frame < WARMUP + MEASURED) {
             // Untimed, so the wait for an earlier frame's GPU work lands here rather than in the first op.
             execute(opener, null, -1, false);
@@ -195,8 +199,7 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
 
     private void report() {
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
-        String on = (device == null ? CgGL.glGetString(CgGL.GL_RENDERER) : device.name()) + " at "
-                + CgCapabilities.detect().computeTier();
+        String on = (device == null ? "gl" : device.name()) + " at " + CgCapabilities.detect().computeTier();
         System.out.println("[gpu-ops-cost] " + on + ", " + count + " elements, images " + WIDTH + "x" + HEIGHT
                 + ", ms per run over " + MEASURED + " frames");
         if (CgGpuTrace.support() == CgGpuTrace.Support.UNSUPPORTED) {
@@ -220,25 +223,30 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
         ByteBuffer data = ByteBuffer.allocateDirect(words.length * 4).order(ByteOrder.nativeOrder());
         for (int w : words) data.putInt(w);
         data.flip();
-        int buffer = CgGL.glGenBuffers();
-        CgGL.glBindBuffer(CgGL.GL_COPY_WRITE_BUFFER, buffer);
-        CgGL.glBufferData(CgGL.GL_COPY_WRITE_BUFFER, data, CgGL.GL_STATIC_DRAW);   // device-local on a device
-        CgGL.glBindBuffer(CgGL.GL_COPY_WRITE_BUFFER, 0);
+        CgGraphBuffer buffer = CgGraphBuffer.persistent("ops-cost " + name,
+                CgBufferDesc.of(words.length * 4L, CgBufferUsage.STORAGE, CgBufferUsage.COPY));
+        seeds.add(rec -> rec.update(buffer, 0, data));
         buffers.add(buffer);
-        return CgGraphBuffer.imported(name, buffer, words.length * 4L);
+        return buffer;
     }
 
     private CgGraphTexture texture(String name, CgTextureType type, int levels) {
         CgFrameBufferFormat format = CgFrameBufferFormat.builder("ops_cost_" + name).color(0, type).build();
         CgFrameBuffer fb = CgFrameBuffer.createOwned("ops-cost " + name, WIDTH, HEIGHT, format, levels);
-        ByteBuffer pixels = ByteBuffer.allocateDirect(WIDTH * HEIGHT * 16).order(ByteOrder.nativeOrder());
-        for (int i = 0; i < WIDTH * HEIGHT * 4; i++) pixels.putFloat((CgRng.rng(WIDTH, i, 2, 0) >>> 8) / (float) (1 << 24));
+        // Noise in the texture's own format: RGBA16F's halves, R32F's floats.
+        boolean half = type == CgTextureType.RGBA16F;
+        int values = half ? WIDTH * HEIGHT * 4 : WIDTH * HEIGHT;
+        ByteBuffer pixels = ByteBuffer.allocateDirect(values * (half ? 2 : 4)).order(ByteOrder.nativeOrder());
+        for (int i = 0; i < values; i++) {
+            float v = (CgRng.rng(WIDTH, i, 2, 0) >>> 8) / (float) (1 << 24);
+            if (half) pixels.putShort(Float.floatToFloat16(v));
+            else pixels.putFloat(v);
+        }
         pixels.flip();
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, fb.getColorTexture(0).getId());
-        CgGL.glTexSubImage2D(CgGL.GL_TEXTURE_2D, 0, 0, 0, WIDTH, HEIGHT, CgGL.GL_RGBA, CgGL.GL_FLOAT, pixels);
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
         textures.add(fb);
-        return CgGraphTexture.imported(name, fb);
+        CgGraphTexture texture = CgGraphTexture.imported(name, fb);
+        seeds.add(rec -> rec.update(texture, 0, 0, 0, WIDTH, HEIGHT, pixels));
+        return texture;
     }
 
     private static int[] sequence(int n) {
@@ -254,7 +262,7 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         CgTrace.setEnabled(CgGpuTrace.GPU, wasTracingGpu);
-        for (int buffer : buffers) CgGL.glDeleteBuffers(buffer);
+        execute(rec -> buffers.forEach(rec::release), null, -1, false);
         for (CgFrameBuffer fb : textures) fb.delete();
     }
 }

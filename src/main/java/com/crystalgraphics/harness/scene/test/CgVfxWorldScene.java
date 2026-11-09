@@ -3,7 +3,7 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
@@ -47,7 +47,7 @@ import java.util.Random;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-world"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-world" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-world --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-world --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [vfx-world] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -320,14 +320,12 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
         for (CgRequest r : requests) {
             if (!r.done() && unanswered == null) unanswered = r + (r.failure() != null ? ": " + r.failure() : "");
         }
-        if (GlErrorChecker.checkAndLog("vfx-world")) {
+        if (DeviceErrors.checkAndLog("vfx-world")) {
             System.out.println("[vfx-world] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[vfx-world] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
         } else if (unanswered != null) {
             System.out.println("[vfx-world] FAIL on " + on + ": " + unanswered);
-        } else if (on.startsWith("recording")) {
-            System.out.println("[vfx-world] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (failure != null) {
             System.out.println("[vfx-world] FAIL on " + on + ": " + failure);
         } else {

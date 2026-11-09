@@ -4,7 +4,7 @@ import com.crystalgraphics.vfx.particle.gpu.CgVfxDrawLayout;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.object.CgValueType;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
@@ -59,7 +59,7 @@ import java.util.TreeMap;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-collide"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-collide" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-collide --device=vulkan" -Dcrystalgraphics.vulkan.syncValidation=true
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-collide --rhi=vulkan" -Dcrystalgraphics.vulkan.syncValidation=true
  * }</pre>
  *
  * <p>Prints {@code [vfx-collide] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -340,12 +340,10 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = (device == null ? "gl" : device.name()) + " at " + CgCapabilities.detect().computeTier();
         int validation = PlatformServiceHarness.validationErrors();
-        if (GlErrorChecker.checkAndLog("vfx-collide")) {
+        if (DeviceErrors.checkAndLog("vfx-collide")) {
             System.out.println("[vfx-collide] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[vfx-collide] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-        } else if (on.startsWith("recording")) {
-            System.out.println("[vfx-collide] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (!compared) {
             System.out.println("[vfx-collide] FAIL on " + on + ": the rows or the records never arrived");
         } else if (failure != null) {

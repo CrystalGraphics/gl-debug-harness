@@ -25,7 +25,7 @@ import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
  * compile wait and no texture load. Scene id {@code vfx-declared}.
  *
  * <pre>{@code
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-declared --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-declared --rhi=vulkan"
  * ... -Dcrystalgraphics.harness.declared.optOut=true   // the control: both left to their first play, which must wait
  * }</pre>
  */

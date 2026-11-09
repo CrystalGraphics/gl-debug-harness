@@ -6,9 +6,8 @@ import com.crystalgraphics.api.text.CgTextLayout;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.draw.CgPassConstants;
 import com.crystalgraphics.render.graph.CgExecutor;
 import com.crystalgraphics.render.graph.CgFrame;
@@ -22,7 +21,6 @@ import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.render.CgTextRenderer;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -117,7 +115,7 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
             // Twice each: a first draw may still be on the bitmap tier where its distance field is being generated.
             for (int pass = 0; pass < 2; pass++) {
                 CgFrame built = worker.submit(() -> record(w, h, FIXED, large, 20f, 40f, w - 40f)).get();
-                HarnessFboHelper fromWorker = HarnessFboHelper.create(w, h, false);
+                HarnessTarget fromWorker = HarnessTarget.create(w, h, false);
                 fromWorker.bind();
                 fromWorker.clear(0.08f, 0.08f, 0.1f, 1f);
                 CgExecutor.execute(built);
@@ -125,12 +123,12 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
                 ByteBuffer workerPixels = null;
                 if (pass == 1) {
                     fromWorker.captureToFile(dir, "text-threaded-worker.png");
-                    workerPixels = read(w, h);
+                    workerPixels = fromWorker.framebuffer().readColor(0, 0, w, h);
                 }
                 fromWorker.unbind();
                 fromWorker.delete();
 
-                HarnessFboHelper fromRender = HarnessFboHelper.create(w, h, false);
+                HarnessTarget fromRender = HarnessTarget.create(w, h, false);
                 fromRender.bind();
                 fromRender.clear(0.08f, 0.08f, 0.1f, 1f);
                 renderText.context().updateOrtho(w, h);
@@ -140,7 +138,7 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
                 renderText.endBatch();
                 if (pass == 1) {
                     fromRender.captureToFile(dir, "text-threaded-render.png");
-                    differing = differing(workerPixels, read(w, h));
+                    differing = differing(workerPixels, fromRender.framebuffer().readColor(0, 0, w, h));
                 }
                 fromRender.unbind();
                 fromRender.delete();
@@ -178,13 +176,6 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
         }
         recorder.stop();
         return builder.build(new CgFrameGraph().add(recording.seal()));
-    }
-
-    /** The bound framebuffer's pixels, RGBA. */
-    private static ByteBuffer read(int w, int h) {
-        ByteBuffer pixels = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder());
-        CgGL.glReadPixels(0, 0, w, h, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, pixels);
-        return pixels;
     }
 
     private static int differing(ByteBuffer a, ByteBuffer b) {

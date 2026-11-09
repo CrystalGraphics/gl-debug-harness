@@ -19,7 +19,7 @@ import com.crystalgraphics.render.world.CgWorldRenderer;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-modules"
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-modules --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-modules --rhi=vulkan"
  * // V: CPU or GPU simulation; the stations and where they stand are logged at the start
  * }</pre>
  */

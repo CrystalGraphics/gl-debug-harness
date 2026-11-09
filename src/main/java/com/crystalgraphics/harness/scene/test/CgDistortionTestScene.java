@@ -7,8 +7,8 @@ import com.crystalgraphics.gl.buffer.CgFrameRing;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
@@ -34,7 +34,7 @@ import java.util.List;
  *
  * <pre>
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=distortion"
- *   ./gradlew :gl-debug-harness:runHarness --args="--mode=distortion --device=vulkan" -Dcrystalgraphics.vulkan.syncValidation=true
+ *   ./gradlew :gl-debug-harness:runHarness --args="--mode=distortion --rhi=vulkan" -Dcrystalgraphics.vulkan.syncValidation=true
  * </pre>
  *
  * <p>Pixels within one of an edge are not checked: which side of an edge a pixel lands is the rasteriser's.</p>
@@ -99,7 +99,7 @@ public class CgDistortionTestScene implements HarnessSceneLifecycle {
         world.install();
         // A texel a pixel, so every pixel's sample is exact.
         world.distortionScale(1f);
-        HarnessFboHelper target = HarnessFboHelper.create(W, H, true);
+        HarnessTarget target = HarnessTarget.create(W, H, true);
         target.bind();
         target.clear(0f, 0f, 0f, 1f);
         CgMesh slab = CgMeshShapes.cube();
@@ -208,9 +208,8 @@ public class CgDistortionTestScene implements HarnessSceneLifecycle {
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
-        if (GlErrorChecker.checkAndLog("distortion")) failure = "GL errors, logged above";
+        if (DeviceErrors.checkAndLog("distortion")) failure = "GL errors, logged above";
         else if (validation > 0) failure = validation + " Vulkan validation errors, logged above";
-        else if ("recording".equals(on)) failure = null;
         System.out.println(failure == null ? "[distortion] PASS on " + on : "[distortion] FAIL on " + on + ": " + failure);
     }
 

@@ -110,11 +110,11 @@ public final class FontDebugHarnessMain {
         boolean shouldShutdown = true;
         try {
             // The window first: a Vulkan device presents to it, so it must exist before the platform does.
-            ctx = HarnessContext.create(config.getWidth(), config.getHeight(), !config.getDevice().equals("vulkan"));
-            HarnessWindow.setTitle(mode + " [" + (config.getDevice().equals("vulkan") ? "vk" : config.getDevice()) + "]");
+            ctx = HarnessContext.create(config.getWidth(), config.getHeight(), !config.getRhi().equals("vulkan"));
+            HarnessWindow.setTitle(mode + " [" + (config.getRhi().equals("vulkan") ? "vk" : config.getRhi()) + "]");
             // Registers input and sound along with the GL services -- one bundle, so the UI cannot
             // come up with a working backend and no keyboard.
-            PlatformServiceHarness.onPreInit(config.getDevice(), ctx.getScreenWidth(), ctx.getScreenHeight());
+            PlatformServiceHarness.onPreInit(config.getRhi(), ctx.getScreenWidth(), ctx.getScreenHeight());
             // The trace's run directory, as a game's pre-init opens it: its log, and report.txt at the end.
             CgTraceRun.open();
             // The cursor adapter is a TOOLKIT service, so it comes from CrystalGraphics' LWJGL 3 tier
@@ -163,13 +163,13 @@ public final class FontDebugHarnessMain {
                 scene.init(ctx);
                 try {
                     scene.render(ctx, FrameInfo.SINGLE_FRAME);
-                    PlatformServiceHarness.endTrackedFrame();
+                    PlatformServiceHarness.endDeviceFrame();
                 } finally {
                     scene.dispose();
                 }
             }
-            String tracked = PlatformServiceHarness.trackedReport();
-            if (tracked != null) LOGGER.info("[Harness] tracked: " + tracked);
+            String device = PlatformServiceHarness.deviceReport();
+            if (device != null) LOGGER.info("[Harness] device: " + device);
             CgEngineLifecycle.shutdown();
 
             LOGGER.info("[Harness] Mode '" + mode + "' completed successfully.");
@@ -229,9 +229,8 @@ public final class FontDebugHarnessMain {
         System.out.println("  --font-path=<path>     Font file path (default: system font)");
         System.out.println("  --width=<n>            Width in pixels (default: 800)");
         System.out.println("  --height=<n>           Height in pixels (default: 600)");
-        System.out.println("  --device=gl|tracked|vulkan  What CgGL runs on (default: gl). tracked: the tracked backend");
-        System.out.println("                         over a recording device -- every command validated, nothing presented;");
-        System.out.println("                         vulkan: over CrystalGraphics' Vulkan device, presenting to the window");
+        System.out.println("  --rhi=gl|vulkan          The device the engine draws through (default: gl). vulkan: CrystalGraphics'");
+        System.out.println("                         own Vulkan device, presenting to the window, its validation layer on");
         System.out.println("  --renderdoc[=<library>] Attach RenderDoc's in-app API (default library: its install path);");
         System.out.println("                         captures go to harness-output/<scene>/renderdoc/, F12 or RenderDoc.java");
         System.out.println("  --seconds=<n>          Stop the scene after n seconds (default: run until closed).");

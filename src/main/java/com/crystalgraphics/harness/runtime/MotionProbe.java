@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.runtime;
 
-import com.crystalgraphics.platform.gl.CgGL;
+import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -43,8 +43,8 @@ public final class MotionProbe {
         this.change = new float[frames];
     }
 
-    /** Reads the bound framebuffer's {@code w} x {@code h} after frame {@code frame}; true once the sample is full. */
-    public boolean sample(long frame, int w, int h) {
+    /** Reads {@code framebuffer}'s {@code w} x {@code h} after frame {@code frame}; true once the sample is full. */
+    public boolean sample(long frame, int framebuffer, int w, int h) {
         if (frame <= from || taken >= frames) return taken >= frames;
         if (now == null || w != width || h != height) {
             width = w;
@@ -53,9 +53,7 @@ public final class MotionProbe {
             last = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder());
             taken = -1;
         }
-        now.clear();
-        CgGL.glPixelStorei(CgGL.GL_PACK_ALIGNMENT, 1);
-        CgGL.glReadPixels(0, 0, w, h, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, now);
+        CgFrameBuffer.wrap("motion", framebuffer, w, h).readColor(0, 0, w, h, now);
         if (taken >= 0) {
             long sum = 0;
             int moved = 0;

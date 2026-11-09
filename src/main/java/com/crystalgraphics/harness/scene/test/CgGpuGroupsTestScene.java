@@ -8,10 +8,9 @@ import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
@@ -36,7 +35,7 @@ import java.util.Map;
  *
  * <pre>
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=gpu-groups"
- *   ./gradlew :gl-debug-harness:runHarness --args="--mode=gpu-groups --device=vulkan"
+ *   ./gradlew :gl-debug-harness:runHarness --args="--mode=gpu-groups --rhi=vulkan"
  * </pre>
  *
  * <ul>
@@ -119,7 +118,7 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
 
     private void report() {
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
-        String on = device == null ? CgGL.glGetString(CgGL.GL_RENDERER) : device.name();
+        String on = device == null ? "gl" : device.name();
         Map<String, long[]> totals = CgGpuTrace.totals();
         double zoneOn = mean(totals.get(ON)), zoneOff = mean(totals.get(OFF));
         double[] group = new double[SHADERS.length];
@@ -143,7 +142,7 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
                 sum, zoneOn, 100 * (sum - zoneOn) / zoneOn, zoneOff);
 
         String fail = null;
-        if (GlErrorChecker.checkAndLog("gpu-groups")) fail = "GL errors, logged above";
+        if (DeviceErrors.checkAndLog("gpu-groups")) fail = "GL errors, logged above";
         else if (PlatformServiceHarness.validationErrors() > 0) fail = "Vulkan validation errors, logged above";
         else if (fewest == Long.MAX_VALUE || fewest < MEASURED) fail = "a group missing from a measured frame (fewest " + fewest + ")";
         else if (Math.abs(sum - zoneOn) > 0.05 * zoneOn) fail = "the groups do not sum to the pass";

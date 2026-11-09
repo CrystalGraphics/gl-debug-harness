@@ -10,7 +10,6 @@ import com.crystalgraphics.lwjgl3.Lwjgl3GLBackend;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLDriver;
 import com.crystalgraphics.lwjgl3.Lwjgl3GLContext;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.platform.rhi.nulldrv.CgNullRHI;
 import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgGLDevice;
 import com.crystalgraphics.platform.gl.CgGLBackend;
@@ -21,6 +20,7 @@ import com.crystalgraphics.platform.gl.state.GLHostState;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLContext;
 import com.crystalgraphics.platform.service.CgCacheDirectory;
+import com.crystalgraphics.platform.service.CgHostPaint;
 import com.crystalgraphics.platform.service.CgInputService;
 import com.crystalgraphics.platform.service.CgLifecycleService;
 import com.crystalgraphics.platform.service.CgReloadService;
@@ -44,11 +44,17 @@ import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkQueue;
 
 /**
- * Complete MC 1.7.10 platform bundle. Implements {@link CgPlatformService} by composing
- * the six mc1710 service adapters. Register via {@code CgPlatform.register(new PlatformService1710())}.
+ * The harness as a host: its platform services, the device it runs ({@code --rhi=gl|vulkan}) and the host section
+ * round each frame ({@link CgHostPaint}). The one layer of the harness that speaks to GL and the tracked backend
+ * directly, as a Minecraft host's platform classes do.
  *
- * <p>{@link RenderingServiceHarness} and {@link LifecycleServiceHarness} instances are exposed
- * via package-visible accessors if needed.</p>
+ * <pre>{@code
+ * PlatformServiceHarness.onPreInit("vulkan", w, h);   // after the window exists
+ * CgHostPaint.enter();                                // each frame: the host section
+ * try { frame(); } finally { CgHostPaint.leave(); }
+ * PlatformServiceHarness.endDeviceFrame();
+ * PlatformServiceHarness.shutdown();                  // before the window goes
+ * }</pre>
  */
 public final class PlatformServiceHarness implements CgPlatformService {
     
@@ -78,9 +84,8 @@ public final class PlatformServiceHarness implements CgPlatformService {
      */
     public final CgSoundService soundImpl = soundId -> {};
 
-    // ── --device=tracked and --device=vulkan ──────────────────────────────────
+    // ── --rhi=gl and --rhi=vulkan ─────────────────────────────────────────────
     private CgRHI device;
-    private CgNullRHI recordingDevice;
     private OwnedVulkanHost vulkanHost;
     private boolean vulkanValidated;
     private CgVulkanDevice vulkanDevice;
@@ -107,16 +112,12 @@ public final class PlatformServiceHarness implements CgPlatformService {
     }
 
     /**
-     * @param device {@code gl}; {@code tracked}: {@code CgGL} on the tracked backend over a recording device the size
-     *               of the window, which validates every command and presents nothing; {@code vulkan}: the tracked
-     *               backend over CrystalGraphics' Vulkan device, presenting to the window, which must already exist
+     * @param rhi {@code gl}: the GL device beside the driver's context; {@code vulkan}: CrystalGraphics' Vulkan device,
+     *            presenting to the window, which must already exist, with the engine's GL on the tracked backend over it
      */
-    public static void onPreInit(String device, int width, int height) {
+    public static void onPreInit(String rhi, int width, int height) {
         PlatformServiceHarness p = getInstance();
-        if (device.equals("tracked")) {
-            p.recordingDevice = new CgNullRHI(width, height).withoutLog();
-            p.device = p.recordingDevice;
-        } else if (device.equals("vulkan")) {
+        if (rhi.equals("vulkan")) {
             // -Dcrystalgraphics.harness.vulkanValidation=false for a timing run: the layer checks every command.
             boolean validate = !"false".equals(System.getProperty("crystalgraphics.harness.vulkanValidation"));
             p.vulkanValidated = validate;
@@ -124,7 +125,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
             p.vulkanDevice = new CgVulkanDevice(new PresentTimed(p.vulkanHost), width, height, CgCacheDirectory.of("vulkan"));
             p.device = p.vulkanDevice;
         }
-        if (device.equals("gl") && !"false".equals(System.getProperty("crystalgraphics.harness.glDevice"))) {
+        if (rhi.equals("gl") && !"false".equals(System.getProperty("crystalgraphics.harness.glDevice"))) {
             // CgRHI on GL beside CgGL, the two handing the context over at each device section
             try {
                 p.glDevice = new CgGLDevice(new Lwjgl3GLDriver(), new SpvcGlslTranslator(), width, height, false,
@@ -138,15 +139,15 @@ public final class PlatformServiceHarness implements CgPlatformService {
                     .compileInBackground().install();
         }
         CgPlatform.register(p);
+        CgPlatform.provide(CgHostPaint.HOST, new HostSection());
         // Always a client: the graphics start's GL-free work begins beside the rest of the harness's start
         CgEngineLifecycle.clientStarting();
         CgUiStart.ahead();           // and CrystalGUI's: its registries and sheets
         HarnessExtensions.start();   // and each project's own
         // Scenes use CgGL from the start, before any host section would install it.
         CgGL.init(p.gl());
-        // The tracked backend's state is CgGlState's already (its install). Every draw here is CgGL's, the raw host
-        // scene's inside hostForeign: a stage entry reads nothing. -Dcrystalgraphics.harness.keepShadow=false measures
-        // or rules that out.
+        // The tracked backend's state is CgGlState's already (its install). Every draw here is the engine's, so a stage
+        // entry reads nothing. -Dcrystalgraphics.harness.keepShadow=false measures or rules that out.
         if (p.tracked == null && !"false".equals(System.getProperty("crystalgraphics.harness.keepShadow"))) {
             CgGlState.setProvider(new KeptShadow());
         }
@@ -160,6 +161,19 @@ public final class PlatformServiceHarness implements CgPlatformService {
         // saying so out loud is what separates it from a loader that forgot.
     }
 
+    /** The harness's host section: everything a frame draws is the engine's, so the section's close repairs nothing. */
+    private static final class HostSection implements CgHostPaint.Host {
+        @Override
+        public void enter() {
+            CgGL.fromHost();
+        }
+
+        @Override
+        public void leave() {
+            CgGL.toHost();
+        }
+    }
+
     /** {@code glGet} where the shadow does not know, and a host that never draws behind it. */
     private static final class KeptShadow extends CgGlGetProvider {
         @Override
@@ -168,8 +182,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
         }
     }
 
-    /** The tracked backend under {@code --device=tracked}, else null. */
-    public static CgTrackedGLBackend tracked() {
+    private static CgTrackedGLBackend tracked() {
         return INSTANCE == null ? null : INSTANCE.tracked;
     }
 
@@ -243,6 +256,43 @@ public final class PlatformServiceHarness implements CgPlatformService {
         return INSTANCE == null || INSTANCE.vulkanDevice == null ? 0 : INSTANCE.vulkanDevice.validationErrors();
     }
 
+    // ── GPU fences, for a probe timing the GPU against the CPU ────────────────
+
+    /** A fence over everything issued so far; poll it with {@link #fenceSignalled}, then {@link #deleteFence}. */
+    public static long fence() {
+        return CgGL.glFenceSync(CgGL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    }
+
+    /** Whether {@code fence}'s work has finished on the GPU; never waits. */
+    public static boolean fenceSignalled(long fence) {
+        return CgGL.glClientWaitSync(fence, 0, 0L) != CgGL.GL_TIMEOUT_EXPIRED;
+    }
+
+    public static void deleteFence(long fence) {
+        CgGL.glDeleteSync(fence);
+    }
+
+    /** Whether this run's device is Vulkan, where the fences above signal at the frame's submit and not before. */
+    public static boolean vulkan() {
+        return INSTANCE != null && INSTANCE.vulkanDevice != null;
+    }
+
+    /**
+     * Waits until the GPU has finished everything issued so far, spinning: a Windows sleep wakes up to 15.6 ms late. GL
+     * only: on Vulkan nothing is submitted mid-frame, so it would never return.
+     */
+    public static void finishGpu() {
+        long sync = CgGL.glFenceSync(CgGL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        int flags = CgGL.GL_SYNC_FLUSH_COMMANDS_BIT;
+        while (CgGL.glClientWaitSync(sync, flags, 0L) == CgGL.GL_TIMEOUT_EXPIRED) flags = 0;
+        CgGL.glDeleteSync(sync);
+    }
+
+    /** Whole-texture uploads the tracked backend renamed into a new image so far; 0 on GL. */
+    public static long textureRenames() {
+        return tracked() == null ? 0 : INSTANCE.tracked.tracker().stats().textureRenames;
+    }
+
     /** Copies the Vulkan device has recorded on its transfer queue so far; 0 on any other device or without one. */
     public static int transferCopies() {
         return INSTANCE == null || INSTANCE.vulkanDevice == null ? 0 : INSTANCE.vulkanDevice.transferCopies;
@@ -251,9 +301,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
     /** The device's surface follows the window's framebuffer. Nothing on GL. */
     public static void resizeSurface(int width, int height) {
         if (INSTANCE != null && INSTANCE.glDevice != null) INSTANCE.glDevice.resize(width, height);
-        if (tracked() == null) return;
-        if (INSTANCE.recordingDevice != null) INSTANCE.recordingDevice.resize(width, height);
-        else INSTANCE.vulkanDevice.resize(width, height);
+        if (INSTANCE != null && INSTANCE.vulkanDevice != null) INSTANCE.vulkanDevice.resize(width, height);
     }
 
     /** Closes the Vulkan device and its host; before the window goes. Nothing otherwise. */
@@ -276,7 +324,7 @@ public final class PlatformServiceHarness implements CgPlatformService {
      * Ends the device's frame, once a frame after everything drawn in it: the tracked backend's on Vulkan, the GL
      * device's on GL, whose frames retire what its draws used (its rings, views, framebuffers) by fence.
      */
-    public static void endTrackedFrame() {
+    public static void endDeviceFrame() {
         if (tracked() != null) {
             INSTANCE.tracked.endFrame();
         } else if (INSTANCE != null && INSTANCE.glDevice != null) {
@@ -291,12 +339,10 @@ public final class PlatformServiceHarness implements CgPlatformService {
         return INSTANCE.vulkanHost != null && INSTANCE.vulkanValidated;
     }
 
-    /** What the tracked backend did over the run, for the log; null on GL. */
-    public static String trackedReport() {
+    /** What the Vulkan device and the tracked backend over it did over the run, for the log; null on GL. */
+    public static String deviceReport() {
         if (tracked() == null) return null;
-        String device = INSTANCE.recordingDevice != null
-                ? "deviceDraws=" + INSTANCE.recordingDevice.draws() + " liveObjects=" + INSTANCE.recordingDevice.liveObjects()
-                : INSTANCE.vulkanDevice.globals().name() + " barriers=" + INSTANCE.vulkanDevice.barriers()
+        String device = INSTANCE.vulkanDevice.globals().name() + " barriers=" + INSTANCE.vulkanDevice.barriers()
                         + " pushes=" + INSTANCE.vulkanDevice.pushes + " pushWrites=" + INSTANCE.vulkanDevice.pushWrites + " pushesSkipped=" + INSTANCE.vulkanDevice.pushesSkipped
                         + " validationErrors=" + INSTANCE.vulkanDevice.validationErrors()
                         + " transferCopies=" + INSTANCE.vulkanDevice.transferCopies

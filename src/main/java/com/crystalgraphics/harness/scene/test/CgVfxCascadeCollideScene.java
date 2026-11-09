@@ -3,7 +3,7 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
@@ -56,7 +56,7 @@ import java.util.Random;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-cascade-collide"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-cascade-collide" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-cascade-collide --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-cascade-collide --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [vfx-cascade-collide] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -360,12 +360,10 @@ public class CgVfxCascadeCollideScene implements InteractiveSceneLifecycle {
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = (device == null ? "gl" : device.name()) + " at " + CgCapabilities.detect().computeTier();
         int validation = PlatformServiceHarness.validationErrors();
-        if (GlErrorChecker.checkAndLog("vfx-cascade-collide")) {
+        if (DeviceErrors.checkAndLog("vfx-cascade-collide")) {
             System.out.println("[vfx-cascade-collide] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[vfx-cascade-collide] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-        } else if (on.startsWith("recording")) {
-            System.out.println("[vfx-cascade-collide] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (!compared) {
             System.out.println("[vfx-cascade-collide] FAIL on " + on + ": the rows or the records never arrived");
         } else if (failure != null) {

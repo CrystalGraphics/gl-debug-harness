@@ -26,7 +26,7 @@ import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
  * // GPU zones per frame, on each device: vfx.pool.step and vfx.pool.range in the report
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-shapes" -Dcrystalgraphics.harness.profile=600 \
  *     -Dcrystalgraphics.harness.profile.warmup=300 -Dcrystalgraphics.trace.channels=crystalgraphics,gpu
- * ... --args="--mode=vfx-shapes --device=vulkan" -Dcrystalgraphics.harness.vulkanValidation=false ...
+ * ... --args="--mode=vfx-shapes --rhi=vulkan" -Dcrystalgraphics.harness.vulkanValidation=false ...
  * // more or fewer shapes
  * ... -Dcrystalgraphics.harness.vfx.shapes=30
  * }</pre>

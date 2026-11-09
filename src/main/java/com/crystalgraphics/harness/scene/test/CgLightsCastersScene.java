@@ -1,6 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
+import com.crystalgraphics.harness.util.ObjectDraws;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.api.texture.CgTextureSpec;
@@ -9,12 +10,11 @@ import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
@@ -51,7 +51,7 @@ import java.util.List;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-casters"
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-casters --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-casters --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [lights-casters] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -92,7 +92,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
     private final float[] sun = new float[3];
     private double[] boxShadow, ballShadow, beside;
     private float[] sideSun;
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     private CgMaterial grey;
     private CgTexture2D lightmap;
     private int frame;
@@ -103,7 +103,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
         CgPlatform.provide(CgLevels.HOST, CgLevels.single(world, CgEntityQuery.NONE));
         CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
-        target = HarnessFboHelper.create(W, H, true);
+        target = HarnessTarget.create(W, H, true);
         ByteBuffer texels = ByteBuffer.allocateDirect(16 * 16 * 4).order(ByteOrder.nativeOrder());
         for (int sky = 0; sky < 16; sky++) {
             for (int block = 0; block < 16; block++) {
@@ -113,7 +113,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
         }
         texels.flip();
         lightmap = CgTexture2D.createEmpty(16, 16, CgTextureSpec.RGBA8_LINEAR);
-        lightmap.uploadRegion(0, 0, 0, 16, 16, texels, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE);
+        lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
     }
 
     @Override
@@ -133,7 +133,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
         CgPassConstants host = new CgPassConstants();
         host.view.set(view);
         host.projection.set(lens);
-        host.resolution(W, H).time(CgFrameClock.seconds()).depth(CgGL.isDepthReversed(), CgGL.isDepthZeroToOne())
+        host.resolution(W, H).time(CgFrameClock.seconds()).hostDepth()
                 .cameraFromView();
         Matrix4f ground = new Matrix4f().translation((float) (CX + 5 - eyeX), (float) (GROUND - 0.5 - eyeY),
                 (float) (CZ - eyeZ)).scale(60f, 1f, 60f);
@@ -212,15 +212,13 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
         else if (failure == null && spilt[2] > 0) failure = "a shadow trailed the moving camera: " + readings;
         else if (failure == null && spilt[3] > 0) failure = "the lamp's shadow spread past the exact one: " + readings;
         else if (failure == null && spilt[4] > 0) failure = "a shadow spread past the exact one from eye height: " + readings;
-        boolean glErrors = GlErrorChecker.checkAndLog("lights-casters");
+        boolean glErrors = DeviceErrors.checkAndLog("lights-casters");
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
         if (glErrors) failure = "GL errors, logged above";
         else if (validation > 0) failure = validation + " Vulkan validation errors, logged above";
-        if ("recording".equals(on) && !glErrors && validation == 0) {
-            System.out.println("[lights-casters] PASS on recording: every command validated; a recording device draws nothing to compare");
-        } else if (failure != null) {
+        if (failure != null) {
             System.out.println("[lights-casters] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[lights-casters] PASS on " + on + ": " + readings);

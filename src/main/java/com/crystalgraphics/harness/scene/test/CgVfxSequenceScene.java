@@ -6,8 +6,8 @@ import com.crystalgraphics.easing.CgKeyframes;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
@@ -60,7 +60,7 @@ import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-sequence"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-sequence" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-sequence --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-sequence --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [vfx-sequence] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -124,7 +124,7 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
     private final List<double[]> tipRows = new ArrayList<>(), middleRows = new ArrayList<>();
     private final Map<Integer, double[]> leafRows = new HashMap<>();
     private final int[][] shots = new int[SHOTS.length][3];
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     private double cx, cy;
     private int frame, repeated, dropped;
     private String failure;
@@ -142,7 +142,7 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
         if (frame == 1) {
             cx = Math.round(w * 0.5);
             cy = Math.round(h * 0.5);
-            target = HarnessFboHelper.create(w, h, true);   // with depth: the GPU cull of its parts reads it
+            target = HarnessTarget.create(w, h, true);   // with depth: the GPU cull of its parts reads it
             CgVfxLook look = CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA)
                     .with(CgVfxKit.of("harness:sequence").emitter(root).build(), prefab.kit()).build();
             vfx.play(new CgVfxSystemInstance<>(look, cx, cy, 0.0)).scalability(CgVfxScalability.HERO);   // far from the camera, in pixels
@@ -280,16 +280,12 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = (device == null ? "gl" : device.name()) + " at " + CgCapabilities.detect().computeTier();
         int validation = PlatformServiceHarness.validationErrors();
-        if (GlErrorChecker.checkAndLog("vfx-sequence")) {
+        if (DeviceErrors.checkAndLog("vfx-sequence")) {
             System.out.println("[vfx-sequence] FAIL on " + on + ": GL errors, logged above");
             return;
         }
         if (validation > 0) {
             System.out.println("[vfx-sequence] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-            return;
-        }
-        if (on.startsWith("recording")) {
-            System.out.println("[vfx-sequence] PASS on recording: every command validated; a recording device draws nothing");
             return;
         }
         compare();

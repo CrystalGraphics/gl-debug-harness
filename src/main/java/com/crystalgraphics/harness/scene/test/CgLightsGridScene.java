@@ -5,7 +5,7 @@ import com.crystalgraphics.compute.CgKernel;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
@@ -41,7 +41,7 @@ import java.util.Random;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-grid"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-grid" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-grid --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-grid --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [lights-grid] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -178,7 +178,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         boolean answered = true;
         for (CgRequest r : requests) answered &= r.status() != CgRequest.Status.PENDING;
         if (answered || frame > CHECK_AT + DRAIN) {
-            if (answered && !on().startsWith("recording")) compare();
+            if (answered) compare();
             report();
             CgWorldRenderer.get().lights().remove(appender);
             running = false;
@@ -528,14 +528,12 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         int validation = PlatformServiceHarness.validationErrors();
         String unanswered = null;
         for (CgRequest r : requests) if (!r.done() && unanswered == null) unanswered = r + (r.failure() != null ? ": " + r.failure() : "");
-        if (GlErrorChecker.checkAndLog("lights-grid")) {
+        if (DeviceErrors.checkAndLog("lights-grid")) {
             System.out.println("[lights-grid] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[lights-grid] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
         } else if (unanswered != null) {
             System.out.println("[lights-grid] FAIL on " + on + ": unanswered " + unanswered);
-        } else if (on.startsWith("recording")) {
-            System.out.println("[lights-grid] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (failure != null) {
             System.out.println("[lights-grid] FAIL on " + on + ": " + failure);
         } else {

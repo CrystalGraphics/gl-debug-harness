@@ -4,7 +4,7 @@ import com.crystalgraphics.compute.CgCompute;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
@@ -41,7 +41,7 @@ import java.util.List;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-beams"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-beams" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-beams --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-beams --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [vfx-beams] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -187,7 +187,7 @@ public class CgVfxBeamsScene implements InteractiveSceneLifecycle {
         boolean answered = true;
         for (CgRequest r : requests) answered &= r.status() != CgRequest.Status.PENDING;
         if (answered || frame > STEPS + DRAIN) {
-            if (answered && !on().startsWith("recording")) compare();
+            if (answered) compare();
             report();
             CgVfxParticlePool.release(this);
             running = false;
@@ -611,14 +611,12 @@ public class CgVfxBeamsScene implements InteractiveSceneLifecycle {
             if (r.done()) done++;
             else if (unanswered == null) unanswered = r + (r.failure() != null ? ": " + r.failure() : "");
         }
-        if (GlErrorChecker.checkAndLog("vfx-beams")) {
+        if (DeviceErrors.checkAndLog("vfx-beams")) {
             System.out.println("[vfx-beams] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[vfx-beams] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
         } else if (unanswered != null) {
             System.out.println("[vfx-beams] FAIL on " + on + ": " + done + " of " + requests.size() + " answered; " + unanswered);
-        } else if (on.startsWith("recording")) {
-            System.out.println("[vfx-beams] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (failure != null) {
             System.out.println("[vfx-beams] FAIL on " + on + ": " + failure);
         } else {

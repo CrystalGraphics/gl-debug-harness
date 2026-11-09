@@ -8,7 +8,7 @@ import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.CgImmediate;
@@ -195,7 +195,7 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
             if (r.done()) done++;
             else if (unanswered == null) unanswered = r + (r.failure() != null ? ": " + r.failure() : "");
         }
-        if (GlErrorChecker.checkAndLog("raster-layers")) {
+        if (DeviceErrors.checkAndLog("raster-layers")) {
             System.out.println("[raster-layers] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[raster-layers] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
@@ -206,8 +206,6 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
         } else if (storage.size() != 1) {
             System.out.println("[raster-layers] FAIL on " + on + ": the array took " + storage.size() + " storages over "
                     + FRAMES + " frames, not 1");
-        } else if (on.startsWith("recording")) {
-            System.out.println("[raster-layers] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (failure != null) {
             System.out.println("[raster-layers] FAIL on " + on + ": " + failure);
         } else {

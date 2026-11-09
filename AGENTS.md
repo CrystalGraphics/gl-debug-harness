@@ -29,25 +29,29 @@ frame 1, `captureAt`, `keyAt`, profiles and benches all count from the hide; `[l
 `-Dcrystalgraphics.loading.screen=never` skips it, for a scene measuring its own loading. The window's title is the
 scene and its device: `skinned-play [vk]`.
 
-## `--device=gl|tracked|vulkan` — what `CgGL` runs on
+## `--rhi=gl|vulkan` — the device the engine runs on
 
-`gl` (the default) is the driver. The other two run CrystalGraphics' tracked backend (`plan/device-seam.md`
-§5), and the tracker's counts print at the end:
+The harness is a host: only `HarnessWindow` (the context, the swap) and `PlatformServiceHarness` (the device, the
+host section) touch GL; the rest names no `CgGL` and no `org.lwjgl.opengl`, which `cggl-uses.txt` enforces at
+compile. Scenes draw through the engine and `CgRHI`; a scene's verdict reads `DeviceErrors` and
+`PlatformServiceHarness.validationErrors()`.
 
-- **`tracked`** — over a **recording device**: every command a Vulkan device would be sent, validated, and
-  **nothing presented** — the window stays black. Captures and readbacks come back black.
-- **`vulkan`** — over **`CgVulkanDevice`** on its own device (`OwnedVulkanHost`), presenting to the window,
-  which then has no GL context. The Khronos validation layer is on whenever it is installed (the LunarG SDK);
+- **`gl`** (the default) — the driver's context, with the GL device (`CgGLDevice`) beside it on a 4.5 context.
+  `-Dcrystalgraphics.harness.glDevice=false` runs without it.
+- **`vulkan`** — **`CgVulkanDevice`** on its own device (`OwnedVulkanHost`), presenting to the window, which then
+  has no GL context; the engine's remaining GL runs on the tracked backend over it, and the device's counts print at
+  the end (`[Harness] device:`). The Khronos validation layer is on whenever it is installed (the LunarG SDK);
   `-Dcrystalgraphics.harness.vulkanValidation=false` turns it off for a timing run, since it checks every
-  command. Its messages print as `[vulkan] ERROR ...`, and their count ends the `tracked:` line. **Vulkan timings
+  command. Its messages print as `[vulkan] ERROR ...`, and their count ends the `device:` line. **Vulkan timings
   run unvalidated**: validated, a descriptor push costs 10 µs where it costs 0.6 (bench-arena), so every profile
-  passes the flag; `bench.py --device vulkan` does, and a validated profile prints a warning.
+  passes the flag; `bench.py --rhi vulkan` does, and a validated profile prints a warning.
   `-Dcrystalgraphics.vulkan.syncValidation=true` adds its synchronization checks, with the shader-access analysis
   they need to see what a shader reads and writes through pushed descriptors: a missing barrier between passes
   is then an error. `--mode=compute-seam` is the scene that proves it fires
-  (`-Dcrystalgraphics.harness.computeSeam.skipBarriers=true` must fail). It also dispatches
-  `harness:shaders/compute_seam.compute` through `CgKernelProgram`, subgroups native and emulated, against the same
-  CPU reference: the gate for `.compute` on each device. `--mode=compute-graph` is the frame graph's: kernels, a
+  (`-Dcrystalgraphics.harness.computeSeam.skipBarriers=true` must fail). It also runs
+  `harness:shaders/compute_seam.compute` through the graph, its buffer and image read back against the same CPU
+  reference: the gate for `.compute` on each device; `-Dcrystalgraphics.compute.emulateSubgroups=true` runs every
+  kernel's subgroups emulated. `--mode=compute-graph` is the frame graph's: kernels, a
   history and an indirect dispatch recorded and built on a worker; with `-Dcrystalgraphics.graph.barriers=false` it
   must fail under synchronization validation. `--mode=indirect-draw` is the indirect draws': counts a kernel wrote,
   drawn in every mode and matched against direct draws, in a graph and through the world renderer, a draw of a command a
@@ -222,8 +226,7 @@ scene and its device: `skinned-play [vk]`.
   (16) RGBA8 textures of `.upload.size`² (1024) and a volume of `.upload.volume`³ (128), alternately from workers
   through upload leases and from the render thread, drawn from the frame after; each burst prints its bytes, the frames
   and milliseconds from asking to landed, and on `vulkan` its copies on the transfer queue. `.upload.load=<n>` draws n
-  full-window quads a frame for the copies to overlap; `.upload.shared=true` (gl) makes the worker bursts in a second
-  context sharing the window's, the experiment `render-async-uploads` §4f declined. `.upload.rewrite=true` is the
+  full-window quads a frame for the copies to overlap. `.upload.rewrite=true` is the
   rename path's check: one drawn texture rewritten whole each frame, every tenth read back, PASS or FAIL; on `vulkan`
   each goes into a new image on the transfer queue, and the run fails if none did.
   `-Dcrystalgraphics.graph.asyncAll=true` sends every compute pass async in any
@@ -236,7 +239,7 @@ scene and its device: `skinned-play [vk]`.
 A forced tier on NVIDIA still has every extension and NVIDIA's lenient GLSL compiler. A downlevel run loads Mesa's
 llvmpipe (mesa-dist-win, fetched once by `fetchMesa` into the Gradle cache) in place of the driver, shaped as macOS's
 GL 4.1 core or a bare GL 3.3: `MESA_GL_VERSION_OVERRIDE`, and every extension a real context of that version lacks
-removed. Windows only; `--device=gl` only.
+removed. Windows only; `--rhi=gl` only.
 
 ```bash
 ./gradlew :gl-debug-harness:runHarness -Pharness.downlevel=mac41 --args="--mode=compute-tiers --seconds=5"
@@ -258,21 +261,19 @@ removed. Windows only; `--device=gl` only.
 `-Pharness.assetRoots=CrystalGraphics/runtime/lwjgl/vulkan/build/kit-ports`.
 
 ```bash
-./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=tracked --seconds=10"
-# INFO: [Harness] tracked: frames=314 deviceDraws=88495 ... passes=4778 breaks=709 ... misses=17
-./gradlew :gl-debug-harness:runHarness --args="--mode=shader-compile-audit --device=vulkan"
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --rhi=vulkan --seconds=10"
+# INFO: [Harness] device: frames=314 ... validationErrors=0 ... passes=4778 breaks=709 ... misses=17
+./gradlew :gl-debug-harness:runHarness --args="--mode=shader-compile-audit --rhi=vulkan"
 # every shipped shader, kernel and keyword combination compiled, and its pipeline built: the driver's own compile
 ```
 
-A scene fails on either by throwing: a call the device cannot express, or a draw it would refuse (a binding
-with no buffer, a draw with no program) -- a non-zero exit, with the `tracked:` line missing. What cannot
-apply: `host-section` and `gl-state-dump` call raw GL, and `gpu-trace-probe` times a GPU a recording device
-does not have.
+A scene fails on Vulkan by throwing too: a call the device cannot express, or a draw it would refuse (a binding
+with no buffer, a draw with no program) -- a non-zero exit, with the `device:` line missing.
 
 ## One picture per frame number — `captureAt` and `fixedDelta`
 
 ```bash
-./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --device=vulkan --seconds=150" \
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-desktop --rhi=vulkan --seconds=150" \
     -Dcrystalgraphics.harness.fixedDelta=0.0166667 -Dcrystalgraphics.harness.captureAt=180
 # <scene>-frame180.png: the same picture on any device and machine, however fast each ran
 ```
@@ -300,13 +301,13 @@ Three more unattended switches, for what a single picture cannot show:
 | `-Dcrystalgraphics.harness.resizeAt=<frame>:<w>x<h>` | resizes the window at that frame |
 | `-Dcrystalgraphics.harness.mainTarget=false` | interactive scenes draw into the window's own framebuffer, 0. On by default: the world and scene draw into a framebuffer of the window's size, blitted into the window before the overlays, as Minecraft draws into its main target, so what only a host framebuffer takes (the normal target the world lights read, the world's merged emission) runs as in the game. Off, the lights rebuild our surfaces' normals from depth as Minecraft's blocks, faceting a character under a point light |
 | `-Dcrystalgraphics.harness.camera=<x>,<y>,<z>,<yaw>,<pitch>` | the camera after the scene placed it, as the HUD's Pos and Rot read: a capture from where you were looking |
-| `-Dcrystalgraphics.harness.keepShadow=false` | stage entries read GL state back with `glGet` as on Minecraft, instead of trusting the shadow (every harness draw goes through `CgGL`); for measuring that cost or ruling the shadow out |
+| `-Dcrystalgraphics.harness.keepShadow=false` | stage entries read GL state back with `glGet` as on Minecraft, instead of trusting the shadow (every harness draw is the engine's); for measuring that cost or ruling the shadow out |
 | `-Dcrystalgraphics.harness.hitchDumpMs=<ms>` | keeps the trace running in a hand-driven session and, two frames after any frame slower than that, writes the 240 frames before it as `profile-hitch-<frame>/report.txt` (at most five a run; the log names each): a rare hitch caught as you play. Pair with `-Dcrystalgraphics.trace.channels=crystalgraphics,crystalgraphics.vfx,gpu` |
 | `-Dcrystalgraphics.harness.renderDocAt=<frame>[,...]` | under `--renderdoc`, a capture of each of those frames: with `fixedDelta` and `keyAt`, the same moment of a scripted move every run |
 | `-Dcrystalgraphics.harness.keyAt=<frame>:<key>[,...]` | presses that key (`CgKeyCodes` name less `KEY_`: `H`, `F7`) at that frame, as the window would; with `profile.splitAt`-style ranges, a binding profiled either side |
 | `-Dcrystalgraphics.harness.motion=<n>` | after `.motion.from` frames (180), logs `[motion]` how much the scene (before the HUD) changes frame to frame for `n` frames, then a summary of held frames, and stops (`MotionProbe`): "it moves at a low rate" as numbers. Pair with `fixedDelta`, a camera framing one thing, and `keyAt=1:H` so the volumes' march does not jitter each frame |
 
-On `--device=vulkan`, `[Harness] vulkan after teardown: validationErrors=N` is printed after the device has
+On `--rhi=vulkan`, `[Harness] vulkan after teardown: validationErrors=N` is printed after the device has
 closed, so it counts what teardown raised. `-Dcrystalgraphics.vulkan.presentMode=immediate|mailbox|fifo` forces
 a present mode.
 
@@ -348,7 +349,7 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 ./gradlew :gl-debug-harness:runHarness --args="--list"
 
 # Run a specific scene
-./gradlew :gl-debug-harness:runHarness --args="--mode=triangle-2d"
+./gradlew :gl-debug-harness:runHarness --args="--mode=cgui-gallery"
 
 # Run atlas dump
 ./gradlew :gl-debug-harness:runHarness --args="--mode=atlas-dump"
@@ -437,18 +438,14 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 
 **These rules apply to ALL agents operating in this repository, including subagents.**
 
-- **When creating new scenes, NEVER implement raw low level GL calls. Always rely on the existing infrastructure in CrystalGraphics.**
-  Instead of `int vao = GL30.glGenVertexArrays` or `int vbo = GL11.glGenBuffers`, use
-  CgMesh for geometry and the world renderer or CgImmediate to draw it. Same for Shaders -> CgShaderBuffer,
-  Textures -> CgTexture, Shader buffers -> CgShaderBuffer,
-  FBO -> CgFrameBuffer, etc...
-- **What is left at the GL level goes through `CgGL`, never `org.lwjgl.opengl`.** CrystalGraphics' state
-  shadow sees only `CgGL`, so a raw write makes it skip a later call it thinks is redundant. Two exceptions:
-  the host layer (`HarnessWindow`, `HarnessContext`) is the harness's LWJGL host, and a scene playing a
-  foreign host (`CgHostSectionScene`) draws raw inside `CgGlState.hostForeign` on purpose, and so do the
-  hand-written GL scenes (`image`, `light`, `light-source`: `ImageScene`, `ReviewScene`, `LightScene`, with
-  `RawGlProgram`), their author's own: GL device only. For an upload
-  from a `FloatBuffer`/`IntBuffer`, `HarnessBuffers.bytes(buffer)` is the byte view `CgGL` takes.
+- **A scene never names `CgGL` or `org.lwjgl.opengl`: the build refuses it** (`cggl-uses.txt`, the host layer's
+  two files alone). Geometry is a `CgMesh` drawn through the world renderer, `CgImmediate` or `ObjectDraws`; shaders
+  are materials (`.shader`) and kernels (`.compute`); a target is a `HarnessTarget` or a graph texture; its pixels
+  come back through `CgFrameBuffer.readColor`/`readTexture` or a graph readback; a test of the device itself draws
+  through `CgRHI` (`rhi-scene`, `compute-seam`).
+- **A host's needs are CrystalGraphics API**: `CgFrameBuffer.drawInto()` binds a target with its viewport for a
+  stage firing, `CgPassConstants.hostDepth()` takes the host's depth convention. What the engine lacks is added
+  there, never worked around in a scene.
 
 ---
 
@@ -608,32 +605,18 @@ The service reads viewport dimensions live from `ViewportState` at capture time,
 | `HarnessFontUtil` | `util/` | Font path resolution (config -> test font -> system font) |
 | `HarnessBitmapUtil` | `util/` | FreeType bitmap normalization (pitch/row-order) |
 | `HarnessProjectionUtil` | `util/` | Orthographic + perspective projection. Owns shared constants: `FOV_DEGREES`, `NEAR_PLANE`, `FAR_PLANE` |
-| `HarnessFboHelper` | `util/` | FBO creation, bind/unbind, clear, capture, teardown |
-| `HarnessShaderUtil` | `util/` | Shader compilation and resource loading |
-| `ScreenshotUtil` | `util/` | PNG capture from backbuffer, FBO, or texture |
+| `HarnessTarget` | `util/` | A scene's offscreen host target: RGBA8 and depth, made on the device; bind, clear, capture, delete |
+| `ObjectDraws` | `util/` | Object records drawn now through `CgImmediate`: a mesh under a material, one instance a record |
+| `ValidationCube` | `util/` | The reference cube on the floor, a colour a face, as `flat_colour` draws |
+| `HarnessCapture` | `capture/` | PNGs from a target, a framebuffer id or a texture layer: readbacks |
+| `DeviceErrors` | `tool/` | Whether the device reported an error since the last ask: GL's error queue (Vulkan's count is `PlatformServiceHarness.validationErrors()`) |
 | `HarnessOutputDir` | `util/` | Output directory creation |
-| `GlStateResetHelper` | `util/` | Canonical post-scene GL state reset (unbind shaders, VAOs, textures, restore depth/blend) |
-| `RenderPassState` | `util/` | Per-pass GL state boundary helpers (world, scene, overlay, capture point) |
-| `ValidationCubeHelper` | `util/` | Shared colored-cube geometry + shader for validation scenes |
 | `ValidationChoreographer` | `validation/` | Scripted camera/pause/capture sequence coordinator |
 
-### GL State Management
+### State between passes
 
-Scenes don't manage GL state cleanup themselves. The harness provides two mechanisms:
-
-1. **`GlStateResetHelper.resetAfterScene()`**: Called by the runtime after every scene `render()` call. Unbinds shaders, VAOs, VBOs, textures; restores depth test; disables blend and cull face; unbinds FBOs.
-
-2. **`RenderPassState`**: Explicit state boundary helpers for each pipeline pass. Each pass declares the state it needs via `beginXxxPass()` rather than relying on folklore cleanup.
-
-```
-Pipeline order:
-  beginWorldPass()    -> floor rendering (depth ON, blend OFF)
-  beginScenePass()    -> scene content (safe defaults; scene may modify)
-  resetAfterScene()   -> clean up scene leftovers
-  beginOverlayPass()  -> HUD (depth OFF, blend ON with alpha)
-  endOverlayPass()    -> restore prior state
-  beginCapturePoint() -> post-render callback fires for screenshots
-```
+There is none to manage: every drawer is an engine material and declares its own state, so a scene leaves nothing
+for the next pass to reset, and starts from nothing it can rely on either.
 
 ---
 
@@ -641,7 +624,6 @@ Pipeline order:
 
 | Mode ID                | Output Directory                                                                 | Lifecycle | Description |
 |------------------------|----------------------------------------------------------------------------------|---|---|
-| `triangle-2d`          | `triangle-2d/triangle.png`                                                       | MANAGED | Basic colored triangle on backbuffer |
 | `text-2d`              | `text-2d/text-scene.png` + `atlas/atlas-dump-<size>px.png`                       | MANAGED | Full text rendered via CgTextRenderer + FBO |
 | `text-3d`              | `text-3d/{name}-normal.png`, `{name}-paused.png`, `{name}-topdown.png`           | INTERACTIVE | Interactive 3D world-space text with camera controls. Implemented by `TextScene3D`. |
 | `camera-3d` | `camera-3d/{name}-front-view.png`, etc. (4 angles)                     | INTERACTIVE | 3D camera validation with cube + floor |
@@ -654,7 +636,6 @@ All outputs go into scene-specific subdirectories under `harness-output/`. The `
 
 | Mode ID | Output | Description |
 |---|---|---|
-| `gl-state-dump` | `gl-state-dump.txt` | Current GL state: bindings, flags, limits, errors |
 | `capability-report` | `capability-report.txt` | CgCapabilities + environment summary |
 
 ---
@@ -669,14 +650,15 @@ The interactive runtime decomposes into focused services instead of one monolith
 | `HarnessWindow` | `runtime/HarnessWindow.java` | The GLFW window and its core context (newest granted, 4.6 down to 3.3): swap, poll, pacing, resize, cursor grab, and the key/char/pointer events the runner hands to scenes. Key STATE is `CgPlatform.input()`'s, not this class's |
 | `FrameClock` | `runtime/FrameClock.java` | High-resolution frame timing (delta, elapsed, frame number) |
 | `InputPauseHandler` | `runtime/InputPauseHandler.java` | Pause state (a 2D scene's ESC/T, `setPaused`) + mouse grab management; a 3D scene's ESC/T open the desktop |
-| `ResizeHandler` | `runtime/ResizeHandler.java` | Framebuffer resize detection (`HarnessWindow.takeResized`) + propagation to viewport, GL, and renderers |
+| `ResizeHandler` | `runtime/ResizeHandler.java` | Framebuffer resize detection (`HarnessWindow.takeResized`) into the context's dimensions |
+| `MainTarget` | `runtime/MainTarget.java` | The frame's target, the window's size, copied into the window at the frame's end, as Minecraft's main target |
 | `OverlayPipeline` | `runtime/OverlayPipeline.java` | The HUD: its text on the HUD stage |
 | `WorldPassCoordinator` | `runtime/WorldPassCoordinator.java` | Coordinates world-base contributors like `FloorRenderer` |
 | `OverlayCaptureOrchestrator` | `runtime/OverlayCaptureOrchestrator.java` | Post-scene overlay rendering order + post-render capture callback |
 | `ArtifactService` | `capture/ArtifactService.java` | Semantic capture API (suffix-based filenames, live viewport) |
 | `CaptureCallback` | `capture/CaptureCallback.java` | Interface for scheduling post-render captures (implemented by runner) |
 | `Camera3D` | `camera/Camera3D.java` | First-person camera with WASD/SPACE/SHIFT movement and mouse look |
-| `FloorRenderer` | `camera/FloorRenderer.java` | Infinite ground plane at Y=0 with grid pattern |
+| `FloorRenderer` | `camera/FloorRenderer.java` | The ground: a flat square at Y=0, `flat_colour` drawn through `ObjectDraws` |
 | `HUDRenderer` | `camera/HUDRenderer.java` | On-screen position/rotation display (top-left corner) |
 | `TaskScheduler` | `scheduler/TaskScheduler.java` | Time-based callback system for automated events |
 | `HarnessDebugTools` | `debug/HarnessDebugTools.java` | Programmatic camera control + screenshot capture via `ArtifactService` |
@@ -690,13 +672,14 @@ The interactive runner sequences these steps every frame:
 3. **Input polling**: `InputPauseHandler.pollPauseToggle()` checks ESC/T for pause toggle
 4. **Camera update**: Process WASD/SPACE/SHIFT movement + mouse look (skipped when paused)
 5. **Task scheduler tick**: Fire any callbacks whose time has elapsed
-6. **World pass**: `RenderPassState.beginWorldPass()` then `WorldPassCoordinator` renders world base (e.g. floor)
-7. **Scene pass**: `RenderPassState.beginScenePass()` then `scene.render(ctx, frameInfo)`
-8. **Post-scene sequence**: `OverlayCaptureOrchestrator.executePostSceneSequence()`:
-   - GL state reset via `GlStateResetHelper.resetAfterScene()`
+6. **Host section**: `CgHostPaint.enter()`, and the frame's target bound (`MainTarget.begin`)
+7. **World pass**: `WorldPassCoordinator` clears it to the sky and draws the floor
+8. **Scene pass**: `scene.render(ctx, frameInfo)`
+9. **Post-scene sequence**: `OverlayCaptureOrchestrator.executePostSceneSequence()`:
    - Overlay pass (handled by `OverlayPipeline`: the HUD if 3D camera active), then the desktop (`HarnessUi`)
-   - Post-render capture callback (one-shot, after all overlays, before swap)
-9. **Swap buffers**: `HarnessWindow.swapBuffers()` + `HarnessWindow.sync(fps)`
+   - Post-render capture callback (one-shot, after all overlays, before the copy into the window)
+10. **Present**: `MainTarget.end()` copies into the window, `CgHostPaint.leave()`, the device's frame ends,
+    `HarnessWindow.swapBuffers()` + `HarnessWindow.sync(fps)`
 
 ### Camera Controls
 
@@ -725,41 +708,36 @@ position and rotation, the particles drawn, then the shake, HDR and bloom switch
 
 ---
 
-## Agent Debug Toolkit (7 Tools)
+## Agent Debug Toolkit
 
-1. **ScreenshotUtil** — PNG capture API for backbuffer/FBO/texture
-2. **TextureInspector** — Capture arbitrary texture ID to PNG
-3. **FboInspector** — Dump FBO color attachments to PNG
-4. **GlStateDumper** — Structured GL state report to file
-5. **CapabilityReport** — CgCapabilities + harness environment report
-6. **GlErrorChecker** — Drain and name all pending GL errors
-7. **AtlasDumper** — Dump CgGlyphAtlasPage texture(s) + manifest file
+1. **HarnessCapture** — PNGs from a target, a framebuffer id or a texture's layer
+2. **DeviceErrors** — whether the device reported an error since the last ask
+3. **CapabilityReport** — CgCapabilities + harness environment report
+4. **AtlasDumper** — Dump CgGlyphAtlasPage texture(s) + manifest file
 
 ### Usage from Scene Code
 
 ```java
-// Screenshot capture (direct, for managed scenes)
-ScreenshotUtil.captureBackbuffer(width, height, outputDir, "screenshot.png");
-ScreenshotUtil.captureFboColorTexture(fboId, texId, w, h, outputDir, "fbo.png");
-ScreenshotUtil.captureTexture(texId, w, h, CgGL.GL_R8, outputDir, "tex.png");
+// A scene's own target, captured (managed scenes)
+HarnessTarget target = HarnessTarget.create(w, h, true);
+target.bind();
+target.clear(0.08f, 0.08f, 0.1f, 1f);
+// ... draw ...
+target.captureToFile(outputDir, "picture.png");
+target.unbind();
 
 // Interactive scene capture (preferred for interactive scenes)
 ArtifactService artifacts = ctx.getArtifactService();
 artifacts.requestCapture("my-view"); // -> {outputName}-my-view.png
 
-// Texture inspector
-TextureInspector.capture(texId, 512, 512, 0x8229, outputDir, "inspect.png");
+// A texture's layer, read back
+HarnessCapture.texture(texture, layer, outputDir, "layer.png");
 
-// FBO inspector
-FboInspector.dumpColorAttachment(fboId, 800, 600, outputDir, "fbo-color.png");
+// The verdict's device checks
+boolean errors = DeviceErrors.checkAndLog("my-scene");
+int validation = PlatformServiceHarness.validationErrors();
 
-// GL error check
-boolean hadErrors = GlErrorChecker.checkAndLog("after render pass");
-List<String> errors = GlErrorChecker.drainErrors();
-
-// Atlas dumper (paged atlas pages — each page is a layer of the atlas
-// family's shared GL_TEXTURE_2D_ARRAY as of the atlas texture-array migration;
-// dumpAllPagedPages reads pages back via ScreenshotUtil.captureArrayTextureLayer)
+// Atlas dumper: each page is a layer of its atlas's array texture
 AtlasDumper.dumpAllPagedPages(pages, "bitmap-atlas-dump", "128px", outputDir);
 // Produces: bitmap-atlas-dump-128px-page-N.png + bitmap-atlas-dump-128px-manifest.txt
 ```
@@ -777,27 +755,28 @@ Managed scenes render a single frame and exit. They're used for FBO captures, at
 ```java
 public class MyManagedScene implements HarnessSceneLifecycle {
 
+    private HarnessTarget target;
+
     @Override
     public void init(HarnessContext ctx) {
-        // Set up GL resources (shaders, FBOs, textures)
+        // Materials, meshes, the target
+        target = HarnessTarget.create(ctx.getScreenWidth(), ctx.getScreenHeight(), true);
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         // Render once. The runtime calls this exactly once.
         OutputSettings out = ctx.getOutputSettings();
-        // ... render to FBO or backbuffer ...
-        ScreenshotUtil.captureBackbuffer(
-            ctx.getViewport().getWidth(),
-            ctx.getViewport().getHeight(),
-            out.getOutputDir(),
-            out.getOutputName() + ".png"
-        );
+        target.bind();
+        target.clear(0.08f, 0.08f, 0.1f, 1f);
+        // ... draw through the engine ...
+        target.captureToFile(out.getOutputDir(), out.getOutputName() + ".png");
+        target.unbind();
     }
 
     @Override
     public void dispose() {
-        // Delete GL resources
+        target.delete();
     }
 }
 ```
@@ -948,11 +927,10 @@ A scene about the desktop is a 3D scene on `ctx.getUi()` instead: the desktop is
 - PNG filenames must be deterministic and stable
 - Non-PNG artifacts (manifests, reports) use `.txt` extension
 
-### GL State Rules for Scenes
+### State Rules for Scenes
 
-- Scenes don't need to clean up GL state after rendering. The runtime calls `GlStateResetHelper.resetAfterScene()` automatically.
-- Scenes start with safe defaults: depth test ON, blend OFF, depth writes ON (set by `RenderPassState.beginScenePass()`).
-- Scenes may modify any GL state they need during `render()`. The post-scene reset handles cleanup.
+- A scene sets no device state: its materials declare theirs, and a target is bound through `HarnessTarget` or
+  `CgFrameBuffer.drawInto()`, which puts the previous one back.
 - Scenes should NOT directly manage overlay or capture timing. Use `ArtifactService` for captures.
 
 ### Testing
@@ -1060,12 +1038,10 @@ Use `--output-name=PREFIX` to customize output filenames:
 
 | Mode ID             | Type | Description |
 |---------------------|---|---|
-| `triangle-2d`       | MANAGED | Basic colored triangle |
 | `atlas-dump`        | MANAGED | Glyph atlas texture dump |
 | `text-2d`           | MANAGED | Full text rendering via CgTextRenderer |
 | `text-3d`           | INTERACTIVE | Interactive 3D world-space text with camera |
 | `camera-3d`         | INTERACTIVE | Camera validation: cube from 4 angles |
-| `gl-state-dump`     | DIAGNOSTIC | GL state dump to text file |
 | `capability-report` | DIAGNOSTIC | CgCapabilities + environment report |
 
 ### Common CLI Arguments
@@ -1131,6 +1107,7 @@ com.crystalgraphics.harness/
 │   ├── HUDRenderer.java            # On-screen camera state text
 ├── capture/
 │   ├── ArtifactService.java         # Framework-owned capture API (suffix-based naming)
+│   ├── HarnessCapture.java          # PNGs from a target, a framebuffer or a texture layer: readbacks
 │   └── CaptureCallback.java         # Post-render capture scheduling interface
 ├── config/
 │   ├── HarnessConfig.java           # Base config (outputDir, width, height, fontPath, outputName)
@@ -1150,11 +1127,12 @@ com.crystalgraphics.harness/
 │   ├── FrameClock.java              # Frame timing service
 │   ├── InputPauseHandler.java       # Pause toggle + mouse grab management
 │   ├── ResizeHandler.java           # Framebuffer resize detection + propagation
+│   ├── MainTarget.java              # The frame's target, copied into the window at the frame's end
+│   ├── MotionProbe.java             # How much the scene changes frame to frame (.motion)
 │   ├── OverlayPipeline.java         # Coordinates HUD and pause overlays
 │   ├── WorldPassCoordinator.java    # Coordinates world contributors (floor, etc.)
 │   └── OverlayCaptureOrchestrator.java  # Post-scene overlay order + capture callback
 ├── scene/
-│   ├── TriangleScene2D.java           # Basic triangle (managed)
 │   ├── AtlasDumpScene.java          # Atlas dump (managed)
 │   ├── TextScene2D.java               # Full text rendering (managed)
 │   ├── TextScene3D.java # Interactive world-text with camera (interactive)
@@ -1167,24 +1145,19 @@ com.crystalgraphics.harness/
 │   ├── UiDocumentScene.java         # The base of a 2D scene that is one CrystalGUI document
 │   └── HarnessThemes.java           # The theme stack a scene installs
 ├── tool/
-│   ├── GlStateDumper.java           # GL state dump diagnostic
 │   ├── CapabilityReport.java        # Capabilities diagnostic
-│   ├── FboInspector.java            # FBO color attachment inspector
-│   ├── TextureInspector.java        # Texture capture inspector
-│   ├── GlErrorChecker.java          # GL error drain utility
+│   ├── DeviceErrors.java            # Whether the device reported an error since the last ask
 │   └── AtlasDumper.java             # Atlas texture + manifest dumper
 ├── validation/
 │   ├── ValidationChoreographer.java # Scripted capture sequence coordinator
 │   └── ValidationCaptureStep.java    # Value object for a single capture step
 └── util/
-    ├── ScreenshotUtil.java          # Low-level PNG capture primitives
-    ├── GlStateResetHelper.java      # Canonical post-scene GL state reset
-    ├── RenderPassState.java         # Per-pass GL state boundary helpers
-    ├── ValidationCubeHelper.java    # Shared cube geometry for validation scenes
+    ├── HarnessTarget.java           # A scene's offscreen host target, made on the device
+    ├── ObjectDraws.java             # Object records drawn now through CgImmediate
+    ├── ValidationCube.java          # The reference cube, a colour a face
     ├── HarnessProjectionUtil.java   # Projection matrices + shared FOV/near/far constants
     ├── HarnessFontUtil.java         # Font path resolution
     ├── HarnessBitmapUtil.java       # FreeType bitmap normalization
-    ├── HarnessShaderUtil.java       # Shader compilation
     ├── HarnessOutputDir.java        # Output directory creation
     └── HarnessDiagnostics.java      # Startup diagnostic logging
 ```

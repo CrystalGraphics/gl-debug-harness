@@ -4,7 +4,7 @@ bench.py -- run a harness scene, keep its result file, and compare it with the s
 
     python bench.py run vfx-blasts --cell gl-g43                 # one run, then the comparison
     python bench.py run vfx-blasts --cell gl-g43 --repeat 3      # the field-wise median of three runs
-    python bench.py run bench-arena --cell vk --device vulkan --prop crystalgraphics.vfx.skipIdleEmitters=true
+    python bench.py run bench-arena --cell vk --rhi vulkan --prop crystalgraphics.vfx.skipIdleEmitters=true
     python bench.py compare harness-output/vfx-blasts/profile-harness-300f/result.json
     python bench.py accept  <result.json> --reason "why the baseline moves"
 
@@ -221,13 +221,13 @@ def _commit():
 def _run_command(args):
     commit = args.commit or _commit()
     gradle = str(ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew"))
-    scene_args = f"--mode={args.scene}" + (f" --device={args.device}" if args.device else "")
+    scene_args = f"--mode={args.scene}" + (f" --rhi={args.rhi}" if args.rhi else "")
     cmd = [gradle, ":gl-debug-harness:runHarness", f"--args={scene_args}",
            f"-Dcrystalgraphics.harness.profile={args.frames}",
            f"-Dcrystalgraphics.harness.cell={args.cell}",
            f"-Dcrystalgraphics.harness.commit={commit}"] + [f"-D{p}" for p in args.prop]
     # The validation layer checks every Vulkan command: a timing with it on is the layer's.
-    if args.device == "vulkan" and not any(p.startswith("crystalgraphics.harness.vulkanValidation=") for p in args.prop):
+    if args.rhi == "vulkan" and not any(p.startswith("crystalgraphics.harness.vulkanValidation=") for p in args.prop):
         cmd.append("-Dcrystalgraphics.harness.vulkanValidation=false")
     if args.dry_run:
         print(" ".join(shlex.quote(c) for c in cmd))
@@ -259,7 +259,7 @@ def main(argv):
     run.add_argument("--commit")
     run.add_argument("--frames", type=int, default=300)
     run.add_argument("--repeat", type=int, default=1)
-    run.add_argument("--device", help="the harness's --device: gl, tracked or vulkan")
+    run.add_argument("--rhi", help="the harness's --rhi: gl or vulkan")
     run.add_argument("--prop", action="append", default=[], help="a -D system property, name=value; repeatable")
     run.add_argument("--baselines", default=default_baselines)
     run.add_argument("--dry-run", action="store_true", help="print the command and stop")

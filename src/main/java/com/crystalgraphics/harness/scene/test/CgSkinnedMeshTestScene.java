@@ -9,8 +9,8 @@ import com.crystalgraphics.gl.buffer.shader.CgBonePalettes;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
@@ -98,7 +98,7 @@ public class CgSkinnedMeshTestScene implements HarnessSceneLifecycle {
         Matrix4f projection = new Matrix4f().setOrtho(0, w, h, 0, -1, 1);
         CgMesh posed = CgSkinning.skin(bar, skinning);
 
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
+        HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
         target.clear((BACKGROUND >> 16 & 0xFF) / 255f, (BACKGROUND >> 8 & 0xFF) / 255f, (BACKGROUND & 0xFF) / 255f, 1f);
         CgWorldRenderer world = CgWorldRenderer.get();
@@ -116,7 +116,7 @@ public class CgSkinnedMeshTestScene implements HarnessSceneLifecycle {
         target.delete();
         posed.release();
 
-        compare(ctx, GlErrorChecker.checkAndLog("skinned-mesh"));
+        compare(ctx, DeviceErrors.checkAndLog("skinned-mesh"));
     }
 
     private void compare(HarnessContext ctx, boolean glErrors) {
@@ -129,10 +129,6 @@ public class CgSkinnedMeshTestScene implements HarnessSceneLifecycle {
         }
         if (validation > 0) {
             System.out.println("[skinned-mesh] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[skinned-mesh] PASS on recording: every command validated; a recording device draws nothing to compare");
             return;
         }
         BufferedImage image;

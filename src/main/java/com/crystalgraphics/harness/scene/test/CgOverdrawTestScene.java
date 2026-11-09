@@ -6,8 +6,8 @@ import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.graph.CgGraphTexture;
@@ -26,7 +26,7 @@ import java.util.List;
  *
  * <pre>
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=overdraw-count"
- *   ./gradlew :gl-debug-harness:runHarness --args="--mode=overdraw-count --device=vulkan"
+ *   ./gradlew :gl-debug-harness:runHarness --args="--mode=overdraw-count --rhi=vulkan"
  * </pre>
  */
 public class CgOverdrawTestScene implements InteractiveSceneLifecycle {
@@ -36,7 +36,7 @@ public class CgOverdrawTestScene implements InteractiveSceneLifecycle {
     private static final int[] EXPECTED = {3, 5, 4, 6};
 
     private CgMaterial wall, plane, cut;
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     private CgRenderStage.Registration reader;
     private volatile float[] counts;
     private boolean armed, wasOverdraw, running = true;
@@ -48,7 +48,7 @@ public class CgOverdrawTestScene implements InteractiveSceneLifecycle {
         plane = CgMaterial.newInstance("assets/harness/shader/overdraw_plane.shader");
         cut = CgMaterial.newInstance("assets/harness/shader/overdraw_plane.shader");
         cut.enableKeyword("CUT");
-        target = HarnessFboHelper.create(W, H, true);
+        target = HarnessTarget.create(W, H, true);
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
         wasOverdraw = world.overdraw();
@@ -98,9 +98,8 @@ public class CgOverdrawTestScene implements InteractiveSceneLifecycle {
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         String fail = null;
-        if (GlErrorChecker.checkAndLog("overdraw-count")) fail = "GL errors, logged above";
+        if (DeviceErrors.checkAndLog("overdraw-count")) fail = "GL errors, logged above";
         else if (PlatformServiceHarness.validationErrors() > 0) fail = "Vulkan validation errors, logged above";
-        else if ("recording".equals(on)) fail = null;
         else if (counts == null) fail = "the overdraw target never came back";
         else {
             int[][] at = {{W / 4, H / 4}, {3 * W / 4, H / 4}, {W / 4, 3 * H / 4}, {3 * W / 4, 3 * H / 4}};

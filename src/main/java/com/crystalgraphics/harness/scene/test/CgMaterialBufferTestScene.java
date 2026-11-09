@@ -8,8 +8,8 @@ import com.crystalgraphics.compute.ops.CgGpuOps;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.CgImmediate;
@@ -72,7 +72,7 @@ public class CgMaterialBufferTestScene implements HarnessSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
         Matrix4f projection = new Matrix4f().setOrtho(0, w, h, 0, -1, 1);
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
+        HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
 
         target.clear(BACKGROUND_R / 255f, BACKGROUND_G / 255f, BACKGROUND_B / 255f, 1f);
@@ -96,7 +96,7 @@ public class CgMaterialBufferTestScene implements HarnessSceneLifecycle {
         target.unbind();
         target.delete();
 
-        compare(ctx, GlErrorChecker.checkAndLog("material-buffer"));
+        compare(ctx, DeviceErrors.checkAndLog("material-buffer"));
     }
 
     /** What the kernel writes, what compaction makes of it, and the count the draw takes. */
@@ -142,7 +142,7 @@ public class CgMaterialBufferTestScene implements HarnessSceneLifecycle {
         return rec;
     }
 
-    private void drawWorld(Buffers b, HarnessFboHelper target, int w, int h, Matrix4f projection) {
+    private void drawWorld(Buffers b, HarnessTarget target, int w, int h, Matrix4f projection) {
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
         CgRenderStage.Registration simulating = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, stage -> {
@@ -179,10 +179,6 @@ public class CgMaterialBufferTestScene implements HarnessSceneLifecycle {
         }
         if (validation > 0) {
             System.out.println("[material-buffer] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[material-buffer] PASS on recording: every command validated; a recording device draws nothing to compare");
             return;
         }
         boolean pass = true;

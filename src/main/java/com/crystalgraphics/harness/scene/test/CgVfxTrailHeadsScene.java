@@ -3,7 +3,7 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
@@ -41,7 +41,7 @@ import java.util.TreeSet;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-trail-heads"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-trail-heads" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-trail-heads --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-trail-heads --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [vfx-trail-heads] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -341,12 +341,10 @@ public class CgVfxTrailHeadsScene implements InteractiveSceneLifecycle {
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = (device == null ? "gl" : device.name()) + " at " + CgCapabilities.detect().computeTier();
         int validation = PlatformServiceHarness.validationErrors();
-        if (GlErrorChecker.checkAndLog("vfx-trail-heads")) {
+        if (DeviceErrors.checkAndLog("vfx-trail-heads")) {
             System.out.println("[vfx-trail-heads] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[vfx-trail-heads] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-        } else if (on.startsWith("recording")) {
-            System.out.println("[vfx-trail-heads] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (!compared) {
             System.out.println("[vfx-trail-heads] FAIL on " + on + ": the records never arrived");
         } else if (failure != null) {

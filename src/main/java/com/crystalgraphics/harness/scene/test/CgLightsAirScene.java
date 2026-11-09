@@ -7,8 +7,8 @@ import com.crystalgraphics.gl.buffer.CgFrameRing;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
@@ -37,7 +37,7 @@ import java.util.List;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-air"
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-air --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-air --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [lights-air] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -58,7 +58,7 @@ public class CgLightsAirScene implements InteractiveSceneLifecycle {
     private final Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, (float) (CX + 0.5 - EYE_X), (float) (GROUND - EYE_Y),
             (float) (CZ + 3 - EYE_Z), 0f, 1f, 0f);
     private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), (float) W / H, 0.05f, 200f);
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     private CgMaterial grey;
     private final CgWorldHaze haze = new CgWorldHaze().box(CX - 20, GROUND, CZ - 20, CX + 20, GROUND + 20, CZ + 20)
             .density(0.05f, 2f);
@@ -71,7 +71,7 @@ public class CgLightsAirScene implements InteractiveSceneLifecycle {
         CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         CgWorldRenderer.get().media().add(haze);
-        target = HarnessFboHelper.create(W, H, true);
+        target = HarnessTarget.create(W, H, true);
     }
 
     @Override
@@ -118,13 +118,12 @@ public class CgLightsAirScene implements InteractiveSceneLifecycle {
                 + " wall's shadow %.1f, %.1f, %.1f", at[0][0], at[1][0], at[2][0], at[0][1], at[1][1], at[2][1]);
         if (failure == null && open < 8f) failure = "the air by the light glows too little: " + readings;
         else if (failure == null && behind > 0.3f * open + 2f) failure = "the air in the wall's shadow glows: " + readings;
-        boolean glErrors = GlErrorChecker.checkAndLog("lights-air");
+        boolean glErrors = DeviceErrors.checkAndLog("lights-air");
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
         if (glErrors) failure = "GL errors, logged above";
         else if (validation > 0) failure = validation + " Vulkan validation errors, logged above";
-        else if ("recording".equals(on)) failure = null;
         if (failure != null) System.out.println("[lights-air] FAIL on " + on + ": " + failure);
         else System.out.println("[lights-air] PASS on " + on + ": " + readings);
     }

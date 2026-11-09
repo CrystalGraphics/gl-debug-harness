@@ -26,7 +26,7 @@ import java.util.List;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-fluid"
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-fluid --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-fluid --rhi=vulkan"
  * }</pre>
  */
 public final class CgVfxFluidScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard {

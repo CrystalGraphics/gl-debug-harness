@@ -8,7 +8,7 @@ import com.crystalgraphics.gl.texture.CgFallbackTextures;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
@@ -129,7 +129,7 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
         renderer.flush();
         renderer.end();
 
-        boolean hadErrors = GlErrorChecker.checkAndLog("CgQuadRenderer-test");
+        boolean hadErrors = DeviceErrors.checkAndLog("CgQuadRenderer-test");
         if (!reportedOnce) {
             reportedOnce = true;
             LOG.info("CgQuadRenderer test scene: {} grid instances + {} spinner instances in one flush(), glError={}",

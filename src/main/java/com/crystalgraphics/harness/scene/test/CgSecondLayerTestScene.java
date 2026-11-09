@@ -8,11 +8,10 @@ import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
@@ -55,7 +54,7 @@ public class CgSecondLayerTestScene implements HarnessSceneLifecycle {
         ByteBuffer texels = ByteBuffer.allocateDirect(8);
         texels.put((byte) 255).put((byte) 255).put((byte) 255).put((byte) 255);   // white, left
         texels.put((byte) 255).put((byte) 0).put((byte) 0).put((byte) 255).flip(); // red, right
-        texture.uploadRegion(0, 0, 0, 2, 1, texels, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE);
+        texture.uploadRegion(0, 0, 0, 2, 1, texels);
         for (int i = 0; i < 2; i++) {
             materials[i] = CgMaterial.newInstance("assets/harness/shader/second_layer_test.shader");
             materials[i].applyProperties(b -> b.sampler("_MainTex", 0, texture));
@@ -67,7 +66,7 @@ public class CgSecondLayerTestScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
+        HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
         try {
             target.clear(0f, 0f, 0f, 1f);
@@ -77,7 +76,7 @@ public class CgSecondLayerTestScene implements HarnessSceneLifecycle {
             target.unbind();
             target.delete();
         }
-        report(ctx, GlErrorChecker.checkAndLog("second-layer"));
+        report(ctx, DeviceErrors.checkAndLog("second-layer"));
     }
 
     private CgRecording record(int w, int h) {
@@ -110,10 +109,6 @@ public class CgSecondLayerTestScene implements HarnessSceneLifecycle {
         int validation = PlatformServiceHarness.validationErrors();
         if (validation > 0) {
             System.out.println("[second-layer] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[second-layer] PASS on recording: every command validated; nothing drawn to compare");
             return;
         }
         BufferedImage picture;

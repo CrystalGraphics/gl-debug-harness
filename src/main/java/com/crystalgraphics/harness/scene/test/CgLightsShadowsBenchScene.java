@@ -1,6 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
+import com.crystalgraphics.harness.util.ObjectDraws;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.api.texture.CgTextureSpec;
@@ -10,7 +11,6 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.CgPlatform;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.world.CgBoxSink;
 import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
@@ -72,7 +72,7 @@ public final class CgLightsShadowsBenchScene implements InteractiveSceneLifecycl
         }
         texels.flip();
         lightmap = CgTexture2D.createEmpty(16, 16, CgTextureSpec.RGBA8_LINEAR);
-        lightmap.uploadRegion(0, 0, 0, 16, 16, texels, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE);
+        lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
     }
 
     @Override
@@ -83,7 +83,7 @@ public final class CgLightsShadowsBenchScene implements InteractiveSceneLifecycl
         CgPassConstants host = new CgPassConstants();
         host.view.set(view);
         host.projection.set(projection);
-        host.resolution(w, h).time(CgFrameClock.seconds()).depth(CgGL.isDepthReversed(), CgGL.isDepthZeroToOne()).cameraFromView();
+        host.resolution(w, h).time(CgFrameClock.seconds()).hostDepth().cameraFromView();
         ground.translation((float) (X - EYE_X), (float) (GROUND - 0.5 - EYE_Y), (float) (Z - EYE_Z)).scale(400f, 1f, 400f);
         CgMesh cube = CgMeshShapes.cube();
         ObjectDraws.draw(host, floor, cube, 1, (i, data, at) -> ObjectDraws.object(data, at, ground, 1f, 1f, 1f, 1f));

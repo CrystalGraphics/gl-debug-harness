@@ -10,8 +10,8 @@ import com.crystalgraphics.gl.buffer.shader.CgBonePalettes;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.graph.CgGraphTexture;
@@ -36,7 +36,7 @@ import java.util.List;
  *
  * <pre>
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=custom-depth"
- *   ./gradlew :gl-debug-harness:runHarness --args="--mode=custom-depth --device=vulkan"
+ *   ./gradlew :gl-debug-harness:runHarness --args="--mode=custom-depth --rhi=vulkan"
  * </pre>
  */
 public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
@@ -52,7 +52,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
 
     private CgMaterial wall, skin, writer;
     private CgMesh quad;
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     /** The near cube's front face, where {@code WORLD_NORMALS_READ} must have the opaque pass write +Z at eye depth 4.5. */
     private static final int NX = 275, NY = 64;
     /** What the writer's custom data packs to there: the ID byte + 256 * (model 13 + 32 * type 2), and (51, 102, 153). */
@@ -88,7 +88,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
             m.quad(0, 1, 2, 3);
         });
         writer = CgMaterial.load("assets/harness/shader/custom_data_test.shader");
-        target = HarnessFboHelper.create(W, H, true);
+        target = HarnessTarget.create(W, H, true);
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
         asking = CgRenderStage.WORLD_OPAQUE.register(0, stage -> stage.resources().put(CgFrameKeys.WORLD_NORMALS_READ, Boolean.TRUE));
@@ -167,9 +167,8 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         String fail = null;
-        if (GlErrorChecker.checkAndLog("custom-depth")) fail = "GL errors, logged above";
+        if (DeviceErrors.checkAndLog("custom-depth")) fail = "GL errors, logged above";
         else if (PlatformServiceHarness.validationErrors() > 0) fail = "Vulkan validation errors, logged above";
-        else if ("recording".equals(on)) fail = null;
         else if (stencil == null) fail = "CustomDepth never came back";
         else {
             for (int k = 0; k < AT.length; k++) {

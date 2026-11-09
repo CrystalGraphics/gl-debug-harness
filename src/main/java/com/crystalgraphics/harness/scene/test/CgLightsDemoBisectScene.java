@@ -1,6 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
+import com.crystalgraphics.harness.util.ObjectDraws;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.api.texture.CgTextureSpec;
@@ -10,9 +11,8 @@ import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.CgPlatform;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
@@ -94,7 +94,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
             : new Matrix4f().lookAt(0f, 0f, 0f, (float) (X - EYE_X), (float) (GROUND + 4 - EYE_Y), (float) (Z - 2 - EYE_Z),
                     0f, 1f, 0f);
     private final Matrix4f projection = new Matrix4f(), ground = new Matrix4f(), swayed = new Matrix4f();
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     private CgMaterial floor;
     private CgTexture2D lightmap;
     private int width, height, frame, warmAt = -1;
@@ -125,7 +125,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
         demo.precache();
         width = ctx.getScreenWidth();
         height = ctx.getScreenHeight();
-        target = HarnessFboHelper.create(width, height, true);
+        target = HarnessTarget.create(width, height, true);
         // A night's lightmap: block light along u as Minecraft's, the sky's moonlight a faint blue.
         ByteBuffer texels = ByteBuffer.allocateDirect(16 * 16 * 4).order(ByteOrder.nativeOrder());
         for (int sky = 0; sky < 16; sky++) {
@@ -137,7 +137,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
         }
         texels.flip();
         lightmap = CgTexture2D.createEmpty(16, 16, CgTextureSpec.RGBA8_LINEAR);
-        lightmap.uploadRegion(0, 0, 0, 16, 16, texels, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE);
+        lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
     }
 
     @Override
@@ -156,7 +156,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
         CgPassConstants host = new CgPassConstants();
         host.view.set(view);
         host.projection.set(projection);
-        host.resolution(width, height).time(CgFrameClock.seconds()).depth(CgGL.isDepthReversed(), CgGL.isDepthZeroToOne())
+        host.resolution(width, height).time(CgFrameClock.seconds()).hostDepth()
                 .cameraFromView();
         ground.translation((float) (X - EYE_X), (float) (GROUND - 0.5 - EYE_Y), (float) (Z - EYE_Z)).scale(400f, 1f, 400f);
         CgMesh cube = CgMeshShapes.cube();

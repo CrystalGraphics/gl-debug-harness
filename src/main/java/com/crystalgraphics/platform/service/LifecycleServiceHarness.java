@@ -17,7 +17,7 @@ public final class LifecycleServiceHarness implements CgLifecycleService {
     @Override public void onFrameRendered() {
         CgGraphicsLifecycle.tickFrame();
         try (CgTrace.Zone z = CgTrace.zone(CgChannels.MISC, TRACKED_END)) {
-            PlatformServiceHarness.endTrackedFrame();
+            PlatformServiceHarness.endDeviceFrame();
         }
     }
 }

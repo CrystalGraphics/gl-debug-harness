@@ -8,7 +8,7 @@ import com.crystalgraphics.compute.program.CgComputeCheck;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
@@ -89,7 +89,7 @@ public class CgComputeCheckTestScene implements InteractiveSceneLifecycle {
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         ComputeTier tier = CgCapabilities.detect().computeTier();
-        if (GlErrorChecker.checkAndLog("compute-check")) {
+        if (DeviceErrors.checkAndLog("compute-check")) {
             System.out.println("[compute-check] FAIL on " + on + ": GL errors, logged above");
             return;
         }
@@ -105,11 +105,6 @@ public class CgComputeCheckTestScene implements InteractiveSceneLifecycle {
         }
         if (!CgKernelTarget.CHECKED) {
             System.out.println("[compute-check] FAIL: run with -Dcrystalgraphics.compute.checked=true");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[compute-check] PASS on recording: every checked dispatch validated; a recording device "
-                    + "reads back no reports");
             return;
         }
         String text = CgIO.loadSource(FILE);

@@ -56,7 +56,7 @@ import java.util.Map;
  * prefabs and post volumes. The Nova Cannon by default; any kit's sequence by id. Scene id {@code sequence-spawn}.
  *
  * <pre>{@code
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=sequence-spawn --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=sequence-spawn --rhi=vulkan"
  * // the Rasen Shuriken's demo, its worst boundary frame traced
  * ... -Dcrystalgraphics.harness.sequence.kit.namespace=nsuns4_kit \
  *     -Dcrystalgraphics.harness.sequence.id=nsuns4_kit:2efb_rsn/2efb_rsn_df_demo02 \

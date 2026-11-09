@@ -103,6 +103,48 @@ public final class HarnessWindow {
     private HarnessWindow() {}
 
     /**
+     * The GL context's pending errors, drained and named; none for a Vulkan device's window. The host's own question of
+     * its context, which nothing above this layer may ask it directly. @see com.crystalgraphics.harness.tool.DeviceErrors
+     */
+    public static List<String> drainGlErrors() {
+        List<String> errors = new ArrayList<>();
+        if (!glContext || window == 0L) return errors;
+        for (int error; (error = GL11C.glGetError()) != GL11C.GL_NO_ERROR; ) {
+            errors.add("0x" + Integer.toHexString(error) + " (" + glErrorName(error) + ")");
+            if (errors.size() > 64) {
+                errors.add("... (stopped after 64)");
+                break;
+            }
+        }
+        return errors;
+    }
+
+    /** Whether the window's context has {@code GL_FRAMEBUFFER_SRGB} on: a host's encode the engine must not double. */
+    public static boolean framebufferSrgb() {
+        return GL11C.glIsEnabled(GL30C.GL_FRAMEBUFFER_SRGB);
+    }
+
+    /** The context's version, vendor and renderer, as its driver names them; "none (Vulkan)" each without one. */
+    public static String[] describeContext() {
+        if (!glContext) return new String[]{"none (Vulkan)", "none (Vulkan)", "none (Vulkan)"};
+        return new String[]{GL11C.glGetString(GL11C.GL_VERSION), GL11C.glGetString(GL11C.GL_VENDOR),
+                GL11C.glGetString(GL11C.GL_RENDERER)};
+    }
+
+    private static String glErrorName(int error) {
+        switch (error) {
+            case GL11C.GL_INVALID_ENUM: return "GL_INVALID_ENUM";
+            case GL11C.GL_INVALID_VALUE: return "GL_INVALID_VALUE";
+            case GL11C.GL_INVALID_OPERATION: return "GL_INVALID_OPERATION";
+            case GL11C.GL_STACK_OVERFLOW: return "GL_STACK_OVERFLOW";
+            case GL11C.GL_STACK_UNDERFLOW: return "GL_STACK_UNDERFLOW";
+            case GL11C.GL_OUT_OF_MEMORY: return "GL_OUT_OF_MEMORY";
+            case GL30C.GL_INVALID_FRAMEBUFFER_OPERATION: return "GL_INVALID_FRAMEBUFFER_OPERATION";
+            default: return "unknown";
+        }
+    }
+
+    /**
      * A downlevel context lists only its keep-list's extensions, the rest removed by Mesa or disabled in the engine; one
      * in neither means Mesa now lists something {@code downlevel/mesa.txt} does not, and the context is not the one asked.
      */

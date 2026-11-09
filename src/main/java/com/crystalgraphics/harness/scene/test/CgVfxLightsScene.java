@@ -42,7 +42,7 @@ import java.util.List;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-lights"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-lights" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-lights --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-lights --rhi=vulkan"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-lights" -Dcrystalgraphics.harness.vfx.lights.mesh=true   // meshes beside the light
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-lights" -Dcrystalgraphics.harness.vfx.lights=10000  *         -Dcrystalgraphics.harness.profile=300 -Dcrystalgraphics.trace.channels=crystalgraphics,gpu   // the cost at 10,000
  * }</pre>
