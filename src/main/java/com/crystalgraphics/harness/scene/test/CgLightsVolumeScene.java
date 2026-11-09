@@ -7,8 +7,8 @@ import com.crystalgraphics.gl.buffer.CgFrameRing;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
@@ -40,7 +40,7 @@ import java.util.List;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-volume"
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-volume --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-volume --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [lights-volume] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -65,7 +65,7 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
     private final Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, (float) (CX + 0.5 - EYE_X), (float) (GROUND - EYE_Y),
             (float) (CZ + 3 - EYE_Z), 0f, 1f, 0f);
     private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), (float) W / H, 0.05f, 200f);
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     private CgMaterial grey, glass, surface, handed;
     private int frame;
     private boolean running = true;
@@ -78,7 +78,7 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
         glass = CgMaterial.load("assets/harness/shader/forward_transparent_test.shader");
         surface = CgMaterial.load("assets/harness/shader/surface_lit_pane.shader");
         handed = CgMaterial.load("assets/harness/shader/handed_lights_pane.shader");
-        target = HarnessFboHelper.create(W, H, true);
+        target = HarnessTarget.create(W, H, true);
     }
 
     @Override
@@ -151,13 +151,12 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
                 }
             }
         }
-        boolean glErrors = GlErrorChecker.checkAndLog("lights-volume");
+        boolean glErrors = DeviceErrors.checkAndLog("lights-volume");
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
         if (glErrors) failure = "GL errors, logged above";
         else if (validation > 0) failure = validation + " Vulkan validation errors, logged above";
-        else if ("recording".equals(on)) failure = null;
         if (failure != null) System.out.println("[lights-volume] FAIL on " + on + ": " + failure);
         else System.out.println("[lights-volume] PASS on " + on + ": " + readings);
     }

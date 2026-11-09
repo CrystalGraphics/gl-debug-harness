@@ -5,8 +5,8 @@ import com.crystalgraphics.vfx.render.CgVfxSlotRenderer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
@@ -87,7 +87,7 @@ public class CgVfxSortGroupScene implements HarnessSceneLifecycle {
             vfx.play(new Ball(FIRST, x * redAt, 0, -redAt, 0.2f * redAt).sortGroup(group));
             vfx.play(new Ball(SECOND, x * blueAt, 0, -blueAt, 0.2f * blueAt).sortGroup(group));
         }
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
+        HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
         try {
             target.clear(0f, 0f, 0f, 1f);
@@ -104,7 +104,7 @@ public class CgVfxSortGroupScene implements HarnessSceneLifecycle {
             target.unbind();
             target.delete();
         }
-        report(ctx, GlErrorChecker.checkAndLog("vfx-sort-group"));
+        report(ctx, DeviceErrors.checkAndLog("vfx-sort-group"));
     }
 
     private void report(HarnessContext ctx, boolean glErrors) {
@@ -118,10 +118,6 @@ public class CgVfxSortGroupScene implements HarnessSceneLifecycle {
         if (validation > 0) {
             System.out.println("[vfx-sort-group] FAIL on " + on + ": " + validation
                     + " Vulkan validation errors, logged above");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[vfx-sort-group] PASS on recording: every command validated; nothing drawn to compare");
             return;
         }
         BufferedImage picture;

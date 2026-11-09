@@ -7,7 +7,7 @@ import com.crystalgraphics.gl.render.CgVectorRenderer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
@@ -198,7 +198,7 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
         renderer.flush();
         renderer.end();
 
-        boolean hadErrors = GlErrorChecker.checkAndLog("CgVectorRenderer-test");
+        boolean hadErrors = DeviceErrors.checkAndLog("CgVectorRenderer-test");
         if (!reportedOnce) {
             reportedOnce = true;
             LOG.info("CgVectorRenderer test scene: {} submit() calls in one flush() "

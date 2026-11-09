@@ -13,8 +13,8 @@ import com.crystalgraphics.gl.buffer.CgBufferReadback;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
@@ -123,7 +123,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        HarnessFboHelper target = HarnessFboHelper.create(W, H, true);
+        HarnessTarget target = HarnessTarget.create(W, H, true);
         target.bind();
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
@@ -276,7 +276,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
                 + joinedCalls + ", the world draw " + setSeparateCalls + " and " + setJoinedCalls + "; its levels "
                 + (levelsJoin ? "join" : "do not join") + " here");
         report(ctx, kept, levelsJoin, separateCalls - joinedCalls, setSeparateCalls - setJoinedCalls,
-                GlErrorChecker.checkAndLog("gpu-cull"), disorder);
+                DeviceErrors.checkAndLog("gpu-cull"), disorder);
     }
 
     /**
@@ -284,7 +284,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
      * GPU five short of its capacity, so two groups: each set's counts and records, word for word, against the same
      * set culled alone in order. Null when they agree.
      */
-    private String batched(HarnessFboHelper target, CgCull cull, CgGraphBuffer instances) {
+    private String batched(HarnessTarget target, CgCull cull, CgGraphBuffer instances) {
         int split = N / 2 + 7, rest = N - split;
         int recordsA = CgGpuOps.cullRecords(cull, split), recordsB = CgGpuOps.cullRecords(cull, rest);
         CgGraphBuffer gpuCount = CgGraphBuffer.persistent("gpu-cull.count",
@@ -440,7 +440,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     }
 
     /** Fires both world stages {@link #TIMED} times onto a cleared target, answering the median CPU nanoseconds. */
-    private long timed(HarnessFboHelper target) {
+    private long timed(HarnessTarget target) {
         for (int t = 0; t < WARMUP; t++) fire(target);
         long[] times = new long[TIMED];
         for (int t = 0; t < TIMED; t++) {
@@ -453,13 +453,13 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     }
 
     /** Fires both world stages once onto a cleared target, answering the draw calls the mesh store made. */
-    private long calls(HarnessFboHelper target) {
+    private long calls(HarnessTarget target) {
         long before = CgMeshStore.get().drawCalls();
         fire(target);
         return CgMeshStore.get().drawCalls() - before;
     }
 
-    private void fire(HarnessFboHelper target) {
+    private void fire(HarnessTarget target) {
         target.clear(0.08f, 0.08f, 0.1f, 1f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
             stage.host().set(0f, W, H, target.getFboId()).view().set(0, 0, 0, view, projection);
@@ -512,10 +512,6 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         }
         if (validation > 0) {
             System.out.println("[gpu-cull] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[gpu-cull] PASS on recording: every command validated; a recording device draws nothing to compare");
             return;
         }
         if (disorder != null) {

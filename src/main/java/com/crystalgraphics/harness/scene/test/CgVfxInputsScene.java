@@ -9,12 +9,11 @@ import com.crystalgraphics.gl.texture.CgTexture3D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.object.CgValueType;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgRecording;
@@ -58,7 +57,7 @@ import java.util.Random;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-inputs"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-inputs" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-inputs --device=vulkan" -Dcrystalgraphics.vulkan.syncValidation=true
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-inputs --rhi=vulkan" -Dcrystalgraphics.vulkan.syncValidation=true
  * }</pre>
  *
  * <p>Prints {@code [vfx-inputs] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -119,9 +118,9 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
             for (int i = 0; i < HEIGHTS; i++) heights[j * HEIGHTS + i] = 0.75f * (float) (Math.sin(0.7 * i) * Math.cos(0.5 * j));
         }
         fieldTexture = CgTexture3D.createEmpty(FIELD, FIELD, FIELD, CgTextureType.RGBA32F.toTextureSpec());
-        fieldTexture.uploadRegion(0, 0, 0, 0, FIELD, FIELD, FIELD, floats(field), CgGL.GL_RGBA, CgGL.GL_FLOAT);
+        fieldTexture.uploadRegion(0, 0, 0, 0, FIELD, FIELD, FIELD, floats(field));
         heightTexture = CgTexture2D.createEmpty(HEIGHTS, HEIGHTS, CgTextureType.R32F.toTextureSpec());
-        heightTexture.uploadRegion(0, 0, 0, HEIGHTS, HEIGHTS, floats(heights), CgGL.GL_RED, CgGL.GL_FLOAT);
+        heightTexture.uploadRegion(0, 0, 0, HEIGHTS, HEIGHTS, floats(heights));
         fielded = new Inputs(base, List.of(new Kind("gate_field", false, CgVfxGpuModule.NO_INTERFACES, new CgTexture[]{fieldTexture}, -BOX, -BOX, -BOX, 1f / (2f * BOX), """
                 void fx_gate_field(inout FxParticle p, inout FxForces f, FxStep s, vec4 m, sampler3D field) {
                     p.velocity = texture(field, (p.position - m.xyz) * m.w).xyz;
@@ -453,12 +452,10 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
         String on = (device == null ? "gl" : device.name()) + " at " + CgCapabilities.detect().computeTier();
         int validation = PlatformServiceHarness.validationErrors();
         if (failure == null && compared && (clamped == 0 || falling == 0)) failure = clamped + " on the heightfield, " + falling + " above it: both are the test";
-        if (GlErrorChecker.checkAndLog("vfx-inputs")) {
+        if (DeviceErrors.checkAndLog("vfx-inputs")) {
             System.out.println("[vfx-inputs] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[vfx-inputs] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-        } else if (on.startsWith("recording")) {
-            System.out.println("[vfx-inputs] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (!compared) {
             System.out.println("[vfx-inputs] FAIL on " + on + ": the records never arrived");
         } else if (failure != null) {

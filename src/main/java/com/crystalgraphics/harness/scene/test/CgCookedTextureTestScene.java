@@ -9,12 +9,11 @@ import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
@@ -63,8 +62,7 @@ public class CgCookedTextureTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        CgTextureSpec spec = CgTextureSpec.builder().type(CgTextureType.SRGB8_ALPHA8)
-                .minFilter(CgGL.GL_NEAREST).magFilter(CgGL.GL_NEAREST).build();
+        CgTextureSpec spec = CgTextureSpec.RGBA8_NEAREST.toBuilder().type(CgTextureType.SRGB8_ALPHA8).build();
         png = CgTexture2D.createDirect(PNG, spec);
         cooked = CgTexture2D.createDirect(COOKED, spec);
         CgCookedTexture file = CgCookedTexture.read(COOKED);
@@ -89,7 +87,7 @@ public class CgCookedTextureTestScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
+        HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
         try {
             target.clear(0f, 0f, 0f, 1f);
@@ -99,7 +97,7 @@ public class CgCookedTextureTestScene implements HarnessSceneLifecycle {
             target.unbind();
             target.delete();
         }
-        report(ctx, GlErrorChecker.checkAndLog("cooked-texture"));
+        report(ctx, DeviceErrors.checkAndLog("cooked-texture"));
     }
 
     /** Quad {@code q} (0..3: colour then alpha, PNG then cooked) at its size's row; its top-left corner in pixels. */
@@ -145,10 +143,6 @@ public class CgCookedTextureTestScene implements HarnessSceneLifecycle {
         int validation = PlatformServiceHarness.validationErrors();
         if (validation > 0) {
             System.out.println("[cooked-texture] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-            return;
-        }
-        if (device != null && "recording".equals(device.name())) {
-            System.out.println("[cooked-texture] PASS on recording: every command validated; nothing drawn to compare");
             return;
         }
         if (cooked.isMissing() || cooked.getLevels() != 7) {

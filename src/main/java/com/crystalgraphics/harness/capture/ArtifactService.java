@@ -2,8 +2,7 @@ package com.crystalgraphics.harness.capture;
 
 import com.crystalgraphics.harness.config.OutputSettings;
 import com.crystalgraphics.harness.config.ViewportState;
-import com.crystalgraphics.harness.util.ScreenshotUtil;
-
+import java.util.function.IntSupplier;
 import java.util.logging.Logger;
 
 /**
@@ -39,8 +38,8 @@ import java.util.logging.Logger;
  * artifacts.requestCapture("front-view");
  * // → writes: {outputDir}/{outputName}-front-view.png
  *
- * // For FBO captures (not post-render):
- * artifacts.captureFbo(fboId, texId, width, height, "fbo-dump");
+ * // For a target of the scene's (not post-render):
+ * artifacts.captureFbo(target.getFboId(), target.getWidth(), target.getHeight(), "fbo-dump");
  * }</pre>
  *
  * @see OutputSettings
@@ -54,6 +53,7 @@ public final class ArtifactService {
     private final OutputSettings output;
     private final ViewportState viewport;
     private final CaptureCallback captureCallback;
+    private final IntSupplier frameTarget;
 
     /**
      * Creates an artifact service with the given output settings, viewport state,
@@ -62,10 +62,11 @@ public final class ArtifactService {
      * @param output          immutable output settings (directory + name prefix)
      * @param viewport        live viewport dimensions (read at capture time)
      * @param captureCallback callback sink for scheduling post-render captures
+     * @param frameTarget     the framebuffer the frame is drawn into, read at capture time: the main target, or the window
      * @throws IllegalArgumentException if any argument is null
      */
     public ArtifactService(OutputSettings output, ViewportState viewport,
-                           CaptureCallback captureCallback) {
+                           CaptureCallback captureCallback, IntSupplier frameTarget) {
         if (output == null) {
             throw new IllegalArgumentException("output must not be null");
         }
@@ -78,6 +79,7 @@ public final class ArtifactService {
         this.output = output;
         this.viewport = viewport;
         this.captureCallback = captureCallback;
+        this.frameTarget = frameTarget;
     }
 
     /**
@@ -109,7 +111,7 @@ public final class ArtifactService {
             public void run() {
                 int w = viewport.getWidth();
                 int h = viewport.getHeight();
-                ScreenshotUtil.captureBackbuffer(w, h, outputDir, filename);
+                HarnessCapture.framebuffer(frameTarget.getAsInt(), w, h, outputDir, filename);
                 LOGGER.info("[ArtifactService] Captured " + filename
                         + " (" + w + "x" + h + ")");
             }
@@ -117,32 +119,31 @@ public final class ArtifactService {
     }
 
     /**
-     * Immediately captures an FBO's color attachment to a PNG file.
+     * Immediately captures a framebuffer's colour to a PNG file.
      *
      * <p>Unlike {@link #requestCapture(String)}, this method executes
      * synchronously because FBO captures don't need to wait for the
      * full frame pipeline to complete.</p>
      *
-     * @param fboId   the framebuffer object ID
-     * @param texId   the color attachment texture ID
-     * @param width   FBO width in pixels
+     * @param fboId   the framebuffer's id
+     * @param width   its width in pixels
      * @param height  FBO height in pixels
      * @param suffix  the descriptive suffix for the filename
      */
-    public void captureFbo(int fboId, int texId, int width, int height, String suffix) {
+    public void captureFbo(int fboId, int width, int height, String suffix) {
         String filename = output.buildFilename(suffix);
         String outputDir = output.getOutputDir();
-        ScreenshotUtil.captureFboColorTexture(fboId, texId, width, height, outputDir, filename);
+        HarnessCapture.framebuffer(fboId, width, height, outputDir, filename);
         LOGGER.info("[ArtifactService] Captured FBO " + filename
                 + " (" + width + "x" + height + ")");
     }
 
     /**
-     * Immediately captures a backbuffer screenshot with the given suffix.
+     * Immediately captures the frame's target with the given suffix.
      *
      * <p>Unlike {@link #requestCapture(String)}, this executes synchronously
      * using the current viewport dimensions. Use this only when you are
-     * certain the backbuffer contains the desired content (e.g. inside a
+     * certain the frame's target holds the desired content (e.g. inside a
      * post-render callback that you manage manually).</p>
      *
      * @param suffix the descriptive suffix for the filename
@@ -152,7 +153,7 @@ public final class ArtifactService {
         String outputDir = output.getOutputDir();
         int w = viewport.getWidth();
         int h = viewport.getHeight();
-        ScreenshotUtil.captureBackbuffer(w, h, outputDir, filename);
+        HarnessCapture.framebuffer(frameTarget.getAsInt(), w, h, outputDir, filename);
         LOGGER.info("[ArtifactService] Captured (sync) " + filename
                 + " (" + w + "x" + h + ")");
     }

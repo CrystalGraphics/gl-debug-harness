@@ -3,7 +3,7 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
@@ -39,7 +39,7 @@ import java.util.Map;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-books"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-books" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-books --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-books --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [vfx-books] PASS} or {@code FAIL}; run it at every forced tier and on {@code vulkan}.</p>
@@ -212,12 +212,10 @@ public final class CgVfxBooksScene implements InteractiveSceneLifecycle {
         int validation = PlatformServiceHarness.validationErrors();
         if (failure == null && closesChecked == 0) failure = "no slot closed: nothing was checked";
         if (failure == null && particlesChecked == 0) failure = "no particle was read back: nothing was checked";
-        if (GlErrorChecker.checkAndLog("vfx-books")) {
+        if (DeviceErrors.checkAndLog("vfx-books")) {
             System.out.println("[vfx-books] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[vfx-books] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-        } else if (on.startsWith("recording")) {
-            System.out.println("[vfx-books] PASS on recording: a recording device reads back zeros");
         } else if (failure != null) {
             System.out.println("[vfx-books] FAIL on " + on + ": " + failure);
         } else {

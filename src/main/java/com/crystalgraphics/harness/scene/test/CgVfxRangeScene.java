@@ -4,7 +4,7 @@ import com.crystalgraphics.vfx.particle.gpu.CgVfxDrawLayout;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
@@ -57,7 +57,7 @@ import java.util.Random;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-range"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-range" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-range --device=vulkan" -Dcrystalgraphics.vulkan.syncValidation=true
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-range --rhi=vulkan" -Dcrystalgraphics.vulkan.syncValidation=true
  * # Range's GPU time, its vfx.pool.range zone over 300 frames, at 25 times the particles (about 100,000)
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-range" -Dcrystalgraphics.harness.vfxRange.timed=300  *     -Dcrystalgraphics.harness.vfxRange.scale=25
  * }</pre>
@@ -646,14 +646,12 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         if (failure == null && compared && sourceKept == 0) {
             failure = "no particle of slot " + SOURCE + " lies outside the view: its source's cull went unchecked";
         }
-        if (GlErrorChecker.checkAndLog("vfx-range")) {
+        if (DeviceErrors.checkAndLog("vfx-range")) {
             System.out.println("[vfx-range] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[vfx-range] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
         } else if (unanswered != null) {
             System.out.println("[vfx-range] FAIL on " + on + ": " + done + " of " + requests.size() + " answered; " + unanswered);
-        } else if (on.startsWith("recording")) {
-            System.out.println("[vfx-range] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (failure != null) {
             System.out.println("[vfx-range] FAIL on " + on + ": " + failure);
         } else {

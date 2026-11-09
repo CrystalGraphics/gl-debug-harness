@@ -1,13 +1,13 @@
 package com.crystalgraphics.harness;
 
 import com.crystalgraphics.render.CgFrameClock;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.gl.CgGlCallSites;
 import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.loading.CgLoadingScreen;
 import com.crystalgraphics.loading.task.CgLoadPlan;
 import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.platform.service.CgHostPaint;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.util.io.CgIO;
@@ -49,7 +49,6 @@ import com.crystalgraphics.harness.runtime.HarnessEnvironment;
 import com.crystalgraphics.harness.runtime.WorldPassCoordinator;
 import com.crystalgraphics.harness.scheduler.TaskScheduler;
 import com.crystalgraphics.harness.util.HarnessProjectionUtil;
-import com.crystalgraphics.harness.util.RenderPassState;
 import com.crystalgraphics.harness.ui.HarnessUi;
 import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.input.CgKeyCodes;
@@ -271,7 +270,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         if (ui != null) registerInputHandler(ui);
         registerInputHandler(scene);
         registerInputHandler(inputPauseHandler);
-        resizeHandler = new ResizeHandler(ctx, worldPassCoordinator, overlayPipeline);
+        resizeHandler = new ResizeHandler(ctx);
         overlayCaptureOrchestrator = new OverlayCaptureOrchestrator(ctx, overlayPipeline);
 
         // Populate context with shared subsystem references so scenes
@@ -286,15 +285,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // as post-render callbacks in the frame pipeline.
         OutputSettings outputSettings = ctx.getOutputSettings();
         ViewportState viewport = ctx.getViewport();
-        artifactService = new ArtifactService(outputSettings, viewport, this);
+        artifactService = new ArtifactService(outputSettings, viewport, this, ctx::getTargetFramebuffer);
         ctx.setArtifactService(artifactService);
 
 
         debugTools = new HarnessDebugTools(camera, artifactService);
-
-        CgGL.glViewport(0, 0, currentWidth, currentHeight);
-        CgGL.glEnable(CgGL.GL_DEPTH_TEST);
-        CgGL.glDepthFunc(CgGL.GL_LEQUAL);
 
         // The loading screen from launch: the scene's init runs behind its first frame, a reason of its own.
         try (CgLoadingScreen.Task starting = CgLoadingScreen.task("starting " + ctx.getOutputName())) {
@@ -426,8 +421,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             }
 
             // ── Frame render pipeline ──
-            // Pass ordering: world → scene → post-scene reset → overlays → capture
-            // Each pass uses RenderPassState to declare its GL state requirements.
+            // Pass ordering: world → scene → overlays → capture. Every draw is the engine's, under its pipelines' state.
 
             // Every step below carries a trace zone. Before they did, a profiling scene
             // could only see its own render() call -- typically a third of the frame -- and the
@@ -438,20 +432,18 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // profiler.
             long frameStartNanos = System.nanoTime();
 
-            // THE FRAME IS ONE HOST SECTION: the harness is the host, and nothing between here and the overlays
-            // touches GL behind CgGL, so the state shadow is trusted across scopes -- as in Minecraft, whose
-            // paint host brackets the UI's whole frame. The lifecycle's own brackets nest inside.
-            CgGL.fromHost();
+            // THE FRAME IS ONE HOST SECTION: the harness is the host, as Minecraft's paint host brackets the UI's whole
+            // frame. The lifecycle's own brackets nest inside.
+            CgHostPaint.enter();
             try {
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.begin")) {
-                    if (MainTarget.ON) ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
-                    // 6. Pre-render: set world pass state (depth ON, blend OFF, depth writes ON)
-                    RenderPassState.beginWorldPass();
+                    ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
                 }
 
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.worldPass")) {
                     boolean own = scene.worldView(ctx, worldView, worldProjection);
-                    worldPassCoordinator.executeWorldPass(own ? worldView : camera.getViewMatrix(),
+                    worldPassCoordinator.executeWorldPass(ctx.getTargetFramebuffer(), ctx.getScreenWidth(),
+                            ctx.getScreenHeight(), own ? worldView : camera.getViewMatrix(),
                             own ? worldProjection : ctx.getProjection(), scene.uses3DCamera());
                 }
 
@@ -460,10 +452,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     ctx.getTextContext().update(ctx);
                 }
 
-                // 9. Scene pass: set baseline state, then let the scene render freely
-                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.scenePass")) {
-                    RenderPassState.beginScenePass();
-                }
+                // 9. Scene pass
                 long framedAs = CgTrace.currentFrameIndex();
                 FrameInfo info = new FrameInfo(frameClock.getDeltaTime(),
                         frameClock.getElapsedTime(), frameClock.getFrameNumber());
@@ -482,11 +471,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 }
                 // Before the HUD, whose readouts change every frame.
                 if (motion != null) {
-                    motionDone = motion.sample(frameClock.getFrameNumber(), ctx.getScreenWidth(), ctx.getScreenHeight());
+                    motionDone = motion.sample(frameClock.getFrameNumber(), ctx.getTargetFramebuffer(), ctx.getScreenWidth(),
+                            ctx.getScreenHeight());
                 }
 
-                if (MainTarget.ON) mainTarget.overlays();
-                // 10-13. Post-scene sequence: GL reset → HUD → capture callback
+                mainTarget.overlays();
+                // 10-13. Post-scene sequence: HUD → desktop → capture callback
                 //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.overlay")) {
                     // The UI over the HUD, so it is never under the readout.
@@ -494,13 +484,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                             ui == null ? null : () -> ui.render(info));
                 }
                 drawLoadingScreen();   // its fade-out
-                if (MainTarget.ON) {
-                    try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.mainTarget")) {
-                        mainTarget.end();
-                    }
+                try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.mainTarget")) {
+                    mainTarget.end();
                 }
             } finally {
-                CgGL.toHost();
+                CgHostPaint.leave();
             }
 
             // 13b. Whole frame (world + scene + HUD overlay) is now fully rendered — the
@@ -567,7 +555,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
         scene.dispose();
         if (ui != null) ui.dispose();
-        worldPassCoordinator.delete();
+        mainTarget.delete();
         overlayCaptureOrchestrator.deletePipeline();
         ctx.getTextContext().delete();
 
@@ -620,13 +608,13 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         loadingAt = now;
         CgFrameClock.set(loadingSeconds);
         // No world of the scene's: the screen fires its own, where pipelines settle and effects warm and rehearse.
-        CgGL.fromHost();
+        CgHostPaint.enter();
         try {
-            if (MainTarget.ON) ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
+            ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
             drawLoadingScreen();
-            if (MainTarget.ON) mainTarget.end();
+            mainTarget.end();
         } finally {
-            CgGL.toHost();
+            CgHostPaint.leave();
         }
         CgPlatform.lifecycle().onFrameRendered();
         CgTrace.frameEnd();
@@ -643,13 +631,13 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     /** The loading screen alone, before the scene's init: what the window shows while it runs. */
     private void presentLoadingFrame() {
         CgFrameClock.set(loadingSeconds);   // the harness's clock from the first world frame: it never runs backwards
-        CgGL.fromHost();
+        CgHostPaint.enter();
         try {
-            if (MainTarget.ON) ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
+            ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
             drawLoadingScreen();
-            if (MainTarget.ON) mainTarget.end();
+            mainTarget.end();
         } finally {
-            CgGL.toHost();
+            CgHostPaint.leave();
         }
         CgPlatform.lifecycle().onFrameRendered();
         HarnessWindow.swapBuffers();

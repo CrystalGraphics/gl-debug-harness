@@ -9,11 +9,10 @@ import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
@@ -65,7 +64,7 @@ public class CgSamplerBindingTestScene implements HarnessSceneLifecycle {
             }
         }
         texels.flip();
-        texture.uploadRegion(0, 0, 0, 4, 4, texels, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE);
+        texture.uploadRegion(0, 0, 0, 4, 4, texels);
         for (int i = 0; i < SAMPLERS.length; i++) {
             CgSampler sampler = SAMPLERS[i];
             materials[i] = CgMaterial.newInstance("assets/harness/shader/sampler_binding_test.shader");
@@ -83,7 +82,7 @@ public class CgSamplerBindingTestScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
+        HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
         try {
             target.clear(0f, 0f, 0f, 1f);
@@ -93,7 +92,7 @@ public class CgSamplerBindingTestScene implements HarnessSceneLifecycle {
             target.unbind();
             target.delete();
         }
-        report(ctx, GlErrorChecker.checkAndLog("sampler-binding"));
+        report(ctx, DeviceErrors.checkAndLog("sampler-binding"));
     }
 
     private CgRecording record(int w, int h) {
@@ -126,10 +125,6 @@ public class CgSamplerBindingTestScene implements HarnessSceneLifecycle {
         int validation = PlatformServiceHarness.validationErrors();
         if (validation > 0) {
             System.out.println("[sampler-binding] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[sampler-binding] PASS on recording: every command validated; nothing drawn to compare");
             return;
         }
         BufferedImage picture;

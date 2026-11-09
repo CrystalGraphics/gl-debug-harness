@@ -78,7 +78,7 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
     private final HostSession.PaintHost paintHost = new HostSession.PaintHost() {
         @Override public boolean ownScreenUp() { return shown; }
         @Override public boolean anyScreenUp() { return shown; }
-        // Every harness draw is CgGL's: there is no toolkit's state to hand over and back
+        // Every harness draw is the engine's: there is no toolkit's state to hand over and back
         @Override public void enter() { }
         @Override public void leave() { }
     };

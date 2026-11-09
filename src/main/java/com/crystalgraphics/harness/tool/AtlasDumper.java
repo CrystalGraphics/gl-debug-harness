@@ -5,9 +5,10 @@ import com.crystalgraphics.api.font.CgGlyphKey;
 import com.crystalgraphics.api.font.CgGlyphPlacement;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
 import com.crystalgraphics.text.atlas.CgGlyphAtlas;
+import com.crystalgraphics.gl.texture.CgTexture2DArray;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.harness.util.HarnessOutputDir;
-import com.crystalgraphics.harness.util.ScreenshotUtil;
+import com.crystalgraphics.harness.capture.HarnessCapture;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -91,10 +92,7 @@ public final class AtlasDumper {
      *
      * <p>Each page is a layer of the atlas family's shared
      * {@code GL_TEXTURE_2D_ARRAY} (see the atlas texture-array migration) —
-     * captured via {@link ScreenshotUtil#captureArrayTextureLayer}, not a
-     * standalone-texture read, since {@code page.getTextureId()} now returns
-     * the same array id for every page and {@code page.getPageIndex()} is the
-     * layer to read.</p>
+     * read as its layer, {@code page.getPageIndex()}, of the atlas's texture.</p>
      *
      * @param pages       list of populated atlas pages to dump
      * @param typePrefix  filename prefix: "msdf-atlas-dump" or "bitmap-atlas-dump"
@@ -115,14 +113,14 @@ public final class AtlasDumper {
 
         for (int i = 0; i < pages.size(); i++) {
             CgGlyphAtlasPage page = pages.get(i);
-            if (page == null || page.isDeleted() || page.getTextureId() == 0) {
+            CgTexture2DArray texture = page == null || page.isDeleted() ? null : CgGlyphAtlas.texture(page.getAtlasId());
+            if (texture == null) {
                 LOGGER.warning("[AtlasDumper] Skipping null/deleted paged page " + i);
                 continue;
             }
 
             String pagePng = basePrefix + "-page-" + i + ".png";
-            ScreenshotUtil.captureArrayTextureLayer(page.getTextureId(), page.getPageIndex(),
-                    page.getPageWidth(), page.getPageHeight(), outputDir, pagePng);
+            HarnessCapture.texture(texture, page.getPageIndex(), outputDir, pagePng);
             LOGGER.info("[AtlasDumper] Dumped paged page " + i + " (array layer " + page.getPageIndex() + "): " + pagePng
                     + " (" + page.getPageWidth() + "x" + page.getPageHeight() + ")");
         }

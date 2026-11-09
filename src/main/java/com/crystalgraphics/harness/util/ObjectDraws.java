@@ -1,4 +1,4 @@
-package com.crystalgraphics.harness.scene.test;
+package com.crystalgraphics.harness.util;
 
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.state.CgRenderState;
@@ -21,23 +21,23 @@ import javax.annotation.Nullable;
  * ObjectDraws.draw(constants, material, mesh, 1, (i, data, at) -> ObjectDraws.object(data, at, model, 1f, 1f, 1f, 1f));
  * }</pre>
  */
-final class ObjectDraws {
+public final class ObjectDraws {
 
     /** Writes instance {@code index}'s record into {@code data} at {@code at}: 48 floats, zeroed. */
     @FunctionalInterface
-    interface Records {
+    public interface Records {
         void write(int index, float[] data, int at);
     }
 
     private ObjectDraws() {
     }
 
-    static void draw(CgPassConstants constants, CgMaterial material, CgMesh mesh, int count, Records records) {
+    public static void draw(CgPassConstants constants, CgMaterial material, CgMesh mesh, int count, Records records) {
         draw(constants, null, material, mesh, count, records);
     }
 
     /** As above, under {@code state} for whatever the materials leave unset: null keeps the framebuffer's. */
-    static void draw(CgPassConstants constants, @Nullable CgRenderState state, CgMaterial material, CgMesh mesh,
+    public static void draw(CgPassConstants constants, @Nullable CgRenderState state, CgMaterial material, CgMesh mesh,
                      int count, Records records) {
         try (CgImmediate draw = CgImmediate.begin(constants, state, CgOrder.LOOKBACK)) {
             CgChunkBuilder chunks = draw.chunks();
@@ -54,7 +54,7 @@ final class ObjectDraws {
     }
 
     /** A record: {@code model}, its normal matrix taken as identity (rigid, unscaled), and custom0. */
-    static void object(float[] data, int at, Matrix4fc model, float r, float g, float b, float a) {
+    public static void object(float[] data, int at, Matrix4fc model, float r, float g, float b, float a) {
         model.get(data, at);
         data[at + 16] = 1f;
         data[at + 21] = 1f;

@@ -7,8 +7,8 @@ import com.crystalgraphics.gl.buffer.CgFrameRing;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
@@ -35,7 +35,7 @@ import java.util.List;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-shadow"
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-shadow --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-shadow --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [lights-shadow] PASS} or {@code FAIL}; on Vulkan a validation error fails it. Its three captures land
@@ -57,7 +57,7 @@ public class CgLightsShadowScene implements InteractiveSceneLifecycle {
     private final Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, (float) (CX + 0.5 - EYE_X), (float) (GROUND - EYE_Y),
             (float) (CZ + 3 - EYE_Z), 0f, 1f, 0f);
     private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), (float) W / H, 0.05f, 200f);
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     private CgMaterial grey;
     private int frame;
     private boolean running = true;
@@ -67,7 +67,7 @@ public class CgLightsShadowScene implements InteractiveSceneLifecycle {
         CgPlatform.provide(CgLevels.HOST, CgLevels.single(world, CgEntityQuery.NONE));
         CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
-        target = HarnessFboHelper.create(W, H, true);
+        target = HarnessTarget.create(W, H, true);
     }
 
     @Override
@@ -122,17 +122,14 @@ public class CgLightsShadowScene implements InteractiveSceneLifecycle {
         } else if (failure == null && Math.abs(openShadowed - openUnshadowed) > OPEN_SPREAD * openUnshadowed + 3f) {
             failure = "in the open the shadowed light adds " + openShadowed + ", the unshadowed " + openUnshadowed;
         }
-        boolean glErrors = GlErrorChecker.checkAndLog("lights-shadow");
+        boolean glErrors = DeviceErrors.checkAndLog("lights-shadow");
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
         if (glErrors) failure = "GL errors, logged above";
         else if (validation > 0) failure = validation + " Vulkan validation errors, logged above";
-        else if ("recording".equals(on)) failure = null;
         if (failure != null) {
             System.out.println("[lights-shadow] FAIL on " + on + ": " + failure);
-        } else if ("recording".equals(on)) {
-            System.out.println("[lights-shadow] PASS on recording: every command validated; a recording device draws nothing to compare");
         } else {
             System.out.printf("[lights-shadow] PASS on %s: behind the wall %.1f of %.1f remains; in the open %.1f against %.1f%n",
                     on, behindShadowed, behindOpen, openShadowed, openUnshadowed);

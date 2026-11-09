@@ -8,7 +8,7 @@ import com.crystalgraphics.compute.ops.CgGpuOps;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.CgImmediate;
@@ -300,7 +300,7 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             if (r.done()) done++;
             else if (unanswered == null) unanswered = r + (r.failure() != null ? ": " + r.failure() : "");
         }
-        if (GlErrorChecker.checkAndLog("readback")) {
+        if (DeviceErrors.checkAndLog("readback")) {
             System.out.println("[readback] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[readback] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
@@ -308,8 +308,6 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             System.out.println("[readback] FAIL on " + on + ": " + done + " of " + requests.size() + " answered; " + unanswered);
         } else if (inspected + inspectsFailed != inspectsArmed || inspectsArmed == 0) {
             System.out.println("[readback] FAIL on " + on + ": " + inspected + " of " + inspectsArmed + " inspector reads answered");
-        } else if ("recording".equals(on)) {
-            System.out.println("[readback] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (failure != null) {
             System.out.println("[readback] FAIL on " + on + ": " + failure);
         } else {

@@ -5,8 +5,8 @@ import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
@@ -60,7 +60,7 @@ public class CgPropertyTableScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
+        HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
         try {
             target.clear(0f, 0f, 0f, 1f);
@@ -79,7 +79,7 @@ public class CgPropertyTableScene implements HarnessSceneLifecycle {
             target.unbind();
             target.delete();
         }
-        report(ctx, GlErrorChecker.checkAndLog("property-table"));
+        report(ctx, DeviceErrors.checkAndLog("property-table"));
     }
 
     private void report(HarnessContext ctx, boolean glErrors) {
@@ -92,10 +92,6 @@ public class CgPropertyTableScene implements HarnessSceneLifecycle {
         int validation = PlatformServiceHarness.validationErrors();
         if (validation > 0) {
             System.out.println("[property-table] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[property-table] PASS on recording: every command validated; nothing drawn to compare");
             return;
         }
         BufferedImage picture;

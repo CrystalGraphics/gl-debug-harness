@@ -16,7 +16,7 @@ import com.crystalgraphics.asset.tree.CgAssetData;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 
 import java.io.IOException;
@@ -136,7 +136,7 @@ public final class CgKitShadingScene implements InteractiveSceneLifecycle {
             HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
             if (++frames < FRAMES || reported) return;
             if (material.lastCompileError() != null) failure = material.lastCompileError();
-            else if (GlErrorChecker.checkAndLog("kit-shading")) failure = "GL errors, logged above";
+            else if (DeviceErrors.checkAndLog("kit-shading")) failure = "GL errors, logged above";
         }
         System.out.println(failure == null ? "[kit-shading] PASS: " + described : "[kit-shading] FAIL: " + failure);
         reported = true;

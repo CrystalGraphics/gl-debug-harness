@@ -28,7 +28,7 @@ import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-renderers"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-renderers" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-renderers --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-renderers --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [vfx-renderers] PASS} or {@code FAIL} after {@link #WARM} frames, then exits.</p>

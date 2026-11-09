@@ -9,8 +9,8 @@ import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.CgImmediate;
@@ -83,7 +83,7 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
             worker.shutdownNow();
         }
 
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
+        HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
         target.clear(0.08f, 0.08f, 0.1f, 1f);
         CgExecutor.execute(built);
@@ -107,7 +107,7 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
         target.unbind();
         target.delete();
 
-        compare(ctx, GlErrorChecker.checkAndLog("compute-graph"));
+        compare(ctx, DeviceErrors.checkAndLog("compute-graph"));
     }
 
     /** The frame: arguments, a seeded history stepped twice, an image painted from it, the image drawn. */

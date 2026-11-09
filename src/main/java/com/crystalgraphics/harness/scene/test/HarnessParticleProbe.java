@@ -25,7 +25,7 @@ import java.util.Set;
  * skipped the next.
  *
  * <pre>{@code
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-kamehameha --device=vulkan --seconds=25" \
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-kamehameha --rhi=vulkan --seconds=25" \
  *     -Dcrystalgraphics.harness.probe=CylinderPtc
  * // held at 0x partway: Shift, then Y five times, then probed
  * ... -Dcrystalgraphics.harness.keyAt=500:LSHIFT,501:Y,502:Y,503:Y,504:Y,505:Y -Dcrystalgraphics.harness.probe.skip=150

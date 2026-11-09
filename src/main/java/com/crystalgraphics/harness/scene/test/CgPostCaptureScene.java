@@ -14,10 +14,9 @@ import com.crystalgraphics.gl.buffer.CgFrameRing;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.volume.CgPostVolumeSpawner;
 import com.crystalgraphics.render.stage.CgRenderStage;
@@ -50,7 +49,7 @@ import java.util.Map;
  * frame after the post. Scene id {@code post-capture}.
  *
  * <pre>{@code
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=post-capture --device=vulkan" \
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=post-capture --rhi=vulkan" \
  *     -Pharness.jvmArgs="-Dcrystalgraphics.harness.postCapture.scene=<before>.png \
  *     -Dcrystalgraphics.harness.postCapture.reference=<after>.png"
  * // another sequence and tick
@@ -88,7 +87,7 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle {
     private CgLoadHandle handle;
     private CgSequencer sequencer;
     private CgSequencePlayer player;
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     private boolean running = true;
     private int loadFrames, played;
     private final Matrix4f view = new Matrix4f(), projection = new Matrix4f();
@@ -124,7 +123,7 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle {
         CgVfxAssets.install(assets);
         ref = assets.declare(CgSequenceKinds.SEQUENCE, sequenceId);
         handle = assets.load(List.of(ref), CgLoadPriority.MOVE);
-        target = HarnessFboHelper.create(w, h, true);
+        target = HarnessTarget.create(w, h, true);
     }
 
     private static BufferedImage read(String which) {
@@ -186,9 +185,7 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle {
         CgPostStack.get().install();
         target.bind();
         target.clear(0f, 0f, 0f, 1f);
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, target.getColorTexId());
-        CgGL.glTexSubImage2D(CgGL.GL_TEXTURE_2D, 0, 0, 0, w, h, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, pixels);
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
+        target.getColor().uploadRegion(0, 0, 0, w, h, pixels);
         projection.setPerspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
             stage.host().set(0f, w, h, target.getFboId()).view().set(0, 0, 0, view, projection);

@@ -8,7 +8,7 @@ import com.crystalgraphics.gl.buffer.CgFrameRing;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
@@ -77,7 +77,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
     private final Vector3d eye = new Vector3d();
     private final CgLightsDemo demo = new CgLightsDemo(CgVfx.owner("harness"));
     private int demoFrom = -1;
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     private CgMaterial grey;
     private int frame;
     private boolean running = true;
@@ -88,7 +88,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
         CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         CgWorldRenderer.get().media().add(haze);
-        target = HarnessFboHelper.create(W, H, true);
+        target = HarnessTarget.create(W, H, true);
         demo.precache();
     }
 

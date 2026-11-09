@@ -8,8 +8,8 @@ import com.crystalgraphics.gl.buffer.CgReadback;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.CgWarmBudget;
@@ -239,7 +239,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         glassGrade = null;
 
         CgGraphicsSettings.FLASHES.set(flashes);
-        report(failures, GlErrorChecker.checkAndLog("post-looks"));
+        report(failures, DeviceErrors.checkAndLog("post-looks"));
     }
 
     /** A 10-bit table's step, Unreal's own table's precision: what the GPU's may differ from the CPU's by. */
@@ -284,14 +284,14 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
 
     /** One frame of the stages over the wall and the ball, into a target of its own, not kept. */
     private void fire(CgWorldRenderer world) {
-        HarnessFboHelper target = HarnessFboHelper.create(W, H, true);
+        HarnessTarget target = HarnessTarget.create(W, H, true);
         target.bind();
         fire(world, target);
         target.unbind();
         target.delete();
     }
 
-    private void fire(CgWorldRenderer world, HarnessFboHelper target) {
+    private void fire(CgWorldRenderer world, HarnessTarget target) {
         CgMesh cube = CgMeshShapes.cube(), ball = CgMeshShapes.sphere(24, 32);
         world.draw(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).submit();
         world.draw(ball, glow).at(0, 0, -3).transform(new Matrix4f().scale(0.6f)).submit();
@@ -309,7 +309,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
     private BufferedImage draw(HarnessContext ctx, CgWorldRenderer world, String name, Consumer<List<CgPostVolume>> setup) {
         List<CgPostVolume> open = new ArrayList<>();
         setup.accept(open);
-        HarnessFboHelper target = HarnessFboHelper.create(W, H, true);
+        HarnessTarget target = HarnessTarget.create(W, H, true);
         target.bind();
         target.clear(0.25f, 0.3f, 0.4f, 1f);
         fire(world, target);
@@ -437,8 +437,6 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
             System.out.println("[post-looks] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[post-looks] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-        } else if ("recording".equals(on)) {
-            System.out.println("[post-looks] PASS on recording: every command validated; a recording device draws nothing to compare");
         } else if (!failures.isEmpty()) {
             for (String f : failures) System.out.println("[post-looks] FAIL on " + on + ": " + f);
         } else {

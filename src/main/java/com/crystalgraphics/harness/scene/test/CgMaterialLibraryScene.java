@@ -6,11 +6,10 @@ import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
@@ -31,7 +30,7 @@ import java.util.Random;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=material-library"
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=material-library" -Dcrystalgraphics.compute.tier=G33
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=material-library --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=material-library --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [material-library] PASS} or {@code FAIL}; on Vulkan a validation error fails it. Trigonometry is
@@ -66,7 +65,7 @@ public class CgMaterialLibraryScene implements InteractiveSceneLifecycle {
             }
         }
         texels.flip();
-        sheet.uploadRegion(0, 0, 0, SHEET, SHEET, texels, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE);
+        sheet.uploadRegion(0, 0, 0, SHEET, SHEET, texels);
         Random random = new Random(421);
         for (int i = 0; i < CASES; i++) {
             float ax = random.nextFloat() * 2 - 1, ay = random.nextFloat() * 2 - 1, az = random.nextFloat() * 2 - 1;
@@ -226,14 +225,12 @@ public class CgMaterialLibraryScene implements InteractiveSceneLifecycle {
         boolean answered = true;
         for (int k = 0; k < requests.length; k++) answered &= requests[k].done() && results[k] != null;
         String failure = answered ? check() : null;
-        if (GlErrorChecker.checkAndLog("material-library")) {
+        if (DeviceErrors.checkAndLog("material-library")) {
             System.out.println("[material-library] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[material-library] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
         } else if (!answered) {
             System.out.println("[material-library] FAIL on " + on + ": a readback was not answered");
-        } else if (on.startsWith("recording")) {
-            System.out.println("[material-library] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (failure != null) {
             System.out.println("[material-library] FAIL on " + on + ": " + failure);
         } else {

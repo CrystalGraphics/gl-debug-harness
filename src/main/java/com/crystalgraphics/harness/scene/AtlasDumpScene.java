@@ -1,19 +1,15 @@
 package com.crystalgraphics.harness.scene;
 
-import com.crystalgraphics.platform.gl.state.CgGlScope;
-import com.crystalgraphics.platform.gl.state.CgGlSlot;
-import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.gpu.CgDeferral;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.msdfgen.FreeTypeMSDFIntegration;
 import com.crystalgraphics.msdfgen.MSDFException;
 import com.crystalgraphics.msdfgen.MSDFShape;
-import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.font.CgGlyphKey;
 import com.crystalgraphics.text.cache.CgFontRegistry;
+import com.crystalgraphics.text.atlas.CgGlyphAtlas;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
 import com.crystalgraphics.text.msdf.CgMsdfGenerator;
 import com.crystalgraphics.text.render.context.CgTextRenderContext;
@@ -29,7 +25,8 @@ import com.crystalgraphics.harness.tool.MsdfVerificationTool;
 import com.crystalgraphics.harness.tool.MsdfAtlasSizeEstimator;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.harness.util.HarnessOutputDir;
-import com.crystalgraphics.harness.util.ScreenshotUtil;
+import com.crystalgraphics.harness.capture.HarnessCapture;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.api.text.CgTextLayout;
 
 
@@ -95,9 +92,6 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         String atlasDir = outputDir + File.separator + "atlas";
         HarnessOutputDir.ensureExists(atlasDir);
 
-        CgCapabilities caps = CgCapabilities.detect();
-
-
         // Resolve effective atlas size: CLI override takes precedence, then parity estimator,
         // then legacy auto-compute for non-parity smoke runs.
         int registryAtlasSize;
@@ -128,30 +122,9 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         CgFontRegistry registry = new CgFontRegistry(registryAtlasSize, registryMsdfConfig);
         CgTextRenderer renderer = CgTextRenderer.createManualSized();
 
-        int fbo = CgGL.glGenFramebuffers();
-        int colorTex = CgGL.glGenTextures();
-
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, colorTex);
-        CgGL.glTexImage2D(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA8,
-                fboWidth, fboHeight, 0,
-                CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MIN_FILTER, CgGL.GL_LINEAR);
-        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MAG_FILTER, CgGL.GL_LINEAR);
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
-
-        CgGlScope bound = CgGlState.save(CgGlSlot.FBO, CgGlSlot.VIEWPORT);
-        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fbo);
-        CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER,
-                CgGL.GL_COLOR_ATTACHMENT0, CgGL.GL_TEXTURE_2D, colorTex, 0);
-
-        int status = CgGL.glCheckFramebufferStatus(CgGL.GL_FRAMEBUFFER);
-        if (status != CgGL.GL_FRAMEBUFFER_COMPLETE) {
-            throw new RuntimeException("Atlas dump FBO incomplete: 0x" + Integer.toHexString(status));
-        }
-
-        CgGL.glViewport(0, 0, fboWidth, fboHeight);
-        CgGL.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
-        CgGL.glClear(CgGL.GL_COLOR_BUFFER_BIT);
+        HarnessTarget target = HarnessTarget.create(fboWidth, fboHeight, false);
+        target.bind();
+        target.clear(0.15f, 0.15f, 0.2f, 1.0f);
 
         renderer.context(CgTextRenderContext.orthographic(fboWidth, fboHeight));
         PoseStack poseStack = new PoseStack();
@@ -234,7 +207,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
             }
         }
 
-        bound.close();
+        target.unbind();
         renderer.delete();
         registry.releaseAll();
         if (msdfFont != null) {
@@ -243,8 +216,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         if (bitmapFont != null) {
             bitmapFont.dispose();
         }
-        CgGL.glDeleteFramebuffers(fbo);
-        CgGL.glDeleteTextures(colorTex);
+        target.delete();
 
         LOGGER.info("[Harness] Atlas dump scene complete.");
     }
@@ -457,8 +429,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 LOGGER.info("[Harness] Bitmap atlas captured: texture=" + page.getTextureId()
                         + ", layer=" + page.getPageIndex()
                         + ", size=" + page.getPageWidth() + "x" + page.getPageHeight());
-                ScreenshotUtil.captureArrayTextureLayer(page.getTextureId(), page.getPageIndex(),
-                        page.getPageWidth(), page.getPageHeight(), atlasDir, filename);
+                HarnessCapture.texture(CgGlyphAtlas.texture(page.getAtlasId()), page.getPageIndex(), atlasDir, filename);
             } else {
                 LOGGER.warning("[Harness] Bitmap atlas not available after rendering");
             }
@@ -488,8 +459,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 LOGGER.info("[Harness] " + typePrefix.toUpperCase() + " atlas captured: texture="
                         + page.getTextureId() + ", layer=" + page.getPageIndex()
                         + ", size=" + page.getPageWidth() + "x" + page.getPageHeight());
-                ScreenshotUtil.captureArrayTextureLayer(page.getTextureId(), page.getPageIndex(),
-                        page.getPageWidth(), page.getPageHeight(), atlasDir, filename);
+                HarnessCapture.texture(CgGlyphAtlas.texture(page.getAtlasId()), page.getPageIndex(), atlasDir, filename);
             } else {
                 LOGGER.warning("[Harness] " + typePrefix.toUpperCase() + " atlas not available after rendering");
             }

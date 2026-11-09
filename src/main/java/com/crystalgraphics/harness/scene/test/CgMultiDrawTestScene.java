@@ -8,8 +8,8 @@ import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
@@ -111,7 +111,7 @@ public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
         CgMeshStore store = CgMeshStore.get();
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
+        HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
         long[] calls = new long[2];
         String[] captures = {"multi-draw-on.png", "multi-draw-off.png"};
@@ -129,7 +129,7 @@ public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
             target.unbind();
             target.delete();
         }
-        compare(ctx, calls, captures, GlErrorChecker.checkAndLog("multi-draw"));
+        compare(ctx, calls, captures, DeviceErrors.checkAndLog("multi-draw"));
     }
 
     /** Every strip into its cell under one pipeline and bindings, then the two ring meshes. */
@@ -189,10 +189,6 @@ public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
         if (calls[0] != expected || calls[1] != SEPARATE_CALLS) {
             System.out.println("[multi-draw] FAIL on " + on + ": " + calls[0] + " calls joined and " + calls[1]
                     + " not, where " + expected + " and " + SEPARATE_CALLS + " were due");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[multi-draw] PASS on recording: every command validated; a recording device draws nothing to compare");
             return;
         }
         try {

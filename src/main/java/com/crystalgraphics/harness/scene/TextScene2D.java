@@ -1,14 +1,10 @@
 package com.crystalgraphics.harness.scene;
 
-import com.crystalgraphics.platform.gl.state.CgGlScope;
-import com.crystalgraphics.platform.gl.state.CgGlSlot;
-import com.crystalgraphics.platform.gl.state.CgGlState;
-import com.crystalgraphics.platform.gl.CgGL;
-import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.text.cache.CgFontRegistry;
+import com.crystalgraphics.text.atlas.CgGlyphAtlas;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
 import com.crystalgraphics.text.render.context.CgTextRenderContext;
 import com.crystalgraphics.text.render.CgTextRenderer;
@@ -19,7 +15,8 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.config.TextSceneConfig;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.harness.util.HarnessOutputDir;
-import com.crystalgraphics.harness.util.ScreenshotUtil;
+import com.crystalgraphics.harness.capture.HarnessCapture;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.api.text.CgShapedRun;
 import com.crystalgraphics.api.text.CgTextLayout;
 
@@ -32,9 +29,9 @@ public class TextScene2D implements HarnessSceneLifecycle {
 
     private static final Logger LOGGER = Logger.getLogger(TextScene2D.class.getName());
 
-    // Matches CrystalGraphicsFontDemo.DEMO_TEXT_2D_LABEL exactly
+    // The 2D label of the font demo this scene replaced: a pose-independent line over the scaled bands
     private static final String TOP_LABEL_TEXT = "2D UI text: logical size stable, raster scales with pose";
-    // Matches CrystalGraphicsFontDemo top-label color (green, 0xAAFFAAFF packed RGBA)
+    // Green, 0xAAFFAAFF packed RGBA
     private static final int TOP_LABEL_COLOR = 0xAAFFAAFF;
 
     @Override
@@ -74,8 +71,6 @@ public class TextScene2D implements HarnessSceneLifecycle {
         LOGGER.info("[Harness] Text scene: size=" + fontSizePx + "px, text=\"" + text + "\"");
         LOGGER.info("[Harness] Text scene: scales=" + scales + ", guiScale=" + guiScale
                 + ", logicalWidth=" + logicalWidth + ", output=" + outputFilename);
-
-        CgCapabilities caps = CgCapabilities.detect();
 
         CgFont font = CgFont.load(fontPath, CgFontStyle.REGULAR, fontSizePx);
         LOGGER.info("[Harness] Font loaded: " + font.getKey());
@@ -126,44 +121,22 @@ public class TextScene2D implements HarnessSceneLifecycle {
                 ? totalBandHeight
                 : config.getHeight();
 
-        int fbo = CgGL.glGenFramebuffers();
-        int colorTex = CgGL.glGenTextures();
-
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, colorTex);
-        CgGL.glTexImage2D(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA8,
-                fboWidth, fboHeight, 0,
-                CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MIN_FILTER, CgGL.GL_LINEAR);
-        CgGL.glTexParameteri(CgGL.GL_TEXTURE_2D, CgGL.GL_TEXTURE_MAG_FILTER, CgGL.GL_LINEAR);
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
-
-        CgGlScope bound = CgGlState.save(CgGlSlot.FBO, CgGlSlot.VIEWPORT);
-        CgGL.glBindFramebuffer(CgGL.GL_FRAMEBUFFER, fbo);
-        CgGL.glFramebufferTexture2D(CgGL.GL_FRAMEBUFFER,
-                CgGL.GL_COLOR_ATTACHMENT0, CgGL.GL_TEXTURE_2D, colorTex, 0);
-
-        int status = CgGL.glCheckFramebufferStatus(CgGL.GL_FRAMEBUFFER);
-        if (status != CgGL.GL_FRAMEBUFFER_COMPLETE) {
-            throw new RuntimeException("Text scene FBO incomplete: 0x" + Integer.toHexString(status));
-        }
-
-        CgGL.glViewport(0, 0, fboWidth, fboHeight);
-        CgGL.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
-        CgGL.glClear(CgGL.GL_COLOR_BUFFER_BIT);
+        HarnessTarget target = HarnessTarget.create(fboWidth, fboHeight, false);
+        target.bind();
+        target.clear(0.15f, 0.15f, 0.2f, 1.0f);
 
         renderer.context(CgTextRenderContext.orthographic(fboWidth, fboHeight));
         long frame = 1;
 
         if (config.isMtsdf()) {
-            frame = prewarmDistanceFieldGlyphs(renderer, registry,
+            frame = prewarmDistanceFieldGlyphs(renderer, registry, target,
                     font,
                     topLabelLayout, 20.0f, 20.0f, TOP_LABEL_COLOR,
                     labels, layouts, bandYOffsets, scales,
                     frame);
         }
 
-        // Draw top label: exact replication of CrystalGraphicsFontDemo's
-        // identity-pose green label (position 20,20 — color 0xAAFFAAFF)
+        // The top label: identity pose, at (20, 20)
         renderer.beginBatch();
         renderer.context().clearHistory();
         PoseStack topLabelPose = new PoseStack();
@@ -199,8 +172,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
         }
         renderer.endBatch();
 
-        ScreenshotUtil.captureFboColorTexture(fbo, colorTex,
-                fboWidth, fboHeight, outputDir, outputFilename);
+        target.captureToFile(outputDir, outputFilename);
 
         if (config.isDumpBitmapAtlas()) {
             String atlasDir = outputDir + File.separator + "atlas";
@@ -211,25 +183,25 @@ public class TextScene2D implements HarnessSceneLifecycle {
                 LOGGER.info("[Harness] Bitmap atlas captured: texture=" + bitmapAtlas.getTextureId()
                         + ", layer=" + bitmapAtlas.getPageIndex()
                         + ", size=" + bitmapAtlas.getPageWidth() + "x" + bitmapAtlas.getPageHeight());
-                ScreenshotUtil.captureArrayTextureLayer(bitmapAtlas.getTextureId(), bitmapAtlas.getPageIndex(),
-                        bitmapAtlas.getPageWidth(), bitmapAtlas.getPageHeight(), atlasDir, filename);
+                HarnessCapture.texture(CgGlyphAtlas.texture(bitmapAtlas.getAtlasId()), bitmapAtlas.getPageIndex(),
+                        atlasDir, filename);
             } else {
                 LOGGER.warning("[Harness] Bitmap atlas not available after rendering");
             }
         }
 
-        bound.close();
+        target.unbind();
         renderer.delete();
         registry.releaseAll();
         font.dispose();
-        CgGL.glDeleteFramebuffers(fbo);
-        CgGL.glDeleteTextures(colorTex);
+        target.delete();
 
         LOGGER.info("[Harness] Text scene complete.");
     }
 
     private long prewarmDistanceFieldGlyphs(CgTextRenderer renderer,
                                             CgFontRegistry registry,
+                                            HarnessTarget target,
                                             CgFont font,
                                             CgTextLayout topLabelLayout,
                                             float topLabelX,
@@ -275,8 +247,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
             renderer.endBatch();
         }
 
-        CgGL.glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
-        CgGL.glClear(CgGL.GL_COLOR_BUFFER_BIT);
+        target.clear(0.15f, 0.15f, 0.2f, 1.0f);
         return frame + warmupFrames;
     }
 

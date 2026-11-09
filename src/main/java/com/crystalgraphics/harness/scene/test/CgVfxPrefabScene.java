@@ -6,8 +6,8 @@ import com.crystalgraphics.api.mesh.CgProceduralMesh;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
@@ -101,7 +101,7 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
         vfx.play(new Model(CgVfxLook.builder(SCHEMA).with(prefab.kit()).build(), instance));
         float micros = time(instance);
 
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, true);   // the world lights' pyramid reads its depth
+        HarnessTarget target = HarnessTarget.create(w, h, true);   // the world lights' pyramid reads its depth
         target.bind();
         try {
             target.clear(0f, 0f, 0f, 1f);
@@ -117,7 +117,7 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
             target.unbind();
             target.delete();
         }
-        report(ctx, GlErrorChecker.checkAndLog("vfx-prefab"), prefab.nodes(), micros);
+        report(ctx, DeviceErrors.checkAndLog("vfx-prefab"), prefab.nodes(), micros);
     }
 
     /** The median microseconds of one {@code evaluate()}, warm. */
@@ -147,10 +147,6 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
         }
         if (micros > EVALUATE_BUDGET_US) {
             System.out.println("[vfx-prefab] FAIL on " + on + ": evaluating " + nodes + " nodes took " + micros + " us");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[vfx-prefab] PASS on recording: every command validated; nothing drawn to compare");
             return;
         }
         BufferedImage picture;

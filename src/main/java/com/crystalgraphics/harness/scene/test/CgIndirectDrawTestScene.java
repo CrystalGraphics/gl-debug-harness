@@ -7,8 +7,8 @@ import com.crystalgraphics.compute.CgCompute;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.CgImmediate;
@@ -109,7 +109,7 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
                 CgBufferDesc.elements(RECORDS, CgPrimitiveTable.FLOATS * 4, CgBufferUsage.STORAGE));
         Matrix4f projection = new Matrix4f().setOrtho(0, w, h, 0, -1, 1);
 
-        HarnessFboHelper target = HarnessFboHelper.create(w, h, false);
+        HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
         target.clear(BACKGROUND_R / 255f, BACKGROUND_G / 255f, BACKGROUND_B / 255f, 1f);
         CgFrameBuilder builder = new CgFrameBuilder();
@@ -133,7 +133,7 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         target.unbind();
         target.delete();
 
-        compare(ctx, GlErrorChecker.checkAndLog("indirect-draw"));
+        compare(ctx, DeviceErrors.checkAndLog("indirect-draw"));
     }
 
     /** The counts and records written, then every band's indirect draw on the left and its direct twin on the right. */
@@ -192,7 +192,7 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
     }
 
     /** The same draws through the world renderer, the counts written in the opaque stage's own frame. */
-    private void drawWorld(CgGraphBuffer counts, HarnessFboHelper target, int w, int h, Matrix4f projection) {
+    private void drawWorld(CgGraphBuffer counts, HarnessTarget target, int w, int h, Matrix4f projection) {
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
         CgRenderStage.Registration counting = CgRenderStage.WORLD_OPAQUE.register(0, stage -> {
@@ -236,10 +236,6 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         }
         if (validation > 0) {
             System.out.println("[indirect-draw] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[indirect-draw] PASS on recording: every command validated; a recording device draws nothing to compare");
             return;
         }
         boolean pass = true;

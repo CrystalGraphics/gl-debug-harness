@@ -3,8 +3,8 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.CgFrameClock;
@@ -41,7 +41,7 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
     private static final int SIZE = 64, TOLERANCE = 4;
     private static final float[] A = {0.2f, 0.4f, 0.6f}, B = {0.9f, 0.1f, 0.1f};
 
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     private HarnessContext ctx;
     private String failure;
     private int firing;
@@ -56,7 +56,7 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
         CgPostStack.get().install();
-        target = HarnessFboHelper.create(SIZE, SIZE, false);
+        target = HarnessTarget.create(SIZE, SIZE, false);
         try {
             CgPostMaterial invert = CgPostMaterial.of("harness:shader/post_invert.shader", CgPostPoint.AFTER_COMPOSITE);
             CgRenderStage.Registration on = CgPostStack.get().add(invert);
@@ -86,7 +86,7 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
         } finally {
             target.delete();
         }
-        report(GlErrorChecker.checkAndLog("post-transitions"));
+        report(DeviceErrors.checkAndLog("post-transitions"));
     }
 
     private static float mix(float a, float b) {
@@ -137,9 +137,7 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
         if (glErrors) failure = "GL errors, logged above";
         int validation = PlatformServiceHarness.validationErrors();
         if (validation > 0) failure = validation + " Vulkan validation errors, logged above";
-        if (failure == null && "recording".equals(on)) {
-            System.out.println("[post-transitions] PASS on recording: every command validated; nothing drawn to compare");
-        } else if (failure != null) {
+        if (failure != null) {
             System.out.println("[post-transitions] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[post-transitions] PASS on " + on + ": a post material by its weight and through three passes, a fade, and a cut's "

@@ -45,10 +45,10 @@ import java.util.Map;
  * vertices pulled from the store's words ({@code vertexWords}) with no vertex input: an indexed mesh in its format's
  * pool, one drawn without indices (the store's run of 0, 1, 2 ...), a frame mesh on the ring, and two joined into one
  * indirect call, each a band of its own colour, read back and compared with the picture worked out here. On
- * {@code --device=vulkan} and {@code --device=gl}.
+ * {@code --rhi=vulkan} and {@code --rhi=gl}.
  *
  * <pre>
- *   ./gradlew :gl-debug-harness:runHarness --args="--mode=device-mesh --device=vulkan"
+ *   ./gradlew :gl-debug-harness:runHarness --args="--mode=device-mesh --rhi=vulkan"
  * </pre>
  */
 public class CgDeviceMeshTestScene implements HarnessSceneLifecycle {

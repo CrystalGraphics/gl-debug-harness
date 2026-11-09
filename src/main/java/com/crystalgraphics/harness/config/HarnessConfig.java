@@ -37,11 +37,10 @@ public class HarnessConfig {
     private double seconds;
 
     /**
-     * What {@code CgGL} runs on: {@code gl}; {@code tracked} -- the tracked backend over a recording device, which
-     * validates every command a Vulkan device would be sent and presents nothing; or {@code vulkan} -- the tracked
-     * backend over CrystalGraphics' Vulkan device, presenting to the window. Set with {@code --device=gl|tracked|vulkan}.
+     * The device the engine draws through: {@code gl}, the GL implementation on the window's context, or {@code vulkan},
+     * CrystalGraphics' own Vulkan device presenting to the window. Set with {@code --rhi=gl|vulkan}.
      */
-    private String device;
+    private String rhi;
 
     public HarnessConfig() {
         this.outputDir = "gl-debug-harness/harness-output";
@@ -50,7 +49,7 @@ public class HarnessConfig {
         this.fontPath = null;
         this.outputName = null;
         this.seconds = 0d;
-        this.device = "gl";
+        this.rhi = "gl";
     }
 
     public String getOutputDir() { return outputDir; }
@@ -77,8 +76,8 @@ public class HarnessConfig {
     public double getSeconds() { return seconds; }
     public void setSeconds(double val) { this.seconds = val; }
 
-    /** {@code gl}, {@code tracked} or {@code vulkan}. See {@link #device}. */
-    public String getDevice() { return device; }
+    /** {@code gl} or {@code vulkan}. See {@link #rhi}. */
+    public String getRhi() { return rhi; }
 
     /**
      * Apply system property overrides (called before CLI args).
@@ -104,9 +103,9 @@ public class HarnessConfig {
         if (secs != null && !secs.isEmpty()) {
             this.seconds = parseSecondsStrict(secs, "harness.seconds");
         }
-        String dev = System.getProperty("harness.device");
-        if (dev != null && !dev.isEmpty()) {
-            this.device = parseDevice(dev, "harness.device");
+        String rhiProperty = System.getProperty("harness.rhi");
+        if (rhiProperty != null && !rhiProperty.isEmpty()) {
+            this.rhi = parseRhi(rhiProperty, "harness.rhi");
         }
     }
 
@@ -133,13 +132,16 @@ public class HarnessConfig {
             this.seconds = parseSecondsStrict(args.get("seconds"), "--seconds");
         }
         if (args.containsKey("device")) {
-            this.device = parseDevice(args.get("device"), "--device");
+            throw new IllegalArgumentException("--device is --rhi=gl|vulkan now");
+        }
+        if (args.containsKey("rhi")) {
+            this.rhi = parseRhi(args.get("rhi"), "--rhi");
         }
     }
 
-    private static String parseDevice(String value, String paramName) {
-        if (value.equals("gl") || value.equals("tracked") || value.equals("vulkan")) return value;
-        throw new IllegalArgumentException("Invalid value for " + paramName + ": '" + value + "' (gl, tracked or vulkan)");
+    private static String parseRhi(String value, String paramName) {
+        if (value.equals("gl") || value.equals("vulkan")) return value;
+        throw new IllegalArgumentException("Invalid value for " + paramName + ": '" + value + "' (gl or vulkan)");
     }
 
     /**

@@ -27,7 +27,7 @@ import java.util.List;
  * it is showing. Scene id {@code vfx-kamehameha}.
  *
  * <pre>{@code
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-kamehameha --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-kamehameha --rhi=vulkan"
  * }</pre>
  *
  * <ul>

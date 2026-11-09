@@ -1,9 +1,8 @@
 #type spatial
 
-// The host-section scene's slabs: a flat colour from the per-instance custom0, depth-tested LEQUAL so a slab
-// drawn at the same depth after another covers it -- which is exactly what a depth func left behind by a host
-// (LESS) would break.
+// A flat, opaque colour from the record's custom0: the harness's floor, drawn as a host's world is.
 
+Tags { "RenderType" = "Opaque" "Lighting" = "Unlit" "Fog" = "Off" }
 Queue = "Geometry"
 
 Pass {
@@ -11,8 +10,8 @@ Pass {
 
     RenderState {
         DepthTest LEQUAL
+        DepthWrite ON
         Cull OFF
-        ColorMask RGBA
     }
 
     struct v2f {
@@ -25,6 +24,6 @@ Pass {
     }
 
     void fragment(in v2f i, out vec4 fragColor) {
-        fragColor = CG_OBJECT_CUSTOM0;
+        fragColor = vec4(CG_OBJECT_CUSTOM0.rgb, 1.0);
     }
 }

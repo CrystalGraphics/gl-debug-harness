@@ -6,8 +6,8 @@ import com.crystalgraphics.gl.texture.CgFallbackTextures;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
@@ -54,7 +54,7 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
         String dir = ctx.getOutputDir();
 
-        HarnessFboHelper immediate = HarnessFboHelper.create(w, h, false);
+        HarnessTarget immediate = HarnessTarget.create(w, h, false);
         immediate.bind();
         immediate.clear(0.08f, 0.08f, 0.1f, 1f);
         drawImmediate(w, h);
@@ -62,7 +62,7 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
         immediate.unbind();
         immediate.delete();
 
-        HarnessFboHelper graph = HarnessFboHelper.create(w, h, false);
+        HarnessTarget graph = HarnessTarget.create(w, h, false);
         graph.bind();
         graph.clear(0.08f, 0.08f, 0.1f, 1f);
         try (CgImmediate draw = CgImmediate.begin(constants(w, h))) {
@@ -72,7 +72,7 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
         graph.unbind();
         graph.delete();
 
-        HarnessFboHelper threaded = HarnessFboHelper.create(w, h, false);
+        HarnessTarget threaded = HarnessTarget.create(w, h, false);
         threaded.bind();
         threaded.clear(0.08f, 0.08f, 0.1f, 1f);
         CgFrameBuilder builder = new CgFrameBuilder();
@@ -99,7 +99,7 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
         threaded.unbind();
         threaded.delete();
 
-        LOG.info("[graph-executor] three captures written; glError={}", GlErrorChecker.checkAndLog("graph-executor"));
+        LOG.info("[graph-executor] three captures written; glError={}", DeviceErrors.checkAndLog("graph-executor"));
     }
 
     private static CgPassConstants constants(int w, int h) {

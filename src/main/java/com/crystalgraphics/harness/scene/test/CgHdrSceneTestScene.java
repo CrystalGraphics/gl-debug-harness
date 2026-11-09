@@ -7,16 +7,14 @@ import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
+import com.crystalgraphics.gl.texture.CgTexture2D;
+import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.platform.gl.CgGL;
-import com.crystalgraphics.platform.gl.state.CgGlScope;
-import com.crystalgraphics.platform.gl.state.CgGlSlot;
-import com.crystalgraphics.platform.gl.state.CgGlState;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
@@ -53,7 +51,7 @@ import java.util.Map;
  * <pre>
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=hdr-scene"
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=hdr-scene" -Pharness.downlevel=gl33
- *   ./gradlew :gl-debug-harness:runHarness --args="--mode=hdr-scene --device=vulkan"
+ *   ./gradlew :gl-debug-harness:runHarness --args="--mode=hdr-scene --rhi=vulkan"
  * </pre>
  *
  * <ul>
@@ -129,10 +127,9 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     private void run(Config c, boolean measuring) {
         if (c.copyZone() != null) {
             // The host's colour and depth copied whole, as a scene keeping its own depth would take them each frame.
-            int host = c.host().framebuffer().getId(), w = c.width(), h = c.height();
-            execute(rec -> rec.callback("hdr-scene copy", null, () -> CgFrameBuffer.blitFrom(host, c.copy().getId(),
-                    0, 0, w, h, 0, 0, w, h, CgGL.GL_COLOR_BUFFER_BIT | CgGL.GL_DEPTH_BUFFER_BIT, CgGL.GL_NEAREST)),
-                    c.copyZone(), measuring);
+            CgFrameBuffer host = c.host().framebuffer();
+            int copy = c.copy().getId();
+            execute(rec -> rec.callback("hdr-scene copy", null, () -> host.copyColorAndDepthTo(copy)), c.copyZone(), measuring);
             // The same callback copying nothing: what the copy zone holds besides the blit.
             execute(rec -> rec.callback("hdr-scene empty", null, () -> {}), c.copyZone() + " empty", measuring);
         }
@@ -179,7 +176,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
 
     private void report() {
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
-        String on = device == null ? CgGL.glGetString(CgGL.GL_RENDERER) : device.name();
+        String on = device == null ? "gl" : device.name();
         System.out.println("[hdr-scene] " + on + ", GPU ms per frame over " + MEASURED + " frames");
         boolean timed = CgGpuTrace.support() != CgGpuTrace.Support.UNSUPPORTED;
         if (!timed) System.out.println("[hdr-scene]   this context has no timer queries: no cost measured");
@@ -204,7 +201,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
                 + (engine == null ? "exact" : engine));
         if (engine != null && failure == null) failure = "the engine's round trip: " + engine;
         int validation = PlatformServiceHarness.validationErrors();
-        if (GlErrorChecker.checkAndLog("hdr-scene")) {
+        if (DeviceErrors.checkAndLog("hdr-scene")) {
             System.out.println("[hdr-scene] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[hdr-scene] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
@@ -233,17 +230,15 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         world.install();
         CgPostStack.get().install();
         // A host draws its world with its target bound at its own size: the stages take both from GL.
-        try (CgGlScope ignored = CgGlState.save(CgGlSlot.FBO, CgGlSlot.VIEWPORT)) {
-            host.bind();
-            CgGL.glViewport(0, 0, w, h);
+        try (CgFrameBuffer.Drawing ignored = host.drawInto()) {
             Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
             for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
                 stage.host().set(0f, w, h, host.getId()).view().set(0, 0, 0, new Matrix4f(), projection);
                 stage.fire();
             }
         }
-        if (gl && CgGL.glGetBoolean(GL_FRAMEBUFFER_SRGB)) return "GL_FRAMEBUFFER_SRGB is on";
-        int changed = changed(host.getColorTexture(0).getId(), w, h, true);
+        if (gl && HarnessWindow.framebufferSrgb()) return "GL_FRAMEBUFFER_SRGB is on";
+        int changed = changed(host, true);
         if (changed != 0) return changed + " channel values changed";
         // Bloom off for the exact checks: the cube's excess blooms past it, which the last check asks for
         float bloom = CgPostStack.get().bloom().intensity();
@@ -280,11 +275,8 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         boolean wasSkipping = world.skipUnready();
         world.skipUnready(false);
         Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
-        try (CgGlScope ignored = CgGlState.save(CgGlSlot.FBO, CgGlSlot.VIEWPORT, CgGlSlot.DEPTH)) {
-            host.bind();
-            CgGL.glViewport(0, 0, w, h);
-            CgGL.glDepthMask(true);
-            CgGL.glClear(CgGL.GL_DEPTH_BUFFER_BIT);
+        try (CgFrameBuffer.Drawing ignored = host.drawInto()) {
+            host.clearDepth();
             world.draw(CgMeshShapes.cube(), opaqueMaterial).at(0, 0, -3).submit();
             fire(CgRenderStage.WORLD_OPAQUE, host, w, h, projection);
             if (overdraw) {
@@ -300,10 +292,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         } finally {
             world.skipUnready(wasSkipping);
         }
-        ByteBuffer made = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder());
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, host.getColorTexture(0).getId());
-        CgGL.glGetTexImage(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, made);
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
+        ByteBuffer made = host.readColor(0, 0, w, h);
         ByteBuffer want = pattern(w, h);
         int changed = 0, blue = 0, worst = 0;
         int[] perChannel = new int[4], box = {w, h, -1, -1};
@@ -352,19 +341,15 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         stage.fire();
     }
 
-    private static final int GL_FRAMEBUFFER_SRGB = 0x8DB9;
-
     /** Channel values of {@code c}'s out unlike the pattern: RGB only where the scene has no alpha. */
     private static int changed(Config c) {
-        return changed(c.out().framebuffer().getColorTexture(0).getId(), c.width(), c.height(), c.exact());
+        return changed(c.out().framebuffer(), c.exact());
     }
 
-    /** Channel values of {@code texture} unlike the pattern; without {@code alpha}, RGB only. */
-    private static int changed(int texture, int w, int h, boolean alpha) {
-        ByteBuffer made = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder());
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, texture);
-        CgGL.glGetTexImage(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, made);
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
+    /** Channel values of {@code target}'s colour unlike the pattern; without {@code alpha}, RGB only. */
+    private static int changed(CgFrameBuffer target, boolean alpha) {
+        int w = target.getWidth(), h = target.getHeight();
+        ByteBuffer made = target.readColor(0, 0, w, h);
         ByteBuffer want = pattern(w, h);
         int changed = 0;
         for (int i = 0; i < w * h * 4; i++) {
@@ -386,9 +371,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     }
 
     private static void upload(CgFrameBuffer fb, ByteBuffer pixels, int w, int h) {
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, fb.getColorTexture(0).getId());
-        CgGL.glTexSubImage2D(CgGL.GL_TEXTURE_2D, 0, 0, 0, w, h, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE, pixels);
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
+        ((CgTexture2D) fb.getColorTexture(0)).uploadRegion(0, 0, 0, w, h, pixels);
     }
 
     private CgGraphTexture target(String name, int w, int h, CgFrameBufferFormat format) {

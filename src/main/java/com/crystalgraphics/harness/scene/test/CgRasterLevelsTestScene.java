@@ -8,10 +8,9 @@ import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
@@ -23,8 +22,6 @@ import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgTextureDesc;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
 /**
  * The gate for raster passes into mip levels: a 40x24 RGBA16F chain drawn level by level in one recording, level 0 a
@@ -73,7 +70,7 @@ public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
         CgRecording release = new CgRecording();
         release.release(chain);
         CgImmediate.execute(release);
-        report(failure, GlErrorChecker.checkAndLog("raster-levels"), chain.getLevels());
+        report(failure, DeviceErrors.checkAndLog("raster-levels"), chain.getLevels());
     }
 
     /** Null when every level holds what Java works out for it; else the first texel that does not. */
@@ -120,11 +117,8 @@ public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
     }
 
     private static float[] read(CgFrameBuffer chain, int level, int w, int h) {
-        ByteBuffer pixels = ByteBuffer.allocateDirect(w * h * 16).order(ByteOrder.nativeOrder());
-        CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, chain.getColorTexture(0).getId());
-        CgGL.glGetTexImage(CgGL.GL_TEXTURE_2D, level, CgGL.GL_RGBA, CgGL.GL_FLOAT, pixels);
         float[] out = new float[w * h * 4];
-        for (int i = 0; i < out.length; i++) out[i] = pixels.getFloat(i * 4);
+        CgFrameBuffer.readTextureFloats(chain.getColorTexture(0), level).asFloatBuffer().get(out);
         return out;
     }
 
@@ -140,8 +134,6 @@ public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
             System.out.println("[raster-levels] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[raster-levels] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-        } else if ("recording".equals(on)) {
-            System.out.println("[raster-levels] PASS on recording: every command validated; a recording device draws nothing to compare");
         } else if (failure != null) {
             System.out.println("[raster-levels] FAIL on " + on + ": " + failure);
         } else {

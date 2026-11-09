@@ -7,7 +7,7 @@ import com.crystalgraphics.demo.CgVfxModules;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.loading.CgLoadingScreen;
 import com.crystalgraphics.platform.PlatformServiceHarness;
@@ -29,7 +29,7 @@ import com.crystalgraphics.trace.CgGpuTrace;
  * (26.2 Vulkan, the {@code modules} demo).</p>
  *
  * <pre>{@code
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=warm-frame-load --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=warm-frame-load --rhi=vulkan"
  * // [warm-frame-load] PASS on <device>: 412 warm frames once settled, the slowest zone gpu:vfx.pool.range 14 ms
  * }</pre>
  */
@@ -92,7 +92,7 @@ public final class CgWarmFrameLoadScene implements InteractiveSceneLifecycle {
         int validation = PlatformServiceHarness.validationErrors();
         long slowest = CgGpuTrace.slowestNanos() / 1_000_000L;
         String zone = CgGpuTrace.slowestZone();
-        if (GlErrorChecker.checkAndLog("warm-frame-load")) {
+        if (DeviceErrors.checkAndLog("warm-frame-load")) {
             System.out.println("[warm-frame-load] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[warm-frame-load] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");

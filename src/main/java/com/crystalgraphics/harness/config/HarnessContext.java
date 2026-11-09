@@ -10,9 +10,7 @@ import com.crystalgraphics.harness.ui.HarnessUi;
 
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 
-import com.crystalgraphics.harness.util.ScreenshotUtil;
 import org.joml.Matrix4f;
-import org.lwjgl.opengl.GL11C;
 
 import java.util.logging.Logger;
 
@@ -139,9 +137,8 @@ public final class HarnessContext {
     public static HarnessContext create(int width, int height, boolean gl) {
         HarnessWindow.create(width, height, "CrystalGraphics Debug Harness", gl);
 
-        String glVersion = gl ? GL11C.glGetString(GL11C.GL_VERSION) : "none (Vulkan)";
-        String glVendor = gl ? GL11C.glGetString(GL11C.GL_VENDOR) : "none (Vulkan)";
-        String glRenderer = gl ? GL11C.glGetString(GL11C.GL_RENDERER) : "none (Vulkan)";
+        String[] context = HarnessWindow.describeContext();
+        String glVersion = context[0], glVendor = context[1], glRenderer = context[2];
 
         LOGGER.info("[Harness] GL Version:  " + glVersion);
         LOGGER.info("[Harness] GL Vendor:   " + glVendor);
@@ -434,7 +431,7 @@ public final class HarnessContext {
      * <p>The artifact service centralizes screenshot capture, filename
      * composition, and post-render callback scheduling. Scenes should use
      * this instead of manually composing filenames and calling
-     * {@link ScreenshotUtil}
+     * {@link com.crystalgraphics.harness.capture.HarnessCapture}
      * directly.</p>
      *
      * @return the artifact service, or null for non-interactive scenes

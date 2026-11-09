@@ -2,10 +2,6 @@ package com.crystalgraphics.harness;
 
 import com.crystalgraphics.harness.config.SceneDescriptor;
 import com.crystalgraphics.harness.scene.*;
-import com.crystalgraphics.harness.scene.test.CgMeshBackendTestScene;
-import com.crystalgraphics.harness.scene.test.ImageScene;
-import com.crystalgraphics.harness.scene.test.LightScene;
-import com.crystalgraphics.harness.scene.test.ReviewScene;
 import com.crystalgraphics.harness.scene.test.CgComputeGraphTestScene;
 import com.crystalgraphics.harness.scene.test.CgDeviceMeshTestScene;
 import com.crystalgraphics.harness.scene.test.CgDeviceSetsTestScene;
@@ -47,7 +43,6 @@ import com.crystalgraphics.harness.scene.test.CgVfxHashesScene;
 import com.crystalgraphics.harness.scene.test.CgVolumeTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
-import com.crystalgraphics.harness.scene.test.CgGlCallCostScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuCullTestScene;
 import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
@@ -91,8 +86,6 @@ import com.crystalgraphics.harness.scene.test.CgLightsDemoBisectScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
-import com.crystalgraphics.harness.scene.test.CgHostSectionScene;
-import com.crystalgraphics.harness.scene.test.CgMaterialDualPathScene;
 import com.crystalgraphics.harness.scene.test.CgVectorRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgTextColdScene;
 import com.crystalgraphics.harness.scene.test.CgTextThreadedTestScene;
@@ -114,7 +107,6 @@ import com.crystalgraphics.harness.scene.test.CgVfxShowcaseScene;
 import com.crystalgraphics.harness.scene.test.CgVfxTrailsScene;
 import com.crystalgraphics.harness.scene.test.CgCollisionShapesScene;
 import com.crystalgraphics.harness.tool.CapabilityReport;
-import com.crystalgraphics.harness.tool.GlStateDumper;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -182,48 +174,7 @@ public final class SceneRegistry {
         SceneRegistry reg = new SceneRegistry();
 
         // Hand-written GL scenes: raw LWJGL, the GL device only
-        reg.register(SceneDescriptor.builder("light")
-                .description("Light")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsDepthBuffer(true)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new ReviewScene()
-        );
-        reg.register(
-            SceneDescriptor.builder("image")
-                .description("Image")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsDepthBuffer(true)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new ImageScene()
-        );
-        reg.register(
-            SceneDescriptor.builder("light-source")
-                .description("A lit cube and its orbiting light")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsDepthBuffer(true)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new LightScene()
-        );
-
         // ── Rendering scenes ──
-        reg.register(
-            SceneDescriptor.builder("triangle-2d")
-                .description("Render hello triangle via FBO to triangle.png")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(true)
-                .needsDepthBuffer(true)
-                .clearColor(0.1f, 0.1f, 0.1f, 1.0f)
-                .build(),
-            () -> new TriangleScene2D()
-        );
         
         reg.register(
             SceneDescriptor.builder("text-2d")
@@ -248,30 +199,6 @@ public final class SceneRegistry {
                 () -> new TextScene3D()
         );
         
-
-        reg.register(
-            SceneDescriptor.builder("host-section")
-                .description("A fake host drawing raw GL inside hostForeign between engine draws, one target, painter's order")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .clearColor(0.05f, 0.05f, 0.08f, 1.0f)
-                .build(),
-            () -> new CgHostSectionScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("material-dual-path").checksPixels()
-                .description("CrystalShader MVP: single .shader file drawn with drawDirect() and drawInstanced(8)")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(true)
-                .clearColor(0.08f, 0.08f, 0.12f, 1.0f)
-                .build(),
-            () -> new CgMaterialDualPathScene()
-        );
 
         reg.register(
             SceneDescriptor.builder("quad-renderer-test")
@@ -302,23 +229,9 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("mesh-backend-test")
-                .description("mesh rewrite M1: base-vertex draws, integer and half-float attributes, attribute-less draws and buffer copies, beside the same picture drawn plainly -- two PNGs that must match on every device")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(true)
-                .needsDepthBuffer(false)
-                .defaultWidth(900)
-                .defaultHeight(700)
-                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgMeshBackendTestScene()
-        );
-
-        reg.register(
             SceneDescriptor.builder("compute-seam").checksPixels()
-                .description("gpu-compute C1: kernels write a buffer drawn as quads and an image a material samples, beside an indirect draw; the picture from the kernels must match one from CPU-written data on every device")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .description("gpu-compute C1 and C2: kernels write a buffer drawn as quads and an image a draw samples, beside an indirect draw, through CgRHI; the picture must match one from CPU-written data, and a .compute's kernels run through the graph its bytes")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(true)
                 .needsDepthBuffer(false)
@@ -760,20 +673,6 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgGpuOpsCostScene()
-        );
-
-        reg.register(
-            SceneDescriptor.builder("gl-call-cost")
-                .description("T11 P0.3: what one GL state change costs the frame, timed with the draw it dirties against draws alone; prints microseconds a change and exits. Run with fps=0")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
-                .category(SceneDescriptor.Category.SCENE)
-                .needsFbo(false)
-                .needsDepthBuffer(false)
-                .defaultWidth(320)
-                .defaultHeight(180)
-                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
-                .build(),
-            () -> new CgGlCallCostScene()
         );
 
         reg.register(
@@ -1783,16 +1682,6 @@ public final class SceneRegistry {
             new HarnessSceneFactory() {
                 public HarnessSceneLifecycle create() { return new MeshTestScene(); }
             }
-        );
-
-        reg.register(
-            SceneDescriptor.builder("gl-state-dump")
-                .description("Dump current GL state to a structured report file")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.DIAGNOSTIC)
-                .category(SceneDescriptor.Category.DIAGNOSTIC_TOOL)
-                .needsFbo(false)
-                .build(),
-                () -> new GlStateDumper()
         );
 
 

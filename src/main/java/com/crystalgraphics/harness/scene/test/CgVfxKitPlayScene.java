@@ -26,7 +26,7 @@ import java.util.List;
  * x. Kakarot's Kamehameha by default, which {@link CgVfxKamehamehaScene} is for watching. Scene id {@code vfx-kit-play}.
  *
  * <pre>{@code
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-kit-play --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-kit-play --rhi=vulkan"
  * // another kit: its folder and namespace, and ids under its vfx/systems without .yaml
  * ... -Dcrystalgraphics.harness.kit=<folder> -Dcrystalgraphics.harness.kit.namespace=spzero_kit \
  *     -Dcrystalgraphics.harness.kit.systems=<id>,<id>

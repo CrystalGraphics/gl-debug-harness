@@ -4,7 +4,7 @@ import com.crystalgraphics.compute.CgCompute;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
@@ -114,14 +114,12 @@ public class CgVfxHashesScene implements InteractiveSceneLifecycle {
             if (r.done()) done++;
             else if (unanswered == null) unanswered = r + (r.failure() != null ? ": " + r.failure() : "");
         }
-        if (GlErrorChecker.checkAndLog("vfx-hashes")) {
+        if (DeviceErrors.checkAndLog("vfx-hashes")) {
             System.out.println("[vfx-hashes] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[vfx-hashes] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
         } else if (unanswered != null) {
             System.out.println("[vfx-hashes] FAIL on " + on + ": " + done + " of " + requests.size() + " answered; " + unanswered);
-        } else if (on.startsWith("recording")) {
-            System.out.println("[vfx-hashes] PASS on recording: every request answered; a recording device reads back zeros");
         } else if (failure != null) {
             System.out.println("[vfx-hashes] FAIL on " + on + ": " + failure);
         } else {

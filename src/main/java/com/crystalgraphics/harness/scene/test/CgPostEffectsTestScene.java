@@ -7,8 +7,8 @@ import com.crystalgraphics.gl.buffer.CgFrameRing;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
@@ -140,12 +140,12 @@ public class CgPostEffectsTestScene implements HarnessSceneLifecycle {
         int changed = 0;
         for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (plain.getRGB(x, y) != after.getRGB(x, y)) changed++;
         if (changed > 0) failures.add("closing the registrations left " + changed + " pixels changed");
-        report(failures, GlErrorChecker.checkAndLog("post-effects"));
+        report(failures, DeviceErrors.checkAndLog("post-effects"));
     }
 
     /** The wall, through both world stages, captured. */
     private BufferedImage draw(HarnessContext ctx, CgWorldRenderer world, String name) {
-        HarnessFboHelper target = HarnessFboHelper.create(W, H, true);
+        HarnessTarget target = HarnessTarget.create(W, H, true);
         target.bind();
         target.clear(0.25f, 0.3f, 0.4f, 1f);
         CgMesh cube = CgMeshShapes.cube();
@@ -174,8 +174,6 @@ public class CgPostEffectsTestScene implements HarnessSceneLifecycle {
             System.out.println("[post-effects] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[post-effects] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
-        } else if ("recording".equals(on)) {
-            System.out.println("[post-effects] PASS on recording: every command validated; a recording device draws nothing to compare");
         } else if (!failures.isEmpty()) {
             for (String f : failures) System.out.println("[post-effects] FAIL on " + on + ": " + f);
         } else {

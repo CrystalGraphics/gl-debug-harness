@@ -8,8 +8,8 @@ import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
@@ -38,7 +38,7 @@ import java.util.Map;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-mesh-sections"
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-mesh-sections --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-mesh-sections --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [vfx-mesh-sections] PASS} or {@code FAIL}.</p>
@@ -58,7 +58,7 @@ public class CgVfxMeshSectionsScene implements InteractiveSceneLifecycle {
     private static final Matrix4f VIEW = new Matrix4f(), PROJECTION = new Matrix4f();
 
     private final CgVfxSystem vfx = new CgVfxSystem();
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     private int frame;
     private boolean running = true;
 
@@ -100,7 +100,7 @@ public class CgVfxMeshSectionsScene implements InteractiveSceneLifecycle {
         frame++;
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
         if (frame == 1) {
-            target = HarnessFboHelper.create(w, h, true);   // with depth: the GPU cull of its particles reads it
+            target = HarnessTarget.create(w, h, true);   // with depth: the GPU cull of its particles reads it
             vfx.play(new CgVfxSystemInstance<>(look("both", List.of(flat("red", RED), flat("green", GREEN))), STATIONS[0], 0, -DISTANCE));
             vfx.play(new CgVfxSystemInstance<>(look("first", List.of(flat("red1", RED))), STATIONS[1], 0, -DISTANCE));
         }
@@ -118,7 +118,7 @@ public class CgVfxMeshSectionsScene implements InteractiveSceneLifecycle {
             target.unbind();
         }
         if (frame == FRAMES) {
-            report(ctx, GlErrorChecker.checkAndLog("vfx-mesh-sections"), PROJECTION, w, h);
+            report(ctx, DeviceErrors.checkAndLog("vfx-mesh-sections"), PROJECTION, w, h);
             target.delete();
             running = false;
         }
@@ -133,10 +133,6 @@ public class CgVfxMeshSectionsScene implements InteractiveSceneLifecycle {
         }
         if (PlatformServiceHarness.validationErrors() > 0) {
             System.out.println("[vfx-mesh-sections] FAIL on " + on + ": Vulkan validation errors, logged above");
-            return;
-        }
-        if ("recording".equals(on)) {
-            System.out.println("[vfx-mesh-sections] PASS on recording: every command validated; nothing drawn to compare");
             return;
         }
         BufferedImage picture;

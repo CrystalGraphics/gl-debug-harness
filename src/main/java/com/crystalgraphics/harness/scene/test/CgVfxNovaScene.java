@@ -51,7 +51,7 @@ import java.util.stream.Stream;
  * </ul>
  *
  * <pre>{@code
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-nova --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-nova --rhi=vulkan"
  * ... -Dcrystalgraphics.harness.nova.reload=true
  * ... -Dcrystalgraphics.harness.nova.hold=true    // then edit plan/.../examples/novamod/assets/novamod and save
  * // a kit elsewhere: its namespace folder, and the resource root holding it

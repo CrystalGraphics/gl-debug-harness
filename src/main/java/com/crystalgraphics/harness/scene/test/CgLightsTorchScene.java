@@ -1,6 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
+import com.crystalgraphics.harness.util.ObjectDraws;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.api.texture.CgTextureSpec;
@@ -9,12 +10,11 @@ import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
-import com.crystalgraphics.harness.util.HarnessFboHelper;
+import com.crystalgraphics.harness.tool.DeviceErrors;
+import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
@@ -40,7 +40,7 @@ import java.util.List;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-torch"
- * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-torch --device=vulkan"
+ * ./gradlew :gl-debug-harness:runHarness --args="--mode=lights-torch --rhi=vulkan"
  * }</pre>
  *
  * <p>Prints {@code [lights-torch] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
@@ -58,7 +58,7 @@ public class CgLightsTorchScene implements InteractiveSceneLifecycle {
     private final Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, (float) (CX + 3 - EYE_X), (float) (GROUND - EYE_Y),
             (float) (CZ - EYE_Z), 0f, 1f, 0f);
     private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), (float) W / H, 0.05f, 200f);
-    private HarnessFboHelper target;
+    private HarnessTarget target;
     private CgMaterial grey;
     private CgTexture2D lightmap;
     private int frame;
@@ -69,7 +69,7 @@ public class CgLightsTorchScene implements InteractiveSceneLifecycle {
         CgPlatform.provide(CgLevels.HOST, CgLevels.single(world, CgEntityQuery.NONE));
         CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
-        target = HarnessFboHelper.create(W, H, true);
+        target = HarnessTarget.create(W, H, true);
         // Minecraft's lightmap, shaped: brighter with block light and with sky light.
         ByteBuffer texels = ByteBuffer.allocateDirect(16 * 16 * 4).order(ByteOrder.nativeOrder());
         for (int sky = 0; sky < 16; sky++) {
@@ -80,7 +80,7 @@ public class CgLightsTorchScene implements InteractiveSceneLifecycle {
         }
         texels.flip();
         lightmap = CgTexture2D.createEmpty(16, 16, CgTextureSpec.RGBA8_LINEAR);
-        lightmap.uploadRegion(0, 0, 0, 16, 16, texels, CgGL.GL_RGBA, CgGL.GL_UNSIGNED_BYTE);
+        lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
     }
 
     @Override
@@ -95,7 +95,7 @@ public class CgLightsTorchScene implements InteractiveSceneLifecycle {
         CgPassConstants host = new CgPassConstants();
         host.view.set(look);
         host.projection.set(projection);
-        host.resolution(W, H).time(CgFrameClock.seconds()).depth(CgGL.isDepthReversed(), CgGL.isDepthZeroToOne())
+        host.resolution(W, H).time(CgFrameClock.seconds()).hostDepth()
                 .cameraFromView();
         Matrix4f ground = new Matrix4f().translation((float) (CX + 0.5 - EYE_X), (float) (GROUND - 0.5 - EYE_Y),
                 (float) (CZ + 0.5 - EYE_Z)).scale(40f, 1f, 40f);
@@ -132,15 +132,13 @@ public class CgLightsTorchScene implements InteractiveSceneLifecycle {
         String readings = String.format("behind %.1f vs %.1f, open %.1f vs %.1f", at[0][0], at[1][0], at[0][1], at[1][1]);
         if (failure == null && at[0][0] > 0.8f * at[1][0]) failure = "our box does not shadow the torch's light: " + readings;
         else if (failure == null && Math.abs(at[0][1] - at[1][1]) > 2f) failure = "the open ground changed: " + readings;
-        boolean glErrors = GlErrorChecker.checkAndLog("lights-torch");
+        boolean glErrors = DeviceErrors.checkAndLog("lights-torch");
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
         String on = device == null ? "gl" : device.name();
         int validation = PlatformServiceHarness.validationErrors();
         if (glErrors) failure = "GL errors, logged above";
         else if (validation > 0) failure = validation + " Vulkan validation errors, logged above";
-        if ("recording".equals(on) && !glErrors && validation == 0) {
-            System.out.println("[lights-torch] PASS on recording: every command validated; a recording device draws nothing to compare");
-        } else if (failure != null) {
+        if (failure != null) {
             System.out.println("[lights-torch] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[lights-torch] PASS on " + on + ": " + readings);

@@ -11,17 +11,18 @@ import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.harness.tool.GlErrorChecker;
+import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.platform.gl.CgGL;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
 import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
+import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.graph.CgComputePass;
 import com.crystalgraphics.render.graph.CgExecutor;
 import com.crystalgraphics.render.graph.CgFrame;
@@ -51,8 +52,8 @@ import java.util.Map;
  * timed alone, in order and async. Then one frame of each in order and async, every output read back and compared.
  *
  * <pre>
- *   ./gradlew :gl-debug-harness:runHarness --args="--mode=async-compute --device=vulkan" -Dcrystalgraphics.vulkan.syncValidation=true
- *   ./gradlew :gl-debug-harness:runHarness --args="--mode=async-compute --device=vulkan" -Dcrystalgraphics.vulkan.asyncCompute=graphics
+ *   ./gradlew :gl-debug-harness:runHarness --args="--mode=async-compute --rhi=vulkan" -Dcrystalgraphics.vulkan.syncValidation=true
+ *   ./gradlew :gl-debug-harness:runHarness --args="--mode=async-compute --rhi=vulkan" -Dcrystalgraphics.vulkan.asyncCompute=graphics
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=async-compute"
  * </pre>
  *
@@ -101,7 +102,11 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     private CgMaterial pattern, down;
     private CgGraphTexture source, blurred, canvas, result;
     private CgGraphBuffer word, keys, first;
-    private int blurs, quads, sortKeys, frame, wordId, firstId;
+    private int blurs, quads, sortKeys, frame;
+    /** The checks' readbacks: in order, async and async drawn last's three images, and the two across modes' keys. */
+    private final List<CgRequest> reads = new ArrayList<>();
+    private final ByteBuffer[][] images = new ByteBuffer[3][3];
+    private final int[][] firsts = new int[2][];
     private boolean wasTracingGpu, running = true;
     private String mismatch;
 
@@ -116,19 +121,12 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
         blurred = texture("blurred", W, H, false);
         canvas = texture("canvas", W, H, false);
         result = texture("result", W / 2, H / 2, false);
-        wordId = CgGL.glGenBuffers();
-        CgGL.glBindBuffer(CgGL.GL_COPY_WRITE_BUFFER, wordId);
-        CgGL.glBufferData(CgGL.GL_COPY_WRITE_BUFFER, 4L, CgGL.GL_DYNAMIC_DRAW);
-        CgGL.glBindBuffer(CgGL.GL_COPY_WRITE_BUFFER, 0);
-        word = CgGraphBuffer.imported("word", wordId, 4);
+        word = CgGraphBuffer.persistent("async-compute word", CgBufferDesc.of(4, CgBufferUsage.STORAGE));
         sortKeys = Integer.getInteger("crystalgraphics.harness.async.sortKeys", 1 << 22);
         keys = CgGraphBuffer.persistent("async-compute keys",
                 CgBufferDesc.elements(sortKeys, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY));
-        firstId = CgGL.glGenBuffers();
-        CgGL.glBindBuffer(CgGL.GL_COPY_WRITE_BUFFER, firstId);
-        CgGL.glBufferData(CgGL.GL_COPY_WRITE_BUFFER, FIRST * 4L, CgGL.GL_DYNAMIC_DRAW);
-        CgGL.glBindBuffer(CgGL.GL_COPY_WRITE_BUFFER, 0);
-        first = CgGraphBuffer.imported("first keys", firstId, FIRST * 4L);
+        first = CgGraphBuffer.persistent("async-compute first keys",
+                CgBufferDesc.elements(FIRST, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY));
 
         wasTracingGpu = CgTrace.isEnabled(CgGpuTrace.GPU);
         CgTrace.setEnabled(CgGpuTrace.GPU, true);
@@ -147,20 +145,20 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
                 time(frame >= WARMUP ? mode.zone : null, mode);
             }
         } else if (frame == timed) {
-            time(null, Mode.IN_ORDER);
-            List<ByteBuffer> inOrder = readAll();
-            time(null, Mode.ASYNC);
-            mismatch = compare(inOrder, readAll(), Mode.ASYNC);
-            time(null, Mode.ASYNC_DRAWN_LAST);
-            if (mismatch == null) mismatch = compare(inOrder, readAll(), Mode.ASYNC_DRAWN_LAST);
-            int[] expected = expectedFirst();
-            for (Mode mode : new Mode[] {Mode.ACROSS_IN_ORDER, Mode.ACROSS_ASYNC}) {
-                time(null, mode);
-                if (mismatch == null && !Arrays.equals(readFirst(), expected)) {
-                    mismatch = "'" + mode.zone + "' read sorted keys other than Java's";
-                }
+            // Each read is recorded after its frame's work, so it sees what that work left, and lands frames later.
+            Mode[] checked = {Mode.IN_ORDER, Mode.ASYNC, Mode.ASYNC_DRAWN_LAST};
+            for (int k = 0; k < checked.length; k++) {
+                time(null, checked[k]);
+                readAll(k);
             }
-        } else if (frame >= timed + DRAIN || everyQueryLanded()) {
+            Mode[] across = {Mode.ACROSS_IN_ORDER, Mode.ACROSS_ASYNC};
+            for (int k = 0; k < across.length; k++) {
+                time(null, across[k]);
+                readFirst(k);
+            }
+        } else if (frame >= timed + 4 * DRAIN || reads.stream().allMatch(CgRequest::done)
+                && (frame >= timed + DRAIN || everyQueryLanded())) {
+            check();
             report();
             running = false;
         }
@@ -244,14 +242,35 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
         sort.end();
     }
 
-    private int[] readFirst() {
-        CgGL.glBindBuffer(CgGL.GL_COPY_READ_BUFFER, firstId);
-        ByteBuffer mapped = CgGL.glMapBufferRange(CgGL.GL_COPY_READ_BUFFER, 0, FIRST * 4L, CgGL.GL_MAP_READ_BIT, null);
-        int[] words = new int[FIRST];
-        mapped.order(ByteOrder.nativeOrder()).asIntBuffer().get(words);
-        CgGL.glUnmapBuffer(CgGL.GL_COPY_READ_BUFFER);
-        CgGL.glBindBuffer(CgGL.GL_COPY_READ_BUFFER, 0);
-        return words;
+    /** The first sorted keys as the last execution left them, into {@code firsts[k]}. */
+    private void readFirst(int k) {
+        reads.add(recording.readback(first, 0, FIRST * 4L, data -> {
+            int[] words = new int[FIRST];
+            data.asIntBuffer().get(words);
+            firsts[k] = words;
+        }));
+        run();
+    }
+
+    /** What the reads found against what they should: the first failure, or none. */
+    private void check() {
+        for (CgRequest r : reads) {
+            if (!r.done()) {
+                mismatch = r + " never answered";
+                return;
+            }
+            if (r.failed()) {
+                mismatch = r + ": " + r.failure();
+                return;
+            }
+        }
+        mismatch = compare(images[0], images[1], Mode.ASYNC);
+        if (mismatch == null) mismatch = compare(images[0], images[2], Mode.ASYNC_DRAWN_LAST);
+        int[] expected = expectedFirst();
+        Mode[] across = {Mode.ACROSS_IN_ORDER, Mode.ACROSS_ASYNC};
+        for (int k = 0; k < across.length && mismatch == null; k++) {
+            if (!Arrays.equals(firsts[k], expected)) mismatch = "'" + across[k].zone + "' read sorted keys other than Java's";
+        }
     }
 
     /** The first {@link #FIRST} keys once sorted, worked out in Java. */
@@ -275,23 +294,24 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
         pass.end();
     }
 
-    private List<ByteBuffer> readAll() {
-        List<ByteBuffer> out = new ArrayList<>();
-        for (CgGraphTexture t : new CgGraphTexture[] {blurred, canvas, result}) {
-            CgFrameBuffer fb = t.framebuffer();
-            ByteBuffer pixels = ByteBuffer.allocateDirect(fb.getWidth() * fb.getHeight() * 8).order(ByteOrder.nativeOrder());
-            CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, fb.getColorTexture(0).getId());
-            CgGL.glGetTexImage(CgGL.GL_TEXTURE_2D, 0, CgGL.GL_RGBA, CgGL.GL_HALF_FLOAT, pixels);
-            CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
-            out.add(pixels);
+    /** The three images as the last execution left them, into {@code images[k]}. */
+    private void readAll(int k) {
+        CgGraphTexture[] read = {blurred, canvas, result};
+        for (int i = 0; i < read.length; i++) {
+            int at = i;
+            CgFrameBuffer fb = read[i].framebuffer();
+            reads.add(recording.readback(read[i], 0, 0, 0, fb.getWidth(), fb.getHeight(), data -> {
+                ByteBuffer copy = ByteBuffer.allocateDirect(data.remaining()).order(ByteOrder.nativeOrder());
+                images[k][at] = copy.put(data).flip();
+            }));
         }
-        return out;
+        run();
     }
 
-    private static String compare(List<ByteBuffer> inOrder, List<ByteBuffer> async, Mode mode) {
+    private static String compare(ByteBuffer[] inOrder, ByteBuffer[] async, Mode mode) {
         String[] names = {"blurred", "canvas", "result"};
         for (int i = 0; i < names.length; i++) {
-            int at = inOrder.get(i).mismatch(async.get(i));
+            int at = inOrder[i].mismatch(async[i]);
             if (at >= 0) return names[i] + " differs at byte " + at + " between the in-order frame and '" + mode.zone + "'";
         }
         return null;
@@ -308,7 +328,7 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
 
     private void report() {
         CgRHI.Globals device = PlatformServiceHarness.deviceInfo();
-        String on = device == null ? CgGL.glGetString(CgGL.GL_RENDERER) : device.name();
+        String on = device == null ? "gl" : device.name();
         boolean queue = CgCapabilities.detect().asyncCompute();
         Map<String, long[]> totals = CgGpuTrace.totals();
         double[] ms = new double[MODES.length];
@@ -329,7 +349,7 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
         System.out.printf("[async-compute]   across executions, async saves %.3f ms of the %.3f ms the shorter half takes (%.0f%%)%n",
                 savedAcross, shorterAcross, 100 * savedAcross / shorterAcross);
         int validation = PlatformServiceHarness.validationErrors();
-        if (GlErrorChecker.checkAndLog("async-compute")) {
+        if (DeviceErrors.checkAndLog("async-compute")) {
             System.out.println("[async-compute] FAIL on " + on + ": GL errors, logged above");
         } else if (validation > 0) {
             System.out.println("[async-compute] FAIL on " + on + ": " + validation + " Vulkan validation errors, logged above");
@@ -351,12 +371,10 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     private CgGraphTexture texture(String name, int w, int h, boolean noise) {
         CgFrameBuffer fb = CgFrameBuffer.createOwned("async-compute " + name, w, h, HALF, 1);
         if (noise) {
-            ByteBuffer pixels = ByteBuffer.allocateDirect(w * h * 16).order(ByteOrder.nativeOrder());
-            for (int i = 0; i < w * h * 4; i++) pixels.putFloat((CgRng.rng(w, i, 3, 0) >>> 8) / (float) (1 << 24));
+            ByteBuffer pixels = ByteBuffer.allocateDirect(w * h * 8).order(ByteOrder.nativeOrder());
+            for (int i = 0; i < w * h * 4; i++) pixels.putShort(Float.floatToFloat16((CgRng.rng(w, i, 3, 0) >>> 8) / (float) (1 << 24)));
             pixels.flip();
-            CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, fb.getColorTexture(0).getId());
-            CgGL.glTexSubImage2D(CgGL.GL_TEXTURE_2D, 0, 0, 0, w, h, CgGL.GL_RGBA, CgGL.GL_FLOAT, pixels);
-            CgGL.glBindTexture(CgGL.GL_TEXTURE_2D, 0);
+            ((CgTexture2D) fb.getColorTexture(0)).uploadRegion(0, 0, 0, w, h, pixels);
         }
         owned.add(fb);
         return CgGraphTexture.imported(name, fb);
@@ -369,8 +387,10 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         CgTrace.setEnabled(CgGpuTrace.GPU, wasTracingGpu);
-        CgGL.glDeleteBuffers(wordId);
-        CgGL.glDeleteBuffers(firstId);
+        recording.release(word);
+        recording.release(keys);
+        recording.release(first);
+        run();
         for (CgFrameBuffer fb : owned) fb.delete();
     }
 }
