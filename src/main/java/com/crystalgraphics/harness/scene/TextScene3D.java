@@ -439,7 +439,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
      * Draws a thin vertical guide line at design-space X = MARGIN + wrapWidth, down to
      * {@code designHeight} -- i.e. exactly where the paragraphs above wrap. Reuses the exact
      * same quad batch/atlas white-texel machinery {@code CgTextRenderer} already uses for
-     * decoration lines (underline/strikethrough/overline) -- no new CgQuadRenderer, no new
+     * decoration lines (underline/strikethrough/overline) -- no new CgQuadBatch, no new
      * rendering code at all. A {@link CgTextDecorationRect} is normally a horizontal bar
      * (x0/x1 span its width, thickness is its height); swapping which axis is "thin" turns the
      * same primitive into a vertical line for free. Wrapped in a single-line, zero-glyph
@@ -472,6 +472,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
     public boolean shouldShutdownOnComplete() {return shutdownOnComplete;}
 
     public void requestStop() {running = false;}
+
+    @Override
+    public boolean isRunning() {return running;}
 
     public boolean uses3DCamera() {return true;}
 
