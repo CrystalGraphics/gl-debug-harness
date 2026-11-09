@@ -35,6 +35,8 @@ import com.crystalgraphics.vulkan.CgVulkanDevice;
 import com.crystalgraphics.vulkan.host.CgVulkanHost;
 import com.crystalgraphics.vulkan.host.CgVulkanImage;
 import com.crystalgraphics.vulkan.host.OwnedVulkanHost;
+import com.crystalgraphics.platform.gl.pipeline.GLNativeGlslCompiler;
+import com.crystalgraphics.platform.gl.pipeline.GLNativeTranslator;
 import com.crystalgraphics.vulkan.shader.ShadercGlslCompiler;
 import com.crystalgraphics.vulkan.shader.SpvcGlslTranslator;
 import org.lwjgl.vulkan.VkCommandBuffer;
@@ -126,10 +128,16 @@ public final class PlatformServiceHarness implements CgPlatformService {
             p.device = p.vulkanDevice;
         }
         if (rhi.equals("gl") && !"false".equals(System.getProperty("crystalgraphics.harness.glDevice"))) {
-            // CgRHI on GL beside CgGL, the two handing the context over at each device section
+            // CgRHI on GL beside CgGL, the two handing the context over at each device section; under
+            // crystalgraphics.shader.native the driver compiles, as a GL-era Minecraft's first start does
+            boolean nativeGlsl = Boolean.getBoolean("crystalgraphics.shader.native");
             try {
-                p.glDevice = new CgGLDevice(new Lwjgl3GLDriver(), new SpvcGlslTranslator(), width, height, false,
-                        GLHostState.sharedWithCgGL()).installBesideCgGL(new ShadercGlslCompiler(CgCacheDirectory.of("spirv")));
+                GLNativeTranslator translator = new GLNativeTranslator();
+                if (!nativeGlsl) translator.spirv(new SpvcGlslTranslator());
+                p.glDevice = new CgGLDevice(new Lwjgl3GLDriver(), translator, width, height, false,
+                        GLHostState.sharedWithCgGL());
+                p.glDevice.installBesideCgGL(nativeGlsl ? new GLNativeGlslCompiler(p.glDevice.driver())
+                        : new ShadercGlslCompiler(CgCacheDirectory.of("spirv")));
             } catch (IllegalStateException e) {
                 System.out.println("[Harness] no GL device: " + e.getMessage());
             }
