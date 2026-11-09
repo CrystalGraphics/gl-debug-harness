@@ -3,6 +3,8 @@ package com.crystalgraphics.harness.camera;
 import com.crystalgraphics.api.font.CgDefaultFont;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.text.CgTextLayout;
+import com.crystalgraphics.text.style.CgTextLayer;
+import com.crystalgraphics.text.style.CgTextStyle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.bloom.CgBloom;
@@ -30,9 +32,12 @@ public final class HUDRenderer {
 
     private static final int BASE_FONT_PX = 14;
     private static final float BASE_SIDE = 600f;
-    private static final int TEXT_COLOR = 0xFFFF4F5E;
-    private static final float OUTLINE_EM = 0.12f;
-    private static final int OUTLINE_COLOR = 0xFF000000;
+    /** Red, outlined 0.12 em in black: at 75 pt, 100 px, a width of 12. */
+    private static final CgTextStyle LOOK = CgTextStyle.builder("harness:hud")
+            .size(75f)
+            .layer(CgTextLayer.outline("outline").width(12f).paint(0xFF000000))
+            .layer(CgTextLayer.fill("fill").paint(0xFFFF4F5E))
+            .build();
     private static final long WINDOW_NANOS = 500_000_000L;
 
     // The average alone hides a hitch (one 30 ms frame in half a second at 1,000 fps moves it 3%)
@@ -83,7 +88,7 @@ public final class HUDRenderer {
             layoutPx = px;
             layoutAt = now;
         }
-        canvas.text().layout(layout).font(font).at(4, 4).color(TEXT_COLOR).stroke(OUTLINE_EM, OUTLINE_COLOR).submit();
+        canvas.text().style(LOOK).layout(layout).font(font).at(4, 4).submit();
     }
 
     private String text(HarnessContext ctx) {

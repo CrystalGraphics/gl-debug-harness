@@ -6,6 +6,8 @@ import com.crystalgraphics.api.text.*;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.text.render.CgTextDraw;
+import com.crystalgraphics.text.style.CgTextLayer;
+import com.crystalgraphics.text.style.CgTextStyle;
 import com.crystalgraphics.text.richtext.CgMarkupParser;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.util.trace.CgChannels;
@@ -284,9 +286,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
 
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "kanjiWorldDraw")) {
             HarnessCanvas.world(ctx.getProjection(), ctx.getScreenWidth(), ctx.getScreenHeight());
-            withShadow(canvas.text().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack), kanjiFontSizePx).submit();
-            withShadow(canvas.text().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(labelFont).pose(poseStack), LABEL_FONT_SIZE_PX).submit();
-            withShadow(canvas.text().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(minecraftFont).pose(poseStack), FONT_SIZE_PX).submit();
+            withShadow(canvas.text().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack)).submit();
+            withShadow(canvas.text().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(labelFont).pose(poseStack)).submit();
+            withShadow(canvas.text().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(minecraftFont).pose(poseStack)).submit();
             canvas.flush();
         }
 
@@ -475,20 +477,28 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
     private static final String[] SHADOW_MODES = {"off", "glow", "stroked glow", "drop shadow", "inset"};
     private int shadowMode = 1;
 
-    /** This draw with the current shadow mode, its lengths a fraction of the font size so every draw matches. */
-    private CgTextDraw withShadow(CgTextDraw draw, int fontPx) {
-        float em = fontPx;
-        switch (shadowMode) {
-            case 1 -> draw.shadowCount(1).shadow(0, 0f, 0f, 0.12f * em, 0f, 0xFF4FC3F7, false);
-            case 2 -> draw.stroke(0.04f, 0xFF0B5D8F)
-                    .shadowCount(2)
-                    .shadow(0, 0f, 0f, 0.05f * em, 0f, 0xFFFFFFFF, false)
-                    .shadow(1, 0f, 0f, 0.2f * em, 0.03f * em, 0xFF4FC3F7, false);
-            case 3 -> draw.shadowCount(1).shadow(0, 0.06f * em, 0.06f * em, 0.04f * em, 0f, 0xCC000000, false);
-            case 4 -> draw.shadowCount(1).shadow(0, 0.05f * em, 0.05f * em, 0.03f * em, 0f, 0xD9000000, true);
-            default -> { }
-        }
-        return draw;
+    /** One style per mode, at 75 pt (100 px), so every length is hundredths of an em and scales with each draw. */
+    private static final CgTextStyle[] SHADOW_STYLES = {
+            CgTextStyle.PLAIN,
+            CgTextStyle.builder("harness:glow").size(75f)
+                    .layer(CgTextLayer.shadow("glow").blur(12f).paint(0xFF4FC3F7))
+                    .layer(CgTextLayer.fill("fill")).build(),
+            CgTextStyle.builder("harness:stroked_glow").size(75f)
+                    .layer(CgTextLayer.shadow("halo").blur(20f).spread(3f).paint(0xFF4FC3F7))
+                    .layer(CgTextLayer.shadow("rim").blur(5f).paint(0xFFFFFFFF))
+                    .layer(CgTextLayer.outline("outline").width(4f).paint(0xFF0B5D8F))
+                    .layer(CgTextLayer.fill("fill")).build(),
+            CgTextStyle.builder("harness:drop").size(75f)
+                    .layer(CgTextLayer.shadow("drop").offset(6f, 6f).blur(4f).paint(0xCC000000))
+                    .layer(CgTextLayer.fill("fill")).build(),
+            CgTextStyle.builder("harness:inset").size(75f)
+                    .layer(CgTextLayer.fill("fill"))
+                    .layer(CgTextLayer.shadow("inset").offset(5f, 5f).blur(3f).inset(true).paint(0xD9000000)).build(),
+    };
+
+    /** This draw in the current shadow mode's style. */
+    private CgTextDraw withShadow(CgTextDraw draw) {
+        return draw.style(SHADOW_STYLES[shadowMode]);
     }
 
     @Override

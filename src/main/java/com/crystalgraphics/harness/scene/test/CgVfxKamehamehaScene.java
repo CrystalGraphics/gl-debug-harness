@@ -12,6 +12,8 @@ import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.text.style.CgTextLayer;
+import com.crystalgraphics.text.style.CgTextStyle;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
 
@@ -48,6 +50,10 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
     private static final float DOWN_THE_LANES = -90f;
     /** Where a station's system plays above the floor, and its label above that. */
     private static final float HEIGHT = 1.5f, LABEL = 4.5f;
+    /** White, outlined 0.06 em in black: at 75 pt, 100 px, a width of 6. */
+    private static final CgTextStyle LABEL_STYLE = CgTextStyle.builder("harness:station_label").size(75f)
+            .layer(CgTextLayer.outline("outline").width(6f).paint(0xFF000000))
+            .layer(CgTextLayer.fill("fill")).build();
 
     /** One system of the battle path: what it is, and where and when the game plays it. */
     private record Station(String title, String beat, String id) {
@@ -123,7 +129,7 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
         vfx.update(CgVfxDemoControls.get().time(frame.getElapsedTime()));
         vfx.submit(world);
         for (int i = 0; i < STATIONS.size(); i++) {
-            world.text(STATIONS.get(i).title()).at(0.0, LABEL, z(i)).height(0.4f).font(font).stroke(0.06f, 0xFF000000).submit();
+            world.text(STATIONS.get(i).title()).at(0.0, LABEL, z(i)).height(0.4f).font(font).style(LABEL_STYLE).submit();
         }
         stage.submitStage(world, 0.0, 0.0, 0.0, camera.getPosX(), camera.getPosY(), camera.getPosZ());
         HarnessWorld.fire(ctx, camera.getViewMatrix(), ctx.getProjection());
