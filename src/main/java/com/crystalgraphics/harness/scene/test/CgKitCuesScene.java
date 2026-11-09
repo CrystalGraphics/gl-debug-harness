@@ -25,6 +25,7 @@ import com.crystalgui.app.cues.CueSelection;
 import com.crystalgui.desktop.host.HostSession;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
+import com.crystalgraphics.render.post.volume.CgColourRegion;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
@@ -318,6 +319,9 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         return true;
     }
 
+    /** How far a press of , or . slides every adapting colour region's night boost. */
+    private static final float OFFSET_STEP = 0.05f;
+
     /** The HUD's keys, from the window and, with the desktop up, from the keys it left; true if one was this scene's. */
     private boolean hudKey(CgSystemInput.Keyboard.Event event) {
         int key = event.key();
@@ -326,6 +330,12 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         // A held step key steps once a repeat, as the OS repeats it; every other key acts on its press alone
         if (key == CgKeyCodes.KEY_X || key == CgKeyCodes.KEY_Z) {
             step(key == CgKeyCodes.KEY_X ? 1 : -1);
+            return true;
+        }
+        // Held, the night gain slides a step a repeat, as Step does
+        if (key == CgKeyCodes.KEY_COMMA || key == CgKeyCodes.KEY_PERIOD) {
+            float step = key == CgKeyCodes.KEY_PERIOD ? OFFSET_STEP : -OFFSET_STEP;
+            CgColourRegion.gainTuning(Math.round((CgColourRegion.gainTuning() + step) / OFFSET_STEP) * OFFSET_STEP);
             return true;
         }
         if (event.repeat()) return false;
@@ -363,12 +373,12 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         return String.format(Locale.ROOT, "%nCue [N/B]: %s | Fire [`]%n"
                         + "Time [Tab]: %s | Speed [Y]: x%s | Step [Z X]%n"
                         + "Age: %.3f / %s s | %s | fires %d | hit players %d%n"
-                        + "Kit colour grade [C]: %s",
+                        + "Kit colour grade [C]: %s | Night gain [, .]: x%.2f",
                 cue, speed == 0 ? "paused" : "playing", SPEEDS[speed],
                 inspector.age(),
                 Double.isNaN(inspector.duration()) ? "?" : String.format(Locale.ROOT, "%.3f", inspector.duration()),
                 selection.state(), selection.fires(), selection.hit().size(),
-                CgWorldRenderer.get().gradeDraws() ? "on" : "off").replace("\r", "");
+                CgWorldRenderer.get().gradeDraws() ? "on" : "off", CgColourRegion.gainTuning()).replace("\r", "");
     }
 
     @Override

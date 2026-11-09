@@ -3,18 +3,26 @@ package com.crystalgraphics.harness.runtime;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
+import com.crystalgraphics.gl.texture.CgTexture2D;
+import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.camera.Camera3D;
+import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgSortLayer;
 import com.crystalgraphics.render.world.CgPipelinePrecache;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
 /**
  * VFX Lab's sky and floor (CrystalGUI's {@code VfxLab}) as a harness scene's world: {@code editor_sky.shader} on a
  * sphere round the eye and {@code editor_grid.shader} on a plane at y 0 under it, in place of the harness's own floor
- * and clear colour: an opaque ground, as a game's is, hiding what is under the floor. F9 eases between day and night.
+ * and clear colour: an opaque ground, as a game's is, hiding what is under the floor. F9 eases between day and night,
+ * the world stages' daylight and lightmap with it, so what adapts to the light (world lights, a colour region's gain)
+ * follows.
  *
  * <pre>{@code
  * // a scene opts in:
@@ -49,6 +57,11 @@ public final class HarnessEnvironment {
     private CgMaterial skyMaterial, floorMaterial;
     private boolean enabled, night, submitted;
     private float nightMix;
+    /** Whether the world stages hold this mix's daylight. */
+    private boolean daylightSet;
+    /** Minecraft's lightmap, shaped as the lights scenes shape it, its sky light darkened by night. */
+    private CgTexture2D lightmap;
+    private final ByteBuffer texels = ByteBuffer.allocateDirect(16 * 16 * 4).order(ByteOrder.nativeOrder());
 
     private HarnessEnvironment() {
     }
@@ -87,13 +100,43 @@ public final class HarnessEnvironment {
         submitted = false;
         if (!enabled || skyMaterial == null) return;
         float to = night ? 1f : 0f;
-        if (nightMix == to) return;
+        if (nightMix == to) {
+            if (!daylightSet) daylight();
+            return;
+        }
         float step = seconds * NIGHT_RATE;
         nightMix = Math.abs(to - nightMix) <= step ? to : nightMix + Math.signum(to - nightMix) * step;
         float mix = nightMix;
         skyMaterial.applyProperties(b -> b.set1f("_Night", mix));
         floorMaterial.applyProperties(b -> b.set1f("_Night", mix));
+        daylight();
     }
+
+    /**
+     * The default sun at this mix's daylight and stars, as a host with no sun angle reports them, and the lightmap at
+     * it: brighter with block and sky light, the sky light darkened by up to 11 levels at night as Minecraft's sky
+     * darkening does.
+     */
+    private void daylight() {
+        float darken = 11f * nightMix;
+        texels.clear();
+        for (int sky = 0; sky < 16; sky++) {
+            for (int block = 0; block < 16; block++) {
+                int v = Math.round(255f * (0.05f + 0.95f * Math.max(block, Math.max(0f, sky - darken)) / 15f));
+                texels.put((byte) v).put((byte) v).put((byte) v).put((byte) 255);
+            }
+        }
+        texels.flip();
+        if (lightmap == null) lightmap = CgTexture2D.createEmpty(16, 16, CgTextureSpec.RGBA8_LINEAR);
+        lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
+        for (CgRenderStage stage : WORLD) {
+            stage.host().environment().sun(Float.NaN, 0, nightMix, 1f - nightMix);
+            stage.host().textures().importedLightmap(lightmap.getId(), 16, 16);
+        }
+        daylightSet = true;
+    }
+
+    private static final CgRenderStage[] WORLD = {CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT};
 
     /** The sky round {@code camera} and the floor under it, the first time a frame asks. */
     public void submit(Camera3D camera) {
