@@ -122,7 +122,7 @@ public final class CgVfxStackScene implements InteractiveSceneLifecycle {
                 CgVfxParticlePool pool = pools.get(e);
                 pool.instance(slots.get(e), SEED_BITS + e, 1f, Float.NaN, origin());
                 // The burst at the first step's start; the second steps what it left.
-                if (frame == 1) pool.spawn(slots.get(e), 0, PARTICLES, PARTICLES, 0f, DT, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
+                if (frame == 1) pool.spawn(slots.get(e), 0, PARTICLES, PARTICLES, 0f, DT, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, null, -1);
             }
             for (CgVfxParticlePool pool : distinct) pool.endStep();
             CgVfxParticlePool.record(rec, distinct);

@@ -397,7 +397,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                     pool.instance(slots.get(e), SEED_BITS, 1f, Float.NaN,
                             emitters.get(e).name().equals("forms-source-movement") ? moved() : origin());
                     // A spawn station's particles: one burst at the step's start, at the loop's LOOP seconds.
-                    if (e >= seededStations) pool.spawn(slots.get(e), 0, PARTICLES, PARTICLES, 0f, DT, 0f, 0f, 0f, 0f, 0f, 0f, LOOP, LOOP, 0f);
+                    if (e >= seededStations) pool.spawn(slots.get(e), 0, PARTICLES, PARTICLES, 0f, DT, 0f, 0f, 0f, 0f, 0f, 0f, LOOP, LOOP, 0f, null, -1);
                     pool.endStep();
                 }
                 CgVfxParticlePool.record(rec, pools);
@@ -595,6 +595,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                 case CONE_ANGLE -> throw new IllegalStateException("a cone's angle is not read back");
                 case SHAPE_VELOCITY -> throw new IllegalStateException("a shape's velocity is not read back");
                 case COLOR -> layout.word(CgVfxRecord.Tail.COLOR);
+                case ALPHA -> layout.word(CgVfxRecord.Tail.COLOR) + 3;
                 case MESH_SCALE -> layout.word(CgVfxRecord.Tail.SCALE);
                 case MESH_ORIENTATION -> layout.word(CgVfxRecord.Tail.TURN);
                 case MESH_ROTATION_RATE -> layout.word(CgVfxRecord.Tail.TURN_RATE);
