@@ -1,7 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
-import com.crystalgraphics.gl.render.CgQuadRenderer;
+import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.gl.texture.CgFallbackTextures;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
@@ -30,7 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * render-graph G1's gate on a real driver: one picture drawn three ways — the immediate {@link CgQuadRenderer}, a
+ * render-graph G1's gate on a real driver: one picture drawn three ways — an immediate {@link CgCanvas}, a
  * {@link CgImmediate}, and a frame recorded and built on a worker thread then executed here — into three PNGs that
  * must be identical. A grid of flat quads and a row of rotated ones, deterministic.
  */
@@ -114,23 +114,19 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
         constants.projection.identity().ortho(0, w, h, 0, -1, 1);
         constants.resolution(w, h).cameraFromView();
 
-        CgQuadRenderer renderer = CgQuadRenderer.create();
-        renderer.begin();
-        renderer.useMaterial(material);
+        CgCanvas canvas = new CgCanvas();
         Matrix4f pose = new Matrix4f();
         for (int row = 0; row < ROWS; row++) {
             for (int col = 0; col < COLS; col++) {
-                renderer.quad().at(ORIGIN + col * SPACING, ORIGIN + row * SPACING).size(SIZE, SIZE)
+                canvas.quad(material).at(ORIGIN + col * SPACING, ORIGIN + row * SPACING).size(SIZE, SIZE)
                         .color(colour(col, row)).submit();
             }
         }
         for (int i = 0; i < SPINNERS; i++) {
             spinner(pose, i);
-            renderer.quad().at(0f, 0f).size(SPINNER, SPINNER).pose(pose).color(colour(i, ROWS)).submit();
+            canvas.quad(material).at(0f, 0f).size(SPINNER, SPINNER).pose(pose).color(colour(i, ROWS)).submit();
         }
-        renderer.flush();
-        renderer.end();
-        renderer.delete();
+        canvas.flush();
     }
 
     /** The same quads as {@link #drawImmediate}, as records in one draw. */

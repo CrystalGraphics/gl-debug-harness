@@ -15,7 +15,7 @@ import com.crystalgraphics.render.graph.CgFrameBuilder;
 import com.crystalgraphics.render.graph.CgFrameGraph;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
-import com.crystalgraphics.render.graph.CgPassRecorder;
+import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.render.CgTextRenderer;
@@ -160,20 +160,16 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
     /** Lays out and records {@code text} through the worker's renderer into a frame of its own. Worker thread. */
     private CgFrame record(int w, int h, String text, CgFont font, float x, float y, float maxWidth) {
         CgRecording recording = new CgRecording();
-        CgPassRecorder recorder = new CgPassRecorder();
+        CgCanvas recorder = new CgCanvas();
         CgPassConstants constants = new CgPassConstants().resolution(w, h);
         constants.projection.setOrtho(0, w, h, 0, -1, 1);
         recorder.recordInto(recording, CgGraphTexture.current(), CgLoad.load(), constants);
         workerText.context().updateOrtho(w, h);
-        workerText.sink(recorder);
-        try {
-            workerText.beginBatch();
-            workerText.draw().layout(CgTextLayout.of(text, font).maxWidth(maxWidth).build())
-                    .font(font).at(x, y).color(0xFFFFFFFF).submit();
-            workerText.endBatch();
-        } finally {
-            workerText.sink(null);
-        }
+        // Recording, the canvas is this thread's current: the text lands in it.
+        workerText.beginBatch();
+        workerText.draw().layout(CgTextLayout.of(text, font).maxWidth(maxWidth).build())
+                .font(font).at(x, y).color(0xFFFFFFFF).submit();
+        workerText.endBatch();
         recorder.stop();
         return builder.build(new CgFrameGraph().add(recording.seal()));
     }

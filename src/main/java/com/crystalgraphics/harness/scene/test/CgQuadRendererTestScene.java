@@ -3,7 +3,7 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.render.draw.CgPassConstants;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.api.material.CgMaterial;
-import com.crystalgraphics.gl.render.CgQuadRenderer;
+import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.gl.texture.CgFallbackTextures;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -14,32 +14,13 @@ import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
 
 /**
- * Interactive visual test for {@link CgQuadRenderer} — the new SSBO-backed general
- * quad-instancing renderer (see
- * {@code plan/text-instancing.md}).
- *
- * <p>Renders two groups of quads, submitted into the <strong>same</strong> begin/flush/end
- * window so both land in a single instanced draw call, both via the fluent
- * {@link CgQuadRenderer#quad()} builder:</p>
- * <ol>
- *   <li><b>Grid</b> — a large, animated, untransformed grid submitted with no
- *       {@code .pose(...)} call. Exercises high instance counts and the flat/no-transform
- *       case.</li>
- *   <li><b>Spinners</b> — a row of quads rotating around their own centers, submitted
- *       with {@code .pose(scratchPose)} — the fluent builder bakes the CPU-side 3-vector
- *       transform (origin/right/up via {@code transformPosition}/{@code transformDirection})
- *       internally. Exercises the "differently-transformed quads still merge into one draw
- *       call" property that motivated the whole instancing migration.</li>
- * </ol>
- *
- * <p>Both groups draw with one {@code renderer.flush()} per frame (material bind/unbind is
- * handled by {@code renderer.useMaterial(material)}, called once in {@link #init}) — visually,
- * and via the logged instance counts, this confirms the grid and spinners are one draw call,
- * not two.</p>
+ * Interactive visual test for {@link CgCanvas}'s quads: a large animated grid with no pose, and a row of spinners each
+ * under its own pose ({@code .pose(...)} bakes origin, right and up). Both groups share a material, so one
+ * {@code canvas.flush()} a frame draws them as one instanced draw; the logged counts confirm it.
  */
 public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
 
-    private static final Logger LOG = LogManager.getLogger("CrystalGraphics.CgQuadRendererTest");
+    private static final Logger LOG = LogManager.getLogger("CrystalGraphics.CgQuadBatchTest");
 
     private static final int GRID_COLS = 16;
     private static final int GRID_ROWS = 10;
@@ -52,7 +33,7 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
     private static final float SPINNER_SIZE = 60f;
 
     private CgMaterial material;
-    private CgQuadRenderer renderer;
+    private final CgCanvas canvas = new CgCanvas();
 
     /** Reused across every spinner/frame — mutated in place via translation()/rotateZ()/translate(), never reallocated. */
     private final Matrix4f scratchPose = new Matrix4f();
@@ -62,7 +43,6 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        renderer = CgQuadRenderer.create();
 
         material = CgMaterial.load("assets/harness/shader/quad_renderer_test.shader");
         // Attach BEFORE applyProperties(): CgMaterial.applyProperties() eagerly triggers
@@ -95,8 +75,6 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
         // Must be called every frame, not just once at setup: it (re)binds material on every
         // call regardless of whether it's the same instance as last time, since other harness
         // rendering code (floor/HUD) rebinds its own shaders between our frames.
-        renderer.begin();
-        renderer.useMaterial(material);
 
         // ── Grid: untransformed quads via the fluent quad() builder, no .pose(...) ──
         int gridCount = 0;
@@ -105,7 +83,7 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
                 float x = GRID_ORIGIN_X + col * GRID_SPACING;
                 float y = GRID_ORIGIN_Y + row * GRID_SPACING;
                 float phase = (col + row * GRID_COLS) * 0.05f + t * 0.3f;
-                renderer.quad().at(x, y).size(GRID_QUAD_SIZE, GRID_QUAD_SIZE).color(hsvToArgb(phase)).submit();
+                canvas.quad(material).at(x, y).size(GRID_QUAD_SIZE, GRID_QUAD_SIZE).color(hsvToArgb(phase)).submit();
                 gridCount++;
             }
         }
@@ -123,16 +101,15 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
                     .translate(-SPINNER_SIZE * 0.5f, -SPINNER_SIZE * 0.5f, 0f);
 
             int argb = hsvToArgb(i / (float) SPINNER_COUNT + t * 0.2f);
-            renderer.quad().at(0f, 0f).size(SPINNER_SIZE, SPINNER_SIZE).pose(scratchPose).color(argb).submit();
+            canvas.quad(material).at(0f, 0f).size(SPINNER_SIZE, SPINNER_SIZE).pose(scratchPose).color(argb).submit();
         }
 
-        renderer.flush();
-        renderer.end();
+        canvas.flush();
 
-        boolean hadErrors = DeviceErrors.checkAndLog("CgQuadRenderer-test");
+        boolean hadErrors = DeviceErrors.checkAndLog("CgQuadBatch-test");
         if (!reportedOnce) {
             reportedOnce = true;
-            LOG.info("CgQuadRenderer test scene: {} grid instances + {} spinner instances in one flush(), glError={}",
+            LOG.info("CgQuadBatch test scene: {} grid instances + {} spinner instances in one flush(), glError={}",
                     gridCount, SPINNER_COUNT, hadErrors);
         }
     }
@@ -140,7 +117,6 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         if (material != null) material.delete();
-        if (renderer != null) renderer.delete();
     }
 
     @Override public boolean isRunning() { return running; }

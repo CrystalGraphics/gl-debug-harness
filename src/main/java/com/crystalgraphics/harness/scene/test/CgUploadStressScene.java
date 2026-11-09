@@ -3,7 +3,7 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
-import com.crystalgraphics.gl.render.CgQuadRenderer;
+import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.gl.texture.CgFallbackTextures;
 import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.gl.texture.CgTexture3D;
@@ -81,7 +81,7 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
     private ByteBuffer[] pixels;
     private ByteBuffer volumePixels;
     private CgTexture3D volume;
-    private CgQuadRenderer renderer;
+    private final CgCanvas canvas = new CgCanvas();
     private CgMaterial material;
     private int frame, burst, burstFrame, copiesAtStart;
     private long burstStart;
@@ -93,7 +93,6 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        renderer = CgQuadRenderer.create();
         material = CgMaterial.load("assets/harness/shader/quad_renderer_test.shader");
         material.applyProperties(b -> b.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1));
         pixels = new ByteBuffer[textures];
@@ -221,21 +220,16 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
         constants.view.identity();
         constants.projection.identity().ortho(0, w, h, 0, -1, 1);
         constants.resolution(w, h).cameraFromView();
-        renderer.begin();
-        renderer.useMaterial(material);
         if (load > 0) {
-            renderer.bindTexture(0, CgFallbackTextures.WHITE_1x1);
-            for (int i = 0; i < load; i++) renderer.quad().at(0, 0).size(w, h).color(0x08FFFFFF).submit();
-            renderer.flush();
+            for (int i = 0; i < load; i++) canvas.quad(material).texture(0, CgFallbackTextures.WHITE_1x1).at(0, 0).size(w, h).color(0x08FFFFFF).submit();
+            canvas.flush();
         }
         int columns = 8;
         float cell = Math.min(w, h) / (float) columns;
         for (int i = 0; i < shown.size(); i++) {
-            renderer.bindTexture(0, shown.get(i));
-            renderer.quad().at((i % columns) * cell, (i / columns) * cell).size(cell - 2, cell - 2).color(0xFFFFFFFF).submit();
-            renderer.flush();
+            canvas.quad(material).texture(0, shown.get(i)).at((i % columns) * cell, (i / columns) * cell).size(cell - 2, cell - 2).color(0xFFFFFFFF).submit();
+            canvas.flush();
         }
-        renderer.end();
     }
 
     private String bytes() {
@@ -267,7 +261,6 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
         CgTrace.setEnabled(CgGpuTrace.GPU, wasTracingGpu);
         for (CgTexture2D t : shown) t.delete();
         if (volume != null) volume.delete();
-        if (renderer != null) renderer.delete();
         if (material != null) material.delete();
     }
 }

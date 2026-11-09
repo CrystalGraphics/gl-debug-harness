@@ -1,4 +1,4 @@
-// Test material for CgQuadRenderer -- a shared unit quad, drawn instanced, with all
+// Test material for CgQuadBatch -- a shared unit quad, drawn instanced, with all
 // per-instance data (world-space origin/right/up basis vectors, UV rect, color) read
 // from an attached SSBO instead of GL vertex attributes. See
 // plan/text-instancing.md.

@@ -3,7 +3,8 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.render.draw.CgPassConstants;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.api.material.CgMaterial;
-import com.crystalgraphics.gl.render.CgVectorRenderer;
+import com.crystalgraphics.render.canvas.CgCanvas;
+import com.crystalgraphics.render.canvas.CgCurveBatch;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -13,7 +14,7 @@ import org.apache.logging.log4j.Logger;
 import org.joml.Matrix4f;
 
 /**
- * Interactive visual test for {@link CgVectorRenderer} — the instanced quadratic-Bézier stroke
+ * Interactive visual test for {@link CgCurveBatch} — the instanced quadratic-Bézier stroke
  * renderer, and the one true engine gap that the node-graph view (P6.2) is blocked on.
  *
  * <p>Every row below lands in the <strong>same</strong> begin/flush/end window, so the whole scene
@@ -37,12 +38,12 @@ import org.joml.Matrix4f;
  */
 public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
 
-    private static final Logger LOG = LogManager.getLogger("CrystalGraphics.CgVectorRendererTest");
+    private static final Logger LOG = LogManager.getLogger("CrystalGraphics.CgCurveBatchTest");
 
     private static final int FAN_SPOKES = 12;
 
     private CgMaterial material;
-    private CgVectorRenderer renderer;
+    private final CgCanvas canvas = new CgCanvas();
 
     /** Reused every frame — mutated in place, never reallocated. */
     private final Matrix4f scratchPose = new Matrix4f();
@@ -52,7 +53,6 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        renderer = CgVectorRenderer.create();
         // The shipped reference material — no Properties to bind, since a stroke's colour, width and
         // softness are all per-instance data rather than material state.
         material = CgMaterial.load("crystalgraphics:shaders/curve.shader");
@@ -71,15 +71,13 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
         constants.projection.identity().ortho(0, w, h, 0, -1, 1);
         constants.resolution(w, h).cameraFromView();
 
-        renderer.begin();
-        renderer.useMaterial(material);
 
         int count = 0;
 
         // ── Row 1: straight lines — the divide-by-zero case ──────────────────
         for (int i = 0; i < 6; i++) {
             float x = 40f + i * 130f;
-            renderer.curve().line(x, 40f, x + 100f, 90f)
+            canvas.curve(material).line(x, 40f, x + 100f, 90f)
                     .width(1f + i * 1.5f)
                     .color(0xFFE0E0E0)
                     .submit();
@@ -90,7 +88,7 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
         for (int i = 0; i < 6; i++) {
             float x = 40f + i * 130f;
             float bow = 30f + i * 18f;
-            renderer.curve().from(x, 170f).via(x + 50f, 170f - bow).to(x + 100f, 170f)
+            canvas.curve(material).from(x, 170f).via(x + 50f, 170f - bow).to(x + 100f, 170f)
                     .width(3f)
                     .color(hsvToArgb(i / 6f))
                     .submit();
@@ -100,7 +98,7 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
         // ── Row 3: taper ─────────────────────────────────────────────────────
         for (int i = 0; i < 4; i++) {
             float x = 40f + i * 200f;
-            renderer.curve().from(x, 250f).via(x + 80f, 210f).to(x + 160f, 250f)
+            canvas.curve(material).from(x, 250f).via(x + 80f, 210f).to(x + 160f, 250f)
                     .width(9f, 0.75f)
                     .color(0xFF6CC4FF)
                     .submit();
@@ -110,7 +108,7 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
         // ── Row 4: gradient — the node-graph wire idiom ──────────────────────
         for (int i = 0; i < 4; i++) {
             float x = 40f + i * 200f;
-            renderer.curve().from(x, 330f).via(x + 80f, 290f).to(x + 160f, 330f)
+            canvas.curve(material).from(x, 330f).via(x + 80f, 290f).to(x + 160f, 330f)
                     .width(5f)
                     .colors(0xFFFF4D6D, 0xFF4DFFC3)
                     .submit();
@@ -123,10 +121,10 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
         // are hard to tell apart by eye, and the first cap implementation shipped broken for exactly
         // that reason. Against the ticks it is unambiguous — butt stops ON the tick, round bulges a
         // half-disc past it, square overhangs it by the same amount with square corners.
-        int[] caps = { CgVectorRenderer.CAP_BUTT, CgVectorRenderer.CAP_ROUND, CgVectorRenderer.CAP_SQUARE };
+        int[] caps = { CgCurveBatch.CAP_BUTT, CgCurveBatch.CAP_ROUND, CgCurveBatch.CAP_SQUARE };
         for (int i = 0; i < caps.length; i++) {
             float x = 60f + i * 240f;
-            renderer.curve().line(x, 410f, x + 160f, 410f)
+            canvas.curve(material).line(x, 410f, x + 160f, 410f)
                     .width(14f)
                     .cap(caps[i])
                     .color(0xFFFFC24D)
@@ -135,9 +133,9 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
 
             for (int e = 0; e < 2; e++) {
                 float tx = x + e * 160f;
-                renderer.curve().line(tx, 386f, tx, 434f)
+                canvas.curve(material).line(tx, 386f, tx, 434f)
                         .width(0.5f)
-                        .cap(CgVectorRenderer.CAP_BUTT)
+                        .cap(CgCurveBatch.CAP_BUTT)
                         .color(0xFF7A7A7A)
                         .submit();
                 count++;
@@ -155,7 +153,7 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
         // point of the group — become impossible to read.
         for (int i = 0; i < caps.length; i++) {
             float x = 750f + i * 68f;
-            renderer.curve().line(x, 390f, x + 34f, 424f)
+            canvas.curve(material).line(x, 390f, x + 34f, 424f)
                     .width(11f)
                     .cap(caps[i])
                     .color(0xFFFFC24D)
@@ -167,7 +165,7 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
         for (int i = 0; i < 3; i++) {
             float x = 50f + i * 300f;
             float wobble = 60f + 40f * (float) Math.sin(t * 0.7f + i);
-            renderer.curve()
+            canvas.curve(material)
                     .cubic(x, 500f,
                             x + 70f, 500f - wobble,
                             x + 150f, 500f + wobble,
@@ -187,7 +185,7 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
             double a = (i / (double) FAN_SPOKES) * Math.PI * 2.0;
             float ex = (float) Math.cos(a) * 90f;
             float ey = (float) Math.sin(a) * 90f;
-            renderer.curve().from(0f, 0f).via(ex * 0.5f - ey * 0.25f, ey * 0.5f + ex * 0.25f).to(ex, ey)
+            canvas.curve(material).from(0f, 0f).via(ex * 0.5f - ey * 0.25f, ey * 0.5f + ex * 0.25f).to(ex, ey)
                     .width(3f)
                     .colors(0xFFFFFFFF, hsvToArgb(i / (float) FAN_SPOKES + t * 0.1f))
                     .pose(scratchPose)
@@ -195,13 +193,12 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
             count++;
         }
 
-        renderer.flush();
-        renderer.end();
+        canvas.flush();
 
-        boolean hadErrors = DeviceErrors.checkAndLog("CgVectorRenderer-test");
+        boolean hadErrors = DeviceErrors.checkAndLog("CgCurveBatch-test");
         if (!reportedOnce) {
             reportedOnce = true;
-            LOG.info("CgVectorRenderer test scene: {} submit() calls in one flush() "
+            LOG.info("CgCurveBatch test scene: {} submit() calls in one flush() "
                     + "(cubics expand to more instances than that), glError={}", count, hadErrors);
         }
     }
@@ -209,7 +206,6 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         if (material != null) material.delete();
-        if (renderer != null) renderer.delete();
     }
 
     @Override public boolean isRunning() { return running; }

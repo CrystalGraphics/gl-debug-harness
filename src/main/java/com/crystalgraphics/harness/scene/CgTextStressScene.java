@@ -146,7 +146,7 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
             Column.scope("dbStateSaveMs", "doBind.stateSave"),
 
             // ── draw: the batch path (previously unmeasured entirely) ──────────────────────
-            // Text draws through CgQuadRenderer (instanced), so these are the real GPU tail.
+            // Text draws through CgQuadBatch (instanced), so these are the real GPU tail.
             Column.scope("qrFlushMs", "quadRenderer.flush"),
             Column.scope("qrUploadMs", "quadRenderer.upload"),
             Column.scope("qrBindBufMs", "quadRenderer.bindBuffer"),

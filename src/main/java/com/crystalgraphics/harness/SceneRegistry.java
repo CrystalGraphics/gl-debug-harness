@@ -203,7 +203,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("quad-renderer-test")
-                .description("CgQuadRenderer: SSBO-backed instanced quad batching — grid + rotating spinners in one draw call")
+                .description("CgQuadBatch: SSBO-backed instanced quad batching — grid + rotating spinners in one draw call")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
@@ -217,7 +217,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("graph-executor-test")
-                .description("render-graph G1: one picture drawn by CgQuadRenderer, by CgImmediate, and by a frame built on a worker thread -- three PNGs that must match")
+                .description("render-graph G1: one picture drawn by CgQuadBatch, by CgImmediate, and by a frame built on a worker thread -- three PNGs that must match")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(true)
@@ -1240,7 +1240,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("curve-renderer-test")
-                .description("CgVectorRenderer: instanced quadratic Bezier strokes — lines, taper, gradient, caps, split cubics, posed fan")
+                .description("CgCurveBatch: instanced quadratic Bezier strokes — lines, taper, gradient, caps, split cubics, posed fan")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
