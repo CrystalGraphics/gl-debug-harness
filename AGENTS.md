@@ -155,6 +155,11 @@ compile. Scenes draw through the engine and `CgRHI`; a scene's verdict reads `De
   cue manager and the engine's sequencer (systems, post volumes, colour regions, shakes), under the kit's look and VFX Lab's sky. ` fires
   again, N/B change cue, Left Alt opens the desktop, with the cue picker in its launcher, a tree a namespace (a click plays a cue, folds a folder), Y/Shift+Y slow time and Tab pauses or plays it, Z/X step a frame back or forward, C the kit's colour grade; `.kitCues.regions=false` leaves the
   colour regions out, `.kitCues.capture=<n>` photographs n frames of play and exits. Its javadoc has Dragon Forge's s0.
+  `--mode=model-play` is a kit's skinned models in a row playing their clips through `CgAnimation`, in Minecraft's
+  entity look (`role/entity.shader`): a GeckoLib kit's `.geo.json` models with every clip of its `.animation.json` files
+  (`.modelPlay.namespace`, `.modelPlay.kit`, `.modelPlay.texture`; `.modelPlay.models` paths under the kit), or another
+  kit's skinned glTF, GLB or `.cgmesh` with the clips it carries. N/B change every model's clip, M the HUD's model, `
+  plays again, P pauses, `,` `.` step, U/I rate, K loops every clip, Left/Right turn the row. Its javadoc has RPG-Core's.
   `--mode=kit-shading` is a kit's shading models drawing: its `shading.yaml` registered under
   `-Dcrystalgraphics.harness.kit.namespace`, the material `.kit.material` compiled from the kit folder `.kit` through its
   parent chain and drawn, its model's keyword on, no GL error; the kit's files reached with `-Pharness.assetRoots` (a root
