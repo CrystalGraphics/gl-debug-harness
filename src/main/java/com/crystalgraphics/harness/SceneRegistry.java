@@ -75,6 +75,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxShapesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
+import com.crystalgraphics.harness.scene.test.CgCanvasGlassTestScene;
 import com.crystalgraphics.harness.scene.test.CgLightsCastersScene;
 import com.crystalgraphics.harness.scene.test.CgLightsShadowsBenchScene;
 import com.crystalgraphics.harness.scene.test.CgLightsShadowScene;
@@ -536,6 +537,20 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
                 .build(),
             () -> new CgBloomOcclusionTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("canvas-glass").checksPixels()
+                .description("Canvas glass in the world: a turned clear pane shows the wall behind it in place, a frosted one blurs it, a slab in front hides one")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
+                .build(),
+            () -> new CgCanvasGlassTestScene()
         );
 
         reg.register(
