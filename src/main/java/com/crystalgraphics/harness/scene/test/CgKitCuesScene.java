@@ -116,6 +116,8 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private CgMaterial dummy;
     private CgMesh cube;
     private int speed = SPEEDS.length - 1, frames;
+    /** The speed a pause left, which Tab plays at again. */
+    private int resumeSpeed = SPEEDS.length - 1;
     private String namespace;
     private boolean extrasDeclared, declared, loaded, started, fireNow, shift, running = true;
     /** The engine's transport over the last burst: its sequences and particle systems, paused, stepped and sought. */
@@ -299,9 +301,14 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
      * Pauses and steps the hit {@code frames} frames, through the engine's inspector: forward simulates one a frame, back
      * seeks, its sequences and particle systems both, keeping their seeds; round from either end.
      */
+    private void pause() {
+        if (speed > 0) resumeSpeed = speed;
+        speed = 0;
+    }
+
     private void step(int frames) {
         if (!started) return;
-        speed = 0;
+        pause();
         inspector.step(frames);
     }
 
@@ -327,7 +334,10 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
             case CgKeyCodes.KEY_N -> choose((index() + 1) % Math.max(1, ids.size()));
             case CgKeyCodes.KEY_B -> choose((index() + ids.size() - 1) % Math.max(1, ids.size()));
             case CgKeyCodes.KEY_Y -> speed = shift ? Math.max(0, speed - 1) : Math.min(SPEEDS.length - 1, speed + 1);
-            case CgKeyCodes.KEY_TAB -> speed = speed == 0 ? SPEEDS.length - 1 : 0;
+            case CgKeyCodes.KEY_TAB -> {
+                if (speed == 0) speed = resumeSpeed;
+                else pause();
+            }
             case CgKeyCodes.KEY_C -> CgWorldRenderer.get().gradeDraws(!CgWorldRenderer.get().gradeDraws());
             default -> {
                 return false;
