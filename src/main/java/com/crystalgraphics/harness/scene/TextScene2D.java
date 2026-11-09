@@ -29,9 +29,9 @@ public class TextScene2D implements HarnessSceneLifecycle {
 
     private static final Logger LOGGER = Logger.getLogger(TextScene2D.class.getName());
 
-    // Matches CrystalGraphicsFontDemo.DEMO_TEXT_2D_LABEL exactly
+    // The 2D label of the font demo this scene replaced: a pose-independent line over the scaled bands
     private static final String TOP_LABEL_TEXT = "2D UI text: logical size stable, raster scales with pose";
-    // Matches CrystalGraphicsFontDemo top-label color (green, 0xAAFFAAFF packed RGBA)
+    // Green, 0xAAFFAAFF packed RGBA
     private static final int TOP_LABEL_COLOR = 0xAAFFAAFF;
 
     @Override
@@ -136,8 +136,7 @@ public class TextScene2D implements HarnessSceneLifecycle {
                     frame);
         }
 
-        // Draw top label: exact replication of CrystalGraphicsFontDemo's
-        // identity-pose green label (position 20,20 — color 0xAAFFAAFF)
+        // The top label: identity pose, at (20, 20)
         renderer.beginBatch();
         renderer.context().clearHistory();
         PoseStack topLabelPose = new PoseStack();
