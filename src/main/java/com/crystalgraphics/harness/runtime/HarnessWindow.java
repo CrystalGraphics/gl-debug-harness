@@ -1,8 +1,8 @@
 package com.crystalgraphics.harness.runtime;
 
+import com.crystalgraphics.platform.gl.GLDebug;
 import com.crystalgraphics.platform.input.CgInput;
 import com.crystalgraphics.platform.gl.CgDisabledExtensions;
-import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgMouseCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
@@ -208,7 +208,7 @@ public final class HarnessWindow {
             GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
             GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE);
             // The driver's performance messages (crystalgraphics.gl.debugPerf) come only from a debug context.
-            if (CgGLBackend.DEBUG_PERF.get()) {
+            if (GLDebug.DEBUG_PERF.get()) {
                 GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_DEBUG_CONTEXT, GLFW.GLFW_TRUE);
             }
             if (version == CORE_VERSIONS[CORE_VERSIONS.length - 1]) GLFW.glfwSetErrorCallback(print);

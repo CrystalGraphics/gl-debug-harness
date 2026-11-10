@@ -1,7 +1,6 @@
 package com.crystalgraphics.harness;
 
 import com.crystalgraphics.render.CgFrameClock;
-import com.crystalgraphics.platform.gl.CgGlCallSites;
 import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.loading.CgLoadingScreen;
@@ -762,22 +761,14 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         if (PROFILE_RING <= 0) return;
         rangeLabel = label;
         rangeFrom = CgTrace.currentFrameIndex() + 1;
-        CgGlCallSites.reset();
     }
 
-    /** Ends the range {@link #profileBegin} opened, with this frame, and writes its report (and its GL calls, if counted). */
+    /** Ends the range {@link #profileBegin} opened, with this frame, and writes its report. */
     public void profileEnd() {
         if (rangeLabel == null) return;
         long to = CgTrace.currentFrameIndex() + 1;
         File report = TraceDump.profile(new File(ctx.getOutputDir()), rangeLabel, rangeFrom, to);
         LOGGER.info("[InteractiveSceneRunner] profile " + rangeLabel + " report=" + report);
-        if (CgGlCallSites.ON && report != null) {
-            try {
-                CgGlCallSites.write(new File(report.getParentFile(), "gl-calls.txt"), to - rangeFrom);
-            } catch (IOException e) {
-                LOGGER.warning("[InteractiveSceneRunner] gl-calls.txt: " + e);
-            }
-        }
         rangeLabel = null;
     }
 

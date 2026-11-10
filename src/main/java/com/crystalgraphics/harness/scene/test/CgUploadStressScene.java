@@ -89,7 +89,7 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
     /** Two patterns no burst uses, each rewrite the one its texture does not hold; what each texture last got. */
     private ByteBuffer[] rewritePixels;
     private final Map<CgTexture2D, ByteBuffer> rewritten = new IdentityHashMap<>();
-    private int rewrites, renamed, checks, failed;
+    private int rewrites, checks, failed;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -139,9 +139,7 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
         CgTexture2D t = shown.get(frame % shown.size());
         ByteBuffer source = rewritten.get(t) == rewritePixels[0] ? rewritePixels[1] : rewritePixels[0];
         rewritten.put(t, source);
-        long before = PlatformServiceHarness.textureRenames();
         t.uploadRegion(0, 0, 0, size, size, source);
-        renamed += (int) (PlatformServiceHarness.textureRenames() - before);
         if (++rewrites % 10 != 0) return;
         checks++;
         boolean same = CgFrameBuffer.readTexture(t, 0).equals(source.duplicate().rewind());
@@ -252,10 +250,8 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         if (rewrite) {
-            // Where the transfer queue took the bursts, a rewrite of a texture the frame drew is renamed onto it.
-            boolean renames = PlatformServiceHarness.transferCopies() == 0 || rewrites < 20 || renamed > 0;
-            System.out.printf("[upload-stress] %d rewrites, %d into a new image; %d read back, %d differing: %s%n",
-                    rewrites, renamed, checks, failed, failed > 0 ? "FAIL" : renames ? "PASS" : "FAIL, none renamed");
+            System.out.printf("[upload-stress] %d rewrites; %d read back, %d differing: %s%n",
+                    rewrites, checks, failed, failed > 0 ? "FAIL" : "PASS");
         }
         workers.shutdownNow();
         CgTrace.setEnabled(CgGpuTrace.GPU, wasTracingGpu);
