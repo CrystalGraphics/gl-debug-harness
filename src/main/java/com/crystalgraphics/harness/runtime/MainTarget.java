@@ -3,6 +3,7 @@ package com.crystalgraphics.harness.runtime;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
+import com.crystalgraphics.render.graph.CgExecutor;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -13,9 +14,9 @@ import org.jspecify.annotations.Nullable;
  * the window's sRGB backbuffer takes its bytes unchanged.
  *
  * <pre>{@code
- * ctx.setTargetFramebuffer(frame.begin(w, h));   // drawn into, with its viewport, until end()
+ * ctx.setTargetFramebuffer(frame.begin(w, h));   // the current target until end()
  * ... the frame ...
- * frame.overlays();                               // bound again, its depth cleared for the HUD
+ * frame.overlays();                               // its depth cleared for the HUD
  * frame.end();                                    // into the window
  *
  * -Dcrystalgraphics.harness.mainTarget=false     // the window's own framebuffer instead: the lights then rebuild our
@@ -31,26 +32,25 @@ public final class MainTarget {
 
     @Nullable
     private CgFrameBuffer target;
-    private CgFrameBuffer.@Nullable Drawing drawing;
+    private CgExecutor.@Nullable Into drawing;
 
-    /** Draws into the frame's target at {@code width} x {@code height}, made again when that moved; answers its id. */
+    /** Makes the frame's target of {@code width} x {@code height} current, made again when that moved; answers its id. */
     public int begin(int width, int height) {
         if (target == null || target.getWidth() != width || target.getHeight() != height) {
             if (target != null) target.delete();
             target = ON ? CgFrameBuffer.createOwned("harness_main", width, height, FORMAT)
                     : CgFrameBuffer.wrap("harness_window", 0, width, height);
         }
-        drawing = target.drawInto();
+        drawing = CgExecutor.into(target);
         return target.getId();
     }
 
-    /** Before the overlays: bound again, whatever the scene left bound; our own target's depth cleared for their text. */
+    /** Before the overlays: our own target's depth cleared for their text. */
     public void overlays() {
-        target.bind();
         if (ON) target.clearDepth();
     }
 
-    /** Copies its colour into the window, where it is not the window's own, and puts back the binding: the frame's end. */
+    /** Copies its colour into the window, where it is not the window's own, and puts back the current target: the frame's end. */
     public void end() {
         if (ON) target.copyColorTo(0);
         if (drawing != null) drawing.close();

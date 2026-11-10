@@ -6,6 +6,7 @@ import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.gl.texture.CgTexture2D;
 import com.crystalgraphics.harness.capture.HarnessCapture;
 import com.crystalgraphics.platform.rhi.CgRHI;
+import com.crystalgraphics.render.graph.CgExecutor;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -17,18 +18,18 @@ import org.jspecify.annotations.Nullable;
  * <pre>{@code
  * HarnessTarget target = HarnessTarget.create(w, h, true);     // init
  *
- * target.bind();                                              // render: drawn into until unbind
+ * target.bind();                                              // render: the current target until unbind
  * target.clear(0.05f, 0.05f, 0.07f, 1f);
  * stage.host().set(0f, w, h, target.getFboId());
  * stage.fire();
  * target.captureToFile(ctx.getOutputDir(), "frame.png");
- * target.unbind();                                            // what was bound before, back
+ * target.unbind();                                            // the one before, back
  *
  * target.delete();                                            // dispose
  * }</pre>
  *
  * <ul>
- *   <li>{@link #bind()} and {@link #unbind()} pair; a second {@code bind} before the {@code unbind} only rebinds.</li>
+ *   <li>{@link #bind()} and {@link #unbind()} pair; a second {@code bind} before the {@code unbind} does nothing.</li>
  *   <li>Render thread.</li>
  * </ul>
  */
@@ -41,7 +42,7 @@ public final class HarnessTarget {
 
     private final CgFrameBuffer framebuffer;
     private final boolean hasDepth;
-    private CgFrameBuffer.@Nullable Drawing drawing;
+    private CgExecutor.@Nullable Into drawing;
 
     private HarnessTarget(CgFrameBuffer framebuffer, boolean hasDepth) {
         this.framebuffer = framebuffer;
@@ -57,13 +58,12 @@ public final class HarnessTarget {
         return new HarnessTarget(framebuffer, withDepth);
     }
 
-    /** Draws into it, with its whole viewport, until {@link #unbind()}. */
+    /** Makes it the current target of every execution, as the host's main target is, until {@link #unbind()}. */
     public void bind() {
-        if (drawing == null) drawing = framebuffer.drawInto();
-        else framebuffer.bind();
+        if (drawing == null) drawing = CgExecutor.into(framebuffer);
     }
 
-    /** Puts back the framebuffer and viewport bound before {@link #bind()}. */
+    /** Puts back the current target before {@link #bind()}. */
     public void unbind() {
         if (drawing == null) return;
         drawing.close();

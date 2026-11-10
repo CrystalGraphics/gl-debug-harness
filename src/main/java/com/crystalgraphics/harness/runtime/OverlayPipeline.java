@@ -3,6 +3,7 @@ package com.crystalgraphics.harness.runtime;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
+import com.crystalgraphics.render.graph.CgExecutor;
 import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.CgFrameClock;
@@ -114,7 +115,7 @@ public final class OverlayPipeline {
         camera.view.identity();
         camera.projection.setOrtho(0f, ctx.getScreenWidth(), ctx.getScreenHeight(), 0f, -1f, 1f);
         camera.resolution(ctx.getScreenWidth(), ctx.getScreenHeight());
-        try (CgFrameBuffer.Drawing ignored = hudWarmTarget.drawInto()) {
+        try (CgExecutor.Into ignored = CgExecutor.into(hudWarmTarget)) {
             hudRenderer.render(warmCanvas, ctx);
             warmCanvas.flush();
         }

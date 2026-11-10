@@ -229,8 +229,8 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
         CgPostStack.get().install();
-        // A host draws its world with its target bound at its own size: the stages take both from GL.
-        try (CgFrameBuffer.Drawing ignored = host.drawInto()) {
+        // A host draws its world into its own target: the stages take it as the current one.
+        try (CgExecutor.Into ignored = CgExecutor.into(host)) {
             Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
             for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
                 stage.host().set(0f, w, h, host.getId()).view().set(0, 0, 0, new Matrix4f(), projection);
@@ -275,7 +275,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         boolean wasSkipping = world.skipUnready();
         world.skipUnready(false);
         Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
-        try (CgFrameBuffer.Drawing ignored = host.drawInto()) {
+        try (CgExecutor.Into ignored = CgExecutor.into(host)) {
             host.clearDepth();
             world.draw(CgMeshShapes.cube(), opaqueMaterial).at(0, 0, -3).submit();
             fire(CgRenderStage.WORLD_OPAQUE, host, w, h, projection);
