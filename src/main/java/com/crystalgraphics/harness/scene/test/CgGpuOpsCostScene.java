@@ -180,7 +180,7 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
         graph.clear();
         if (measuring) CgGpuTrace.begin(zone);
         long start = System.nanoTime();
-        CgExecutor.execute(built, true);
+        CgExecutor.execute(built);
         if (measuring) {
             cpuNanos[index] += System.nanoTime() - start;
             CgGpuTrace.end();

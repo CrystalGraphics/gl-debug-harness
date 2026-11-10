@@ -107,7 +107,7 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
         pass.end();
         CgFrame built = builder.build(graph.add(recording.seal()));
         graph.clear();
-        CgExecutor.execute(built, true);
+        CgExecutor.execute(built);
         builder.recycle(built);
     }
 

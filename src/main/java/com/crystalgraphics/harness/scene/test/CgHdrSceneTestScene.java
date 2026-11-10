@@ -146,7 +146,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         CgFrame built = builder.build(graph.add(recording.seal()));
         graph.clear();
         if (measuring) CgGpuTrace.begin(zone);
-        CgExecutor.execute(built, true);
+        CgExecutor.execute(built);
         if (measuring) CgGpuTrace.end();
         builder.recycle(built);
     }
