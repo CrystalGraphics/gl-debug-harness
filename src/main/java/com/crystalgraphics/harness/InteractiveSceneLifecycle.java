@@ -70,7 +70,7 @@ public interface InteractiveSceneLifecycle extends HarnessSceneLifecycle {
      * <h3>Why this exists: profiling from inside {@link #render} is off by one</h3>
      * <p>A scene that ends its profiler frame inside {@code render()} is only a third of the way
      * through the loop iteration. Everything after it — HUD/overlay drawing,
-     * {@code CgPlatform.lifecycle().onFrameRendered()} (which runs the glyph-commit drain), the
+     * the engine's frame tick (which runs the glyph-commit drain), the
      * swap, and the sync sleep — is still to come, and lands in the <em>next</em> frame's report.
      * Read naively that attributes each frame's drain and swap cost to its successor.</p>
      *

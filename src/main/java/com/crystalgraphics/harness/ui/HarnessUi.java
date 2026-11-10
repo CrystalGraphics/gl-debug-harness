@@ -6,6 +6,7 @@ import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.loading.task.CgLoadPlan;
 import com.crystalgraphics.net.protocol.CgProtocolConnection;
 import com.crystalgraphics.platform.CgPlatform;
+import com.crystalgraphics.platform.input.CgInput;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.platform.service.CgGameDirectory;
@@ -272,7 +273,7 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
     }
 
     private static boolean ctrlDown() {
-        return CgPlatform.input().isKeyDown(CgKeyCodes.KEY_LCONTROL) || CgPlatform.input().isKeyDown(CgKeyCodes.KEY_RCONTROL);
+        return CgInput.isKeyDown(CgKeyCodes.KEY_LCONTROL) || CgInput.isKeyDown(CgKeyCodes.KEY_RCONTROL);
     }
 
     @Override

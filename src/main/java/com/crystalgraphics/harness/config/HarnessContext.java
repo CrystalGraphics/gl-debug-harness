@@ -94,8 +94,7 @@ public final class HarnessContext {
     private final Matrix4f projection = new Matrix4f();
     private Camera3D camera3D;
     private TaskScheduler taskScheduler;
-    
-    private TextContext textContext;
+
 
     private HarnessContext(String glVersion, String glVendor, String glRenderer,
                            int screenWidth, int screenHeight) {
@@ -224,20 +223,6 @@ public final class HarnessContext {
         this.runtimeServices = services;
     }
     
-    /**
-     * Returns the shared {@link TextContext}, constructing it on first call. Deliberately lazy
-     * (not built in the constructor): by the time any real caller reaches this method,
-     * {@code CgEngineLifecycle.ensureGraphicsContext()} has already run, so {@code TextContext}'s
-     * {@code CgTextRenderer.create()} field initializer sees fully-resolved
-     * {@code CgBindingPoints} values instead of racing them.
-     */
-    public TextContext getTextContext() {
-        if (textContext == null) {
-            textContext = new TextContext();
-        }
-        return textContext;
-    }
-
     // ── Screen dimensions — delegate to ViewportState ──
 
     /**

@@ -15,10 +15,10 @@ import com.crystalgraphics.render.graph.CgFrameBuilder;
 import com.crystalgraphics.render.graph.CgFrameGraph;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
-import com.crystalgraphics.render.graph.CgPassRecorder;
+import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.text.cache.CgFontRegistry;
-import com.crystalgraphics.text.render.CgTextRenderer;
+import com.crystalgraphics.harness.util.HarnessCanvas;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
@@ -42,7 +42,8 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
     private static final String FIXED = "線程記録の検証 — 文字列は両方で同じ: 東京 大阪 京都 名古屋 札幌 福岡 0123456789 ABCxyz";
 
     private CgFont small, large;
-    private CgTextRenderer workerText, renderText;
+    /** The worker's canvas, recording a frame of its own; the render thread's, drawing at once. Each one thread's. */
+    private final CgCanvas workerText = new CgCanvas(), renderText = new CgCanvas();
     private final CgFrameBuilder builder = new CgFrameBuilder();
     private ExecutorService worker;
     private Future<CgFrame> pending;
@@ -53,9 +54,6 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
     public void init(HarnessContext ctx) {
         small = CgFont.load(HarnessFontUtil.JAPANESE_FONT, CgFontStyle.REGULAR, SMALL_PX);
         large = CgFont.load(HarnessFontUtil.JAPANESE_FONT, CgFontStyle.REGULAR, LARGE_PX);
-        // Both made here: a renderer's quad renderer and material are set up on the render thread.
-        workerText = CgTextRenderer.createManualSized();
-        renderText = CgTextRenderer.createManualSized();
         worker = Executors.newSingleThreadExecutor(r -> {
             Thread thread = new Thread(r, "text-threaded-worker");
             thread.setDaemon(true);
@@ -77,14 +75,13 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
     private void stress(HarnessContext ctx, int w, int h, int n) {
         try {
             // The render thread's own text, while the worker records the block submitted last frame.
-            renderText.context().updateOrtho(w, h);
-            renderText.beginBatch();
-            renderText.draw().layout(CgTextLayout.of(block(n * 41 + 1500), large).maxWidth(w * 0.45f).build())
+            HarnessCanvas.screen(w, h);
+            renderText.text().layout(CgTextLayout.of(block(n * 41 + 1500), large).maxWidth(w * 0.45f).build())
                     .font(large).at(w * 0.5f + 10f, 20f).color(0xFFFFD27F).submit();
             // The worker's own face too: shaping and rasterising it here contends for its lock.
-            renderText.draw().layout(CgTextLayout.of(block(n * 53 + 3000), small).maxWidth(w * 0.45f).build())
+            renderText.text().layout(CgTextLayout.of(block(n * 53 + 3000), small).maxWidth(w * 0.45f).build())
                     .font(small).at(w * 0.5f + 10f, h * 0.6f).color(0xFF9FD8FF).submit();
-            renderText.endBatch();
+            renderText.flush();
 
             if (pending != null) {
                 CgFrame built = pending.get();
@@ -131,11 +128,10 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
                 HarnessTarget fromRender = HarnessTarget.create(w, h, false);
                 fromRender.bind();
                 fromRender.clear(0.08f, 0.08f, 0.1f, 1f);
-                renderText.context().updateOrtho(w, h);
-                renderText.beginBatch();
-                renderText.draw().layout(CgTextLayout.of(FIXED, large).maxWidth(w - 40f).build())
+                HarnessCanvas.screen(w, h);
+                renderText.text().layout(CgTextLayout.of(FIXED, large).maxWidth(w - 40f).build())
                         .font(large).at(20f, 40f).color(0xFFFFFFFF).submit();
-                renderText.endBatch();
+                renderText.flush();
                 if (pass == 1) {
                     fromRender.captureToFile(dir, "text-threaded-render.png");
                     differing = differing(workerPixels, fromRender.framebuffer().readColor(0, 0, w, h));
@@ -157,24 +153,15 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
         running = false;
     }
 
-    /** Lays out and records {@code text} through the worker's renderer into a frame of its own. Worker thread. */
+    /** Lays out and records {@code text} on the worker's canvas into a frame of its own. Worker thread. */
     private CgFrame record(int w, int h, String text, CgFont font, float x, float y, float maxWidth) {
         CgRecording recording = new CgRecording();
-        CgPassRecorder recorder = new CgPassRecorder();
         CgPassConstants constants = new CgPassConstants().resolution(w, h);
         constants.projection.setOrtho(0, w, h, 0, -1, 1);
-        recorder.recordInto(recording, CgGraphTexture.current(), CgLoad.load(), constants);
-        workerText.context().updateOrtho(w, h);
-        workerText.sink(recorder);
-        try {
-            workerText.beginBatch();
-            workerText.draw().layout(CgTextLayout.of(text, font).maxWidth(maxWidth).build())
-                    .font(font).at(x, y).color(0xFFFFFFFF).submit();
-            workerText.endBatch();
-        } finally {
-            workerText.sink(null);
-        }
-        recorder.stop();
+        workerText.recordInto(recording, CgGraphTexture.current(), CgLoad.load(), constants);
+        workerText.text().layout(CgTextLayout.of(text, font).maxWidth(maxWidth).build())
+                .font(font).at(x, y).color(0xFFFFFFFF).submit();
+        workerText.stop();
         return builder.build(new CgFrameGraph().add(recording.seal()));
     }
 
@@ -214,7 +201,5 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         if (worker != null) worker.shutdownNow();
-        if (workerText != null) workerText.delete();
-        if (renderText != null) renderText.delete();
     }
 }

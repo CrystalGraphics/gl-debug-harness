@@ -4,8 +4,10 @@ import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.*;
 import com.crystalgraphics.api.text.*;
 import com.crystalgraphics.text.cache.CgFontRegistry;
-import com.crystalgraphics.text.render.context.CgTextRenderContext;
-import com.crystalgraphics.text.render.CgTextRenderer;
+import com.crystalgraphics.render.canvas.CgCanvas;
+import com.crystalgraphics.text.render.CgTextDraw;
+import com.crystalgraphics.text.style.CgTextLayer;
+import com.crystalgraphics.text.style.CgTextStyle;
 import com.crystalgraphics.text.richtext.CgMarkupParser;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.util.trace.CgChannels;
@@ -19,8 +21,8 @@ import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.config.TextSceneConfig;
 import com.crystalgraphics.harness.tool.AtlasDumper;
+import com.crystalgraphics.harness.util.HarnessCanvas;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
-import com.crystalgraphics.harness.util.WorldTextRenderHelper;
 import lombok.Getter;
 import lombok.Setter;
 import org.joml.Matrix4f;
@@ -59,13 +61,6 @@ import java.util.logging.Logger;
  *   <li><b>paused</b> (t=1.5s) — Same view, paused: the cursor free and the camera held</li>
  *   <li><b>topdown</b> (t=2.0s) — Camera looking straight down at floor + text</li>
  * </ol>
- *
- * <p>All shared rendering logic (font loading, layout construction, GL cap
- * validation, world-space text drawing) is delegated to
- * {@link WorldTextRenderHelper}. This class only owns the interactive
- * lifecycle, camera setup, and screenshot scheduling.</p>
- *
- * @see WorldTextRenderHelper
  */
 public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mouse, CgSystemInput.Keyboard {
 
@@ -89,8 +84,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
 
     /**
      * {@code -Dcrystalgraphics.profile.autoOrbit=true} slowly dollies the camera during the
-     * profile window. Not cosmetic: a moving camera makes
-     * {@code PerspectiveScaleResolver#updateProjectedSize} recompute {@code projectedSizeHint}
+     * profile window. Not cosmetic: a moving camera changes the projected size
      * every frame, which shifts {@code effectiveTargetPx}, which makes
      * {@code CgGlyphPlacementCache.Entry#matches} reject the cached entry (an exact
      * {@code effectiveTargetPx} match is required whenever {@code distanceField} is false — the
@@ -193,11 +187,6 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
 
         wrapWidth = 1000 - 2 * MARGIN;
         
-        renderer = CgTextRenderer.create();
-        orthoContext = renderer.context();
-        perspectiveContext = CgTextRenderContext.world(ctx.getProjection(), ctx.getScreenWidth(),
-                ctx.getScreenHeight());
-        
         sections = buildSections(regularFamily, group, wrapWidth);
         LOGGER.info("[Harness] World text scene (interactive) initialized.");
     }
@@ -231,12 +220,11 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
     CgFontFamilyGroup minecraftGroup;
 
     List<Section> sections;
-    CgTextRenderer renderer;
+    final CgCanvas canvas = new CgCanvas();
     int wrapWidth;
     
     /** Flip to switch the sections' render path between orthographic (2D/UI) and world (3D/perspective). */
     boolean renderSectionsInWorldSpace = false;
-    CgTextRenderContext perspectiveContext, orthoContext;
 
     float scrollDelta;
     float scrollScale = 1;
@@ -297,12 +285,11 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
         modelView.scale(worldScale, -worldScale, worldScale);
 
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "kanjiWorldDraw")) {
-            perspectiveContext.projection(ctx.getProjection()).updateProjectedSize(modelView, ctx.getProjection(), kanjiFontSizePx);
-            renderer.context(perspectiveContext);
-
-            withShadow(renderer.draw().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack), kanjiFontSizePx).submit();
-            withShadow(renderer.draw().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(labelFont).pose(poseStack), LABEL_FONT_SIZE_PX).submit();
-            withShadow(renderer.draw().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(minecraftFont).pose(poseStack), FONT_SIZE_PX).submit();
+            HarnessCanvas.world(ctx.getProjection(), ctx.getScreenWidth(), ctx.getScreenHeight());
+            withShadow(canvas.text().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack)).submit();
+            withShadow(canvas.text().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(labelFont).pose(poseStack)).submit();
+            withShadow(canvas.text().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(minecraftFont).pose(poseStack)).submit();
+            canvas.flush();
         }
 
         if (CgTrace.isEnabled(CgChannels.MISC)) {
@@ -327,16 +314,15 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
                 // start from the camera's view matrix, translate to where the block should sit in
                 // world space, then scale local px down to world units -- WORLD_SCALE is negated on
                 // Y because layout Y grows downward (screen convention) but world Y grows upward.
-                renderer.context(perspectiveContext);
+                HarnessCanvas.world(ctx.getProjection(), ctx.getScreenWidth(), ctx.getScreenHeight());
                 Matrix4f mv = pose.last().pose();
                 mv.set(viewMatrix);
                 mv.translate(WORLD_ORIGIN_X, WORLD_ORIGIN_Y, WORLD_ORIGIN_Z);
                 mv.scale(WORLD_SCALE, -WORLD_SCALE, WORLD_SCALE);
             } else {
-                renderer.context(orthoContext);
+                HarnessCanvas.screen(ctx.getScreenWidth(), ctx.getScreenHeight());
                 pose.scale(scrollScale, scrollScale, 1);
             }
-            renderer.beginBatch();
             // y (and MARGIN below) are tracked in DESIGN-SPACE screen pixels -- the same fixed,
             // scale-invariant convention wrapWidth already uses via .constraints() -- NOT local
             // pre-transform coordinates. .at() divides by scrollScale right before submitting so
@@ -355,10 +341,10 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
                     // CgTextLayout is drawn verbatim and ignores .constraints() entirely (see
                     // Draw's "layout vs. paragraph/text" field-priority rules), which is why
                     // constraints(wrapWidth, 0) previously did nothing here. Going through
-                    // .text() lets CgTextRenderer build (and cache, via CgTextLayoutCache) the
+                    // .text() lets the batch build (and cache, via CgTextLayoutCache) the
                     // layout itself, applying the same scale-aware constraint division .paragraph()
                     // gets below.
-                    CgTextRenderer.Draw labelDraw = renderer.draw().text(s.label).constraints(wrapWidth, 0)
+                    CgTextDraw labelDraw = canvas.text().text(s.label).constraints(wrapWidth, 0)
                             .font(labelFont).pose(pose);
                     float labelHeightDesign = labelDraw.measure().totalHeight() * scrollScale;
                     labelDraw.at(MARGIN / scrollScale, y / scrollScale).color(LABEL_COLOR).submit();
@@ -369,7 +355,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
                 }
 
                 // .paragraph(...) (instead of a frozen .layout(...)) re-wraps against the current
-                // PoseStack scale every draw -- see CgTextRenderer.Draw's "layout vs. paragraph"
+                // PoseStack scale every draw -- see CgTextDraw's "layout vs. paragraph"
                 // javadoc -- so wrapWidth keeps meaning "960 on-screen pixels" under any scrollScale
                 // instead of silently growing in screen space like a prebuilt CgTextLayout would.
                 // At higher scale the effective (screen-space-constant) wrap width is narrower in
@@ -384,7 +370,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
                 // back up by scrollScale before accumulating into the design-space y tracker --
                 // otherwise y would be a mix of design-space (MARGIN/SECTION_GAP) and local-space
                 // (sectionHeight) units.
-                CgTextRenderer.Draw bodyDraw = renderer.draw().paragraph(s.paragraph).constraints(wrapWidth, 0)
+                CgTextDraw bodyDraw = canvas.text().paragraph(s.paragraph).constraints(wrapWidth, 0)
                                                        .font(latinRegular).pose(pose);
                 float sectionHeightDesign = bodyDraw.measure().totalHeight() * scrollScale;
                 bodyDraw.at(MARGIN / scrollScale, y / scrollScale).color(BODY_COLOR).submit();
@@ -395,9 +381,8 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
 
             pose = new PoseStack();
             pose.scale(2, 2, 1);
-            renderer.draw().text(String.format("Scale: %.1fx ", scrollScale)).font(labelFont).at(10, 0).pose(pose).submit();
-
-            renderer.endBatch();
+            canvas.text().text(String.format("Scale: %.1fx ", scrollScale)).font(labelFont).at(10, 0).pose(pose).submit();
+            canvas.flush();
         }
     }
 
@@ -438,12 +423,12 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
     /**
      * Draws a thin vertical guide line at design-space X = MARGIN + wrapWidth, down to
      * {@code designHeight} -- i.e. exactly where the paragraphs above wrap. Reuses the exact
-     * same quad batch/atlas white-texel machinery {@code CgTextRenderer} already uses for
-     * decoration lines (underline/strikethrough/overline) -- no new CgQuadRenderer, no new
+     * same quad batch/atlas white-texel machinery the text batch already uses for
+     * decoration lines (underline/strikethrough/overline) -- no new CgQuadBatch, no new
      * rendering code at all. A {@link CgTextDecorationRect} is normally a horizontal bar
      * (x0/x1 span its width, thickness is its height); swapping which axis is "thin" turns the
      * same primitive into a vertical line for free. Wrapped in a single-line, zero-glyph
-     * {@link CgTextLayout} since {@code CgTextRenderer} only looks at decorations once
+     * {@link CgTextLayout} since the text batch only looks at decorations once
      * {@code lines()} is non-empty.
      *
      * <p>{@code pose} must be the SAME scaled pose the sections above were drawn with (not a
@@ -464,7 +449,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
                 new float[]{0f}, new int[]{0, 0}, new CgTextDecorationRect[]{guide},
                 new boolean[0], new boolean[0]);
         CgTextLayout guideLayout = new CgTextLayout(List.of(List.of()), 0f, 0f, latinRegular.getMetrics(), baked);
-        renderer.draw().layout(guideLayout).font(latinRegular).at(0f, 0f).color(0xFF00FF00).pose(pose).submit();
+        canvas.text().layout(guideLayout).font(latinRegular).at(0f, 0f).color(0xFF00FF00).pose(pose).submit();
     }
 
     public void dispose() {}
@@ -472,6 +457,9 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
     public boolean shouldShutdownOnComplete() {return shutdownOnComplete;}
 
     public void requestStop() {running = false;}
+
+    @Override
+    public boolean isRunning() {return running;}
 
     public boolean uses3DCamera() {return true;}
 
@@ -489,20 +477,28 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
     private static final String[] SHADOW_MODES = {"off", "glow", "stroked glow", "drop shadow", "inset"};
     private int shadowMode = 1;
 
-    /** This draw with the current shadow mode, its lengths a fraction of the font size so every draw matches. */
-    private CgTextRenderer.Draw withShadow(CgTextRenderer.Draw draw, int fontPx) {
-        float em = fontPx;
-        switch (shadowMode) {
-            case 1 -> draw.shadowCount(1).shadow(0, 0f, 0f, 0.12f * em, 0f, 0xFF4FC3F7, false);
-            case 2 -> draw.stroke(0.04f, 0xFF0B5D8F)
-                    .shadowCount(2)
-                    .shadow(0, 0f, 0f, 0.05f * em, 0f, 0xFFFFFFFF, false)
-                    .shadow(1, 0f, 0f, 0.2f * em, 0.03f * em, 0xFF4FC3F7, false);
-            case 3 -> draw.shadowCount(1).shadow(0, 0.06f * em, 0.06f * em, 0.04f * em, 0f, 0xCC000000, false);
-            case 4 -> draw.shadowCount(1).shadow(0, 0.05f * em, 0.05f * em, 0.03f * em, 0f, 0xD9000000, true);
-            default -> { }
-        }
-        return draw;
+    /** One style per mode, at 75 pt (100 px), so every length is hundredths of an em and scales with each draw. */
+    private static final CgTextStyle[] SHADOW_STYLES = {
+            CgTextStyle.PLAIN,
+            CgTextStyle.builder("harness:glow").size(75f)
+                    .layer(CgTextLayer.shadow("glow").blur(12f).paint(0xFF4FC3F7))
+                    .layer(CgTextLayer.fill("fill")).build(),
+            CgTextStyle.builder("harness:stroked_glow").size(75f)
+                    .layer(CgTextLayer.shadow("halo").blur(20f).spread(3f).paint(0xFF4FC3F7))
+                    .layer(CgTextLayer.shadow("rim").blur(5f).paint(0xFFFFFFFF))
+                    .layer(CgTextLayer.outline("outline").width(4f).paint(0xFF0B5D8F))
+                    .layer(CgTextLayer.fill("fill")).build(),
+            CgTextStyle.builder("harness:drop").size(75f)
+                    .layer(CgTextLayer.shadow("drop").offset(6f, 6f).blur(4f).paint(0xCC000000))
+                    .layer(CgTextLayer.fill("fill")).build(),
+            CgTextStyle.builder("harness:inset").size(75f)
+                    .layer(CgTextLayer.fill("fill"))
+                    .layer(CgTextLayer.shadow("inset").offset(5f, 5f).blur(3f).inset(true).paint(0xD9000000)).build(),
+    };
+
+    /** This draw in the current shadow mode's style. */
+    private CgTextDraw withShadow(CgTextDraw draw) {
+        return draw.style(SHADOW_STYLES[shadowMode]);
     }
 
     @Override
@@ -660,8 +656,8 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
     /**
      * Shapes {@code request} without baking a fixed {@code maxWidth}/{@code CgTextLayout} --
      * the retained {@link CgShapedParagraph} is what lets {@code render()} re-wrap against the
-     * live PoseStack scale every frame (see {@code CgTextRenderer.Draw#paragraph}), and query
-     * its real per-frame height via {@code CgTextRenderer.Draw#measure()} for stacking, instead
+     * live PoseStack scale every frame (see {@code CgTextDraw#paragraph}), and query
+     * its real per-frame height via {@code CgTextDraw#measure()} for stacking, instead
      * of freezing either the wrap points or the measured height at build-time scale.
      */
     private static Section section(String label, CgTextLayout.Request request) {

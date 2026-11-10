@@ -12,8 +12,8 @@ import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.atlas.CgGlyphAtlas;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
 import com.crystalgraphics.text.msdf.CgMsdfGenerator;
-import com.crystalgraphics.text.render.context.CgTextRenderContext;
-import com.crystalgraphics.text.render.CgTextRenderer;
+import com.crystalgraphics.harness.util.HarnessCanvas;
+import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
 import com.crystalgraphics.text.msdf.CgMsdfGlyphLayout;
 import com.crystalgraphics.harness.FrameInfo;
@@ -120,13 +120,13 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
 
         CgMsdfAtlasConfig registryMsdfConfig = config.buildMsdfAtlasConfig(registryAtlasSize);
         CgFontRegistry registry = new CgFontRegistry(registryAtlasSize, registryMsdfConfig);
-        CgTextRenderer renderer = CgTextRenderer.createManualSized();
+        CgCanvas canvas = new CgCanvas();
 
         HarnessTarget target = HarnessTarget.create(fboWidth, fboHeight, false);
         target.bind();
         target.clear(0.15f, 0.15f, 0.2f, 1.0f);
 
-        renderer.context(CgTextRenderContext.orthographic(fboWidth, fboHeight));
+        HarnessCanvas.screen(fboWidth, fboHeight);
         PoseStack poseStack = new PoseStack();
         long frame = 1;
 
@@ -142,12 +142,13 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 // Deterministic prewarm: render enough frames so every unique glyph
                 // is rasterized and allocated before the dump capture. This produces
                 // denser packing because all glyphs are present simultaneously.
-                frame = prewarmAllGlyphs(registry, renderer, bitmapLayout, bitmapFont,
+                frame = prewarmAllGlyphs(registry, canvas, bitmapLayout, bitmapFont,
                         text, 20.0f, 40.0f, frame, poseStack);
                 LOGGER.info("[Harness] Bitmap prewarm complete at frame " + frame);
             } else {
-                renderer.draw().layout(bitmapLayout).font(bitmapFont).at(20.0f, 40.0f)
+                canvas.text().layout(bitmapLayout).font(bitmapFont).at(20.0f, 40.0f)
                         .color(0xFFFFFF).pose(poseStack).submit();
+                canvas.flush();
                 LOGGER.info("[Harness] Bitmap pass: drew at " + bitmapPxSize + "px");
             }
         }
@@ -172,8 +173,9 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
                 int framesNeeded = (text.length() / 4) + 5;
                 for (long f = 1; f <= framesNeeded; f++) {
                     registry.tickFrame(frame + f);
-                    renderer.draw().layout(msdfLayout).font(msdfFont).at(20.0f, 80.0f)
+                    canvas.text().layout(msdfLayout).font(msdfFont).at(20.0f, 80.0f)
                             .color(0xFFFFFF).pose(poseStack).submit();
+                    canvas.flush();
                 }
                 frame += framesNeeded;
                 LOGGER.info("[Harness] MSDF pass: drew " + framesNeeded
@@ -208,7 +210,6 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         }
 
         target.unbind();
-        renderer.delete();
         registry.releaseAll();
         if (msdfFont != null) {
             msdfFont.dispose();
@@ -224,7 +225,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
     // ── Prewarm logic ──────────────────────────────────────────────────
 
     /**
-     * Runs the renderer repeatedly until all unique glyphs in the layout
+     * Draws the layout repeatedly until all unique glyphs in it
      * are fully generated and allocated. Returns the frame counter after
      * prewarm completes.
      *
@@ -238,7 +239,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
      * infinite loops if glyph generation stalls.</p>
      */
     private long prewarmAllGlyphs(CgFontRegistry registry,
-                                   CgTextRenderer renderer,
+                                   CgCanvas canvas,
                                    CgTextLayout layout,
                                    CgFont font,
                                    String text,
@@ -257,7 +258,8 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         for (int i = 0; i < maxFrames; i++) {
             frame++;
             registry.tickFrame(frame);
-            renderer.draw().layout(layout).font(font).at(x, y).color(0xFFFFFF).pose(poseStack).submit();
+            canvas.text().layout(layout).font(font).at(x, y).color(0xFFFFFF).pose(poseStack).submit();
+            canvas.flush();
 
             int currentSlots = countTotalAtlasSlots(registry, font);
             if (currentSlots == prevTotalSlots) {

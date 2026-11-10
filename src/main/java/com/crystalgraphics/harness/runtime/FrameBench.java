@@ -73,7 +73,7 @@ public final class FrameBench {
                 + line("alloc KB", allocatedBytes, 1.0 / 1024)
                 // A thread's CPU clock ticks in 15.6 ms steps on Windows: only the total means anything.
                 + String.format("  cpu ms   mean %8.3f%n", cpuTotal * 1e-6 / Math.max(1, recorded))
-                + "  bytecode " + major("com/crystalgraphics/text/render/CgTextRenderer.class") + " (CrystalGraphics), "
+                + "  bytecode " + major("com/crystalgraphics/text/render/CgTextBatch.class") + " (CrystalGraphics), "
                 + major("com/crystalgui/ui/dom/UINode.class") + " (CrystalGUI)\n";
         LOGGER.info(text);
         return text;

@@ -10,8 +10,7 @@ import com.crystalgraphics.text.richtext.CgMarkupParser;
 import com.crystalgraphics.api.text.CgStyledText;
 import com.crystalgraphics.api.text.CgTextDecoration;
 import com.crystalgraphics.api.text.CgTextLayout;
-import com.crystalgraphics.text.render.CgTextRenderer;
-import com.crystalgraphics.text.render.context.CgTextRenderContext;
+import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.trace.CgGpuTrace;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.util.trace.CgChannels;
@@ -19,6 +18,7 @@ import com.crystalgraphics.harness.trace.TraceReport;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.harness.util.HarnessCanvas;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -104,7 +104,7 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
     }
 
     private HarnessContext ctx;
-    private CgTextRenderer renderer;
+    private final CgCanvas canvas = new CgCanvas();
     private final PoseStack poseStack = new PoseStack();
 
     private CgFont latinFont;
@@ -126,7 +126,6 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext context) {
         this.ctx = context;
-        this.renderer = CgTextRenderer.create();
 
         latinFont = load(HarnessFontUtil.LATIN_FONT);
         arabicFont = load(HarnessFontUtil.ARABIC_FONT);
@@ -271,9 +270,7 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
 
         CgGpuTrace.begin(mode.name());
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.TEXT, "text.draw")) {
-            renderer.context(CgTextRenderContext.orthographic(
-                    context.getScreenWidth(), context.getScreenHeight()));
-            renderer.beginBatch();
+            HarnessCanvas.screen(context.getScreenWidth(), context.getScreenHeight());
             for (int i = 0; i < layouts.size(); i++) {
                 float x = 8f + (i % 8) * 90f;
                 float y = 8f + (i / 8) * 14f;
@@ -284,15 +281,15 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
                     poseStack.pushPose();
                     poseStack.translate(x, y, 0f);
                     applyModeTransform();
-                    renderer.draw().layout(layouts.get(i)).font(latinFont)
+                    canvas.text().layout(layouts.get(i)).font(latinFont)
                             .at(0f, 0f).color(0xFFFFFF).pose(poseStack).submit();
                     poseStack.popPose();
                 } else {
-                    renderer.draw().layout(layouts.get(i)).font(latinFont)
+                    canvas.text().layout(layouts.get(i)).font(latinFont)
                             .at(x, y).color(0xFFFFFF).pose(poseStack).submit();
                 }
             }
-            renderer.endBatch();
+            canvas.flush();
         }
         CgGpuTrace.end();
         CgGpuTrace.collect();
@@ -309,7 +306,7 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
      * translated to the label origin.
      *
      * <p>The three cases map onto the branches of
-     * {@code OrthographicScaleResolver#isAxisAligned}: {@code QUARTER_TURN} is accepted
+     * {@code CgTextRaster#isAxisAligned}: {@code QUARTER_TURN} is accepted
      * (anti-diagonal basis — texel-exact), while {@code ROTATED} and {@code SHEARED} are rejected
      * and therefore force the distance-field tier. The {@code msdfForcedByTransform} CSV column is
      * what proves which way each went: it should be 0 for {@code QUARTER_TURN} and equal to the
@@ -443,7 +440,6 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
-        if (renderer != null) renderer.delete();
         CgGpuTrace.dispose();
         for (CgFont f : new CgFont[]{latinFont, arabicFont, cjkFont}) {
             if (f != null) f.dispose();

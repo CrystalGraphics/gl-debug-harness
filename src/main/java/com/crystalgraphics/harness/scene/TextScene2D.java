@@ -6,13 +6,13 @@ import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.text.atlas.CgGlyphAtlas;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
-import com.crystalgraphics.text.render.context.CgTextRenderContext;
-import com.crystalgraphics.text.render.CgTextRenderer;
+import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.text.msdf.CgMsdfAtlasConfig;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.config.TextSceneConfig;
+import com.crystalgraphics.harness.util.HarnessCanvas;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.harness.util.HarnessOutputDir;
 import com.crystalgraphics.harness.capture.HarnessCapture;
@@ -80,8 +80,6 @@ public class TextScene2D implements HarnessSceneLifecycle {
 
         CgMsdfAtlasConfig msdfConfig = config.buildMsdfAtlasConfig();
         CgFontRegistry registry = new CgFontRegistry(config.getAtlasSize(), msdfConfig);
-        CgTextRenderer renderer = CgTextRenderer.createManualSized();
-        CgTextRenderer.diagnosticLogging = true;
 
         CgTextLayout topLabelLayout = CgTextLayout.of(TOP_LABEL_TEXT, font)
                 .maxWidth((float) fboWidth)
@@ -125,11 +123,15 @@ public class TextScene2D implements HarnessSceneLifecycle {
         target.bind();
         target.clear(0.15f, 0.15f, 0.2f, 1.0f);
 
-        renderer.context(CgTextRenderContext.orthographic(fboWidth, fboHeight));
+        HarnessCanvas.screen(fboWidth, fboHeight);
+        // A canvas a band: a batch's raster history is per font, and each band picks its size afresh.
+        CgCanvas topCanvas = new CgCanvas();
+        CgCanvas[] bandCanvases = new CgCanvas[scales.size()];
+        for (int i = 0; i < bandCanvases.length; i++) bandCanvases[i] = new CgCanvas();
         long frame = 1;
 
         if (config.isMtsdf()) {
-            frame = prewarmDistanceFieldGlyphs(renderer, registry, target,
+            frame = prewarmDistanceFieldGlyphs(topCanvas, bandCanvases, registry, target,
                     font,
                     topLabelLayout, 20.0f, 20.0f, TOP_LABEL_COLOR,
                     labels, layouts, bandYOffsets, scales,
@@ -137,11 +139,10 @@ public class TextScene2D implements HarnessSceneLifecycle {
         }
 
         // The top label: identity pose, at (20, 20)
-        renderer.beginBatch();
-        renderer.context().clearHistory();
         PoseStack topLabelPose = new PoseStack();
-        renderer.draw().layout(topLabelLayout).font(font).at(20.0f, 20.0f)
+        topCanvas.text().layout(topLabelLayout).font(font).at(20.0f, 20.0f)
                 .color(TOP_LABEL_COLOR).pose(topLabelPose).submit();
+        topCanvas.flush();
         frame++;
 
         for (int bandIdx = 0; bandIdx < scales.size(); bandIdx++) {
@@ -166,11 +167,10 @@ public class TextScene2D implements HarnessSceneLifecycle {
                 yDraw /= scale;
             }
 
-            renderer.context().clearHistory();
-            renderer.draw().layout(layout).font(font).at(xDraw, yDraw).color(0xFFFFFF).pose(poseStack).submit();
+            bandCanvases[bandIdx].text().layout(layout).font(font).at(xDraw, yDraw).color(0xFFFFFF).pose(poseStack).submit();
+            bandCanvases[bandIdx].flush();
             frame++;
         }
-        renderer.endBatch();
 
         target.captureToFile(outputDir, outputFilename);
 
@@ -191,7 +191,6 @@ public class TextScene2D implements HarnessSceneLifecycle {
         }
 
         target.unbind();
-        renderer.delete();
         registry.releaseAll();
         font.dispose();
         target.delete();
@@ -199,7 +198,8 @@ public class TextScene2D implements HarnessSceneLifecycle {
         LOGGER.info("[Harness] Text scene complete.");
     }
 
-    private long prewarmDistanceFieldGlyphs(CgTextRenderer renderer,
+    private long prewarmDistanceFieldGlyphs(CgCanvas topCanvas,
+                                            CgCanvas[] bandCanvases,
                                             CgFontRegistry registry,
                                             HarnessTarget target,
                                             CgFont font,
@@ -222,12 +222,10 @@ public class TextScene2D implements HarnessSceneLifecycle {
             long drawFrame = frame + i;
             registry.tickFrame(drawFrame);
 
-            renderer.beginBatch();
-
-            renderer.context().clearHistory();
             PoseStack topLabelPose = new PoseStack();
-            renderer.draw().layout(topLabelLayout).font(font).at(topLabelX, topLabelY)
+            topCanvas.text().layout(topLabelLayout).font(font).at(topLabelX, topLabelY)
                     .color(topLabelColor).pose(topLabelPose).submit();
+            topCanvas.flush();
 
             for (int bandIdx = 0; bandIdx < scales.size(); bandIdx++) {
                 float scale = scales.get(bandIdx);
@@ -239,12 +237,10 @@ public class TextScene2D implements HarnessSceneLifecycle {
                     xDraw /= scale;
                     yDraw /= scale;
                 }
-                renderer.context().clearHistory();
-                renderer.draw().layout(layouts[bandIdx]).font(font).at(xDraw, yDraw)
+                bandCanvases[bandIdx].text().layout(layouts[bandIdx]).font(font).at(xDraw, yDraw)
                         .color(0xFFFFFF).pose(poseStack).submit();
+                bandCanvases[bandIdx].flush();
             }
-
-            renderer.endBatch();
         }
 
         target.clear(0.15f, 0.15f, 0.2f, 1.0f);

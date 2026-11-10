@@ -6,6 +6,9 @@ import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.CgFrameClock;
+import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.canvas.CgCanvas;
+import com.crystalgraphics.render.draw.CgPassConstants;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgPipelinePrecache;
 import com.crystalgraphics.text.cache.CgFontRegistry;
@@ -27,9 +30,10 @@ public final class OverlayPipeline {
 
     private final HUDRenderer hudRenderer;
     private CgRenderStage.Registration hudStage;
-    /** The context of the firing under way, for the HUD text's callback. */
+    /** The context of the firing under way, for the HUD text. */
     private HarnessContext firing;
-    private final Runnable drawHud = this::renderHud;
+    /** {@link #warmHud}'s, drawn at once into its scratch target. */
+    private final CgCanvas warmCanvas = new CgCanvas();
 
     /**
      * Creates the overlay pipeline owning the given HUD renderer.
@@ -57,10 +61,11 @@ public final class OverlayPipeline {
         initHud(ctx);
     }
 
-    /** The HUD text's half of {@link #init}: its fonts and renderer, and its place on the HUD stage. */
+    /** The HUD text's half of {@link #init}: its place on the HUD stage. */
     public void initHud(HarnessContext ctx) {
-        hudRenderer.init(ctx);
-        hudStage = CgRenderStage.HUD.register(HUD_ORDER, frame -> frame.callback("harness.hud", drawHud));
+        hudStage = CgRenderStage.HUD.register(HUD_ORDER, frame -> {
+            if (!hudHidden) hudRenderer.render(frame.canvas(), firing);
+        });
     }
 
     /**
@@ -71,10 +76,6 @@ public final class OverlayPipeline {
         if (!uses3DCamera) return;
         firing = ctx;
         CgRenderStage.HUD.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTargetFramebuffer());
-    }
-
-    private void renderHud() {
-        if (!hudHidden) hudRenderer.render(firing);
     }
 
     private boolean hudHidden;
@@ -108,8 +109,14 @@ public final class OverlayPipeline {
             hudWarmTarget = CgFrameBuffer.create("harness_hud_warm", 16, 16,
                     CgFrameBufferFormat.builder("harness_hud_warm").color(0, CgTextureType.RGBA8).build());
         }
+        // Under the window's camera, so its font and glyphs are the window's size
+        CgPassConstants camera = CgImmediate.constants();
+        camera.view.identity();
+        camera.projection.setOrtho(0f, ctx.getScreenWidth(), ctx.getScreenHeight(), 0f, -1f, 1f);
+        camera.resolution(ctx.getScreenWidth(), ctx.getScreenHeight());
         try (CgFrameBuffer.Drawing ignored = hudWarmTarget.drawInto()) {
-            hudRenderer.render(ctx);
+            hudRenderer.render(warmCanvas, ctx);
+            warmCanvas.flush();
         }
         hudWarmQuiet = CgFontRegistry.get().getPendingAsyncGlyphCount() == 0 ? hudWarmQuiet + 1 : 0;
         return hudWarmQuiet >= 3;

@@ -65,6 +65,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxDeclaredScene;
 import com.crystalgraphics.harness.scene.test.CgVfxKitPlayScene;
 import com.crystalgraphics.harness.scene.test.CgSequenceSpawnScene;
 import com.crystalgraphics.harness.scene.test.CgKitCuesScene;
+import com.crystalgraphics.harness.scene.test.CgModelPlayScene;
 import com.crystalgraphics.harness.scene.test.CgVfxNovaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBenchArenaScene;
 import com.crystalgraphics.harness.scene.test.CgKitShadingScene;
@@ -74,6 +75,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxShapesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxSortGroupScene;
 import com.crystalgraphics.harness.scene.test.CgSecondLayerTestScene;
 import com.crystalgraphics.harness.scene.test.CgBloomOcclusionTestScene;
+import com.crystalgraphics.harness.scene.test.CgCanvasGlassTestScene;
 import com.crystalgraphics.harness.scene.test.CgLightsCastersScene;
 import com.crystalgraphics.harness.scene.test.CgLightsShadowsBenchScene;
 import com.crystalgraphics.harness.scene.test.CgLightsShadowScene;
@@ -202,7 +204,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("quad-renderer-test")
-                .description("CgQuadRenderer: SSBO-backed instanced quad batching — grid + rotating spinners in one draw call")
+                .description("CgQuadBatch: SSBO-backed instanced quad batching — grid + rotating spinners in one draw call")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
@@ -216,7 +218,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("graph-executor-test")
-                .description("render-graph G1: one picture drawn by CgQuadRenderer, by CgImmediate, and by a frame built on a worker thread -- three PNGs that must match")
+                .description("render-graph G1: one picture drawn by CgQuadBatch, by CgImmediate, and by a frame built on a worker thread -- three PNGs that must match")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(true)
@@ -535,6 +537,20 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
                 .build(),
             () -> new CgBloomOcclusionTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("canvas-glass").checksPixels()
+                .description("Canvas glass in the world: a turned clear pane shows the wall behind it in place, a frosted one blurs it, a slab in front hides one")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
+                .build(),
+            () -> new CgCanvasGlassTestScene()
         );
 
         reg.register(
@@ -1239,7 +1255,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("curve-renderer-test")
-                .description("CgVectorRenderer: instanced quadratic Bezier strokes — lines, taper, gradient, caps, split cubics, posed fan")
+                .description("CgCurveBatch: instanced quadratic Bezier strokes — lines, taper, gradient, caps, split cubics, posed fan")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
@@ -1480,6 +1496,18 @@ public final class SceneRegistry {
         );
 
         reg.register(
+            SceneDescriptor.builder("model-play")
+                .description("A kit's skinned models in a row playing their clips through CgAnimation in Minecraft's entity look: a GeckoLib kit's models and every animation file, or another kit's skinned meshes")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.45f, 0.62f, 0.88f, 1.0f)
+                .build(),
+            () -> new CgModelPlayScene()
+        );
+
+        reg.register(
             SceneDescriptor.builder("vfx-kit-play")
                 .description("A kit's systems played from its files by id once their bundle is READY (Kakarot's Kamehameha by default): no compile, sync load or texture load after, each holding particles")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
@@ -1625,7 +1653,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("text-stress")
-                .description("CrystalGraphics text engine benchmark: 1000 shaped labels, no CrystalGUI — pure CgTextRenderer + FreeType/HarfBuzz")
+                .description("CrystalGraphics text engine benchmark: 1000 shaped labels, no CrystalGUI — canvas text + FreeType/HarfBuzz")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)

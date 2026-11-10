@@ -155,6 +155,11 @@ compile. Scenes draw through the engine and `CgRHI`; a scene's verdict reads `De
   cue manager and the engine's sequencer (systems, post volumes, colour regions, shakes), under the kit's look and VFX Lab's sky. ` fires
   again, N/B change cue, Left Alt opens the desktop, with the cue picker in its launcher, a tree a namespace (a click plays a cue, folds a folder), Y/Shift+Y slow time and Tab pauses or plays it, Z/X step a frame back or forward, C the kit's colour grade; `.kitCues.regions=false` leaves the
   colour regions out, `.kitCues.capture=<n>` photographs n frames of play and exits. Its javadoc has Dragon Forge's s0.
+  `--mode=model-play` is a kit's skinned models in a row playing their clips through `CgAnimation`, in Minecraft's
+  entity look (`role/entity.shader`): a GeckoLib kit's `.geo.json` models with every clip of its `.animation.json` files
+  (`.modelPlay.namespace`, `.modelPlay.kit`, `.modelPlay.texture`; `.modelPlay.models` paths under the kit), or another
+  kit's skinned glTF, GLB or `.cgmesh` with the clips it carries. N/B change every model's clip, M the HUD's model, `
+  plays again, P pauses, `,` `.` step, U/I rate, K loops every clip, Left/Right turn the row. Its javadoc has RPG-Core's.
   `--mode=kit-shading` is a kit's shading models drawing: its `shading.yaml` registered under
   `-Dcrystalgraphics.harness.kit.namespace`, the material `.kit.material` compiled from the kit folder `.kit` through its
   parent chain and drawn, its model's keyword on, no GL error; the kit's files reached with `-Pharness.assetRoots` (a root
@@ -606,6 +611,7 @@ The service reads viewport dimensions live from `ViewportState` at capture time,
 | `HarnessBitmapUtil` | `util/` | FreeType bitmap normalization (pitch/row-order) |
 | `HarnessProjectionUtil` | `util/` | Orthographic + perspective projection. Owns shared constants: `FOV_DEGREES`, `NEAR_PLANE`, `FAR_PLANE` |
 | `HarnessTarget` | `util/` | A scene's offscreen host target: RGBA8 and depth, made on the device; bind, clear, capture, delete |
+| `HarnessCanvas` | `util/` | The camera an immediate `CgCanvas` draws under: `screen(w, h)` or `world(projection, w, h)`, set before the draws, then `flush()` |
 | `ObjectDraws` | `util/` | Object records drawn now through `CgImmediate`: a mesh under a material, one instance a record |
 | `ValidationCube` | `util/` | The reference cube on the floor, a colour a face, as `flat_colour` draws |
 | `HarnessCapture` | `capture/` | PNGs from a target, a framebuffer id or a texture layer: readbacks |
@@ -624,10 +630,10 @@ for the next pass to reset, and starts from nothing it can rely on either.
 
 | Mode ID                | Output Directory                                                                 | Lifecycle | Description |
 |------------------------|----------------------------------------------------------------------------------|---|---|
-| `text-2d`              | `text-2d/text-scene.png` + `atlas/atlas-dump-<size>px.png`                       | MANAGED | Full text rendered via CgTextRenderer + FBO |
+| `text-2d`              | `text-2d/text-scene.png` + `atlas/atlas-dump-<size>px.png`                       | MANAGED | Full text drawn on a canvas into a target |
 | `text-3d`              | `text-3d/{name}-normal.png`, `{name}-paused.png`, `{name}-topdown.png`           | INTERACTIVE | Interactive 3D world-space text with camera controls. Implemented by `TextScene3D`. |
 | `camera-3d` | `camera-3d/{name}-front-view.png`, etc. (4 angles)                     | INTERACTIVE | 3D camera validation with cube + floor |
-| `atlas-dump`           | `atlas-dump/atlas/atlas-dump-24px.png` + `atlas/atlas-dump-32px.png`             | MANAGED | Glyph atlas dump via CgTextRenderer production pipeline |
+| `atlas-dump`           | `atlas-dump/atlas/atlas-dump-24px.png` + `atlas/atlas-dump-32px.png`             | MANAGED | Glyph atlas dump via the production text path |
 
 
 All outputs go into scene-specific subdirectories under `harness-output/`. The `{name}` placeholder defaults to the scene mode ID, overridable with `--output-name=PREFIX`.
@@ -647,7 +653,7 @@ The interactive runtime decomposes into focused services instead of one monolith
 | Component | Location | Purpose |
 |---|---|---|
 | `InteractiveSceneRunner` | `InteractiveSceneRunner.java` | Slim loop coordinator: sequences services, drives render loop |
-| `HarnessWindow` | `runtime/HarnessWindow.java` | The GLFW window and its core context (newest granted, 4.6 down to 3.3): swap, poll, pacing, resize, cursor grab, and the key/char/pointer events the runner hands to scenes. Key STATE is `CgPlatform.input()`'s, not this class's |
+| `HarnessWindow` | `runtime/HarnessWindow.java` | The GLFW window and its core context (newest granted, 4.6 down to 3.3): swap, poll, pacing, resize, cursor grab, and the key/char/pointer events the runner hands to scenes. Key STATE is `CgInput`', not this class's |
 | `FrameClock` | `runtime/FrameClock.java` | High-resolution frame timing (delta, elapsed, frame number) |
 | `InputPauseHandler` | `runtime/InputPauseHandler.java` | Pause state (a 2D scene's ESC/T, `setPaused`) + mouse grab management; a 3D scene's ESC/T open the desktop |
 | `ResizeHandler` | `runtime/ResizeHandler.java` | Framebuffer resize detection (`HarnessWindow.takeResized`) into the context's dimensions |
@@ -1039,7 +1045,7 @@ Use `--output-name=PREFIX` to customize output filenames:
 | Mode ID             | Type | Description |
 |---------------------|---|---|
 | `atlas-dump`        | MANAGED | Glyph atlas texture dump |
-| `text-2d`           | MANAGED | Full text rendering via CgTextRenderer |
+| `text-2d`           | MANAGED | Full text drawn on a canvas |
 | `text-3d`           | INTERACTIVE | Interactive 3D world-space text with camera |
 | `camera-3d`         | INTERACTIVE | Camera validation: cube from 4 angles |
 | `capability-report` | DIAGNOSTIC | CgCapabilities + environment report |
@@ -1153,6 +1159,7 @@ com.crystalgraphics.harness/
 │   └── ValidationCaptureStep.java    # Value object for a single capture step
 └── util/
     ├── HarnessTarget.java           # A scene's offscreen host target, made on the device
+    ├── HarnessCanvas.java           # The camera an immediate canvas draws under
     ├── ObjectDraws.java             # Object records drawn now through CgImmediate
     ├── ValidationCube.java          # The reference cube, a colour a face
     ├── HarnessProjectionUtil.java   # Projection matrices + shared FOV/near/far constants

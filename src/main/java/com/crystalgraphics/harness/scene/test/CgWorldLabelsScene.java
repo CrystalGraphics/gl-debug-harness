@@ -7,6 +7,8 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.text.style.CgTextLayer;
+import com.crystalgraphics.text.style.CgTextStyle;
 
 /**
  * World labels under load: a square grid of {@code -Dcrystalgraphics.harness.labels=<n>} (400) labels, each outlined
@@ -21,6 +23,14 @@ public final class CgWorldLabelsScene implements InteractiveSceneLifecycle {
     private static final int COUNT = Integer.getInteger("crystalgraphics.harness.labels", 400);
     private static final boolean CHANGING = Boolean.getBoolean("crystalgraphics.harness.labels.changing");
     private static final float SPACING = 3f;
+    /**
+     * Outlined 0.08 em in black over a soft drop shadow, at the font's 48 px: lengths in pixels at that size, so the
+     * shadow sits 3 px down and right with a sigma of 2.
+     */
+    private static final CgTextStyle LABEL = CgTextStyle.builder("harness:world_label").size(48f * 72f / 96f)
+            .layer(CgTextLayer.shadow("drop").offset(3f, 3f).blur(2f).paint(0xC0000000))
+            .layer(CgTextLayer.outline("outline").width(0.08f * 48f).paint(0xFF000000))
+            .layer(CgTextLayer.fill("fill")).build();
 
     private final String[] texts = new String[COUNT];
     private CgFont font;
@@ -47,8 +57,7 @@ public final class CgWorldLabelsScene implements InteractiveSceneLifecycle {
             String text = CHANGING && i % 16 == 7 ? texts[i] + ": " + n / 4 : texts[i];
             int color = CHANGING && i % 32 == 3 && (n / 30) % 2 == 1 ? 0xFFFFD040 : 0xFFFFFFFF;
             world.text(text).at(col * SPACING - half, 1.5, row * SPACING - half).height((i & 3) == 0 ? 0.9f : 0.4f)
-                    .font(font).color(color).stroke(0.08f, 0xFF000000)
-                    .shadowCount(1).shadow(0, 3f, 3f, 2f, 0f, 0xC0000000, false).submit();
+                    .font(font).color(color).style(LABEL).submit();
         }
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }

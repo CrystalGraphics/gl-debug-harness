@@ -6,14 +6,14 @@ import com.crystalgraphics.api.font.CgFontFamily;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.text.CgShapedParagraph;
 import com.crystalgraphics.api.text.CgTextLayout;
-import com.crystalgraphics.text.render.CgTextRenderer;
-import com.crystalgraphics.text.render.context.CgTextRenderContext;
+import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.util.trace.CgChannels;
 import com.crystalgraphics.harness.trace.TraceReport;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
+import com.crystalgraphics.harness.util.HarnessCanvas;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
 
 import java.io.File;
@@ -37,7 +37,7 @@ import java.util.logging.Logger;
  * reshape path. None of that is the text engine.
  *
  * <p>This scene holds {@link CgShapedParagraph} and {@link CgTextLayout} directly and draws through
- * {@link CgTextRenderer}, so every number it produces belongs to CrystalGraphics and the
+ * {@code CgCanvas.text()}, so every number it produces belongs to CrystalGraphics and the
  * FreeType/HarfBuzz bindings. Comparing the two isolates exactly what the UI layer adds.
  *
  * <h3>Modes</h3>
@@ -146,7 +146,7 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
             Column.scope("dbStateSaveMs", "doBind.stateSave"),
 
             // ── draw: the batch path (previously unmeasured entirely) ──────────────────────
-            // Text draws through CgQuadRenderer (instanced), so these are the real GPU tail.
+            // Text draws through CgQuadBatch (instanced), so these are the real GPU tail.
             Column.scope("qrFlushMs", "quadRenderer.flush"),
             Column.scope("qrUploadMs", "quadRenderer.upload"),
             Column.scope("qrBindBufMs", "quadRenderer.bindBuffer"),
@@ -186,7 +186,7 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
     private HarnessContext ctx;
     private CgFont font;
     private CgFontFamily family;
-    private CgTextRenderer renderer;
+    private final CgCanvas canvas = new CgCanvas();
     private final PoseStack poseStack = new PoseStack();
     private final List<Label> labels = new ArrayList<>(LABEL_COUNT);
 
@@ -211,7 +211,6 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
 
         font = CgFont.load(HarnessFontUtil.LATIN_FONT, CgFontStyle.REGULAR, FONT_SIZE_PX);
         family = CgFontFamily.of(font);
-        renderer = CgTextRenderer.createManualSized();
 
         for (int i = 0; i < LABEL_COUNT; i++) {
             Label label = new Label();
@@ -280,15 +279,14 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
             // the only honest way to read it without stalling the pipeline being measured.
             CgGpuTrace.begin("textDraw");
             try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.TEXT, "text.draw")) {
-                renderer.context(CgTextRenderContext.orthographic(ctx.getScreenWidth(), ctx.getScreenHeight()));
-                renderer.beginBatch();
+                HarnessCanvas.screen(ctx.getScreenWidth(), ctx.getScreenHeight());
                 for (int i = 0; i < labels.size(); i++) {
                     Label label = labels.get(i);
-                    renderer.draw().layout(label.layout).font(font)
+                    canvas.text().layout(label.layout).font(font)
                             .at(label.x, label.y).color(0xFFFFFF)
                             .pose(poseStack).submit();
                 }
-                renderer.endBatch();
+                canvas.flush();
             }
             CgGpuTrace.end();
         }
@@ -425,8 +423,6 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
-        if (renderer != null) renderer.delete();
-        renderer = null;
         labels.clear();
     }
 
