@@ -1,5 +1,6 @@
 package com.crystalgraphics.platform;
 
+import com.crystalgraphics.platform.rhi.CgDeviceSection;
 import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.platform.world.CgWorldBegin;
 import com.crystalgraphics.harness.HarnessExtensions;
@@ -22,7 +23,6 @@ import com.crystalgraphics.platform.gl.CgGLBackend;
 import com.crystalgraphics.platform.gl.CgGLContext;
 import com.crystalgraphics.platform.gl.state.CgGlGetProvider;
 import com.crystalgraphics.platform.gl.state.CgGlState;
-import com.crystalgraphics.platform.gl.state.GLHostState;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLBackend;
 import com.crystalgraphics.platform.gl.tracked.CgTrackedGLContext;
 import com.crystalgraphics.platform.service.CgCacheDirectory;
@@ -108,14 +108,13 @@ public final class PlatformServiceHarness implements CgPlatformService {
             p.device = p.vulkanDevice;
         }
         if (rhi.equals("gl") && !"false".equals(System.getProperty("crystalgraphics.harness.glDevice"))) {
-            // CgRHI on GL beside CgGL, the two handing the context over at each device section; under
-            // crystalgraphics.shader.native the driver compiles, as a GL-era Minecraft's first start does
+            // CgRHI on GL, owning the window's context: nothing else draws in it. Under crystalgraphics.shader.native
+            // the driver compiles, as a GL-era Minecraft's first start does
             boolean nativeGlsl = Boolean.getBoolean("crystalgraphics.shader.native");
             try {
                 GLNativeTranslator translator = new GLNativeTranslator();
                 if (!nativeGlsl) translator.spirv(new SpvcGlslTranslator());
-                p.glDevice = new CgGLDevice(new Lwjgl3GLDriver(), translator, width, height, false,
-                        GLHostState.sharedWithCgGL());
+                p.glDevice = new CgGLDevice(new Lwjgl3GLDriver(), translator, width, height, false);
                 p.glDevice.installBesideCgGL(nativeGlsl ? new GLNativeGlslCompiler(p.glDevice.driver())
                         : new ShadercGlslCompiler(CgCacheDirectory.of("spirv")));
             } catch (IllegalStateException e) {
@@ -156,12 +155,12 @@ public final class PlatformServiceHarness implements CgPlatformService {
     private static final class HostSection implements CgHostPaint.Host {
         @Override
         public void enter() {
-            CgGL.fromHost();
+            CgDeviceSection.begin();
         }
 
         @Override
         public void leave() {
-            CgGL.toHost();
+            CgDeviceSection.end();
         }
     }
 

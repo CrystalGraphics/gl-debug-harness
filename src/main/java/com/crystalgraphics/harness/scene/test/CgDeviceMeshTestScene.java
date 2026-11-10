@@ -8,7 +8,6 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.platform.gl.CgGLImports;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.rhi.binding.CgBindingLayout;
 import com.crystalgraphics.platform.rhi.binding.CgBindingSet;
@@ -186,13 +185,10 @@ public class CgDeviceMeshTestScene implements HarnessSceneLifecycle {
         }
     }
 
-    /** A set of the store's words {@code name} at (1, 4), where the program pulls from. */
-    private static CgBindingSet words(CgRHI rhi, CgPipelineLayout layout, int name) {
-        CgGLImports imports = CgGLImports.get();
-        CgGpuBuffer buffer = imports.buffer(name);
-        long offset = imports.bufferOffset(name);
+    /** A set of the store's words {@code buffer} at (1, 4), where the program pulls from. */
+    private static CgBindingSet words(CgRHI rhi, CgPipelineLayout layout, CgGpuBuffer buffer) {
         return rhi.createBindingSet("device-mesh words", layout.sets().get(1),
-                new CgBindings().buffer(4, CgBindingLayout.Type.STORAGE_BUFFER, buffer, offset, buffer.size() - offset));
+                new CgBindings().buffer(4, CgBindingLayout.Type.STORAGE_BUFFER, buffer, 0, buffer.size()));
     }
 
     private static void push(CgRenderPass pass, ByteBuffer colour, int argb) {

@@ -208,7 +208,7 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     private void run() {
         CgFrame built = builder.build(graph.add(recording.seal()));
         graph.clear();
-        CgExecutor.execute(built, true);
+        CgExecutor.execute(built);
         builder.recycle(built);
         recording.reset();
     }

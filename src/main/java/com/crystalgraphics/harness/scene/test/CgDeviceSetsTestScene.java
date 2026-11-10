@@ -84,7 +84,7 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
                     m.delete();
                     continue;
                 }
-                CgGlslCompiler.Explicit explicit = linked.explicit(p.toString());
+                CgGlslCompiler.Explicit explicit = linked.explicit();
                 if (explicit.sets().size() <= CgBindingModel.MATERIAL || explicit.sets().get(CgBindingModel.MATERIAL).isEmpty()) {
                     skipped++;   // reads nothing of its own
                     m.delete();
