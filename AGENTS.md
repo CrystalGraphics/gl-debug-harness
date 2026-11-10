@@ -427,6 +427,9 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 # .labels.changing=true has some change, come and go
 ./gradlew :gl-debug-harness:runHarness --args="--mode=world-labels" -Dcrystalgraphics.harness.labels=10000
 
+# CgTextDemo's text styles under VFX Lab's sky and floor (F9 day and night): the demo's `text` scene, to tune a style
+./gradlew :gl-debug-harness:runHarness --args="--mode=text-demo"
+
 # Run a 3D scene with custom output name
 ./gradlew :gl-debug-harness:runHarness --args="--mode=text-3d --output-name=my-test"
 

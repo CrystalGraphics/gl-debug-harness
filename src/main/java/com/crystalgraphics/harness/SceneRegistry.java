@@ -102,6 +102,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxFluidScene;
 import com.crystalgraphics.harness.scene.test.CgVfxModulesScene;
 import com.crystalgraphics.harness.scene.test.CgWarmFrameLoadScene;
 import com.crystalgraphics.harness.scene.test.CgWorldLabelsScene;
+import com.crystalgraphics.harness.scene.test.CgTextDemoScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBlastsScene;
 import com.crystalgraphics.harness.scene.test.CgVfxParticlesScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBlastFlashScene;
@@ -1421,6 +1422,17 @@ public final class SceneRegistry {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .build(),
             () -> new CgVfxFluidScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("text-demo")
+                .description("CgTextDemo's text styles under VFX Lab's sky and floor: gradients, outlines, shadows, shader paints, Kakarot's damage number and Critical!")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .build(),
+            () -> new CgTextDemoScene()
         );
 
         reg.register(
