@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import java.util.Arrays;
 import com.crystalgraphics.platform.rhi.CgDeviceSection;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.gl.buffer.CgStreamBuffer;
@@ -32,9 +33,9 @@ import java.util.stream.Stream;
 
 /**
  * Every shipped material's set 2 made on the device from its recorded bindings ({@code CgDeviceSets}), against its
- * device pipeline's layout: no slot left to a default, a second frame making no set, a changed block making one, or,
- * where the material's values live in its shader's arena, none and a new slot. On
- * {@code --rhi=vulkan} and {@code --rhi=gl}.
+ * device pipeline's layout: no slot left to a default, a second frame making no set, a changed block making none and
+ * binding at a new dynamic offset (one set where its slot is not dynamic), or, where the material's values live in its
+ * shader's arena, none and a new slot. On {@code --rhi=vulkan} and {@code --rhi=gl}.
  *
  * <pre>
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=device-sets --rhi=vulkan"
@@ -65,6 +66,9 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
     }
 
     private record Drawn(String path, CgMaterial material, CgPipelineLayout layout) {}
+
+    /** The material {@link #changeOne} changed, by index, and what: {@code "<path> <property>"}. */
+    private record Change(int index, String name) {}
 
     private static String check(String on) throws Exception {
         CgRHI rhi = CgRHI.get();
@@ -112,10 +116,13 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
             table.reset();
             ids = capture(table, ring, drawn, failures);
             sets.prepare(table);
+            int[][] offsetsBefore = new int[drawn.size()][];
             CgDeviceSection.begin();
             try {
                 for (int i = 0; i < drawn.size(); i++) {
-                    if (ids[i] >= 0) sets.set(rhi, table, ids[i], drawn.get(i).layout(), CgBindingModel.MATERIAL, null);
+                    if (ids[i] < 0) continue;
+                    sets.set(rhi, table, ids[i], drawn.get(i).layout(), CgBindingModel.MATERIAL, null);
+                    offsetsBefore[i] = Arrays.copyOf(sets.offsets(), sets.offsetCount());
                 }
             } finally {
                 CgDeviceSection.end();
@@ -123,13 +130,16 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
             long secondMade = sets.made() - firstMade;
             if (secondMade != 0) failures.add("a second frame of the same captures made " + secondMade + " sets");
 
-            // A changed block: one new set, or in an arena none, the material taking another slot of the arena's one set.
+            // A changed block: in a dynamic slot no new set, the bind at its new offset; else one. In an arena none, the
+            // material taking another slot of the arena's one set.
             int[] slotsBefore = new int[drawn.size()];
             for (int i = 0; i < drawn.size(); i++) slotsBefore[i] = ids[i] < 0 ? 0 : table.slotOf(ids[i]);
-            String changed = changeOne(drawn);
+            Change change = changeOne(drawn);
+            String changed = change == null ? null : change.name();
             long changeMade = -1;
             boolean moved = false;
-            if (changed != null) {
+            boolean rebound = false;
+            if (change != null) {
                 table.reset();
                 ids = capture(table, ring, drawn, failures);
                 sets.prepare(table);
@@ -137,18 +147,24 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
                 CgDeviceSection.begin();
                 try {
                     for (int i = 0; i < drawn.size(); i++) {
-                        if (ids[i] >= 0) sets.set(rhi, table, ids[i], drawn.get(i).layout(), CgBindingModel.MATERIAL, null);
+                        if (ids[i] < 0) continue;
+                        sets.set(rhi, table, ids[i], drawn.get(i).layout(), CgBindingModel.MATERIAL, null);
+                        if (i == change.index()) {
+                            rebound = !Arrays.equals(offsetsBefore[i], Arrays.copyOf(sets.offsets(), sets.offsetCount()));
+                        }
                     }
                 } finally {
                     CgDeviceSection.end();
                 }
                 changeMade = sets.made() - before;
                 for (int i = 0; i < drawn.size(); i++) moved |= ids[i] >= 0 && table.slotOf(ids[i]) != slotsBefore[i];
-                long expected = moved ? 0 : 1;
+                boolean dynamic = drawn.get(change.index()).layout().sets().get(CgBindingModel.MATERIAL).dynamicCount() > 0;
+                long expected = moved || dynamic ? 0 : 1;
                 if (changeMade != expected) {
                     failures.add("changing " + changed + " made " + changeMade + " sets, not " + expected
-                            + (moved ? " (its arena's set holds every slot)" : ""));
+                            + (moved ? " (its arena's set holds every slot)" : dynamic ? " (its block is at a dynamic offset)" : ""));
                 }
+                if (dynamic && !moved && !rebound) failures.add("changing " + changed + " kept its dynamic offsets: the old block");
             }
             int validation = PlatformServiceHarness.validationErrors();
             if (validation > 0) failures.add(validation + " Vulkan validation errors, logged above");
@@ -161,7 +177,8 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
             return "PASS on " + on + ": " + drawn.size() + " materials' sets made against their device pipelines ("
                     + firstMade + " sets, " + skipped + " materials reading nothing of their own), no slot defaulted ("
                     + (sets.defaulted() - defaultedBefore) + "); a second frame made none; changing " + changed
-                    + " made " + changeMade + (moved ? ", its values moving to another slot of its arena" : "");
+                    + " made " + changeMade + (moved ? ", its values moving to another slot of its arena"
+                    : rebound ? ", its block bound at a new dynamic offset" : "");
         } finally {
             CgDeviceSection.begin();
             sets.release();
@@ -185,13 +202,14 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
         return ids;
     }
 
-    /** Sets a float property of the first material that has one to a new value; its name, or null if none has. */
-    private static String changeOne(List<Drawn> drawn) {
-        for (Drawn d : drawn) {
+    /** Sets a float property of the first material that has one to a new value; null if none has. */
+    private static Change changeOne(List<Drawn> drawn) {
+        for (int i = 0; i < drawn.size(); i++) {
+            Drawn d = drawn.get(i);
             for (CgMaterialProperty p : d.material().properties()) {
                 if (p.getType() != CgMaterialProperty.Type.FLOAT || p.getName().startsWith("_cg")) continue;
                 d.material().applyProperties(b -> b.set1f(p.getName(), 0.123f));
-                return d.path() + " " + p.getName();
+                return new Change(i, d.path() + " " + p.getName());
             }
         }
         return null;
