@@ -331,5 +331,16 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
             CgScreens.Owner owner = front;
             if (owner != null) ui.left(key, owner);
         }
+
+        /** The harness has no screens of its own: the desktop's is the only one. */
+        @Override
+        public void closeFront() {
+            CgScreens.Owner owner = front;
+            if (owner != null) CgScreens.close(owner);
+        }
+
+        @Override
+        public void openChat() {
+        }
     }
 }
