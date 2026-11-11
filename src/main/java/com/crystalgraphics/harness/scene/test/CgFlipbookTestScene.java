@@ -2,7 +2,6 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
-import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.compute.ops.CgRng;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
@@ -29,6 +28,8 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import com.crystalgraphics.api.texture.CgSampler;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * G0.5's gate, a flipbook's frames: a 4x4 sheet of solid colours drawn through {@code fx_particle.glsl}'s
@@ -60,7 +61,7 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        sheet = CgTexture2D.createEmpty(SHEET, SHEET, CgTextureSpec.RGBA8_NEAREST);
+        sheet = CgTexture2D.createEmpty(SHEET, SHEET, CgFormat.RGBA8_UNORM).sampler(CgSampler.NEAREST_CLAMP);
         ByteBuffer texels = ByteBuffer.allocateDirect(SHEET * SHEET * 4);
         for (int y = 0; y < SHEET; y++) {
             for (int x = 0; x < SHEET; x++) {

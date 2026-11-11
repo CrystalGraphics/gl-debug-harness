@@ -1,7 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
-import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.gpu.resource.CgFallbackTextures;
@@ -25,6 +24,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * render-async-uploads U0: what uploading costs the render thread and the GPU. Every {@code .every} frames, a burst of
@@ -201,13 +201,13 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
     }
 
     private CgTexture2D make(ByteBuffer source) {
-        CgTexture2D t = CgTexture2D.createEmpty(size, size, CgTextureSpec.RGBA8_LINEAR);
+        CgTexture2D t = CgTexture2D.createEmpty(size, size, CgFormat.RGBA8_UNORM);
         t.uploadRegion(0, 0, 0, size, size, source);
         return t;
     }
 
     private CgTexture3D makeVolume() {
-        CgTexture3D v = CgTexture3D.createEmpty(volumeSize, volumeSize, volumeSize, CgTextureSpec.RGBA8_LINEAR);
+        CgTexture3D v = CgTexture3D.createEmpty(volumeSize, volumeSize, volumeSize, CgFormat.RGBA8_UNORM);
         v.uploadRegion(0, 0, 0, 0, volumeSize, volumeSize, volumeSize, volumePixels);
         return v;
     }

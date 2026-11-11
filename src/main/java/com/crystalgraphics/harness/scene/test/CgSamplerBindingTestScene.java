@@ -3,7 +3,6 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.texture.CgSampler;
-import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
@@ -29,6 +28,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * G0.2's gate, a sampler per binding: one 4x4 texture uploaded once (its left half red, its right half blue, its own
@@ -55,7 +55,7 @@ public class CgSamplerBindingTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        texture = CgTexture2D.createEmpty(4, 4, CgTextureSpec.RGBA8_LINEAR);
+        texture = CgTexture2D.createEmpty(4, 4, CgFormat.RGBA8_UNORM);
         ByteBuffer texels = ByteBuffer.allocateDirect(4 * 4 * 4);
         for (int y = 0; y < 4; y++) {
             for (int x = 0; x < 4; x++) {

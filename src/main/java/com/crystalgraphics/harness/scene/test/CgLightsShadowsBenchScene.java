@@ -4,7 +4,6 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.harness.util.ObjectDraws;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
-import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.demo.CgShadowsDemo;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
@@ -24,6 +23,7 @@ import org.joml.Matrix4f;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.function.IntConsumer;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * The world shadows' cost where it is worst: {@link CgShadowsDemo} on the host's ground under a morning sun, the camera
@@ -71,7 +71,7 @@ public final class CgLightsShadowsBenchScene implements InteractiveSceneLifecycl
             }
         }
         texels.flip();
-        lightmap = CgTexture2D.createEmpty(16, 16, CgTextureSpec.RGBA8_LINEAR);
+        lightmap = CgTexture2D.createEmpty(16, 16, CgFormat.RGBA8_UNORM);
         lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
     }
 

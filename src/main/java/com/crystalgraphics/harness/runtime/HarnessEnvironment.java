@@ -4,7 +4,6 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
-import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.render.stage.CgRenderStage;
@@ -16,6 +15,7 @@ import org.joml.Matrix4fc;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * VFX Lab's sky and floor (CrystalGUI's {@code VfxLab}) as a harness scene's world: {@code editor_sky.shader} on a
@@ -127,7 +127,7 @@ public final class HarnessEnvironment {
             }
         }
         texels.flip();
-        if (lightmap == null) lightmap = CgTexture2D.createEmpty(16, 16, CgTextureSpec.RGBA8_LINEAR);
+        if (lightmap == null) lightmap = CgTexture2D.createEmpty(16, 16, CgFormat.RGBA8_UNORM);
         lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
         for (CgRenderStage stage : WORLD) {
             stage.host().environment().sun(Float.NaN, 0, nightMix, 1f - nightMix);

@@ -1,9 +1,10 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.platform.rhi.format.CgFormat;
+import com.crystalgraphics.api.texture.CgSampler;
+import com.crystalgraphics.gpu.resource.CgTextureSettings;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
-import com.crystalgraphics.api.texture.CgTextureSpec;
-import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
@@ -62,13 +63,13 @@ public class CgCookedTextureTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        CgTextureSpec spec = CgTextureSpec.RGBA8_NEAREST.toBuilder().type(CgTextureType.SRGB8_ALPHA8).build();
-        png = CgTexture2D.createDirect(PNG, spec);
-        cooked = CgTexture2D.createDirect(COOKED, spec);
+        CgTextureSettings srgb = CgTextureSettings.ASSET.withMips(false).withSampler(CgSampler.NEAREST_CLAMP);
+        png = CgTexture2D.create(PNG, srgb);
+        cooked = CgTexture2D.create(COOKED, srgb);   // the file's BC7, sRGB
         CgCookedTexture file = CgCookedTexture.read(COOKED);
         ByteBuffer texels = ByteBuffer.allocateDirect(4 * 16 * 12);
         CgBc7.decode(file.level(2), 16, 12, texels);
-        level2 = CgTexture2D.createFromPixels(16, 12, texels, spec);
+        level2 = CgTexture2D.createFromPixels(16, 12, texels, CgFormat.RGBA8_SRGB).sampler(CgSampler.NEAREST_CLAMP);
         CgTexture2D[] textures = {png, cooked, level2};
         for (int i = 0; i < 3; i++) {
             CgTexture2D texture = textures[i];

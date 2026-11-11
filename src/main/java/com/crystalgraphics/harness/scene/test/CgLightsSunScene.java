@@ -4,7 +4,6 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.harness.util.ObjectDraws;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
-import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.gpu.resource.CgFrameRing;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
@@ -32,6 +31,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * The sun's shadows' gate (plan render-shadows §11, M2): Minecraft's ground drawn by the host, before our stages, and
@@ -86,7 +86,7 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
             }
         }
         texels.flip();
-        lightmap = CgTexture2D.createEmpty(16, 16, CgTextureSpec.RGBA8_LINEAR);
+        lightmap = CgTexture2D.createEmpty(16, 16, CgFormat.RGBA8_UNORM);
         lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
     }
 

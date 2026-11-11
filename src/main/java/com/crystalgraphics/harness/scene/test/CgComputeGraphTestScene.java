@@ -2,7 +2,6 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.texture.CgTexture;
-import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.compute.CgCompute;
 import com.crystalgraphics.gpu.resource.CgFallbackTextures;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
@@ -41,6 +40,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
+import com.crystalgraphics.api.texture.CgSampler;
 
 /**
  * gpu-compute C3's gate: a chain of compute and raster passes in one frame graph, recorded and built on a worker
@@ -172,7 +172,7 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
             for (int x = 0; x < SIZE; x++) pixels.put((byte) (x * 4)).put((byte) (y * 4)).put((byte) 96).put((byte) 255);
         }
         pixels.flip();
-        return CgTexture2D.createFromPixels(SIZE, SIZE, pixels, CgTextureSpec.RGBA8_NEAREST);
+        return CgTexture2D.createFromPixels(SIZE, SIZE, pixels, CgFormat.RGBA8_UNORM).sampler(CgSampler.NEAREST_CLAMP);
     }
 
     private static void compare(HarnessContext ctx, boolean glErrors) {

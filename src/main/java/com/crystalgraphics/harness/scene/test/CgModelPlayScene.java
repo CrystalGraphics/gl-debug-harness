@@ -12,7 +12,6 @@ import com.crystalgraphics.api.mesh.geckolib.CgGeckoAnimation;
 import com.crystalgraphics.api.mesh.geckolib.CgGeckoModel;
 import com.crystalgraphics.api.state.CgCullState;
 import com.crystalgraphics.api.texture.CgSampler;
-import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.frame.CgTickFunction;
 import com.crystalgraphics.frame.CgTickGroup;
@@ -122,7 +121,7 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
         CgMaterialDefinition.Builder body = CgMaterialDefinition.of("harness:model_play/body", "crystalgraphics:shaders/role/entity.shader")
                 .cull(CgCullState.NONE);   // GeckoLib's entities draw as entityCutoutNoCull
         if (texture != null) {
-            body.texture("_MainTex", CgTextures.of(namespace + ":" + texture, CgTextureSpec.RGBA8_NEAREST),
+            body.texture("_MainTex", CgTextures.of(namespace + ":" + texture),
                     CgSampler.Filter.NEAREST, CgSampler.Address.CLAMP);
         }
         material = CgMaterial.of(body.build());

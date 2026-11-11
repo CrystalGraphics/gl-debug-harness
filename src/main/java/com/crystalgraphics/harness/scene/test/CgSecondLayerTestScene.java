@@ -3,7 +3,6 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
-import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
@@ -28,6 +27,8 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import com.crystalgraphics.api.texture.CgSampler;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * G0.4's gate, a mesh's second UV set and colour: a glTF quad ({@code two_uv_quad.gltf}: {@code TEXCOORD_0} across it,
@@ -50,7 +51,7 @@ public class CgSecondLayerTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        texture = CgTexture2D.createEmpty(2, 1, CgTextureSpec.RGBA8_NEAREST);
+        texture = CgTexture2D.createEmpty(2, 1, CgFormat.RGBA8_UNORM).sampler(CgSampler.NEAREST_CLAMP);
         ByteBuffer texels = ByteBuffer.allocateDirect(8);
         texels.put((byte) 255).put((byte) 255).put((byte) 255).put((byte) 255);   // white, left
         texels.put((byte) 255).put((byte) 0).put((byte) 0).put((byte) 255).flip(); // red, right

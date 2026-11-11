@@ -1,6 +1,5 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.compute.CgCompute;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
@@ -21,6 +20,8 @@ import com.crystalgraphics.render.graph.CgRequest;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Random;
+import com.crystalgraphics.api.texture.CgSampler;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * The gate for the material library ({@code shaders/lib/material/}): DepthFade, Panner, Rotator, ParticleSubUV and
@@ -56,7 +57,7 @@ public class CgMaterialLibraryScene implements InteractiveSceneLifecycle {
         for (int k = 0; k < in.length; k++) in[k] = CgGraphBuffer.transientBuffer("material-library.in" + k, buffer());
         for (int k = 0; k < out.length; k++) out[k] = CgGraphBuffer.transientBuffer("material-library.out" + k, buffer());
         // Texels vary along x only, so the result does not depend on which row is v = 0.
-        sheet = CgTexture2D.createEmpty(SHEET, SHEET, CgTextureSpec.RGBA8_NEAREST);
+        sheet = CgTexture2D.createEmpty(SHEET, SHEET, CgFormat.RGBA8_UNORM).sampler(CgSampler.NEAREST_CLAMP);
         ByteBuffer texels = ByteBuffer.allocateDirect(SHEET * SHEET * 4);
         for (int y = 0; y < SHEET; y++) {
             for (int x = 0; x < SHEET; x++) {

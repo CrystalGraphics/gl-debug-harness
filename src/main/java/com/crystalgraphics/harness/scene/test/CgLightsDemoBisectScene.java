@@ -4,7 +4,6 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.harness.util.ObjectDraws;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
-import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.demo.CgLightsDemo;
 import com.crystalgraphics.gpu.resource.CgFrameRing;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
@@ -33,6 +32,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * The lights demo ({@code CgLightsDemo}) at midnight on a flat world under a night's lightmap, seen from in front of its
@@ -136,7 +136,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
             }
         }
         texels.flip();
-        lightmap = CgTexture2D.createEmpty(16, 16, CgTextureSpec.RGBA8_LINEAR);
+        lightmap = CgTexture2D.createEmpty(16, 16, CgFormat.RGBA8_UNORM);
         lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
     }
 

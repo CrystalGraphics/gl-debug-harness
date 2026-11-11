@@ -1,8 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxDrawLayout;
 import com.crystalgraphics.api.texture.CgTexture;
-import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.compute.ops.CgGpuOps;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.gpu.resource.CgTexture3D;
@@ -117,9 +117,9 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
         for (int j = 0; j < HEIGHTS; j++) {
             for (int i = 0; i < HEIGHTS; i++) heights[j * HEIGHTS + i] = 0.75f * (float) (Math.sin(0.7 * i) * Math.cos(0.5 * j));
         }
-        fieldTexture = CgTexture3D.createEmpty(FIELD, FIELD, FIELD, CgTextureType.RGBA32F.toTextureSpec());
+        fieldTexture = CgTexture3D.createEmpty(FIELD, FIELD, FIELD, CgFormat.RGBA32_FLOAT);
         fieldTexture.uploadRegion(0, 0, 0, 0, FIELD, FIELD, FIELD, floats(field));
-        heightTexture = CgTexture2D.createEmpty(HEIGHTS, HEIGHTS, CgTextureType.R32F.toTextureSpec());
+        heightTexture = CgTexture2D.createEmpty(HEIGHTS, HEIGHTS, CgFormat.R32_FLOAT);
         heightTexture.uploadRegion(0, 0, 0, HEIGHTS, HEIGHTS, floats(heights));
         fielded = new Inputs(base, List.of(new Kind("gate_field", false, CgVfxGpuModule.NO_INTERFACES, new CgTexture[]{fieldTexture}, -BOX, -BOX, -BOX, 1f / (2f * BOX), """
                 void fx_gate_field(inout FxParticle p, inout FxForces f, FxStep s, vec4 m, sampler3D field) {
