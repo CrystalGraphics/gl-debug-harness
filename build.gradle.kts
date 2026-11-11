@@ -219,6 +219,19 @@ tasks.register<JavaExec>("runHarness") {
         val roots = listOfNotNull(chosen) + extraRoots.map { it.absolutePath }
         systemProperty("crystalgraphics.resourceOverrideDirs", roots.joinToString(File.pathSeparator))
     }
+    // The kits are 50,000 assets the loading screen waits on: only the scenes that play one mount them. `--args` is
+    // applied at execution, so the choice is made there.
+    val kitScenes = setOf("vfx-nova", "vfx-kamehameha", "vfx-kit-play", "kit-cues", "kit-shading", "model-play",
+        "skinned-play", "sequence-spawn", "post-capture")
+    val kitPaths = exampleRoots.map { it.absolutePath }.toSet()
+    doFirst {
+        val mode = (args ?: emptyList<String>()).lastOrNull { it.startsWith("--mode=") }?.removePrefix("--mode=")
+        if (mode !in kitScenes) {
+            val kept = (allJvmArgs.firstOrNull { it.startsWith("-Dcrystalgraphics.resourceOverrideDirs=") }
+                ?.substringAfter('=')?.split(File.pathSeparator).orEmpty()).filterNot { it in kitPaths }
+            systemProperty("crystalgraphics.resourceOverrideDirs", kept.joinToString(File.pathSeparator))
+        }
+    }
     // The built kits are thousands of folders, seconds to watch at every launch: read, not watched (Ctrl+R reloads).
     val kitRoot = crystalGuiRoot.resolve("plan/crystalgraphics/vfx-aaa/local/kitroot")
     if (kitRoot.isDirectory && System.getProperty("crystalgraphics.hotReload.unwatched") == null) {
