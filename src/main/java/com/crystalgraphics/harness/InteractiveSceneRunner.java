@@ -437,6 +437,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             try {
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.begin")) {
                     ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
+                    ctx.setTarget(mainTarget.external());
                 }
 
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.worldPass")) {
@@ -603,6 +604,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         CgDeviceSection.begin();
         try {
             ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
+            ctx.setTarget(mainTarget.external());
             drawLoadingScreen();
             mainTarget.end();
         } finally {
@@ -626,6 +628,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         CgDeviceSection.begin();
         try {
             ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
+            ctx.setTarget(mainTarget.external());
             drawLoadingScreen();
             mainTarget.end();
         } finally {
@@ -638,7 +641,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     /** Over the frame's target, after the overlays and the capture callback, so no capture holds it. */
     private void drawLoadingScreen() {
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.loadingScreen")) {
-            CgLoadingScreen.draw(ctx.getTargetFramebuffer(), ctx.getScreenWidth(), ctx.getScreenHeight());
+            CgLoadingScreen.draw(ctx.getTarget(), ctx.getScreenWidth(), ctx.getScreenHeight());
         }
     }
 

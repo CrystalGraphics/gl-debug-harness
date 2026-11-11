@@ -112,7 +112,7 @@ public class CgDistortionTestScene implements HarnessSceneLifecycle {
 
         Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), ASPECT, 0.05f, 100f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.getFboId()).view().set(0, 0, 0, new Matrix4f(), projection);
+            stage.host().set(0f, W, H, target.external()).view().set(0, 0, 0, new Matrix4f(), projection);
             stage.fire();
         }
         CgFrameRing.endFrame();

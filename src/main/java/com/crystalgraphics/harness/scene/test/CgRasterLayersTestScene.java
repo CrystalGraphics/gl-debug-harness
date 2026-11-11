@@ -1,10 +1,10 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.graph.CgGraphStorage;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.texture.CgTextureType;
-import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -52,7 +52,7 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
     private final CgMaterial[] draw = new CgMaterial[LAYERS];
     private final CgMaterial[] summing = new CgMaterial[LAYERS + 1];
     private final List<CgRequest> requests = new ArrayList<>();
-    private final Set<CgFrameBuffer> storage = new HashSet<>();
+    private final Set<CgGraphStorage> storage = new HashSet<>();
     private int frame, layersRead, sumsRead;
     private String failure;
     private boolean refused;
@@ -136,7 +136,7 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
             check(data, 0, used, "the sum of " + used + " layers", n);
             sumsRead++;
         }));
-        requests.add(rec.callback("raster-layers.storage", null, () -> storage.add(fields.framebuffer()), fields));
+        requests.add(rec.callback("raster-layers.storage", null, () -> storage.add(fields.storage()), fields));
         CgImmediate.execute(rec);
     }
 

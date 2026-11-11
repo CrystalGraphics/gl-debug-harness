@@ -150,7 +150,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.getFboId()).view().set(0, 0, 0, new Matrix4f(), PROJECTION);
+            stage.host().set(0f, W, H, target.external()).view().set(0, 0, 0, new Matrix4f(), PROJECTION);
             stage.fire();
         }
         if (armed) {

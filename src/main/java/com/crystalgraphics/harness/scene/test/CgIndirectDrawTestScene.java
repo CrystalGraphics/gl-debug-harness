@@ -220,7 +220,7 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         }
         Matrix4f view = new Matrix4f();
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, w, h, target.getFboId()).view().set(0, 0, 0, view, projection);
+            stage.host().set(0f, w, h, target.external()).view().set(0, 0, 0, view, projection);
             stage.fire();
         }
         counting.close();

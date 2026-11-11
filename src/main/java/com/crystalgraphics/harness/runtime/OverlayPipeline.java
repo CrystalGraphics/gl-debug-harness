@@ -78,10 +78,10 @@ public final class OverlayPipeline {
     public void renderOverlays(HarnessContext ctx, boolean uses3DCamera, boolean screenUp) {
         firing = ctx;
         if (uses3DCamera) {
-            CgRenderStage.HUD.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTargetFramebuffer());
+            CgRenderStage.HUD.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTarget());
         }
         if (screenUp) {
-            CgRenderStage.SCREEN.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTargetFramebuffer());
+            CgRenderStage.SCREEN.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTarget());
         }
     }
 
@@ -121,7 +121,7 @@ public final class OverlayPipeline {
         camera.view.identity();
         camera.projection.setOrtho(0f, ctx.getScreenWidth(), ctx.getScreenHeight(), 0f, -1f, 1f);
         camera.resolution(ctx.getScreenWidth(), ctx.getScreenHeight());
-        try (CgExecutor.Into ignored = CgExecutor.into(hudWarmTarget)) {
+        try (CgExecutor.Into ignored = CgExecutor.into(hudWarmTarget.external())) {
             hudRenderer.render(warmCanvas, ctx);
             warmCanvas.flush();
         }

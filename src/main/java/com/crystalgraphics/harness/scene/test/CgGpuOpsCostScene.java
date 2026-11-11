@@ -244,7 +244,7 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
         }
         pixels.flip();
         textures.add(fb);
-        CgGraphTexture texture = CgGraphTexture.imported(name, fb);
+        CgGraphTexture texture = CgGraphTexture.imported(name, fb.external());
         seeds.add(rec -> rec.update(texture, 0, 0, 0, WIDTH, HEIGHT, pixels));
         return texture;
     }

@@ -164,7 +164,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
         // One moment of the show for every capture, between its lightning's flashes: only the passes differ.
         if (warmAt >= 0) demo.submit(CgWorldRenderer.get(), X, GROUND, Z, SHOW_AT);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, width, height, target.getFboId()).view().set(EYE_X, EYE_Y, EYE_Z, view, projection);
+            stage.host().set(0f, width, height, target.external()).view().set(EYE_X, EYE_Y, EYE_Z, view, projection);
             stage.host().environment().sun(0.5f, 0, 0f, 1f);
             stage.host().textures().importedLightmap(lightmap.getId(), 16, 16);
             stage.fire();

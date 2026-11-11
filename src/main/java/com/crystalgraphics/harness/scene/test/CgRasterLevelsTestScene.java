@@ -1,10 +1,10 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.graph.CgGraphStorage;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.texture.CgTextureType;
-import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -66,7 +66,7 @@ public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
         }
         CgImmediate.execute(rec);
 
-        String failure = check(chain.framebuffer(), chain.getLevels());
+        String failure = check(chain.storage(), chain.getLevels());
         CgRecording release = new CgRecording();
         release.release(chain);
         CgImmediate.execute(release);
@@ -74,7 +74,7 @@ public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
     }
 
     /** Null when every level holds what Java works out for it; else the first texel that does not. */
-    private static String check(CgFrameBuffer chain, int levels) {
+    private static String check(CgGraphStorage chain, int levels) {
         float[] want = new float[W * H * 4];
         for (int y = 0; y < H; y++) {
             for (int x = 0; x < W; x++) {
@@ -116,9 +116,9 @@ public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
         return null;
     }
 
-    private static float[] read(CgFrameBuffer chain, int level, int w, int h) {
+    private static float[] read(CgGraphStorage chain, int level, int w, int h) {
         float[] out = new float[w * h * 4];
-        CgFrameBuffer.readTextureFloats(chain.getColorTexture(0), level).asFloatBuffer().get(out);
+        chain.readColorFloats(level).asFloatBuffer().get(out);
         return out;
     }
 

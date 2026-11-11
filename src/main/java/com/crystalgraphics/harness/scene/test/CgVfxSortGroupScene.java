@@ -96,7 +96,7 @@ public class CgVfxSortGroupScene implements HarnessSceneLifecycle {
             Matrix4f view = new Matrix4f();
             Matrix4f projection = new Matrix4f().setPerspective((float) Math.toRadians(90), (float) w / h, 0.1f, 100f);
             for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-                stage.host().set(0f, w, h, target.getFboId()).view().set(0, 0, 0, view, projection);
+                stage.host().set(0f, w, h, target.external()).view().set(0, 0, 0, view, projection);
                 stage.fire();
             }
             target.captureToFile(ctx.getOutputDir(), "vfx-sort-group.png");

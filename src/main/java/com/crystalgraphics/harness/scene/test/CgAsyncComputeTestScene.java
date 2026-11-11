@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.graph.CgGraphStorage;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -299,8 +300,8 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
         CgGraphTexture[] read = {blurred, canvas, result};
         for (int i = 0; i < read.length; i++) {
             int at = i;
-            CgFrameBuffer fb = read[i].framebuffer();
-            reads.add(recording.readback(read[i], 0, 0, 0, fb.getWidth(), fb.getHeight(), data -> {
+            CgGraphStorage fb = read[i].storage();
+            reads.add(recording.readback(read[i], 0, 0, 0, fb.width(), fb.height(), data -> {
                 ByteBuffer copy = ByteBuffer.allocateDirect(data.remaining()).order(ByteOrder.nativeOrder());
                 images[k][at] = copy.put(data).flip();
             }));
@@ -377,7 +378,7 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
             ((CgTexture2D) fb.getColorTexture(0)).uploadRegion(0, 0, 0, w, h, pixels);
         }
         owned.add(fb);
-        return CgGraphTexture.imported(name, fb);
+        return CgGraphTexture.imported(name, fb.external());
     }
 
     @Override public boolean isRunning() { return running; }

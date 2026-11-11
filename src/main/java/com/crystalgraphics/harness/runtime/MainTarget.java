@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.runtime;
 
+import com.crystalgraphics.platform.rhi.CgExternalTarget;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
@@ -41,8 +42,13 @@ public final class MainTarget {
             target = ON ? CgFrameBuffer.createOwned("harness_main", width, height, FORMAT)
                     : CgFrameBuffer.wrap("harness_window", 0, width, height);
         }
-        drawing = CgExecutor.into(target);
+        drawing = CgExecutor.into(target.external());
         return target.getId();
+    }
+
+    /** The frame's target as the render stages take it; {@link #begin} first. */
+    public CgExternalTarget external() {
+        return target.external();
     }
 
     /** Before the overlays: our own target's depth cleared for their text. */

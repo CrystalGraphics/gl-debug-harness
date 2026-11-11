@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.capture;
 
-import com.crystalgraphics.api.texture.CgTexture;
+import com.crystalgraphics.gl.texture.CgTextureAbstract;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
 
 import javax.imageio.ImageIO;
@@ -43,7 +43,7 @@ public final class HarnessCapture {
     }
 
     /** {@code texture} (an array's {@code layer}), its rows as uploaded. */
-    public static void texture(CgTexture texture, int layer, String outputDir, String filename) {
+    public static void texture(CgTextureAbstract texture, int layer, String outputDir, String filename) {
         write(image(CgFrameBuffer.readTexture(texture, layer), texture.getWidth(), texture.getHeight(), false),
                 outputDir, filename);
     }

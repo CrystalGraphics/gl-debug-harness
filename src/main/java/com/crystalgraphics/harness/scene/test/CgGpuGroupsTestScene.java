@@ -70,7 +70,7 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
             materials[i] = CgMaterial.newInstance("assets/harness/shader/" + SHADERS[i] + ".shader");
         }
         fb = CgFrameBuffer.createOwned("gpu-groups", W, H, FORMAT, 1);
-        target = CgGraphTexture.imported("gpu-groups", fb);
+        target = CgGraphTexture.imported("gpu-groups", fb.external());
         wasGpu = CgTrace.isEnabled(CgGpuTrace.GPU);
         wasGroups = CgTrace.isEnabled(CgChannels.GPU_GROUPS);
         CgTrace.setEnabled(CgGpuTrace.GPU, true);

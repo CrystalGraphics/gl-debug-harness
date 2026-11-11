@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import java.util.IdentityHashMap;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -71,6 +72,9 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     private static final CgFrameBufferFormat HOST = CgFrameBufferFormat.builder("hdr_scene_host")
             .color(0, CgTextureType.RGBA8).depth(CgTextureType.DEPTH24_STENCIL8).build();
 
+    /** The framebuffer behind each target this scene imports, which it uploads into, copies and reads. */
+    private static final Map<CgGraphTexture, CgFrameBuffer> MADE = new IdentityHashMap<>();
+
     private record Config(String name, int width, int height, boolean exact, CgGraphTexture host, CgGraphTexture scene,
                           CgGraphTexture out, String in, String composite, CgFrameBuffer copy, String copyZone) {}
 
@@ -93,9 +97,9 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
             String[] wh = size.trim().split("x");
             int w = Integer.parseInt(wh[0]), h = Integer.parseInt(wh[1]);
             CgGraphTexture host = target("host " + size, w, h, HOST);
-            upload(host.framebuffer(), pattern(w, h), w, h);
+            upload(MADE.get(host), pattern(w, h), w, h);
             CgGraphTexture composite = target("out " + size, w, h, HOST);
-            CgFrameBuffer copy = target("copy " + size, w, h, HOST).framebuffer();
+            CgFrameBuffer copy = MADE.get(target("copy " + size, w, h, HOST));
             for (CgTextureType type : SCENES) {
                 CgFrameBufferFormat format = CgFrameBufferFormat.builder("hdr_scene_" + type.name().toLowerCase())
                         .color(0, type).build();
@@ -127,7 +131,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     private void run(Config c, boolean measuring) {
         if (c.copyZone() != null) {
             // The host's colour and depth copied whole, as a scene keeping its own depth would take them each frame.
-            CgFrameBuffer host = c.host().framebuffer();
+            CgFrameBuffer host = MADE.get(c.host());
             int copy = c.copy().getId();
             execute(rec -> rec.callback("hdr-scene copy", null, () -> host.copyColorAndDepthTo(copy)), c.copyZone(), measuring);
             // The same callback copying nothing: what the copy zone holds besides the blit.
@@ -230,10 +234,10 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         world.install();
         CgPostStack.get().install();
         // A host draws its world into its own target: the stages take it as the current one.
-        try (CgExecutor.Into ignored = CgExecutor.into(host)) {
+        try (CgExecutor.Into ignored = CgExecutor.into(host.external())) {
             Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
             for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-                stage.host().set(0f, w, h, host.getId()).view().set(0, 0, 0, new Matrix4f(), projection);
+                stage.host().set(0f, w, h, host.external()).view().set(0, 0, 0, new Matrix4f(), projection);
                 stage.fire();
             }
         }
@@ -275,7 +279,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         boolean wasSkipping = world.skipUnready();
         world.skipUnready(false);
         Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
-        try (CgExecutor.Into ignored = CgExecutor.into(host)) {
+        try (CgExecutor.Into ignored = CgExecutor.into(host.external())) {
             host.clearDepth();
             world.draw(CgMeshShapes.cube(), opaqueMaterial).at(0, 0, -3).submit();
             fire(CgRenderStage.WORLD_OPAQUE, host, w, h, projection);
@@ -337,13 +341,13 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     }
 
     private static void fire(CgRenderStage stage, CgFrameBuffer host, int w, int h, Matrix4f projection) {
-        stage.host().set(0f, w, h, host.getId()).view().set(0, 0, 0, new Matrix4f(), projection);
+        stage.host().set(0f, w, h, host.external()).view().set(0, 0, 0, new Matrix4f(), projection);
         stage.fire();
     }
 
     /** Channel values of {@code c}'s out unlike the pattern: RGB only where the scene has no alpha. */
     private static int changed(Config c) {
-        return changed(c.out().framebuffer(), c.exact());
+        return changed(MADE.get(c.out()), c.exact());
     }
 
     /** Channel values of {@code target}'s colour unlike the pattern; without {@code alpha}, RGB only. */
@@ -377,7 +381,9 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     private CgGraphTexture target(String name, int w, int h, CgFrameBufferFormat format) {
         CgFrameBuffer fb = CgFrameBuffer.createOwned("hdr-scene " + name, w, h, format);
         owned.add(fb);
-        return CgGraphTexture.imported(name, fb);
+        CgGraphTexture texture = CgGraphTexture.imported(name, fb.external());
+        MADE.put(texture, fb);
+        return texture;
     }
 
     @Override public boolean isRunning() { return running; }

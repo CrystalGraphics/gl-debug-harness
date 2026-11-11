@@ -103,7 +103,7 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
         renderer.draw(cube, handed).at(HANDED[0], HANDED[1], HANDED[2]).transform(new Matrix4f().scale(2f, 0.1f, 2f)).submit();
         if (phase < 2) renderer.lights().add(LIGHT_X, LIGHT_Y, LIGHT_Z, LIGHT_RADIUS, 0xFFFFE0C0, 600f, 0f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.getFboId()).view().set(EYE_X, EYE_Y, EYE_Z, look, projection);
+            stage.host().set(0f, W, H, target.external()).view().set(EYE_X, EYE_Y, EYE_Z, look, projection);
             stage.fire();
         }
         CgFrameRing.endFrame();

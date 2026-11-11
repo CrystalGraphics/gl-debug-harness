@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.util;
 
+import com.crystalgraphics.platform.rhi.CgExternalTarget;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
@@ -20,7 +21,7 @@ import org.jspecify.annotations.Nullable;
  *
  * target.bind();                                              // render: the current target until unbind
  * target.clear(0.05f, 0.05f, 0.07f, 1f);
- * stage.host().set(0f, w, h, target.getFboId());
+ * stage.host().set(0f, w, h, target.external());
  * stage.fire();
  * target.captureToFile(ctx.getOutputDir(), "frame.png");
  * target.unbind();                                            // the one before, back
@@ -60,7 +61,7 @@ public final class HarnessTarget {
 
     /** Makes it the current target of every execution, as the host's main target is, until {@link #unbind()}. */
     public void bind() {
-        if (drawing == null) drawing = CgExecutor.into(framebuffer);
+        if (drawing == null) drawing = CgExecutor.into(framebuffer.external());
     }
 
     /** Puts back the current target before {@link #bind()}. */
@@ -84,6 +85,11 @@ public final class HarnessTarget {
     public void delete() {
         unbind();
         framebuffer.delete();
+    }
+
+    /** It as the render stages take a target: what {@code host().set(...)} and {@code fireOverlay} are given. */
+    public CgExternalTarget external() {
+        return framebuffer.external();
     }
 
     /** The framebuffer id a stage's host frame names it by. */

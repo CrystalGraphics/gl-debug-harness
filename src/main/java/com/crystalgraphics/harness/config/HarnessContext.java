@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.config;
 
+import com.crystalgraphics.platform.rhi.CgExternalTarget;
 import com.crystalgraphics.loading.task.CgLoadPlan;
 import java.nio.file.Paths;
 import java.nio.file.Path;
@@ -252,6 +253,17 @@ public final class HarnessContext {
 
     /** Set by the interactive runner each frame it draws into its main target. */
     public void setTargetFramebuffer(int framebuffer) { targetFramebuffer = framebuffer; }
+
+    private CgExternalTarget target;
+
+    /**
+     * {@link #getTargetFramebuffer()} as the render stages take it: what a scene hands {@code host().set(...)} and
+     * {@code fireOverlay}, since the runner's main target is a framebuffer of ours, which no host name reaches.
+     */
+    public CgExternalTarget getTarget() { return target; }
+
+    /** Set by the interactive runner with {@link #setTargetFramebuffer}. */
+    public void setTarget(CgExternalTarget target) { this.target = target; }
 
     /**
      * Updates the stored screen dimensions. Called by the InteractiveSceneRunner
