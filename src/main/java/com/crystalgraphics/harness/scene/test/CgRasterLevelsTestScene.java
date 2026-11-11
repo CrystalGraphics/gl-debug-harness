@@ -1,10 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.render.graph.CgGraphStorage;
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
-import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -21,6 +19,7 @@ import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgTextureDesc;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 
 /**
@@ -36,8 +35,7 @@ import com.crystalgraphics.render.graph.CgTextureDesc;
 public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
 
     private static final int W = 40, H = 24;
-    private static final CgFrameBufferFormat HALF = CgFrameBufferFormat.builder("raster-levels")
-            .color(0, CgTextureType.RGBA16F).build();
+    private static final CgFormat HALF = CgFormat.RGBA16_FLOAT;
 
     private CgMaterial top, down;
 

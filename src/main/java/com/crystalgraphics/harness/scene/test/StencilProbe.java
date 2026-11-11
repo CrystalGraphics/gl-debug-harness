@@ -1,10 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshTopology;
-import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
@@ -17,6 +15,7 @@ import com.crystalgraphics.render.graph.CgTextureDesc;
 import com.crystalgraphics.render.stage.CgStageFrame;
 
 import javax.annotation.Nullable;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * A gate's view of a graph texture's stencil, read as a post material reads CustomStencil
@@ -29,7 +28,7 @@ import javax.annotation.Nullable;
  */
 final class StencilProbe {
 
-    private static final CgFrameBufferFormat R8 = CgFrameBufferFormat.builder("stencil_probe").color(0, CgTextureType.R8).build();
+    private static final CgFormat R8 = CgFormat.R8_UNORM;
     private static final CgMesh FULLSCREEN = CgMesh.vertices(3, CgMeshTopology.TRIANGLES);
 
     private final CgMaterial copy = CgMaterial.load("assets/harness/shader/stencil_probe.shader");

@@ -1,7 +1,5 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
-import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.compute.CgCompute;
 import com.crystalgraphics.compute.CgKernel;
 import com.crystalgraphics.compute.emit.CgKernelTarget;
@@ -83,8 +81,7 @@ public class CgComputeSeamTestScene implements InteractiveSceneLifecycle {
     /** Frames the readbacks may take to land before the scene gives up. */
     private static final int LAND_FRAMES = 30;
     private static final boolean SKIP_BARRIERS = Boolean.getBoolean("crystalgraphics.harness.computeSeam.skipBarriers");
-    private static final CgFrameBufferFormat PICTURE = CgFrameBufferFormat.builder("compute_seam_picture")
-            .color(0, CgTextureType.RGBA8).build();
+    private static final CgFormat PICTURE = CgFormat.RGBA8_UNORM;
 
     private static final String QUAD_STRUCT = "struct Quad { vec4 rect; uint color; uint pad0, pad1, pad2; };\n";
     private static final String CORNERS =

@@ -1,9 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
-import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.compute.CgCompute;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -32,6 +30,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * The gate for volumes in the frame graph (gpu-compute C11, E3). Each frame a 12x10x9 R16F volume is filled by a
@@ -50,10 +49,8 @@ public class CgVolumeTestScene implements InteractiveSceneLifecycle {
     private static final int W = 12, H = 10, D = 9, N = W * H * D, FRAMES = 8, DRAIN = 30;
     private static final int PW = 7, PH = 5, PD = 6, BOX_W = 3, BOX_H = 2, BOX_D = 2;
     private static final int[] SPREAD_BOX = {1, 2, 3, 5, 4, 4};
-    private static final CgFrameBufferFormat R16F = CgFrameBufferFormat.builder("volumes-r16f")
-            .color(0, CgTextureType.R16F).build();
-    private static final CgFrameBufferFormat R32F = CgFrameBufferFormat.builder("volumes-r32f")
-            .color(0, CgTextureType.R32F).build();
+    private static final CgFormat R16F = CgFormat.R16_FLOAT;
+    private static final CgFormat R32F = CgFormat.R32_FLOAT;
     private static final CgBufferDesc FLOATS = CgBufferDesc.elements(N, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY);
 
     private final CgGraphTexture field = CgGraphTexture.transientTexture("volumes.field", CgTextureDesc.volume(W, H, D, R16F));

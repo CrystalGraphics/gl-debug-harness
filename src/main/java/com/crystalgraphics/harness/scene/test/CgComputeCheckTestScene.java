@@ -1,7 +1,5 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
-import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.compute.CgCompute;
 import com.crystalgraphics.compute.emit.CgKernelTarget;
 import com.crystalgraphics.compute.program.CgComputeCheck;
@@ -26,6 +24,7 @@ import com.crystalgraphics.util.io.CgIO;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * gpu-compute C10's gate for checked mode ({@code -Dcrystalgraphics.compute.checked=true}): {@code compute_check.compute}'s
@@ -40,8 +39,7 @@ public class CgComputeCheckTestScene implements InteractiveSceneLifecycle {
 
     private static final String FILE = "harness:shaders/compute_check.compute";
     private static final int FRAMES = 3, DRAIN = 30;
-    private static final CgFrameBufferFormat R32F = CgFrameBufferFormat.builder("compute-check")
-            .color(0, CgTextureType.R32F).build();
+    private static final CgFormat R32F = CgFormat.R32_FLOAT;
 
     private final CgGraphBuffer out = CgGraphBuffer.persistent("compute-check.out",
             CgBufferDesc.elements(64, 4, CgBufferUsage.STORAGE));

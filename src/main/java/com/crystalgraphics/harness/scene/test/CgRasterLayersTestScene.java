@@ -1,10 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.render.graph.CgGraphStorage;
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
-import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -28,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * The gate for raster passes into array layers. Each frame a 24x16 RGBA16F array of five layers, transient, has its
@@ -43,8 +42,7 @@ import java.util.Set;
 public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
 
     private static final int W = 24, H = 16, LAYERS = 5, FRAMES = 8, DRAIN = 30;
-    private static final CgFrameBufferFormat HALF = CgFrameBufferFormat.builder("raster-layers")
-            .color(0, CgTextureType.RGBA16F).build();
+    private static final CgFormat HALF = CgFormat.RGBA16_FLOAT;
 
     private final CgGraphTexture fields = CgGraphTexture.transientTexture("raster-layers.fields",
             CgTextureDesc.array(W, H, LAYERS, HALF));

@@ -40,6 +40,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * gpu-compute C3's gate: a chain of compute and raster passes in one frame graph, recorded and built on a worker
@@ -114,7 +115,7 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
     private CgRecording record(CgGraphBuffer state, int w, int h) {
         CgGraphBuffer args = CgGraphBuffer.transientBuffer("args",
                 CgBufferDesc.of(16, CgBufferUsage.STORAGE, CgBufferUsage.INDIRECT));
-        CgGraphTexture picture = CgGraphTexture.transientTexture("picture", new CgTextureDesc(SIZE, SIZE, CgTextureDesc.RGBA8));
+        CgGraphTexture picture = CgGraphTexture.transientTexture("picture", CgTextureDesc.of(SIZE, SIZE, CgFormat.RGBA8_UNORM));
         CgRecording rec = new CgRecording();
 
         CgComputePass sizes = rec.compute("args");

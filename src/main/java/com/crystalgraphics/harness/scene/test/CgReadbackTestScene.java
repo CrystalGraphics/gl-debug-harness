@@ -1,7 +1,5 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
-import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.compute.ops.CgGpuCount;
 import com.crystalgraphics.compute.source.CgElementField;
 import com.crystalgraphics.compute.ops.CgGpuOps;
@@ -30,6 +28,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntUnaryOperator;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
  * The gate for {@code CgRecording.readback} (gpu-compute C8): each frame, words {@code CgGpuOps.iota} wrote into a
@@ -53,12 +52,9 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             ROWS = 8, ROW_BYTES = 16;
     private static final CgBufferDesc POOL_DESC = CgBufferDesc.elements(POOL, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY);
     private static final CgBufferDesc GROWN_DESC = CgBufferDesc.elements(2 * POOL, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY);
-    private static final CgFrameBufferFormat F32 = CgFrameBufferFormat.builder("readback-f32")
-            .color(0, CgTextureType.RGBA32F).build();
-    private static final CgFrameBufferFormat R8 = CgFrameBufferFormat.builder("readback-r8")
-            .color(0, CgTextureType.R8).build();
-    private static final CgFrameBufferFormat RGBA8 = CgFrameBufferFormat.builder("readback-rgba8")
-            .color(0, CgTextureType.RGBA8).build();
+    private static final CgFormat F32 = CgFormat.RGBA32_FLOAT;
+    private static final CgFormat R8 = CgFormat.R8_UNORM;
+    private static final CgFormat RGBA8 = CgFormat.RGBA8_UNORM;
 
     private final CgGraphBuffer words = CgGraphBuffer.transientBuffer("readback.words",
             CgBufferDesc.elements(WORDS, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY));
