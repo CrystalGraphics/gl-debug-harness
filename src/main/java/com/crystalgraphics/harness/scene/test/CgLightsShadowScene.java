@@ -43,8 +43,8 @@ import java.util.List;
  */
 public class CgLightsShadowScene implements InteractiveSceneLifecycle {
 
-    /** Frames each phase holds: the window fills during the first, the history settles in each. */
-    private static final int PHASE = 240, W = 320, H = 240;
+    /** Frames each phase holds: the window fills during the first, the history settles in each; 3 s at 120 fps. */
+    private static final int PHASE = 120, W = 320, H = 240;
     private static final int CX = -1000, CZ = 2000, GROUND = 64;
     private static final double LIGHT_X = CX - 3.5, LIGHT_Y = GROUND + 2.5, LIGHT_Z = CZ + 0.5;
     /** On the floor 8 blocks from the light across, behind the wall; and 8 blocks along, in the open. */

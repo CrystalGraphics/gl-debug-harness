@@ -69,6 +69,8 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
     private CgKernel append;
     private CgPipelinePrecache.Request kernels;
     private CgWorldLights.Appender appender;
+    /** The frame whose firing last ran the kernel, and the frame the check read back on (0 before). */
+    private int appendedAt, checkedAt;
     private ByteBuffer count, list, cells, indices;
     private double eyeX, eyeY, eyeZ;
     private int gridX, gridY, frame, checked, cellsChecked, dense;
@@ -156,6 +158,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
             public boolean append(CgComputePass pass, CgWorldLights lights) {
                 if (!kernels.ready()) return false;   // the loading screen's warm frames fire the world already
                 lights.into(pass.dispatch(append, KERNEL)).bind("PLACED", placedBuffer);
+                appendedAt = frame;
                 return true;
             }
         };
@@ -173,11 +176,24 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
             else if (i % 3 == 2) lights.tube(cpuTube[i * 4], cpuTube[i * 4 + 1], cpuTube[i * 4 + 2], cpuTube[i * 4 + 3]);
         }
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
-        if (frame == CHECK_AT) readBack(lights);
-        if (frame <= CHECK_AT) return;
+        // The first firing at or past CHECK_AT that ran the kernel: until its pipeline is built the appender skips,
+        // and the lights' list may not exist yet.
+        if (checkedAt == 0 && frame >= CHECK_AT && appendedAt == frame) {
+            readBack(lights);
+            checkedAt = frame;
+        }
+        if (checkedAt == 0 || frame == checkedAt) {
+            if (checkedAt == 0 && frame > CHECK_AT + DRAIN) {
+                fail("the kernel never appended by frame " + frame);
+                report();
+                CgWorldRenderer.get().lights().remove(appender);
+                running = false;
+            }
+            return;
+        }
         boolean answered = true;
         for (CgRequest r : requests) answered &= r.status() != CgRequest.Status.PENDING;
-        if (answered || frame > CHECK_AT + DRAIN) {
+        if (answered || frame > checkedAt + DRAIN) {
             if (answered) compare();
             report();
             CgWorldRenderer.get().lights().remove(appender);
