@@ -4,7 +4,7 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
 import com.crystalgraphics.api.texture.CgTextureSpec;
-import com.crystalgraphics.gl.texture.CgTexture2D;
+import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;

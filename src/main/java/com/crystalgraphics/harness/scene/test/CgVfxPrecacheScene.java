@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.gl.material.CgMaterialShader;
+import com.crystalgraphics.material.CgMaterialShader;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;

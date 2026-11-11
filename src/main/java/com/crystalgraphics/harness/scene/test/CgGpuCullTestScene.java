@@ -9,7 +9,7 @@ import com.crystalgraphics.compute.ops.CgCull;
 import com.crystalgraphics.compute.ops.CgCullSets;
 import com.crystalgraphics.compute.ops.CgGpuCount;
 import com.crystalgraphics.compute.ops.CgGpuOps;
-import com.crystalgraphics.gl.buffer.CgBufferReadback;
+import com.crystalgraphics.gpu.resource.CgBufferReadback;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;

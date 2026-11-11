@@ -5,7 +5,7 @@ import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshWriter;
 import com.crystalgraphics.api.mesh.CgSkinning;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
-import com.crystalgraphics.gl.buffer.shader.CgBonePalettes;
+import com.crystalgraphics.animation.CgBonePalettes;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;

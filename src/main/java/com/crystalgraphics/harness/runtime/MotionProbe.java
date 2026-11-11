@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.runtime;
 
-import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
+import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

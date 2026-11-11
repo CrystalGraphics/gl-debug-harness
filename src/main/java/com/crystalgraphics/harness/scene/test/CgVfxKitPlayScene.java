@@ -1,8 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.asset.load.CgVfxAssets;
-import com.crystalgraphics.gl.material.CgMaterialShader;
-import com.crystalgraphics.gl.texture.CgTextureAbstract;
+import com.crystalgraphics.material.CgMaterialShader;
+import com.crystalgraphics.gpu.resource.CgTextureAbstract;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;

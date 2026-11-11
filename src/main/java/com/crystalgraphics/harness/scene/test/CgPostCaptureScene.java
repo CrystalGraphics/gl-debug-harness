@@ -10,7 +10,7 @@ import com.crystalgraphics.asset.load.CgVfxAssets;
 import com.crystalgraphics.asset.registry.CgAssetRegistry;
 import com.crystalgraphics.asset.registry.CgAssetSource;
 import com.crystalgraphics.frame.CgWorld;
-import com.crystalgraphics.gl.buffer.CgFrameRing;
+import com.crystalgraphics.gpu.resource.CgFrameRing;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;

@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness;
 
-import com.crystalgraphics.gl.texture.CgTextureManager;
+import com.crystalgraphics.gpu.resource.CgTextureManager;
 import com.crystalgraphics.api.material.CgMaterialRegistry;
 
 public class ClasspathProbe {

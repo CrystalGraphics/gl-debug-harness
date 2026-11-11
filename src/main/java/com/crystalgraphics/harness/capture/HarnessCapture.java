@@ -1,7 +1,7 @@
 package com.crystalgraphics.harness.capture;
 
-import com.crystalgraphics.gl.texture.CgTextureAbstract;
-import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
+import com.crystalgraphics.gpu.resource.CgTextureAbstract;
+import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;

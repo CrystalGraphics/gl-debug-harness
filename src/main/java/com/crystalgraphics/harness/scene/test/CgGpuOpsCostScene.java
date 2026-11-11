@@ -11,7 +11,7 @@ import com.crystalgraphics.compute.ops.CgGpuOps.Fold;
 import com.crystalgraphics.compute.ops.CgGpuOps.Order;
 import com.crystalgraphics.compute.ops.CgGpuOps.Scan;
 import com.crystalgraphics.compute.ops.CgRng;
-import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
+import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;

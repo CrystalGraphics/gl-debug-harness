@@ -2,7 +2,7 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.compute.CgCompute;
-import com.crystalgraphics.gl.texture.CgTexture2D;
+import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;

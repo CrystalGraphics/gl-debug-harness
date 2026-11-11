@@ -7,7 +7,7 @@ import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.asset.codec.CgAssetYaml;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.asset.tree.CgAssetData;
-import com.crystalgraphics.gl.buffer.CgReadback;
+import com.crystalgraphics.gpu.resource.CgReadback;
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.DeviceErrors;

@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.runtime;
 
-import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
+import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 import com.crystalgraphics.harness.camera.FloorRenderer;
 import com.crystalgraphics.harness.config.WorldConfig;
 import com.crystalgraphics.harness.config.WorldSettings;

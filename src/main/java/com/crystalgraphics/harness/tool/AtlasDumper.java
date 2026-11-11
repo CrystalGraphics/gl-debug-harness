@@ -5,7 +5,7 @@ import com.crystalgraphics.api.font.CgGlyphKey;
 import com.crystalgraphics.api.font.CgGlyphPlacement;
 import com.crystalgraphics.text.atlas.CgGlyphAtlasPage;
 import com.crystalgraphics.text.atlas.CgGlyphAtlas;
-import com.crystalgraphics.gl.texture.CgTexture2DArray;
+import com.crystalgraphics.gpu.resource.CgTexture2DArray;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 import com.crystalgraphics.harness.util.HarnessOutputDir;
 import com.crystalgraphics.harness.capture.HarnessCapture;

@@ -4,7 +4,7 @@ import com.crystalgraphics.render.draw.CgPassConstants;
 import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.render.canvas.CgCanvas;
-import com.crystalgraphics.gl.texture.CgFallbackTextures;
+import com.crystalgraphics.gpu.resource.CgFallbackTextures;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;

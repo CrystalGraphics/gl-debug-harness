@@ -2,7 +2,7 @@ package com.crystalgraphics.harness.runtime;
 
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.texture.CgTextureType;
-import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
+import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 import com.crystalgraphics.render.graph.CgExecutor;
 import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.config.HarnessContext;

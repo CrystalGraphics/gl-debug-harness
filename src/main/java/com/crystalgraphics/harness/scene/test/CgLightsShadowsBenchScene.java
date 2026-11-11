@@ -6,7 +6,7 @@ import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.demo.CgShadowsDemo;
-import com.crystalgraphics.gl.texture.CgTexture2D;
+import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;

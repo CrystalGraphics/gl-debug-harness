@@ -3,7 +3,7 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
-import com.crystalgraphics.gl.buffer.CgFrameRing;
+import com.crystalgraphics.gpu.resource.CgFrameRing;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;

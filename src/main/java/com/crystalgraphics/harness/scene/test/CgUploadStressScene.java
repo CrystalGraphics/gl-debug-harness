@@ -2,11 +2,11 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.texture.CgTextureSpec;
-import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
+import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 import com.crystalgraphics.render.canvas.CgCanvas;
-import com.crystalgraphics.gl.texture.CgFallbackTextures;
-import com.crystalgraphics.gl.texture.CgTexture2D;
-import com.crystalgraphics.gl.texture.CgTexture3D;
+import com.crystalgraphics.gpu.resource.CgFallbackTextures;
+import com.crystalgraphics.gpu.resource.CgTexture2D;
+import com.crystalgraphics.gpu.resource.CgTexture3D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;

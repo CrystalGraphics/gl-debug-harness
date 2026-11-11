@@ -3,7 +3,7 @@ package com.crystalgraphics.harness.runtime;
 import com.crystalgraphics.platform.rhi.CgExternalTarget;
 import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.texture.CgTextureType;
-import com.crystalgraphics.gl.framebuffer.CgFrameBuffer;
+import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 import com.crystalgraphics.render.graph.CgExecutor;
 import org.jspecify.annotations.Nullable;
 

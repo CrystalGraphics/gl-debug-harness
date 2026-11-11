@@ -1,8 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterialDefinition;
-import com.crystalgraphics.gl.material.CgMaterialProperty;
-import com.crystalgraphics.gl.material.parse.CgShaderParser;
+import com.crystalgraphics.material.CgMaterialProperty;
+import com.crystalgraphics.material.parse.CgShaderParser;
 import com.crystalgraphics.util.io.CgIO;
 import com.crystalgraphics.vfx.look.CgVfxLook;
 import com.crystalgraphics.vfx.particle.renderer.CgVfxMeshRendererProperties;

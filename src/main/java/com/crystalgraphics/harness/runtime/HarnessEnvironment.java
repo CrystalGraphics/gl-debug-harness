@@ -3,7 +3,7 @@ package com.crystalgraphics.harness.runtime;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
-import com.crystalgraphics.gl.texture.CgTexture2D;
+import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.api.texture.CgTextureSpec;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.camera.Camera3D;
