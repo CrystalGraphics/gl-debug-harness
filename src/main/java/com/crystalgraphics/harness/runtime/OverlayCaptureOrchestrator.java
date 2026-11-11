@@ -11,7 +11,7 @@ import com.crystalgraphics.util.trace.CgChannels;
  *
  * <pre>{@code
  * orchestrator.setPostRenderCallback(() -> artifacts.capture("final"));   // this frame, after the HUD
- * orchestrator.executePostSceneSequence(scene.uses3DCamera(), () -> ui.render(info));
+ * orchestrator.executePostSceneSequence(scene.uses3DCamera(), screenUp, () -> ui.afterFrame(info));
  * }</pre>
  *
  * <p>Render thread.</p>
@@ -29,13 +29,14 @@ public final class OverlayCaptureOrchestrator {
     }
 
     /**
-     * The HUD, then {@code afterOverlays} (or nothing), then the capture callback. Once a frame, after the scene.
+     * The GUI stages, then {@code afterOverlays} (or nothing), then the capture callback. Once a frame, after the scene.
      *
      * @param uses3DCamera whether the scene has the 3D camera, which is what the HUD reads out
+     * @param screenUp     whether a screen is up, which {@code SCREEN} draws over: a 2D scene, or the desktop
      */
-    public void executePostSceneSequence(boolean uses3DCamera, Runnable afterOverlays) {
+    public void executePostSceneSequence(boolean uses3DCamera, boolean screenUp, Runnable afterOverlays) {
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "overlay.render")) {
-            overlayPipeline.renderOverlays(ctx, uses3DCamera);
+            overlayPipeline.renderOverlays(ctx, uses3DCamera, screenUp);
         }
         if (afterOverlays != null) afterOverlays.run();
         if (postRenderCallback != null) {

@@ -10,6 +10,7 @@ import com.crystalgui.desktop.host.HostServices;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleEngine;
 import com.crystalgui.style.StyleGroup;
+import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgui.ui.dom.DocumentDriver;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.ui.dom.UIElement;
@@ -57,6 +58,8 @@ import javax.annotation.Nullable;
  *       {@code -Dcrystalgui.theme} picks another theme for any scene.</li>
  *   <li>The document is offered every key first; Ctrl+= and Ctrl+- zoom the scale and Ctrl+0 resets it, as a browser's.</li>
  *   <li>Every size is in logical pixels, the window's divided by the scale.</li>
+ *   <li>The document draws on CrystalGraphics' {@code SCREEN} stage, which the harness fires over every 2D scene as a
+ *       game fires it over a screen: its size, target and clock are the stage's, and {@link #afterFrame} runs after.</li>
  * </ul>
  */
 public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard, CgSystemInput.Mouse {
@@ -66,6 +69,9 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
     private UIDocument document;
     private DocumentDriver<Void> driver;
     private DocumentDriver.Painter<Void> painter;
+    private CgRenderStage.Registration screen;
+    private HarnessContext context;
+    private FrameInfo lastFrame;
     private volatile boolean running = true;
 
     // ── What a scene writes ─────────────────────────────────────────────────────────────────────
@@ -119,7 +125,7 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
     protected void tick(HarnessContext ctx, FrameInfo frame) {
     }
 
-    /** Each frame on the render thread, after the document's frame. */
+    /** Each frame on the render thread, after the document's frame: in the {@code SCREEN} stage's turn. */
     protected void afterFrame(HarnessContext ctx, FrameInfo frame) {
     }
 
@@ -163,6 +169,12 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
         document = new UIDocument();
         driver = DocumentDriver.attach(document, mode(), getClass().getSimpleName());
         painter = painter();
+        context = ctx;
+        screen = CgRenderStage.SCREEN.register(CgRenderStage.VIEWPORT_WIDGETS, stage -> {
+            if (driver == null || lastFrame == null) return;
+            driver.frame(stage, painter);
+            afterFrame(context, lastFrame);
+        });
         driver.run(() -> {
             document.boxes().setUiScale(scale());
             StyleEngine styles = document.styles();
@@ -178,13 +190,15 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
 
     @Override
     public final void render(HarnessContext ctx, FrameInfo frame) {
+        context = ctx;
+        lastFrame = frame;
         tick(ctx, frame);
-        driver.frame(frame.getDeltaTime(), ctx.getScreenWidth(), ctx.getScreenHeight(), painter);
-        afterFrame(ctx, frame);
     }
 
     @Override
     public final void dispose() {
+        if (screen != null) screen.close();
+        screen = null;
         if (driver == null) return;
         driver.run(this::disposed);
         driver.close();

@@ -17,8 +17,9 @@ import com.crystalgraphics.text.cache.CgFontRegistry;
 import java.util.logging.Logger;
 
 /**
- * The harness's HUD: its text on {@link CgRenderStage#HUD}, fired as a game's host fires it, after the scene pass
- * and the post-scene GL reset, when the scene has a 3D camera. The text draws at {@link #HUD_ORDER} unless F1 hid it,
+ * The harness's GUI stages: its HUD text on {@link CgRenderStage#HUD}, fired as a game's host fires it, after the scene
+ * pass and the post-scene GL reset, when the scene has a 3D camera; then {@link CgRenderStage#SCREEN} while a screen is
+ * up. The text draws at {@link #HUD_ORDER} unless F1 hid it,
  * then anything else drawing over the HUD: the engine's subtitles, CrystalGUI's pinned windows. It sizes itself
  * from the window each frame.
  */
@@ -70,13 +71,18 @@ public final class OverlayPipeline {
     }
 
     /**
-     * Fires the HUD stage over the frame's target when the scene has a 3D camera. Its pipelines declare their own state.
-     * The harness's GUI is unscaled.
+     * Fires the GUI stages over the frame's target as a game's host fires them: {@link CgRenderStage#HUD} when the scene
+     * has a 3D camera, then {@link CgRenderStage#SCREEN} when a screen is up -- a 2D scene, which is one, or the desktop
+     * over a 3D scene. Their pipelines declare their own state. The harness's GUI is unscaled.
      */
-    public void renderOverlays(HarnessContext ctx, boolean uses3DCamera) {
-        if (!uses3DCamera) return;
+    public void renderOverlays(HarnessContext ctx, boolean uses3DCamera, boolean screenUp) {
         firing = ctx;
-        CgRenderStage.HUD.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTargetFramebuffer());
+        if (uses3DCamera) {
+            CgRenderStage.HUD.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTargetFramebuffer());
+        }
+        if (screenUp) {
+            CgRenderStage.SCREEN.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTargetFramebuffer());
+        }
     }
 
     private boolean hudHidden;

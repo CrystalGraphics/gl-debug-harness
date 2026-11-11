@@ -12,11 +12,13 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.platform.service.CgGameDirectory;
 import com.crystalgraphics.platform.service.CgGameThreads;
 import com.crystalgraphics.platform.service.CgHostWindow;
+import com.crystalgraphics.render.stage.CgStageFrame;
 import com.crystalgui.core.window.DesktopPresentation;
 import com.crystalgui.desktop.Desktop;
 import com.crystalgui.desktop.app.ApplicationKind;
 import com.crystalgui.desktop.host.HostServices;
 import com.crystalgui.desktop.host.HostSession;
+import com.crystalgui.render.UiPresenter;
 import com.crystalgui.ui.dom.DocumentDriver;
 
 import javax.annotation.Nullable;
@@ -28,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -52,7 +55,7 @@ import java.util.function.Predicate;
  * ui.openAtStart(() -> desktop.addWindow(new WindowFrame("Hello")));   // built on the document, behind the loading screen
  * ui.sceneKeys(event -> event.key() == CgKeyCodes.KEY_F2 && spawnWindow());
  * ui.afterFrames(frame -> probe.frame());
- * ui.replaceNextFrame(() -> UiGpu.presentAgain(w, h));                 // once, in place of the desktop's frame
+ * ui.replaceNextFrame((stage, presenter) -> presenter.presentAgain(stage));   // once, in place of the desktop's paint
  * }</pre>
  *
  * <ul>
@@ -79,17 +82,12 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
     private final HostSession.PaintHost paintHost = new HostSession.PaintHost() {
         @Override public boolean ownScreenUp() { return shown; }
         @Override public boolean anyScreenUp() { return shown; }
-        // Every harness draw is the engine's: there is no toolkit's state to hand over and back
-        @Override public void enter() { }
-        @Override public void leave() { }
     };
     private volatile boolean shown;
     @Nullable
     private Predicate<CgSystemInput.Keyboard.Event> sceneKeys;
     @Nullable
     private Consumer<FrameInfo> afterFrames;
-    @Nullable
-    private Runnable replacement;
 
     /** The runtime's, once a run, on the render thread. */
     public HarnessUi(HarnessContext ctx) {
@@ -193,9 +191,12 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         afterFrames = after;
     }
 
-    /** Runs {@code present} once, at the next frame's desktop and in place of it. For a probe presenting a frame itself. */
-    public void replaceNextFrame(Runnable present) {
-        replacement = present;
+    /**
+     * Runs {@code paint} once, at the next frame's desktop and in place of it, with that frame's {@code SCREEN} firing
+     * and the desktop's presenter. For a probe presenting a frame itself. @see HostSession#replaceNextPaint
+     */
+    public void replaceNextFrame(BiConsumer<CgStageFrame, UiPresenter> paint) {
+        HostSession.session().replaceNextPaint(paint);
     }
 
     /** Closes the desktop once it has played itself off screen; every window on it is kept for the next time. */
@@ -219,20 +220,17 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         return shown;
     }
 
-    /** Each frame over the HUD. The runtime's. */
-    public void render(FrameInfo frame) {
+    /**
+     * Each frame, before the GUI stages: the client work posted to the render thread, and the server. The desktop itself
+     * paints on {@code SCREEN}, which the runtime fires while it is {@link #shown()}. The runtime's.
+     */
+    public void tick(FrameInfo frame) {
         for (Runnable work; (work = onRenderThread.poll()) != null; ) work.run();
         server.tick(frame.getDeltaTime());
-        Runnable present = replacement;
-        replacement = null;
-        if (present != null) {
-            present.run();
-        } else if (shown) {
-            HostSession session = HostSession.session();
-            float delta = session.frameDelta();
-            session.frame(delta);
-            session.paint(DesktopPresentation.DESKTOP, delta, paintHost);
-        }
+    }
+
+    /** Each frame, after the GUI stages: the probe {@link #afterFrames} set. The runtime's. */
+    public void afterFrame(FrameInfo frame) {
         Consumer<FrameInfo> after = afterFrames;
         if (after != null) after.accept(frame);
     }

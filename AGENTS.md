@@ -661,7 +661,7 @@ The interactive runtime decomposes into focused services instead of one monolith
 | `InputPauseHandler` | `runtime/InputPauseHandler.java` | Pause state (a 2D scene's ESC/T, `setPaused`) + mouse grab management; a 3D scene's ESC/T open the desktop |
 | `ResizeHandler` | `runtime/ResizeHandler.java` | Framebuffer resize detection (`HarnessWindow.takeResized`) into the context's dimensions |
 | `MainTarget` | `runtime/MainTarget.java` | The frame's target, the window's size, copied into the window at the frame's end, as Minecraft's main target |
-| `OverlayPipeline` | `runtime/OverlayPipeline.java` | The HUD: its text on the HUD stage |
+| `OverlayPipeline` | `runtime/OverlayPipeline.java` | The GUI stages: the HUD's text on `HUD` (3D scenes), then `SCREEN` while a screen is up -- every 2D scene, and the desktop over a 3D one |
 | `WorldPassCoordinator` | `runtime/WorldPassCoordinator.java` | Coordinates world-base contributors like `FloorRenderer` |
 | `OverlayCaptureOrchestrator` | `runtime/OverlayCaptureOrchestrator.java` | Post-scene overlay rendering order + post-render capture callback |
 | `ArtifactService` | `capture/ArtifactService.java` | Semantic capture API (suffix-based filenames, live viewport) |
@@ -685,7 +685,9 @@ The interactive runner sequences these steps every frame:
 7. **World pass**: `WorldPassCoordinator` clears it to the sky and draws the floor
 8. **Scene pass**: `scene.render(ctx, frameInfo)`
 9. **Post-scene sequence**: `OverlayCaptureOrchestrator.executePostSceneSequence()`:
-   - Overlay pass (handled by `OverlayPipeline`: the HUD if 3D camera active), then the desktop (`HarnessUi`)
+   - The desktop's client work and server (`HarnessUi.tick`) just before
+   - The GUI stages (`OverlayPipeline`): `HUD` if 3D camera active, then `SCREEN` while a screen is up, where a
+     `UiDocumentScene`'s document and the desktop paint; then `HarnessUi.afterFrame`'s probe
    - Post-render capture callback (one-shot, after all overlays, before the copy into the window)
 10. **Present**: `MainTarget.end()` copies into the window, `CgHostPaint.leave()`, the device's frame ends,
     `HarnessWindow.swapBuffers()` + `HarnessWindow.sync(fps)`

@@ -470,12 +470,14 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 }
 
                 mainTarget.overlays();
-                // 10-13. Post-scene sequence: HUD → desktop → capture callback
+                // The desktop's client work and server, as a game's tick runs before it draws its GUI.
+                if (ui != null) ui.tick(info);
+                // 10-13. Post-scene sequence: HUD → SCREEN (a 2D scene, or the desktop) → capture callback
                 //        Delegated to OverlayCaptureOrchestrator which owns this entire sequence.
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.overlay")) {
                     // The UI over the HUD, so it is never under the readout.
                     overlayCaptureOrchestrator.executePostSceneSequence(scene.uses3DCamera(),
-                            ui == null ? null : () -> ui.render(info));
+                            !scene.uses3DCamera() || ui != null && ui.shown(), ui == null ? null : () -> ui.afterFrame(info));
                 }
                 drawLoadingScreen();   // its fade-out
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.mainTarget")) {
