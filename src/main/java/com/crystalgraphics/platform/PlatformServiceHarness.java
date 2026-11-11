@@ -19,7 +19,6 @@ import com.crystalgraphics.lwjgl3.Lwjgl3GLDriver;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgGLDevice;
 import com.crystalgraphics.platform.service.CgCacheDirectory;
-import com.crystalgraphics.platform.service.CgHostPaint;
 import com.crystalgraphics.vulkan.CgVulkanDevice;
 import com.crystalgraphics.vulkan.host.CgVulkanHost;
 import com.crystalgraphics.vulkan.host.CgVulkanImage;
@@ -36,13 +35,13 @@ import org.lwjgl.vulkan.VkQueue;
 
 /**
  * The harness as a host: its platform services, the device it runs ({@code --rhi=gl|vulkan}) and the host section
- * round each frame ({@link CgHostPaint}). The one layer of the harness that speaks to a device directly, as a
+ * round each frame ({@link CgDeviceSection}). The one layer of the harness that speaks to a device directly, as a
  * Minecraft host's platform classes do.
  *
  * <pre>{@code
  * PlatformServiceHarness.onPreInit("vulkan", w, h);   // after the window exists
- * CgHostPaint.enter();                                // each frame: the host section
- * try { frame(); } finally { CgHostPaint.leave(); }
+ * CgDeviceSection.begin();                            // each frame: the host section
+ * try { frame(); } finally { CgDeviceSection.end(); }
  * PlatformServiceHarness.endFrame();                  // the engine's frame tick, then the device's frame
  * PlatformServiceHarness.shutdown();                  // before the window goes
  * }</pre>
@@ -100,7 +99,6 @@ public final class PlatformServiceHarness implements CgPlatformService {
                     : new ShadercGlslCompiler(CgCacheDirectory.of("spirv")));
         }
         CgPlatform.register(p);
-        CgPlatform.provide(CgHostPaint.HOST, new HostSection());
         CgPlatform.provide(CgInput.HOST, new InputGlfw(HarnessWindow::handle));
         CgPlatform.provide(CgClipboard.HOST, new ClipboardGlfw(HarnessWindow::handle));
         // No resource packs: CgIO reads the classpath and the asset roots
@@ -119,18 +117,6 @@ public final class PlatformServiceHarness implements CgPlatformService {
     }
 
     /** The harness's host section: everything a frame draws is the engine's, so the section's close repairs nothing. */
-    private static final class HostSection implements CgHostPaint.Host {
-        @Override
-        public void enter() {
-            CgDeviceSection.begin();
-        }
-
-        @Override
-        public void leave() {
-            CgDeviceSection.end();
-        }
-    }
-
     /** The device: its name, vendor and driver; null before {@link #onPreInit}. */
     public static CgRHI.Globals deviceInfo() {
         return CgRHI.installed() ? CgRHI.get().globals() : null;

@@ -3,10 +3,8 @@ package com.crystalgraphics.harness.ui;
 import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgui.app.machine.MachineExample;
 import com.crystalgui.core.storage.CrystalGuiStorage;
-import com.crystalgraphics.net.CgInMemoryTransport;
-import com.crystalgraphics.net.protocol.CgProtocolConnection;
-import com.crystalgraphics.net.protocol.CgProtocols;
-import com.crystalgraphics.serialization.CgPlainOps;
+import com.crystalgraphics.net.CgNetwork;
+import com.crystalgraphics.platform.service.CgNetworkChannel;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgui.core.trace.UiTrace;
 import com.crystalgui.fs.server.WorkspaceActor;
@@ -26,16 +24,18 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.function.BiConsumer;
 
 /**
- * The harness as a single-player game's server: one in-memory connection, its server end serving the scratch project
- * through {@link WorkspaceHost}, its client end the one {@link HarnessUi} hands the desktop. So the desktop's
- * workspace, the editor's files and their watches go over the protocol exactly as in a world.
+ * The harness as a single-player game's server: CrystalGraphics' network over a channel looping back in this process,
+ * one player joined and the client connected, the server serving the scratch project through {@link WorkspaceHost}.
+ * So the desktop reaches its workspace through {@code CgNetwork.client()}, and the editor's files and their watches go
+ * over the protocol exactly as in a world.
  *
  * <pre>{@code
  * HarnessServer server = new HarnessServer();   // once, before the desktop is built
- * services.connection() -> server.client();
- * server.tick(delta);                           // every frame, on the render thread
+ * server.tick(delta);                           // every frame, on the render thread: the server's 20 Hz tick
  * }</pre>
  *
  * <ul>
@@ -58,15 +58,14 @@ public final class HarnessServer {
      */
     private static final String DEFAULT_POLICY = "unsafe,java.io.File";
 
-    /** The one player this process has. */
-    private static final Object PEER = new Object();
+    /** The one player this process has: its handle on the channel, and its profile id. */
+    private static final Object PLAYER = new Object();
+    private static final UUID PLAYER_ID = new UUID(0L, 1L);
 
     private static final float WORLD_TICK = 1f / 20f;
 
     private float worldClock;
     private final WorkspaceHost workspace;
-    private final CgProtocolConnection<Object> serverEnd;
-    private final CgProtocolConnection<Object> clientEnd;
 
     public HarnessServer() {
         // Paid here rather than on the keystroke that opens the first editor
@@ -85,28 +84,22 @@ public final class HarnessServer {
         // themselves then register a second time.
         WindowProtocol.register();
         MachineExample.registerServer();
-        CgInMemoryTransport<Object>[] link = CgInMemoryTransport.pair();
-        // Each end's pump delivers what it sent, so a tick moves, drains and expires in one call
-        serverEnd = CgProtocols.open(link[0], CgPlainOps.INSTANCE, link[0]::deliver, PEER);
-        clientEnd = CgProtocols.open(link[1], CgPlainOps.INSTANCE, link[1]::deliver, null);
+        // After the contributions, which bind to the connections opened after them
+        CgNetwork.install(new Loopback(), player -> player == PLAYER ? PLAYER_ID : null);
+        CgNetwork.playerJoined(PLAYER_ID, "harness", () -> PLAYER);
+        CgNetwork.clientConnected();
     }
 
-    /** The client's end, as a game's connection to its server. */
-    public CgProtocolConnection<Object> client() {
-        return clientEnd;
-    }
-
-    /** One network tick and the workspace's: what both ends sent is delivered, and file changes fan out. */
+    /**
+     * The server's tick and the workspace's: the server's connection sends at its 20 Hz tick, the client's receives at
+     * the runtime's client tick, and file changes fan out.
+     */
     public void tick(float deltaSeconds) {
         // The world's 20 Hz, as a server's tick: what listeners registered with onServerTick run on
         worldClock += deltaSeconds;
         while (worldClock >= WORLD_TICK) {
             worldClock -= WORLD_TICK;
             CgEngineLifecycle.serverTick();
-        }
-        try (CgTrace.Zone ignored = CgTrace.zone(UiTrace.FRAME, "workspace:transport")) {
-            serverEnd.tick();
-            clientEnd.tick();
         }
         try (CgTrace.Zone ignored = CgTrace.zone(UiTrace.FRAME, "workspace:hubUpdate")) {
             workspace.tick(deltaSeconds);
@@ -173,6 +166,18 @@ public final class HarnessServer {
             throw new IllegalStateException("could not create the scratch project at " + root, e);
         }
         return root;
+    }
+
+    /** A channel whose two ends are this process: what the client sends arrives from the player, and back. */
+    private static final class Loopback implements CgNetworkChannel {
+
+        private volatile BiConsumer<Object, byte[]> inbound = (sender, frame) -> { };
+
+        @Override public int maxFrameBytes() { return 1 << 20; }
+        @Override public void sendToServer(byte[] frame) { inbound.accept(PLAYER, frame); }
+        @Override public void sendToPlayer(Object player, byte[] frame) { inbound.accept(null, frame); }
+        @Override public void setInboundHandler(BiConsumer<Object, byte[]> handler) { inbound = handler; }
+        @Override public boolean isAvailable() { return true; }
     }
 
     private static void writeIfAbsent(Path file, String content) throws IOException {

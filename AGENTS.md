@@ -681,7 +681,7 @@ The interactive runner sequences these steps every frame:
 3. **Input polling**: `InputPauseHandler.pollPauseToggle()` checks ESC/T for pause toggle
 4. **Camera update**: Process WASD/SPACE/SHIFT movement + mouse look (skipped when paused)
 5. **Task scheduler tick**: Fire any callbacks whose time has elapsed
-6. **Host section**: `CgHostPaint.enter()`, and the frame's target bound (`MainTarget.begin`)
+6. **Host section**: `CgDeviceSection.begin()`, and the frame's target bound (`MainTarget.begin`)
 7. **World pass**: `WorldPassCoordinator` clears it to the sky and draws the floor
 8. **Scene pass**: `scene.render(ctx, frameInfo)`
 9. **Post-scene sequence**: `OverlayCaptureOrchestrator.executePostSceneSequence()`:
@@ -689,7 +689,7 @@ The interactive runner sequences these steps every frame:
    - The GUI stages (`OverlayPipeline`): `HUD` if 3D camera active, then `SCREEN` while a screen is up, where a
      `UiDocumentScene`'s document and the desktop paint; then `HarnessUi.afterFrame`'s probe
    - Post-render capture callback (one-shot, after all overlays, before the copy into the window)
-10. **Present**: `MainTarget.end()` copies into the window, `CgHostPaint.leave()`, the device's frame ends,
+10. **Present**: `MainTarget.end()` copies into the window, `CgDeviceSection.end()`, the device's frame ends,
     `HarnessWindow.swapBuffers()` + `HarnessWindow.sync(fps)`
 
 ### Camera Controls
@@ -915,7 +915,7 @@ reg.register(
 ### A CrystalGUI scene — `UiDocumentScene`
 
 A 2D scene that is one CrystalGUI document extends `ui.UiDocumentScene` and writes only its tree: the base owns the
-document and its `DocumentDriver`, the root filling the window, the scale (`HostServices.DEFAULT_UI_SCALE`, Ctrl+= and
+document and its `DocumentDriver`, the root filling the window, the scale (`DesktopHost.UI_SCALE`, Ctrl+= and
 Ctrl+- to zoom, Ctrl+0 to reset), the stylesheets (`HarnessThemes`' stack, then the scene's), document-first input and
 teardown. Its javadoc lists the hooks: `theme`, `bare`, `attached`, `key`, `beforePaint`, `paintOver`, `tick`,
 `afterFrame`, `mode`, `painter`.

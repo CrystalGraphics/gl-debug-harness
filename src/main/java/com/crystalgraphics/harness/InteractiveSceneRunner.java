@@ -6,7 +6,7 @@ import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.loading.CgLoadingScreen;
 import com.crystalgraphics.loading.task.CgLoadPlan;
 import com.crystalgraphics.platform.input.CgInput;
-import com.crystalgraphics.platform.service.CgHostPaint;
+import com.crystalgraphics.platform.rhi.CgDeviceSection;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.util.io.CgIO;
@@ -433,7 +433,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
             // THE FRAME IS ONE HOST SECTION: the harness is the host, as Minecraft's paint host brackets the UI's whole
             // frame. The lifecycle's own brackets nest inside.
-            CgHostPaint.enter();
+            CgDeviceSection.begin();
             try {
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.begin")) {
                     ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
@@ -484,7 +484,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                     mainTarget.end();
                 }
             } finally {
-                CgHostPaint.leave();
+                CgDeviceSection.end();
             }
 
             // 13b. The whole frame is drawn: the engine's frame tick, never feature code's.
@@ -600,13 +600,13 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         loadingAt = now;
         CgFrameClock.set(loadingSeconds);
         // No world of the scene's: the screen fires its own, where pipelines settle and effects warm and rehearse.
-        CgHostPaint.enter();
+        CgDeviceSection.begin();
         try {
             ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
             drawLoadingScreen();
             mainTarget.end();
         } finally {
-            CgHostPaint.leave();
+            CgDeviceSection.end();
         }
         PlatformServiceHarness.endFrame();
         CgTrace.frameEnd();
@@ -623,13 +623,13 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     /** The loading screen alone, before the scene's init: what the window shows while it runs. */
     private void presentLoadingFrame() {
         CgFrameClock.set(loadingSeconds);   // the harness's clock from the first world frame: it never runs backwards
-        CgHostPaint.enter();
+        CgDeviceSection.begin();
         try {
             ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
             drawLoadingScreen();
             mainTarget.end();
         } finally {
-            CgHostPaint.leave();
+            CgDeviceSection.end();
         }
         PlatformServiceHarness.endFrame();
         HarnessWindow.swapBuffers();

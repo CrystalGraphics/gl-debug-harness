@@ -4,7 +4,6 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.loading.task.CgLoadPlan;
-import com.crystalgraphics.net.protocol.CgProtocolConnection;
 import com.crystalgraphics.platform.CgPlatform;
 import com.crystalgraphics.platform.input.CgInput;
 import com.crystalgraphics.platform.input.CgKeyCodes;
@@ -12,11 +11,11 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.platform.service.CgGameDirectory;
 import com.crystalgraphics.platform.service.CgGameThreads;
 import com.crystalgraphics.platform.service.CgHostWindow;
+import com.crystalgraphics.platform.service.CgScreens;
 import com.crystalgraphics.render.stage.CgStageFrame;
 import com.crystalgui.core.window.DesktopPresentation;
 import com.crystalgui.desktop.Desktop;
 import com.crystalgui.desktop.app.ApplicationKind;
-import com.crystalgui.desktop.host.HostServices;
 import com.crystalgui.desktop.host.HostSession;
 import com.crystalgui.render.UiPresenter;
 import com.crystalgui.ui.dom.DocumentDriver;
@@ -79,10 +78,6 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
     private final List<ApplicationKind> offered = new ArrayList<>();
     private final Queue<Runnable> onRenderThread = new ConcurrentLinkedQueue<>();
     private final Thread renderThread = Thread.currentThread();
-    private final HostSession.PaintHost paintHost = new HostSession.PaintHost() {
-        @Override public boolean ownScreenUp() { return shown; }
-        @Override public boolean anyScreenUp() { return shown; }
-    };
     private volatile boolean shown;
     @Nullable
     private Predicate<CgSystemInput.Keyboard.Event> sceneKeys;
@@ -92,10 +87,8 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
     /** The runtime's, once a run, on the render thread. */
     public HarnessUi(HarnessContext ctx) {
         // No primary: every application opens on its own key, and the desktop Escape opens starts empty
-        HarnessHost.bind(onRenderThread, renderThread, ctx.installation());
-        HostSession.install(new Services(ctx), null);
-        // The pinned windows over the world while the desktop is down
-        HostSession.attachStages(paintHost);
+        HarnessHost.bind(this, onRenderThread, renderThread, ctx.installation());
+        HostSession.install(null);
     }
 
     /** Binds {@code key} ({@code CgKeyCodes}) to {@code kind} for this run: pressed in the scene, it opens it. */
@@ -111,12 +104,11 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
 
     /** Shows the desktop with {@code kind} brought forward if it runs, launched if not. Render thread. */
     public void open(ApplicationKind kind) {
-        if (!HostSession.mayOpen()) return;
         HostSession session = HostSession.session();
-        session.shown();
+        session.openDesktop();
+        if (!shown) return;
         // The host's tick first: it binds the workspace an application launches against
         session.frame(0f);
-        shown = true;
         installBound(session);
         // A KEY BRINGS BACK WHAT RUNS, and launches only when nothing does: a new instance is the menu's and Start's
         session.inDocument(() -> {
@@ -128,10 +120,9 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
 
     /** Shows the desktop and touches no window. Render thread. */
     public void showDesktop() {
-        if (!HostSession.mayOpen()) return;
-        HostSession.session().shown();
-        shown = true;
-        installBound(HostSession.session());
+        HostSession session = HostSession.session();
+        session.openDesktop();
+        if (shown) installBound(session);
     }
 
     /**
@@ -158,9 +149,8 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
      */
     public void openAtStart(Runnable build) {
         HostSession session = HostSession.session();
-        session.shown();
+        session.openBehindLoadingScreen();
         session.frame(0f);
-        shown = true;
         installBound(session);
         DocumentDriver<?> driver = session.document().driver();
         if (driver == null || !driver.isAsync()) {
@@ -201,15 +191,7 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
 
     /** Closes the desktop once it has played itself off screen; every window on it is kept for the next time. */
     public void hide() {
-        if (!shown) return;
-        // The close runs from a later frame's session.frame, which render calls while shown
-        if (!HostSession.session().requestHide(this::closeNow)) closeNow();
-    }
-
-    private void closeNow() {
-        if (!shown) return;
-        shown = false;
-        HostSession.session().hidden();
+        if (shown) HostSession.session().closeDesktop();
     }
 
     /**
@@ -255,19 +237,18 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
             return false;
         }
         if (event.key() == CgKeyCodes.KEY_R && ctrlDown()) return true;
-        // A desktop on its own thread takes every key and hands back what it left (reinjectKey); one on this
-        // thread answers now, and Escape it did not want closes it, as a game's screen
-        boolean taken = HostSession.session().input().consumeKeyboardEvent(event);
-        if (!taken) left(event);
+        // A desktop on its own thread takes every key and gives back what it left (CgScreens.giveBack); one on this
+        // thread answers now, and what it left goes the same way
+        HostSession session = HostSession.session();
+        if (!session.input().consumeKeyboardEvent(event) && !session.offerLeftKey(event)) CgScreens.giveBack(event);
         return false;
     }
 
-    /** A key the desktop left: the listeners' ({@code HostSession.onKeyLeft}), the scene's, else Escape closes the desktop, as a game's screen. */
-    private void left(CgSystemInput.Keyboard.Event event) {
-        if (HostSession.session().offerLeftKey(event)) return;
+    /** A key the desktop and its listeners left: the scene's, else Escape closes the desktop, as a game's screen. */
+    private void left(CgSystemInput.Keyboard.Event event, CgScreens.Owner front) {
         Predicate<CgSystemInput.Keyboard.Event> keys = sceneKeys;
         if (keys != null && keys.test(event)) return;
-        if (event.pressed() && event.key() == CgKeyCodes.KEY_ESCAPE) hide();
+        if (event.pressed() && event.key() == CgKeyCodes.KEY_ESCAPE) front.escape();
     }
 
     private static boolean ctrlDown() {
@@ -288,16 +269,22 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
 
     /**
      * What the harness answers CrystalGraphics' platform services with: its render thread is the client thread, its
-     * window the surface, its installation the game directory, and there is no world. Provided once, since each service
-     * keeps the host it is first given; each run points it at its own queue.
+     * window the surface, its installation the game directory, its one screen the desktop's, and there is no world.
+     * Provided once, since each service keeps the host it is first given; each run points it at its own queue and UI.
      */
-    private static final class HarnessHost implements CgGameThreads.Host, CgGameDirectory.Host, CgHostWindow.Host {
+    private static final class HarnessHost implements CgGameThreads.Host, CgGameDirectory.Host, CgHostWindow.Host,
+            CgScreens.Host {
 
         private static final HarnessHost INSTANCE = new HarnessHost();
         private static volatile CgGameThreads.Binding client;
         private static volatile Path installation;
+        private static volatile HarnessUi ui;
+        @Nullable
+        private static volatile CgScreens.Owner front;
 
-        static void bind(Queue<Runnable> queue, Thread thread, Path installationDirectory) {
+        static void bind(HarnessUi runUi, Queue<Runnable> queue, Thread thread, Path installationDirectory) {
+            ui = runUi;
+            front = null;
             installation = installationDirectory;
             client = new CgGameThreads.Binding() {
                 @Override public void execute(Runnable work) { queue.add(work); }
@@ -306,6 +293,7 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
             CgPlatform.provide(CgGameThreads.HOST, INSTANCE);
             CgPlatform.provide(CgGameDirectory.HOST, INSTANCE);
             CgPlatform.provide(CgHostWindow.HOST, INSTANCE);
+            CgPlatform.provide(CgScreens.HOST, INSTANCE);
         }
 
         @Override public CgGameThreads.Binding client() { return client; }
@@ -314,24 +302,34 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         @Override public Path world() { return null; }
         @Override public int width() { return HarnessWindow.width(); }
         @Override public int height() { return HarnessWindow.height(); }
-    }
 
-    /** What the harness answers a host's questions with. */
-    private final class Services implements HostServices {
-
-        private final HarnessContext ctx;
-
-        Services(HarnessContext ctx) {
-            this.ctx = ctx;
+        /** Up at once: the runtime frees the cursor and fires {@code SCREEN} from the next frame. */
+        @Override
+        public void open(CgScreens.Owner owner) {
+            if (front == owner) return;
+            CgScreens.Owner was = front;
+            front = owner;
+            ui.shown = true;
+            if (was != null) was.hidden();
+            owner.shown();
         }
 
-        @Override public String desktopId() { return "harness"; }
-        @Override public CgProtocolConnection<Object> connection() { return server.client(); }
-
-        /** A key the desktop left, a frame late. */
+        /** Down at once: a close comes from the desktop's own frame or a key, never from inside its paint. */
         @Override
-        public void reinjectKey(CgSystemInput.Keyboard.Event key) {
-            left(key);
+        public void close(CgScreens.Owner owner) {
+            if (front != owner) return;
+            front = null;
+            ui.shown = false;
+            owner.hidden();
+        }
+
+        @Override public CgScreens.Owner front() { return front; }
+        @Override public boolean anyFront() { return front != null; }
+
+        @Override
+        public void giveBack(CgSystemInput.Keyboard.Event key) {
+            CgScreens.Owner owner = front;
+            if (owner != null) ui.left(key, owner);
         }
     }
 }
