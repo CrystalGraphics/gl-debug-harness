@@ -134,7 +134,7 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
      * between {@link #beforePaint} and {@link #paintOver}.
      */
     protected DocumentDriver.Painter<Void> painter() {
-        return DocumentDriver.whole(document, () -> beforePaint(document.paintContext()), this::paintOver);
+        return DocumentDriver.whole(document, this::beforePaint, this::paintOver);
     }
 
     /** At teardown, on the document, before it closes. */
