@@ -915,7 +915,7 @@ reg.register(
 ### A CrystalGUI scene — `UiDocumentScene`
 
 A 2D scene that is one CrystalGUI document extends `ui.UiDocumentScene` and writes only its tree: the base owns the
-document and its `DocumentDriver`, the root filling the window, the scale (`DesktopHost.UI_SCALE`, Ctrl+= and
+document and its `CgUiViewport`, the root filling the window, the scale (`DesktopHost.UI_SCALE`, Ctrl+= and
 Ctrl+- to zoom, Ctrl+0 to reset), the stylesheets (`HarnessThemes`' stack, then the scene's), document-first input and
 teardown. Its javadoc lists the hooks: `theme`, `bare`, `attached`, `key`, `beforePaint`, `paintOver`, `tick`,
 `afterFrame`, `mode`, `painter`.

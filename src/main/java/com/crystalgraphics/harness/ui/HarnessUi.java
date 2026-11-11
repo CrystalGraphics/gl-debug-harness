@@ -13,12 +13,11 @@ import com.crystalgraphics.platform.service.CgGameThreads;
 import com.crystalgraphics.platform.service.CgHostWindow;
 import com.crystalgraphics.platform.service.CgScreens;
 import com.crystalgraphics.render.stage.CgStageFrame;
-import com.crystalgui.core.window.DesktopPresentation;
 import com.crystalgui.desktop.Desktop;
 import com.crystalgui.desktop.app.ApplicationKind;
 import com.crystalgui.desktop.host.HostSession;
 import com.crystalgui.render.UiPresenter;
-import com.crystalgui.ui.dom.DocumentDriver;
+import com.crystalgui.viewport.CgUiViewport;
 
 import javax.annotation.Nullable;
 
@@ -152,14 +151,14 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
         session.openBehindLoadingScreen();
         session.frame(0f);
         installBound(session);
-        DocumentDriver<?> driver = session.document().driver();
-        if (driver == null || !driver.isAsync()) {
+        CgUiViewport viewport = session.viewport();
+        if (viewport == null || !viewport.isSequenced()) {
             session.inDocument(build);
             return;
         }
         // On the document's own sequence: a cold desktop and editor are over half a second the render thread would hold
         CgLoadPlan.Span building = CgLoadPlan.get().begin("harness-ui:build");
-        driver.post(() -> {
+        viewport.execute(() -> {
             try {
                 build.run();
             } finally {
