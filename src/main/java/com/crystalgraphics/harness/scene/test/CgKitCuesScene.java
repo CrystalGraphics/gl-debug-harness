@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgui.screen.CgUiScreen;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
@@ -11,8 +12,6 @@ import com.crystalgraphics.asset.load.CgVfxAssets;
 import com.crystalgraphics.cue.CgCueDefinition;
 import com.crystalgraphics.cue.CgCueInspector;
 import com.crystalgraphics.cue.CgCueManager;
-import com.crystalgraphics.cue.CgCueParameters;
-import com.crystalgraphics.cue.CgCuePlaying;
 import com.crystalgraphics.frame.CgTickFunction;
 import com.crystalgraphics.frame.CgTickGroup;
 import com.crystalgraphics.frame.CgWorld;
@@ -22,14 +21,12 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgui.app.cues.CueSelection;
-import com.crystalgui.desktop.host.HostSession;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.post.volume.CgColourRegion;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
-import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.CgSequencer;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.system.CgVfxSequencer;
@@ -223,11 +220,10 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
             CgWorld.client().timeDilation(SPEEDS[speed]);
         }
         // The session may not be up in init: listen for the keys the desktop leaves from the first frame
-        if (keysLeft == null && HostSession.isInstalled()) {
-            HostSession session = HostSession.session();
-            Runnable left = session.onKeyLeft(this::hudKey);
+        if (keysLeft == null && CgUiScreen.isInstalled()) {
+            Runnable left = CgUiScreen.onKeyLeft(this::hudKey);
             // Tab moves the desktop's focus: the pause key is taken before it, never while a field is typed in
-            Runnable hot = session.onHotKey(key -> key.key() == CgKeyCodes.KEY_TAB && hudKey(key));
+            Runnable hot = CgUiScreen.onHotKey(key -> key.key() == CgKeyCodes.KEY_TAB && hudKey(key));
             keysLeft = () -> {
                 left.run();
                 hot.run();

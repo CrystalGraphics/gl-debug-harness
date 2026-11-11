@@ -1,12 +1,12 @@
 package com.crystalgraphics.harness.ui;
 
+import com.crystalgui.screen.CgUiScreen;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgInput;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgui.desktop.host.DesktopHost;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleEngine;
 import com.crystalgui.style.StyleGroup;
@@ -100,7 +100,7 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
 
     /** The scale at start, logical pixels to the window's. */
     protected float scale() {
-        return DesktopHost.UI_SCALE;
+        return CgUiScreen.UI_SCALE;
     }
 
     /** How the document runs: from the flags by default. {@code INLINE} for a scene that times its frame on this thread. */
