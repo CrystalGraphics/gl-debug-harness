@@ -86,9 +86,9 @@ public final class HarnessUi implements CgSystemInput.Keyboard, CgSystemInput.Mo
 
     /** The runtime's, once a run, on the render thread. */
     public HarnessUi(HarnessContext ctx) {
-        // No primary: every application opens on its own key, and the desktop Escape opens starts empty
+        // Nothing opens the primary application: every one opens on its own key, and the desktop Escape opens starts empty
         HarnessHost.bind(this, onRenderThread, renderThread, ctx.installation());
-        HostSession.install(null);
+        HostSession.install();
     }
 
     /** Binds {@code key} ({@code CgKeyCodes}) to {@code kind} for this run: pressed in the scene, it opens it. */

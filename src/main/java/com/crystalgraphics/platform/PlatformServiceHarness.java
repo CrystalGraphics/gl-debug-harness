@@ -6,7 +6,6 @@ import com.crystalgraphics.platform.rhi.CgDeviceSection;
 import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.platform.world.CgWorldBegin;
 import com.crystalgraphics.harness.HarnessExtensions;
-import com.crystalgui.lifecycle.CgUiStart;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
 import com.crystalgraphics.lwjgl3.ClipboardGlfw;
@@ -104,8 +103,8 @@ public final class PlatformServiceHarness implements CgPlatformService {
         // No resource packs: CgIO reads the classpath and the asset roots
         // Always a client: the graphics start's GL-free work begins beside the rest of the harness's start
         CgEngineLifecycle.clientStarting();
-        CgUiStart.ahead();           // and CrystalGUI's: its registries and sheets
-        HarnessExtensions.start();   // and each project's own
+        CgEngineLifecycle.preInit();   // every listener's pre-init, as a game's loader fires it; post-init is the graphics start's
+        HarnessExtensions.start();     // and each project's own
         // NATIVE CONTENT IS NOT DECLARED HERE, and it used to be.
         //
         // `com.crystalgui.ui.elements.slot` lives only on core's `native-content-slots` branch, which
