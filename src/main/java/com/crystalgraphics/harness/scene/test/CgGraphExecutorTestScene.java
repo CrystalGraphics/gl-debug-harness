@@ -30,6 +30,7 @@ import org.joml.Vector3f;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import com.crystalgraphics.render.draw.CgMaterialBindings;
 
 /**
  * render-graph G1's gate on a real driver: one picture drawn three ways — an immediate {@link CgCanvas}, a
@@ -71,7 +72,7 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
         CgRasterPass drawn = now.raster("graphExecutorTestScene.now").color(CgGraphTexture.current(), CgLoad.load())
                 .camera(camera(w, h)).order(CgOrder.LOOKBACK);
         now.chunks().begin();
-        record(now.chunks(), CgMaterialProxy.of(material).captureBindings(now.bindings()));
+        record(now.chunks(), CgMaterialProxy.of(material).bindings());
         drawn.add(now.chunks().end());
         drawn.end();
         CgRenderer.executeNow(now);
@@ -89,7 +90,7 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
                 CgRecording rec = new CgRecording();
                 CgRasterPass pass = rec.raster("graphExecutorTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(camera(w, h)).order(CgOrder.LOOKBACK);
                 rec.chunks().begin();
-                record(rec.chunks(), CgMaterialProxy.of(material).captureBindings(rec.bindings()));
+                record(rec.chunks(), CgMaterialProxy.of(material).bindings());
                 pass.add(rec.chunks().end());
                 pass.end();
                 return builder.build(new CgFrameGraph().add(rec.seal()));
@@ -129,7 +130,7 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
     }
 
     /** The same quads as {@link #drawImmediate}, as records in one draw. */
-    private void record(CgChunkBuilder c, int bindings) {
+    private void record(CgChunkBuilder c, CgMaterialBindings bindings) {
         c.draw(CgMaterialProxy.of(material).pipeline(CgInstanceKind.QUAD), bindings);
         Matrix4f pose = new Matrix4f();
         Vector3f origin = new Vector3f(), right = new Vector3f(), up = new Vector3f();

@@ -15,7 +15,6 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.rhi.pipeline.CgPipelineLayout;
 import com.crystalgraphics.platform.rhi.shader.CgGlslCompiler;
-import com.crystalgraphics.render.draw.CgBindingTable;
 import com.crystalgraphics.render.draw.CgDeviceSets;
 import com.crystalgraphics.render.draw.CgDeviceStates;
 import com.crystalgraphics.render.draw.CgInstanceKind;
@@ -32,10 +31,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Stream;
+import com.crystalgraphics.render.draw.CgFrameBindings;
+import com.crystalgraphics.render.draw.CgMaterialBindings;
 
 /**
- * Every shipped material's set 2 made on the device from its recorded bindings ({@code CgDeviceSets}), against its
- * device pipeline's layout: no slot left to a default, a second frame making no set, a changed block making none and
+ * Every shipped material's set 2 made on the device from its bindings' version ({@code CgDeviceSets}), against its
+ * device pipeline's layout: no slot left to a default, a second frame naming the same versions and making no set, a
+ * changed block making none and
  * binding at a new dynamic offset (one set where its slot is not dynamic), or, where the material's values live in its
  * shader's arena, none and a new slot. On {@code --rhi=vulkan} and {@code --rhi=gl}.
  *
@@ -74,7 +76,7 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
 
     private static String check(String on) throws Exception {
         CgRHI rhi = CgRHI.get();
-        CgBindingTable table = new CgBindingTable();
+        CgFrameBindings table = new CgFrameBindings();
         CgStreamBuffer ring = CgStreamBuffer.frameLocalUniforms(1 << 20);
         CgDeviceSets sets = new CgDeviceSets();
         List<Drawn> drawn = new ArrayList<>();
@@ -98,7 +100,8 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
                 }
                 drawn.add(new Drawn(path, m, CgDeviceStates.layout(rhi, explicit)));
             }
-            int[] ids = capture(table, ring, drawn, failures);
+            CgMaterialBindings[] versions = new CgMaterialBindings[drawn.size()];
+            int[] ids = capture(table, ring, drawn, versions, failures);
             sets.prepare(table);
             long defaultedBefore = sets.defaulted();
             CgDeviceSection.begin();
@@ -114,9 +117,13 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
             }
             long firstMade = sets.made();
 
-            // A second frame: the same captures make no set.
+            // A second frame: nothing moved, so each material names the version it named, and no set is made.
             table.reset();
-            ids = capture(table, ring, drawn, failures);
+            CgMaterialBindings[] first = versions.clone();
+            ids = capture(table, ring, drawn, versions, failures);
+            for (int i = 0; i < drawn.size(); i++) {
+                if (versions[i] != first[i]) failures.add(drawn.get(i).path() + ": a second frame made another version");
+            }
             sets.prepare(table);
             int[][] offsetsBefore = new int[drawn.size()][];
             CgDeviceSection.begin();
@@ -143,7 +150,7 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
             boolean rebound = false;
             if (change != null) {
                 table.reset();
-                ids = capture(table, ring, drawn, failures);
+                ids = capture(table, ring, drawn, versions, failures);
                 sets.prepare(table);
                 long before = sets.made();
                 CgDeviceSection.begin();
@@ -176,9 +183,9 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
                 return "FAIL on " + on + ": " + failures.size() + " failures, by kind " + kinds + "; the first: "
                         + String.join(" | ", failures.subList(0, Math.min(4, failures.size())));
             }
-            return "PASS on " + on + ": " + drawn.size() + " materials' sets made against their device pipelines ("
+            return "PASS on " + on + ": " + drawn.size() + " materials' sets made from their versions against their device pipelines ("
                     + firstMade + " sets, " + skipped + " materials reading nothing of their own), no slot defaulted ("
-                    + (sets.defaulted() - defaultedBefore) + "); a second frame made none; changing " + changed
+                    + (sets.defaulted() - defaultedBefore) + "); a second frame named the same versions and made none; changing " + changed
                     + " made " + changeMade + (moved ? ", its values moving to another slot of its arena"
                     : rebound ? ", its block bound at a new dynamic offset" : "");
         } finally {
@@ -190,12 +197,14 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
         }
     }
 
-    /** Each material's bindings captured into {@code table}, uploaded; -1 for one whose capture threw. */
-    private static int[] capture(CgBindingTable table, CgStreamBuffer ring, List<Drawn> drawn, List<String> failures) {
+    /** Each material's version entered into {@code table}, uploaded; -1 for one whose bindings threw. */
+    private static int[] capture(CgFrameBindings table, CgStreamBuffer ring, List<Drawn> drawn, CgMaterialBindings[] versions,
+                                 List<String> failures) {
         int[] ids = new int[drawn.size()];
         for (int i = 0; i < drawn.size(); i++) {
             try {
-                ids[i] = CgMaterialProxy.of(drawn.get(i).material()).captureBindings(table);
+                versions[i] = CgMaterialProxy.of(drawn.get(i).material()).bindings();
+                ids[i] = table.add(versions[i]);
             } catch (IllegalStateException e) {
                 ids[i] = -1;   // reads a buffer only its owner binds: not a material set this scene can make
             }

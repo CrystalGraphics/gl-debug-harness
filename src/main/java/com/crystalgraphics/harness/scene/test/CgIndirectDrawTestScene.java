@@ -42,6 +42,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import com.crystalgraphics.render.draw.CgMaterialBindings;
 
 /**
  * gpu-compute C4's gate: a kernel writes four counts, and four indirect draws read them in the frame that wrote them,
@@ -152,7 +153,7 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         constants.projection().set(projection);
         CgRasterPass pass = rec.raster("indirectDrawTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
         CgPipeline pipeline = CgMaterialProxy.of(material).pipeline(CgInstanceKind.OBJECT);
-        int bindings = CgMaterialProxy.of(material).captureBindings(rec.bindings());
+        CgMaterialBindings bindings = CgMaterialProxy.of(material).bindings();
         CgChunkBuilder c = rec.chunks().begin();
         for (Band band : BANDS) {
             c.draw(pipeline, bindings, band.mesh()).indirect(counts, band.uint() * 4L, band.mode(), band.factor());

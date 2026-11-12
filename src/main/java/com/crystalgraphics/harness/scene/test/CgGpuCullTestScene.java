@@ -53,6 +53,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.List;
+import com.crystalgraphics.render.draw.CgMaterialBindings;
 
 /**
  * gpu-compute C9b's gate: a set of spheres in rows at four distances, half of the nearer rows behind a wall, culled
@@ -379,7 +380,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         pass.end();
 
         CgPipeline pipeline = CgMaterialProxy.of(material).pipeline(CgInstanceKind.OBJECT);
-        int bindings = CgMaterialProxy.of(material).captureBindings(rec.bindings());
+        CgMaterialBindings bindings = CgMaterialProxy.of(material).bindings();
         CgRasterPass draw = stage.pass(stage.constants(), CgOrder.LOOKBACK);
         CgChunkBuilder c = rec.chunks().begin();
         for (int l = 0; l < cull.levels(); l++) {

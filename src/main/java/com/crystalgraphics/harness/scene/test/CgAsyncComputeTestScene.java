@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import com.crystalgraphics.render.draw.CgMaterialBindings;
 
 /**
  * The gate for async compute (gpu-compute C8): a frame of blurs in a compute pass, a fill-bound raster pass that
@@ -224,7 +225,7 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     /** The pass reading the blur. */
     private void reader() {
         CgRasterPass pass = recording.raster("asyncComputeTestScene.result").color(result, CgLoad.CLEAR).camera(new CgCamera().resolution(W / 2, H / 2)).order(CgOrder.LOOKBACK);
-        int bindings = recording.bindings().withTexture(CgMaterialProxy.of(down).captureBindings(recording.bindings()), 0, blurred);
+        CgMaterialBindings bindings = CgMaterialProxy.of(down).bindings().with(0, blurred);
         CgChunkBuilder c = recording.chunks().begin();
         c.draw(CgMaterialProxy.of(down).pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));
         c.instance();

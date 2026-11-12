@@ -33,6 +33,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
+import com.crystalgraphics.render.draw.CgMaterialBindings;
 
 /**
  * The gate for volumes in the frame graph (gpu-compute C11, E3). Each frame a 12x10x9 R16F volume is filled by a
@@ -108,7 +109,7 @@ public class CgVolumeTestScene implements InteractiveSceneLifecycle {
 
         CgCamera constants = new CgCamera().resolution(W, H * D);
         CgRasterPass draw = rec.raster("volumeTestScene.flat").color(flat, CgLoad.CLEAR).camera(constants).order(CgOrder.LOOKBACK);
-        int bindings = rec.bindings().withTexture(CgMaterialProxy.of(flatten).captureBindings(rec.bindings()), 0, spread);
+        CgMaterialBindings bindings = CgMaterialProxy.of(flatten).bindings().with(0, spread);
         CgChunkBuilder chunk = rec.chunks().begin();
         chunk.draw(CgMaterialProxy.of(flatten).pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));
         chunk.instance();

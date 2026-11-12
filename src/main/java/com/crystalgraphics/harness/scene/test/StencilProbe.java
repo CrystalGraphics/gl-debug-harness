@@ -16,6 +16,7 @@ import com.crystalgraphics.render.stage.CgStageFrame;
 
 import javax.annotation.Nullable;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
+import com.crystalgraphics.render.draw.CgMaterialBindings;
 
 /**
  * A gate's view of a graph texture's stencil, read as a post material reads CustomStencil
@@ -45,7 +46,7 @@ final class StencilProbe {
         }
         CgRecording recording = stage.recording();
         CgRasterPass pass = recording.raster("stencilProbe.into").color(into, CgLoad.CLEAR).constants(stage.constants());
-        int reads = recording.bindings().withTexture(CgMaterialProxy.of(copy).captureBindings(recording.bindings()), 0, from.stencil());
+        CgMaterialBindings reads = CgMaterialProxy.of(copy).bindings().with(0, from.stencil());
         CgChunkBuilder chunks = recording.chunks().begin();
         chunks.draw(pipeline, reads, FULLSCREEN);
         chunks.instance();

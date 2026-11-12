@@ -44,6 +44,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
 import com.crystalgraphics.api.texture.CgSampler;
+import com.crystalgraphics.render.draw.CgMaterialBindings;
 
 /**
  * gpu-compute C3's gate: a chain of compute and raster passes in one frame graph, recorded and built on a worker
@@ -151,7 +152,7 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
         CgCamera constants = new CgCamera().resolution(w, h);
         CgCamera.orthographicMatrix(constants.projection(), 0, w, h, 0, -1, 1);
         CgRasterPass pass = rec.raster("computeGraphTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
-        int bindings = rec.bindings().withTexture(CgMaterialProxy.of(material).captureBindings(rec.bindings()), 0, texture);
+        CgMaterialBindings bindings = CgMaterialProxy.of(material).bindings().with(0, texture);
         CgChunkBuilder c = rec.chunks().begin();
         c.draw(CgMaterialProxy.of(material).pipeline(CgInstanceKind.QUAD), bindings);
         int at = c.instance();

@@ -23,6 +23,7 @@ import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
+import com.crystalgraphics.render.draw.CgMaterialBindings;
 
 
 /**
@@ -56,8 +57,8 @@ public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
             CgCamera constants = new CgCamera().resolution(Math.max(1, W >> k), Math.max(1, H >> k));
             CgRasterPass pass = rec.raster("rasterLevelsTestScene.chain").color(chain, k, 0, CgLoad.CLEAR).camera(constants).order(CgOrder.LOOKBACK);
             CgMaterialInterface material = k == 0 ? top : down;
-            int bindings = CgMaterialProxy.of(material).captureBindings(rec.bindings());
-            if (k > 0) bindings = rec.bindings().withTexture(bindings, 0, chain.level(k - 1));
+            CgMaterialBindings bindings = CgMaterialProxy.of(material).bindings();
+            if (k > 0) bindings = bindings.with(0, chain.level(k - 1));
             CgChunkBuilder c = rec.chunks().begin();
             c.draw(CgMaterialProxy.of(material).pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));
             c.instance();

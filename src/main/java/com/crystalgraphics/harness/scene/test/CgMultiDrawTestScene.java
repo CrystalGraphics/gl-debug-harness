@@ -31,6 +31,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import com.crystalgraphics.render.draw.CgMaterialBindings;
 
 /**
  * gpu-compute C9's gate for multi-draw: one pass of 64 draws of distinct meshes under one pipeline and bindings -- a
@@ -140,7 +141,7 @@ public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
         constants.projection().set(CgCamera.orthographicMatrix(new Matrix4f(), 0, w, h, 0, -1, 1));
         CgRasterPass pass = rec.raster("multiDrawTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
         CgPipeline pipeline = CgMaterialProxy.of(material).pipeline(CgInstanceKind.OBJECT);
-        int bindings = CgMaterialProxy.of(material).captureBindings(rec.bindings());
+        CgMaterialBindings bindings = CgMaterialProxy.of(material).bindings();
         CgChunkBuilder c = rec.chunks().begin();
         cells = 0;
         for (int i = 0; i < STRIPS; i++) {
