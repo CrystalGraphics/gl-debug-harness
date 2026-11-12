@@ -268,7 +268,7 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
     private static void clear(CgRecording rec, CgGraphTexture texture, int level, CgLoad load) {
         CgPassConstants constants = new CgPassConstants().resolution(Math.max(1, texture.getWidth() >> level),
                 Math.max(1, texture.getHeight() >> level));
-        rec.raster(texture, level, load, constants, null, CgOrder.LOOKBACK).end();
+        rec.raster("readbackTestScene.texture").color(texture, level, 0, load).constants(constants).order(CgOrder.LOOKBACK).end();
     }
 
     private void landed(int kind, int requestedAt) {

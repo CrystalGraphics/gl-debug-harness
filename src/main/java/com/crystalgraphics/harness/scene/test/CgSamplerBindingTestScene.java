@@ -101,7 +101,7 @@ public class CgSamplerBindingTestScene implements HarnessSceneLifecycle {
         CgRecording rec = new CgRecording();
         CgPassConstants constants = new CgPassConstants().resolution(w, h);
         constants.projection.set(new Matrix4f().setOrtho(0, w, h, 0, -1, 1));
-        CgRasterPass pass = rec.raster(CgGraphTexture.current(), CgLoad.load(), constants, null, CgOrder.LOOKBACK);
+        CgRasterPass pass = rec.raster("samplerBindingTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
         CgChunkBuilder c = rec.chunks().begin();
         for (int i = 0; i < materials.length; i++) {
             c.draw(materials[i].pipeline(CgInstanceKind.OBJECT), materials[i].captureBindings(rec.bindings()), square);

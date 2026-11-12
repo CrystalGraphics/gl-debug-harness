@@ -137,7 +137,7 @@ public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
         CgRecording rec = new CgRecording();
         CgPassConstants constants = new CgPassConstants().resolution(w, h);
         constants.projection.set(new Matrix4f().setOrtho(0, w, h, 0, -1, 1));
-        CgRasterPass pass = rec.raster(CgGraphTexture.current(), CgLoad.load(), constants, null, CgOrder.LOOKBACK);
+        CgRasterPass pass = rec.raster("multiDrawTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
         CgPipeline pipeline = material.pipeline(CgInstanceKind.OBJECT);
         int bindings = material.captureBindings(rec.bindings());
         CgChunkBuilder c = rec.chunks().begin();

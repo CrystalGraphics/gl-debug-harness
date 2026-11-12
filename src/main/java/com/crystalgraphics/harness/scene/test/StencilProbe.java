@@ -5,7 +5,6 @@ import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshTopology;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
-import com.crystalgraphics.render.draw.CgOrder;
 import com.crystalgraphics.render.draw.CgPipeline;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
@@ -44,7 +43,7 @@ final class StencilProbe {
             into = CgGraphTexture.transientTexture("stencil_probe", new CgTextureDesc(w, h, R8));
         }
         CgRecording recording = stage.recording();
-        CgRasterPass pass = recording.raster(into, CgLoad.clear(0f, 0f, 0f, 0f), stage.constants(), null, CgOrder.SORTED);
+        CgRasterPass pass = recording.raster("stencilProbe.into").color(into, CgLoad.clear(0f, 0f, 0f, 0f)).constants(stage.constants());
         int reads = recording.bindings().withTexture(copy.captureBindings(recording.bindings()), 0, from.stencil());
         CgChunkBuilder chunks = recording.chunks().begin();
         chunks.draw(pipeline, reads, FULLSCREEN);

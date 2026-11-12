@@ -128,7 +128,7 @@ public class CgMaterialBufferTestScene implements HarnessSceneLifecycle {
         material.buffer("CELLS", b.cells()).buffer("LIVE", b.live());
         CgPassConstants constants = new CgPassConstants().resolution(w, h);
         constants.projection.set(projection);
-        CgRasterPass pass = rec.raster(CgGraphTexture.current(), CgLoad.load(), constants, null, CgOrder.LOOKBACK);
+        CgRasterPass pass = rec.raster("per.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
         CgChunkBuilder c = rec.chunks().begin();
         c.draw(material.pipeline(CgInstanceKind.OBJECT), material.captureBindings(rec.bindings()), CgMesh.quads(CELLS))
                 .indirect(b.count(), 0, CgIndirect.INDICES, 6);

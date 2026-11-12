@@ -74,8 +74,7 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
     /** Whether a pass drawing into the array and sampling it is refused when its chunk is added. */
     private boolean refusesOwnArray() {
         CgRecording rec = new CgRecording();
-        CgRasterPass pass = rec.raster(fields, 0, 1, CgLoad.load(), new CgPassConstants().resolution(W, H), null,
-                CgOrder.LOOKBACK);
+        CgRasterPass pass = rec.raster("rasterLayersTestScene.fields").color(fields, 0, 1, CgLoad.load()).constants(new CgPassConstants().resolution(W, H)).order(CgOrder.LOOKBACK);
         CgChunkBuilder chunk = rec.chunks().begin();
         chunk.draw(summing[1].pipeline(CgInstanceKind.OBJECT), summing[1].captureBindings(rec.bindings()), CgMesh.quads(1));
         chunk.instance();
@@ -106,7 +105,7 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
         CgRecording rec = new CgRecording();
         CgPassConstants constants = new CgPassConstants().resolution(W, H);
         for (int k = 0; k < used; k++) {
-            CgRasterPass pass = rec.raster(fields, 0, k, CgLoad.clear(0f, 0f, 0.125f * k, 0f), constants, null, CgOrder.LOOKBACK);
+            CgRasterPass pass = rec.raster("rasterLayersTestScene.fields").color(fields, 0, k, CgLoad.clear(0f, 0f, 0.125f * k, 0f)).constants(constants).order(CgOrder.LOOKBACK);
             CgChunkBuilder chunk = rec.chunks().begin();
             for (int twice = 0; twice < 2; twice++) {
                 chunk.draw(draw[k].pipeline(CgInstanceKind.OBJECT), draw[k].captureBindings(rec.bindings()), CgMesh.quads(1));
@@ -124,7 +123,7 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
                 layersRead++;
             }));
         }
-        CgRasterPass add = rec.raster(sum, CgLoad.clear(0f, 0f, 0f, 0f), constants, null, CgOrder.LOOKBACK);
+        CgRasterPass add = rec.raster("rasterLayersTestScene.sum").color(sum, CgLoad.clear(0f, 0f, 0f, 0f)).constants(constants).order(CgOrder.LOOKBACK);
         CgChunkBuilder chunk = rec.chunks().begin();
         chunk.draw(summing[used].pipeline(CgInstanceKind.OBJECT), summing[used].captureBindings(rec.bindings()), CgMesh.quads(1));
         chunk.instance();

@@ -95,8 +95,7 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
 
     private void draw(int zone) {
         recording.reset();
-        CgRasterPass pass = recording.raster(target, CgLoad.clear(0, 0, 0, 0), new CgPassConstants().resolution(W, H),
-                null, CgOrder.LOOKBACK).timed(zone);   // full-target draws all overlap, so stay in this order
+        CgRasterPass pass = recording.raster("gpuGroupsTestScene.target").color(target, CgLoad.clear(0, 0, 0, 0)).constants(new CgPassConstants().resolution(W, H)).order(CgOrder.LOOKBACK).timed(zone);   // full-target draws all overlap, so stay in this order
         for (CgMaterial material : materials) {
             CgChunkBuilder c = recording.chunks().begin();
             c.draw(material.pipeline(CgInstanceKind.OBJECT), material.captureBindings(recording.bindings()), CgMesh.quads(1));

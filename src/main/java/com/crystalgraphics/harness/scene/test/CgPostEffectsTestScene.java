@@ -13,7 +13,6 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
-import com.crystalgraphics.render.draw.CgOrder;
 import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.post.CgPostContext;
@@ -76,7 +75,7 @@ public class CgPostEffectsTestScene implements HarnessSceneLifecycle {
 
         @Override
         public void record(CgPostContext post) {
-            CgRasterPass pass = post.recording().raster(post.target(), CgLoad.load(), post.constants(), null, CgOrder.SORTED);
+            CgRasterPass pass = post.recording().raster("postEffectsTestScene.target").color(post.target(), CgLoad.load()).constants(post.constants());
             CgChunkBuilder chunks = post.recording().chunks().begin();
             chunks.draw(material.pipeline(CgInstanceKind.OBJECT), material.captureBindings(post.recording().bindings()),
                     CgMesh.quads(1));

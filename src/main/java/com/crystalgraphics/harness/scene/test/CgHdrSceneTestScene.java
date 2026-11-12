@@ -11,7 +11,6 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.render.CgImmediate;
-import com.crystalgraphics.gpu.resource.CgTextureType;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.harness.FrameInfo;
@@ -175,7 +174,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
 
     private static void fullscreen(CgRecording rec, CgGraphTexture target, CgMaterial material, String sampler,
                                    CgGraphTexture source, CgPassConstants constants) {
-        CgRasterPass pass = rec.raster(target, CgLoad.load(), constants, null, CgOrder.LOOKBACK);
+        CgRasterPass pass = rec.raster("hdrSceneTestScene.target").color(target, CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
         material.applyProperties(b -> b.sampler(sampler, 0, source));
         CgChunkBuilder c = rec.chunks().begin();
         c.draw(material.pipeline(CgInstanceKind.OBJECT), material.captureBindings(rec.bindings()), CgMesh.quads(1));

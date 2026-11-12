@@ -105,7 +105,7 @@ public class CgVolumeTestScene implements InteractiveSceneLifecycle {
         pass.end();
 
         CgPassConstants constants = new CgPassConstants().resolution(W, H * D);
-        CgRasterPass draw = rec.raster(flat, CgLoad.clear(0f, 0f, 0f, 0f), constants, null, CgOrder.LOOKBACK);
+        CgRasterPass draw = rec.raster("volumeTestScene.flat").color(flat, CgLoad.clear(0f, 0f, 0f, 0f)).constants(constants).order(CgOrder.LOOKBACK);
         int bindings = rec.bindings().withTexture(flatten.captureBindings(rec.bindings()), 0, spread);
         CgChunkBuilder chunk = rec.chunks().begin();
         chunk.draw(flatten.pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));

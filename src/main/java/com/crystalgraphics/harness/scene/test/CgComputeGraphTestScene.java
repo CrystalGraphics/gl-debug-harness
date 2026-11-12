@@ -148,7 +148,7 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
     private void show(CgRecording rec, CgTexture texture, int w, int h) {
         CgPassConstants constants = new CgPassConstants().resolution(w, h);
         constants.projection.setOrtho(0, w, h, 0, -1, 1);
-        CgRasterPass pass = rec.raster(CgGraphTexture.current(), CgLoad.load(), constants, null, CgOrder.LOOKBACK);
+        CgRasterPass pass = rec.raster("computeGraphTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
         int bindings = rec.bindings().withTexture(material.captureBindings(rec.bindings()), 0, texture);
         CgChunkBuilder c = rec.chunks().begin();
         c.draw(material.pipeline(CgInstanceKind.QUAD), bindings);

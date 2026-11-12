@@ -80,8 +80,7 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
         try {
             CgFrame built = worker.submit(() -> {
                 CgRecording rec = new CgRecording();
-                CgRasterPass pass = rec.raster(CgGraphTexture.current(), CgLoad.load(), constants(w, h), null,
-                        CgOrder.LOOKBACK);
+                CgRasterPass pass = rec.raster("graphExecutorTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants(w, h)).order(CgOrder.LOOKBACK);
                 rec.chunks().begin();
                 record(rec.chunks(), material.captureBindings(rec.bindings()));
                 pass.add(rec.chunks().end());

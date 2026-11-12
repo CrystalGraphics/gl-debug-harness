@@ -150,7 +150,7 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
         CgRecording rec = new CgRecording();
         CgPassConstants constants = new CgPassConstants().resolution(w, h);
         constants.projection.set(new Matrix4f().setOrtho(0, w, h, 0, -1, 1));
-        CgRasterPass pass = rec.raster(CgGraphTexture.current(), CgLoad.load(), constants, null, CgOrder.LOOKBACK);
+        CgRasterPass pass = rec.raster("flipbookTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
         CgChunkBuilder c = rec.chunks().begin();
         int[] due = new int[3];
         for (int r = 0; r < materials.length; r++) {

@@ -149,7 +149,7 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
 
         CgPassConstants constants = new CgPassConstants().resolution(w, h);
         constants.projection.set(projection);
-        CgRasterPass pass = rec.raster(CgGraphTexture.current(), CgLoad.load(), constants, null, CgOrder.LOOKBACK);
+        CgRasterPass pass = rec.raster("indirectDrawTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
         CgPipeline pipeline = material.pipeline(CgInstanceKind.OBJECT);
         int bindings = material.captureBindings(rec.bindings());
         CgChunkBuilder c = rec.chunks().begin();

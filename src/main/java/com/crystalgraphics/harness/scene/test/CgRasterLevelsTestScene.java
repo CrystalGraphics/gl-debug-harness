@@ -52,7 +52,7 @@ public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
         CgRecording rec = new CgRecording();
         for (int k = 0; k < chain.getLevels(); k++) {
             CgPassConstants constants = new CgPassConstants().resolution(Math.max(1, W >> k), Math.max(1, H >> k));
-            CgRasterPass pass = rec.raster(chain, k, CgLoad.clear(0, 0, 0, 0), constants, null, CgOrder.LOOKBACK);
+            CgRasterPass pass = rec.raster("rasterLevelsTestScene.chain").color(chain, k, 0, CgLoad.clear(0, 0, 0, 0)).constants(constants).order(CgOrder.LOOKBACK);
             CgMaterial material = k == 0 ? top : down;
             int bindings = material.captureBindings(rec.bindings());
             if (k > 0) bindings = rec.bindings().withTexture(bindings, 0, chain.level(k - 1));
