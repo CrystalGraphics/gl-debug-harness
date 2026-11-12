@@ -43,7 +43,7 @@ final class StencilProbe {
             into = CgGraphTexture.transientTexture("stencil_probe", new CgTextureDesc(w, h, R8));
         }
         CgRecording recording = stage.recording();
-        CgRasterPass pass = recording.raster("stencilProbe.into").color(into, CgLoad.clear(0f, 0f, 0f, 0f)).constants(stage.constants());
+        CgRasterPass pass = recording.raster("stencilProbe.into").color(into, CgLoad.CLEAR).constants(stage.constants());
         int reads = recording.bindings().withTexture(copy.captureBindings(recording.bindings()), 0, from.stencil());
         CgChunkBuilder chunks = recording.chunks().begin();
         chunks.draw(pipeline, reads, FULLSCREEN);

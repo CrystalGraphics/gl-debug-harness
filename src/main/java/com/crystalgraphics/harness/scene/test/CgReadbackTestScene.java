@@ -128,7 +128,7 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             landed(2, n);
         }));
 
-        clear(rec, chain, 0, CgLoad.clear(0f, 0f, 0f, 0f));
+        clear(rec, chain, 0, CgLoad.CLEAR);
         clear(rec, chain, 2, CgLoad.clear(b / 255f, 51 / 255f, 1f, 1f));
         requests.add(rec.readback(chain, 2, 0, 0, 4, 2, data -> {
             int[] want = {b, 51, 255, 255};
@@ -190,8 +190,8 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
 
     /** Level 0's 3x2 region at (1, 1) and level 1's 1x2 at (1, 0) written over a cleared texture, both levels read whole. */
     private void patch(CgRecording rec, int n) {
-        clear(rec, patch, 0, CgLoad.clear(0f, 0f, 0f, 0f));
-        clear(rec, patch, 1, CgLoad.clear(0f, 0f, 0f, 0f));
+        clear(rec, patch, 0, CgLoad.CLEAR);
+        clear(rec, patch, 1, CgLoad.CLEAR);
         requests.add(rec.update(patch, 0, 1, 1, 3, 2, texels(6, i -> n * 7 + i + 1)));
         requests.add(rec.update(patch, 1, 1, 0, 1, 2, texels(2, i -> n * 11 + i + 1)));
         requests.add(rec.readback(patch, 0, 0, 0, 5, 4, data -> {

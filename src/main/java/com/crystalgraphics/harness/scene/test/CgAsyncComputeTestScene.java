@@ -222,7 +222,7 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
 
     /** The pass reading the blur. */
     private void reader() {
-        CgRasterPass pass = recording.raster("asyncComputeTestScene.result").color(result, CgLoad.clear(0, 0, 0, 0)).camera(new CgCamera().resolution(W / 2, H / 2)).order(CgOrder.LOOKBACK);
+        CgRasterPass pass = recording.raster("asyncComputeTestScene.result").color(result, CgLoad.CLEAR).camera(new CgCamera().resolution(W / 2, H / 2)).order(CgOrder.LOOKBACK);
         int bindings = recording.bindings().withTexture(down.captureBindings(recording.bindings()), 0, blurred);
         CgChunkBuilder c = recording.chunks().begin();
         c.draw(down.pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));
@@ -284,7 +284,7 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
 
     /** The fill-bound drawing, touching nothing the blurs do. */
     private void draw() {
-        CgRasterPass pass = recording.raster("asyncComputeTestScene.canvas").color(canvas, CgLoad.clear(0, 0, 0, 0)).camera(new CgCamera().resolution(W, H)).order(CgOrder.LOOKBACK);
+        CgRasterPass pass = recording.raster("asyncComputeTestScene.canvas").color(canvas, CgLoad.CLEAR).camera(new CgCamera().resolution(W, H)).order(CgOrder.LOOKBACK);
         CgDraw quadsDrawn = pass.draw(CgMesh.quads(1), pattern);
         for (int q = 1; q < quads; q++) quadsDrawn.instance();
         pass.end();

@@ -116,7 +116,7 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
                 layersRead++;
             }));
         }
-        CgRasterPass add = rec.raster("rasterLayersTestScene.sum").color(sum, CgLoad.clear(0f, 0f, 0f, 0f)).camera(constants).order(CgOrder.LOOKBACK);
+        CgRasterPass add = rec.raster("rasterLayersTestScene.sum").color(sum, CgLoad.CLEAR).camera(constants).order(CgOrder.LOOKBACK);
         add.draw(CgMesh.quads(1), summing[used]);
         add.end();
         requests.add(rec.readback(sum, 0, 0, 0, W, H, data -> {
