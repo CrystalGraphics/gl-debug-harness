@@ -1,6 +1,6 @@
 package com.crystalgraphics.harness.camera;
 
-import com.crystalgraphics.platform.world.CgHostCamera;
+import com.crystalgraphics.platform.world.CgCameraManager;
 import org.joml.Matrix4f;
 
 /**
@@ -9,12 +9,12 @@ import org.joml.Matrix4f;
  * turns it on and off in a scene with a 3D camera, and the HUD says which.
  *
  * <pre>{@code
- * CgPlatform.provide(CgHostCamera.SERVICE, HarnessCameraShake.INSTANCE);   // once, at start
+ * CgPlatform.provide(CgCameraManager.HOST, HarnessCameraShake.INSTANCE);   // once, at start
  * HarnessCameraShake.INSTANCE.toggle();                                   // C
  * HarnessCameraShake.INSTANCE.apply(view, projection);                    // each world frame, both in place
  * }</pre>
  */
-public final class HarnessCameraShake implements CgHostCamera {
+public final class HarnessCameraShake implements CgCameraManager.Host {
 
     public static final HarnessCameraShake INSTANCE = new HarnessCameraShake();
 
@@ -38,7 +38,7 @@ public final class HarnessCameraShake implements CgHostCamera {
 
     @Override
     public int capabilities() {
-        return ROTATION | ROLL | FOV | TRANSLATION;
+        return CgCameraManager.ROTATION | CgCameraManager.ROLL | CgCameraManager.FOV | CgCameraManager.TRANSLATION;
     }
 
     @Override
