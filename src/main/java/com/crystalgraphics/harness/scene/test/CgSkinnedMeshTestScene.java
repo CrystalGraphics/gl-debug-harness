@@ -108,7 +108,7 @@ public class CgSkinnedMeshTestScene implements HarnessSceneLifecycle {
         world.draw(posed, material).at(w * 3 / 4.0, h / 2.0, 0).submit();
         Matrix4f view = new Matrix4f();
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, w, h, target.external()).view().set(0, 0, 0, view, projection);
+            stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
             stage.fire();
         }
         target.captureToFile(ctx.getOutputDir(), "skinned-mesh.png");

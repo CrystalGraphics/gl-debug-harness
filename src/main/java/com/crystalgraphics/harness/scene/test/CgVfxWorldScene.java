@@ -15,7 +15,7 @@ import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
-import com.crystalgraphics.render.stage.CgHostView;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.trace.CgGpuTrace;
 import com.crystalgraphics.trace.CgTrace;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
@@ -76,7 +76,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
     private static final float DISTANCE_TOLERANCE = 0.5f * 8f / 255f + 1e-3f;
 
     private final World world = new World();
-    private final CgHostView view = new CgHostView();
+    private final CgCamera view = new CgCamera();
     private final List<CgRequest> requests = new ArrayList<>();
     private final CgVfxEmitter debris = CgVfxEmitter.builder("world-debris").state(CgVfxEmitterState.ONCE)
             .capacity(PER_SLOT).burst(0f, 1)

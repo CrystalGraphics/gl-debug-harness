@@ -20,7 +20,7 @@ import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
-import com.crystalgraphics.render.stage.CgHostView;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxModuleTypes;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxEvent;
@@ -85,7 +85,7 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
     private final float[] depths = new float[DEPTH * DEPTH];
     private final Matrix4f view = new Matrix4f().rotationY(YAW), inverse = new Matrix4f().rotationY(-YAW);
     private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), 1f, 0.05f, 300f);
-    private final CgHostView host = new CgHostView();
+    private final CgCamera host = new CgCamera();
     private CgTexture3D fieldTexture;
     private CgTexture2D heightTexture;
     private CgVfxGpuEmitter fielded, heightened, depthed;

@@ -100,7 +100,7 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
         target.clear(clear[0], clear[1], clear[2], 1f);
         Matrix4f view = new Matrix4f(), projection = new Matrix4f().setOrtho(0, SIZE, 0, SIZE, -1, 1);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, SIZE, SIZE, target.external()).view().set(0, 0, 0, view, projection);
+            stage.host().set(0f, SIZE, SIZE, target.external()).camera().set(0, 0, 0, view, projection);
             stage.fire();
         }
         String name = "post-transitions-" + (firing++) + ".png";

@@ -146,7 +146,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
         if (phase == 5 || phase == 6) renderer.lights().add(LAMP[0], LAMP[1], LAMP[2], 16f, 0xFFFFFFFF, 20f * (float) Math.PI * 16f, 0f);
         ((CgVar.Bool) CgVars.get("crystalgraphics.world.lightsShadows")).set(phase != 6);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).view().set(eyeX, eyeY, eyeZ, view, lens);
+            stage.host().set(0f, W, H, target.external()).camera().set(eyeX, eyeY, eyeZ, view, lens);
             boolean night = phase == 1 || phase == 5 || phase == 6 || phase == 8;
             stage.host().environment().sun(night ? Float.NaN : phase >= 2 ? SIDE_SUN : SUN_ANGLE, 0, 0f, 1f);
             stage.host().textures().importedLightmap(lightmap.rhiTexture(), 16, 16);

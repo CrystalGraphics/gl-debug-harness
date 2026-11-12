@@ -299,7 +299,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         if (glassBall) world.draw(ball, glass).at(1.6, 0, -3).transform(new Matrix4f().scale(0.6f)).grade(glassGrade).submit();
         Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) W / H, 0.05f, 100f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).view().set(0, 0, 0, new Matrix4f(), projection);
+            stage.host().set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
             stage.fire();
         }
         CgFrameRing.endFrame();

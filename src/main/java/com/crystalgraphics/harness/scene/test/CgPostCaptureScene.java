@@ -188,7 +188,7 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle {
         target.getColor().uploadRegion(0, 0, 0, w, h, pixels);
         projection.setPerspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, w, h, target.external()).view().set(0, 0, 0, view, projection);
+            stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
             stage.fire();
         }
         CgFrameRing.endFrame();

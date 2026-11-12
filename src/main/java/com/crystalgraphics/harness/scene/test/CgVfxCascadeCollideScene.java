@@ -14,7 +14,7 @@ import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
-import com.crystalgraphics.render.stage.CgHostView;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
 import com.crystalgraphics.vfx.particle.CgVfxModule;
@@ -97,7 +97,7 @@ public class CgVfxCascadeCollideScene implements InteractiveSceneLifecycle {
     /** Each damping particle's velocity as seeded. */
     private final float[][] seeded = new float[N][];
     private final World world = new World();
-    private final CgHostView view = new CgHostView();
+    private final CgCamera view = new CgCamera();
     private final List<CgRequest> requests = new ArrayList<>();
     private final CgVfxEventListener listener = this::heard;
     private int frame, checked;

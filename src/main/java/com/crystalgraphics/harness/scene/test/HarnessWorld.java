@@ -32,7 +32,7 @@ public final class HarnessWorld {
         HarnessCameraShake.INSTANCE.apply(VIEW.set(view), PROJECTION.set(projection));
         for (CgRenderStage stage : WORLD) {
             stage.host().set(0f, ctx.getScreenWidth(), ctx.getScreenHeight(), ctx.getTarget())
-                    .view().set(0, 0, 0, VIEW, PROJECTION);
+                    .camera().set(0, 0, 0, VIEW, PROJECTION);
             stage.fire();
         }
     }

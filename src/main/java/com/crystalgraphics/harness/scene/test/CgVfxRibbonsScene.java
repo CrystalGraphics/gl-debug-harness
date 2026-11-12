@@ -10,7 +10,7 @@ import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
-import com.crystalgraphics.render.stage.CgHostView;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
 import com.crystalgraphics.vfx.particle.gpu.draw.CgVfxRange;
@@ -95,7 +95,7 @@ public class CgVfxRibbonsScene implements InteractiveSceneLifecycle {
                     .field("uv1", Map.of("distribution", "tiled_over_ribbon_length", "tiling_length", 0.5))
                     .build(),
             trailRenderer, animRenderer};
-    private final CgHostView view = new CgHostView();
+    private final CgCamera view = new CgCamera();
     private final List<CgRequest> requests = new ArrayList<>();
     /** Each slot's pool: the seeded two share one, the trail its own. */
     private final Side[] sides = new Side[4];

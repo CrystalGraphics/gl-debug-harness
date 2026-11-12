@@ -461,7 +461,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     private void fire(HarnessTarget target) {
         target.clear(0.08f, 0.08f, 0.1f, 1f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).view().set(0, 0, 0, view, projection);
+            stage.host().set(0f, W, H, target.external()).camera().set(0, 0, 0, view, projection);
             stage.fire();
         }
     }

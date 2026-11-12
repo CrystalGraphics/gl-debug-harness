@@ -252,7 +252,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         try (CgExecutor.Into ignored = CgExecutor.into(host.target())) {
             Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
             for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-                stage.host().set(0f, w, h, host.target()).view().set(0, 0, 0, new Matrix4f(), projection);
+                stage.host().set(0f, w, h, host.target()).camera().set(0, 0, 0, new Matrix4f(), projection);
                 stage.fire();
             }
         }
@@ -358,7 +358,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     }
 
     private static void fire(CgRenderStage stage, Host host, int w, int h, Matrix4f projection) {
-        stage.host().set(0f, w, h, host.target()).view().set(0, 0, 0, new Matrix4f(), projection);
+        stage.host().set(0f, w, h, host.target()).camera().set(0, 0, 0, new Matrix4f(), projection);
         stage.fire();
     }
 

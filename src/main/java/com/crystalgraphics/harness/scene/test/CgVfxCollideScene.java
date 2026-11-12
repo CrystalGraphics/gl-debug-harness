@@ -16,7 +16,7 @@ import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
-import com.crystalgraphics.render.stage.CgHostView;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.shape.primitive.CgSphere;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
@@ -90,7 +90,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
             List.of(CgVfxEvent.onCollision().spawn(dust, COUNT).inherit(INHERIT[0], INHERIT[1], INHERIT[2]).maxPerFrame(PARENTS).readback(4000),
                     CgVfxEvent.every(PERIOD).readback(4000), CgVfxEvent.onDeath().readback(4000)));
     private final World world = new World();
-    private final CgHostView view = new CgHostView();
+    private final CgCamera view = new CgCamera();
     private final float[] spawn = new float[4 * CgVfxGpuEmitter.SPAWN_VECTORS];
     private final List<CgRequest> requests = new ArrayList<>();
     /** Per event, per debris, its rows by firing: (x, y, z, vx, vy, vz, nx, ny, nz). */

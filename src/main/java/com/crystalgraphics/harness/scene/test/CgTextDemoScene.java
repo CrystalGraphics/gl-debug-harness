@@ -9,7 +9,7 @@ import com.crystalgraphics.demo.CgTextDemo;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.render.stage.CgHostView;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.util.io.CgIO;
 import org.joml.Matrix4f;
@@ -38,7 +38,7 @@ public final class CgTextDemoScene implements InteractiveSceneLifecycle {
     private static final String CRITICAL = "crystalgraphics:demo/critical";
 
     private final CgTextDemo text = new CgTextDemo(CgDefaultFont.regular(48));
-    private final CgHostView start = new CgHostView();
+    private final CgCamera start = new CgCamera();
 
     @Override
     public void init(HarnessContext ctx) {

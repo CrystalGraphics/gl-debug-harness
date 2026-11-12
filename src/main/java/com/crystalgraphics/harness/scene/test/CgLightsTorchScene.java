@@ -104,7 +104,7 @@ public class CgLightsTorchScene implements InteractiveSceneLifecycle {
         // Ours: a box two blocks across, three blocks from the torch.
         if (phase == 0) renderer.draw(cube, grey).at(CX + 3.5, GROUND + 1, CZ + 0.5).transform(new Matrix4f().scale(2f)).submit();
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).view().set(EYE_X, EYE_Y, EYE_Z, look, projection);
+            stage.host().set(0f, W, H, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, look, projection);
             stage.host().environment().sun(Float.NaN, 0, 0f, 0f);
             stage.host().textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
             stage.fire();

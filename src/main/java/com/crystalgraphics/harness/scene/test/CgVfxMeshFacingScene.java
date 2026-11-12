@@ -10,7 +10,7 @@ import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
-import com.crystalgraphics.render.stage.CgHostView;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
@@ -63,7 +63,7 @@ public class CgVfxMeshFacingScene implements InteractiveSceneLifecycle {
     private final Map<CgVfxParticlePool, ByteBuffer> records = new IdentityHashMap<>();
     private final List<CgVfxParticlePool> pools = new ArrayList<>();
     private final int[] slots = new int[7];
-    private final CgHostView view = new CgHostView();
+    private final CgCamera view = new CgCamera();
     private final Matrix4f look = new Matrix4f();
     private final List<CgRequest> requests = new ArrayList<>();
     private ByteBuffer drawnParts, visible, order, objects;

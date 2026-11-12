@@ -66,7 +66,7 @@ public class CgTextureCubeScene implements HarnessSceneLifecycle {
             for (int i = 0; i < QUADS; i++) world.draw(CgMesh.quads(1), material).custom(0, x(i), MARGIN, SIZE, i).submit();
             Matrix4f view = new Matrix4f(), projection = new Matrix4f().setOrtho(0, w, h, 0, -1, 1);
             for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-                stage.host().set(0f, w, h, target.external()).view().set(0, 0, 0, view, projection);
+                stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
                 stage.fire();
             }
             target.captureToFile(ctx.getOutputDir(), "texture-cube.png");

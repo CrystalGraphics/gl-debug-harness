@@ -85,7 +85,7 @@ public class CgLightsShadowScene implements InteractiveSceneLifecycle {
             if (phase == 1) lights.shadowed(false);
         }
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).view().set(EYE_X, EYE_Y, EYE_Z, look, projection);
+            stage.host().set(0f, W, H, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, look, projection);
             stage.fire();
         }
         CgFrameRing.endFrame();

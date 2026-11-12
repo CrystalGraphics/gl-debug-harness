@@ -115,7 +115,7 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
             renderer.draw(cube, handed).at(pane[0], pane[1], pane[2]).transform(new Matrix4f().scale(1f, 0.05f, 1f)).submit();
         }
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).view().set(EYE_X, EYE_Y, EYE_Z, look, projection);
+            stage.host().set(0f, W, H, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, look, projection);
             stage.host().environment().sun(phase == 0 ? 0f : Float.NaN, 0, 0f, 1f);
             stage.host().textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
             stage.fire();

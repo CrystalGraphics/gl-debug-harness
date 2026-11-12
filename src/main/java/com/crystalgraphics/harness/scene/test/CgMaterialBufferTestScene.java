@@ -148,7 +148,7 @@ public class CgMaterialBufferTestScene implements HarnessSceneLifecycle {
                 .custom(0, ORIGIN, ORIGIN, 0f, 0f).submit();
         Matrix4f view = new Matrix4f();
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, w, h, target.external()).view().set(0, 0, 0, view, projection);
+            stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
             stage.fire();
         }
         simulating.close();

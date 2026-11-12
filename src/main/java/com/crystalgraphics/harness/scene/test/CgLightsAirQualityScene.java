@@ -130,7 +130,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
                     .spot((float) DIR.x, (float) DIR.y, (float) DIR.z, 5f, 10f).scattering(SCATTERING);
         }
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).view().set(eye.x, eye.y, eye.z, look, projection);
+            stage.host().set(0f, W, H, target.external()).camera().set(eye.x, eye.y, eye.z, look, projection);
             stage.fire();
         }
         CgFrameRing.endFrame();

@@ -14,7 +14,7 @@ import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.render.graph.CgRequest;
-import com.crystalgraphics.render.stage.CgHostView;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.trace.CgGpuTrace;
 import com.crystalgraphics.easing.CgEasings;
 import com.crystalgraphics.easing.CgKeyframes;
@@ -107,7 +107,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
                     CgKeyframes.start(0f, 0.5f).to(1f, 1.5f, CgEasings.IN_QUAD).build())
             .build();
     private final CgVfxGpuEmitter bySpeed = new BySpeed(emitter);
-    private final CgHostView view = new CgHostView();
+    private final CgCamera view = new CgCamera();
     private final Matrix4f viewProjection = new Matrix4f();
     private final float[][] planes = new float[6][4];
     private final float[][] pyramidLevels = new float[7][];
