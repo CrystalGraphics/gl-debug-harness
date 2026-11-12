@@ -147,7 +147,7 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
     /** One quad sampling {@code texture} texel for pixel, into whatever is bound. */
     private void show(CgRecording rec, CgTexture texture, int w, int h) {
         CgCamera constants = new CgCamera().resolution(w, h);
-        constants.projection().setOrtho(0, w, h, 0, -1, 1);
+        CgCamera.orthographicMatrix(constants.projection(), 0, w, h, 0, -1, 1);
         CgRasterPass pass = rec.raster("computeGraphTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
         int bindings = rec.bindings().withTexture(material.captureBindings(rec.bindings()), 0, texture);
         CgChunkBuilder c = rec.chunks().begin();

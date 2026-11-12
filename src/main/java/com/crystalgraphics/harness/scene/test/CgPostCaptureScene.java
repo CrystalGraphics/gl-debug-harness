@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.asset.kind.CgParticleKinds;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.asset.load.CgAssetCompiler;
@@ -186,7 +187,7 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle {
         target.bind();
         target.clear(0f, 0f, 0f, 1f);
         target.getColor().uploadRegion(0, 0, 0, w, h, pixels);
-        projection.setPerspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
+        CgCamera.perspectiveMatrix(projection, 60f, (float) w / h, 0.05f, 100f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
             stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
             stage.fire();

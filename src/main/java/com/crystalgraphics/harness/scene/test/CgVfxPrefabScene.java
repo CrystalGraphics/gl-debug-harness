@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgProceduralMesh;
@@ -107,7 +108,7 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
             target.clear(0f, 0f, 0f, 1f);
             for (int i = 1; i <= 4; i++) vfx.update(i / 60.0);
             vfx.submit(CgWorldRenderer.get());
-            Matrix4f view = new Matrix4f(), projection = new Matrix4f().setOrtho(0, w, 0, h, -100, 100);
+            Matrix4f view = new Matrix4f(), projection = CgCamera.orthographicMatrix(new Matrix4f(), 0, w, 0, h, -100, 100);
             for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
                 stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
                 stage.fire();

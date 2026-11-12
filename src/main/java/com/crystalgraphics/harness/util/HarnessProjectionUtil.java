@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.util;
 
+import com.crystalgraphics.camera.CgCamera;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 import java.nio.FloatBuffer;
@@ -38,8 +39,7 @@ public class HarnessProjectionUtil {
      * @return a new perspective projection matrix
      */
     public static Matrix4f perspective(float aspectRatio) {
-        return new Matrix4f().perspective(
-                (float) Math.toRadians(FOV_DEGREES), aspectRatio, NEAR_PLANE, FAR_PLANE);
+        return CgCamera.perspectiveMatrix(new Matrix4f(), FOV_DEGREES, aspectRatio, NEAR_PLANE, FAR_PLANE);
     }
 
     /**

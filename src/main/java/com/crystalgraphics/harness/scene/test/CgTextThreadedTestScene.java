@@ -158,7 +158,7 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
     private CgFrame record(int w, int h, String text, CgFont font, float x, float y, float maxWidth) {
         CgRecording recording = new CgRecording();
         CgCamera constants = new CgCamera().resolution(w, h);
-        constants.projection().setOrtho(0, w, h, 0, -1, 1);
+        CgCamera.orthographicMatrix(constants.projection(), 0, w, h, 0, -1, 1);
         workerText.recordInto(recording, CgGraphTexture.current(), CgLoad.load(), constants);
         workerText.text().layout(CgTextLayout.of(text, font).maxWidth(maxWidth).build())
                 .font(font).at(x, y).color(0xFFFFFFFF).submit();

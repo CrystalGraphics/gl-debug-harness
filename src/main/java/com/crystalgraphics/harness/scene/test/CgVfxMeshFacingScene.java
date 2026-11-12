@@ -107,7 +107,7 @@ public class CgVfxMeshFacingScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         look.lookAt(0f, 0f, 0f, 0.1f, -0.05f, -1f, 0f, 1f, 0f);
-        Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(80), 16f / 9f, 0.05f, 300f);
+        Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 80f, 16f / 9f, 0.05f, 300f);
         view.set(CAMERA_X, CAMERA_Y, CAMERA_Z, look, projection);
         for (CgVfxEmitter e : emitters) CgVfxParticlePool.precache(e);
         CgVfxRange.precache();

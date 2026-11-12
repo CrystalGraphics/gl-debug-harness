@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.vfx.render.CgVfxSlotRenderer;
 import com.crystalgraphics.harness.FrameInfo;
@@ -94,7 +95,7 @@ public class CgVfxSortGroupScene implements HarnessSceneLifecycle {
             for (int i = 1; i <= 4; i++) vfx.update(i / 60.0);
             vfx.submit(CgWorldRenderer.get());
             Matrix4f view = new Matrix4f();
-            Matrix4f projection = new Matrix4f().setPerspective((float) Math.toRadians(90), (float) w / h, 0.1f, 100f);
+            Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 90f, (float) w / h, 0.1f, 100f);
             for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
                 stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
                 stage.fire();

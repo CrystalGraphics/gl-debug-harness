@@ -1,5 +1,6 @@
 package com.crystalgraphics.platform;
 
+import com.crystalgraphics.render.CgDepthConvention;
 import com.crystalgraphics.platform.gl.driver.CgGLDriver;
 import com.crystalgraphics.platform.gl.driver.GLC;
 import com.crystalgraphics.platform.rhi.CgDeviceSection;
@@ -98,6 +99,9 @@ public final class PlatformServiceHarness implements CgPlatformService {
                     : new ShadercGlslCompiler(CgCacheDirectory.of("spirv")));
         }
         CgPlatform.register(p);
+        // The harness draws as the engine does, its window included: Unreal's reversed Z
+        CgDepthConvention.host(true);
+        CgDepthConvention.world(true);
         CgPlatform.provide(CgInput.HOST, new InputGlfw(HarnessWindow::handle));
         CgPlatform.provide(CgClipboard.HOST, new ClipboardGlfw(HarnessWindow::handle));
         // No resource packs: CgIO reads the classpath and the asset roots

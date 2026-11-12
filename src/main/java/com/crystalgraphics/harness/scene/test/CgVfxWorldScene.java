@@ -95,7 +95,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
     public void init(HarnessContext ctx) {
         CgPlatform.provide(CgLevels.HOST, CgLevels.single(world, CgEntityQuery.NONE));
         Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, 0.1f, -0.45f, -1f, 0f, 1f, 0f);
-        view.set(CX - 8.5, 82.25, CZ + 30.5, look, new Matrix4f().perspective((float) Math.toRadians(80), 16f / 9f, 0.05f, 300f));
+        view.set(CX - 8.5, 82.25, CZ + 30.5, look, CgCamera.perspectiveMatrix(new Matrix4f(), 80f, 16f / 9f, 0.05f, 300f));
         CgVfxParticlePool.precache(debris);
         CgVfxRange.precache();
         CgTrace.setEnabled(CgGpuTrace.GPU, true);

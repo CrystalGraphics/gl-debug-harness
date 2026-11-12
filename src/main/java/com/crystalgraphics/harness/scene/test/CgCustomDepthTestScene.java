@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
@@ -41,7 +42,7 @@ import java.util.List;
 public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
 
     private static final int W = 320, H = 240, ARM_AT = 3, GIVE_UP = 60;
-    private static final Matrix4f PROJECTION = new Matrix4f().perspective((float) Math.toRadians(60), (float) W / H, 0.05f, 100f);
+    private static final Matrix4f PROJECTION = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) W / H, 0.05f, 100f);
     private static final String[] NAMES = {"hidden cube", "near over far", "far alone", "skinned quad", "background"};
     /** Where each is sampled, in the world: projected to its pixel. */
     private static final Vector3f[] AT = {

@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
@@ -128,7 +129,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
                     .emission(emission).submit();
         }
         if (cover != null) world.draw(cube, cover).at(0, 0, -2).transform(new Matrix4f().scale(2f, 2f, 0.05f)).submit();
-        Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
+        Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) w / h, 0.05f, 100f);
         Matrix4f view = new Matrix4f();
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
             stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);

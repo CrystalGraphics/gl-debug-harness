@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshWriter;
@@ -95,7 +96,7 @@ public class CgSkinnedMeshTestScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
-        Matrix4f projection = new Matrix4f().setOrtho(0, w, h, 0, -1, 1);
+        Matrix4f projection = CgCamera.orthographicMatrix(new Matrix4f(), 0, w, h, 0, -1, 1);
         CgMesh posed = CgSkinning.skin(bar, skinning);
 
         HarnessTarget target = HarnessTarget.create(w, h, false);

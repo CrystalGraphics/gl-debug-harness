@@ -59,7 +59,7 @@ public class CgLightsTorchScene implements InteractiveSceneLifecycle {
     private final World world = new World();
     private final Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, (float) (CX + 3 - EYE_X), (float) (GROUND - EYE_Y),
             (float) (CZ - EYE_Z), 0f, 1f, 0f);
-    private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), (float) W / H, 0.05f, 200f);
+    private final Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 70f, (float) W / H, 0.05f, 200f);
     private HarnessTarget target;
     private CgMaterial grey;
     private CgTexture2D lightmap;

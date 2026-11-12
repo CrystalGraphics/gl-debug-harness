@@ -77,7 +77,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     private record Host(CgTexture2D colour, @Nullable CgTexture2D depth, CgExternalTarget target) {
         static Host of(String name, int w, int h, CgFormat colour, boolean depth) {
             CgTexture2D c = CgTextures.of(name, CgTextureDesc.of(w, h, colour));
-            CgTexture2D d = depth ? CgTextures.of(name + ".depth", CgTextureDesc.of(w, h, CgFormat.DEPTH24_PLUS_STENCIL8)) : null;
+            CgTexture2D d = depth ? CgTextures.of(name + ".depth", CgTextureDesc.of(w, h, CgFormat.DEPTH32_FLOAT_STENCIL8)) : null;
             return new Host(c, d, CgTextures.target(name, c, d));
         }
 
@@ -250,7 +250,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         CgPostStack.get().install();
         // A host draws its world into its own target: the stages take it as the current one.
         try (CgExecutor.Into ignored = CgExecutor.into(host.target())) {
-            Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
+            Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) w / h, 0.05f, 100f);
             for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
                 stage.host().set(0f, w, h, host.target()).camera().set(0, 0, 0, new Matrix4f(), projection);
                 stage.fire();
@@ -293,9 +293,9 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         upload(host, pattern(w, h), w, h);
         boolean wasSkipping = world.skipUnready();
         world.skipUnready(false);
-        Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
+        Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) w / h, 0.05f, 100f);
         try (CgExecutor.Into ignored = CgExecutor.into(host.target())) {
-            CgRenderer.clear(host.target(), false, 0, 0, 0, 0, true, 1.0, false, 0);
+            CgRenderer.clear(host.target(), false, 0, 0, 0, 0, true, 0.0, false, 0);
             world.draw(CgMeshShapes.cube(), opaqueMaterial).at(0, 0, -3).submit();
             fire(CgRenderStage.WORLD_OPAQUE, host, w, h, projection);
             if (overdraw) {

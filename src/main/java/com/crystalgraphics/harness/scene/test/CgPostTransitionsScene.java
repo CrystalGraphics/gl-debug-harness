@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -98,7 +99,7 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
         CgFrameClock.set(seconds);
         target.bind();
         target.clear(clear[0], clear[1], clear[2], 1f);
-        Matrix4f view = new Matrix4f(), projection = new Matrix4f().setOrtho(0, SIZE, 0, SIZE, -1, 1);
+        Matrix4f view = new Matrix4f(), projection = CgCamera.orthographicMatrix(new Matrix4f(), 0, SIZE, 0, SIZE, -1, 1);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
             stage.host().set(0f, SIZE, SIZE, target.external()).camera().set(0, 0, 0, view, projection);
             stage.fire();

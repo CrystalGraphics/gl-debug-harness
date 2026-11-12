@@ -80,7 +80,7 @@ public final class CgLightsShadowsBenchScene implements InteractiveSceneLifecycl
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
-        projection.setPerspective((float) Math.toRadians(70), (float) w / h, 0.05f, 400f);
+        CgCamera.perspectiveMatrix(projection, 70f, (float) w / h, 0.05f, 400f);
         // The host's ground, drawn by the host as Minecraft draws its terrain.
         CgCamera host = new CgCamera();
         host.view().set(view);

@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
@@ -72,7 +73,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
     private static final float SCATTERING = Float.parseFloat(System.getProperty("crystalgraphics.harness.airQuality.scattering", "8"));
 
     private final CgWorldHaze haze = new CgWorldHaze().box(-30, GROUND - 1, -30, 30, GROUND + 18, 30).density(0.003f, 4f);
-    private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), (float) W / H, 0.05f, 300f);
+    private final Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 70f, (float) W / H, 0.05f, 300f);
     private final Matrix4f look = new Matrix4f();
     private final Vector3d eye = new Vector3d();
     private final CgLightsDemo demo = new CgLightsDemo(CgVfx.owner("harness"));

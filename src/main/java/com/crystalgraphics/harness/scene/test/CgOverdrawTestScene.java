@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
@@ -85,7 +86,7 @@ public class CgOverdrawTestScene implements InteractiveSceneLifecycle {
 
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
-        Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) W / H, 0.05f, 100f);
+        Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) W / H, 0.05f, 100f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
             stage.host().set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
             stage.fire();

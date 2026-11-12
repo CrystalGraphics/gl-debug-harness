@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
@@ -145,7 +146,7 @@ public class CgPostEffectsTestScene implements HarnessSceneLifecycle {
         target.clear(0.25f, 0.3f, 0.4f, 1f);
         CgMesh cube = CgMeshShapes.cube();
         world.draw(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).submit();
-        Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) W / H, 0.05f, 100f);
+        Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) W / H, 0.05f, 100f);
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
             stage.host().set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
             stage.fire();

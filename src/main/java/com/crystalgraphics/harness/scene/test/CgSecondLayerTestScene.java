@@ -85,7 +85,7 @@ public class CgSecondLayerTestScene implements HarnessSceneLifecycle {
     private CgRecording record(int w, int h) {
         CgRecording rec = new CgRecording();
         CgCamera constants = new CgCamera().resolution(w, h);
-        constants.projection().set(new Matrix4f().setOrtho(0, w, h, 0, -1, 1));
+        constants.projection().set(CgCamera.orthographicMatrix(new Matrix4f(), 0, w, h, 0, -1, 1));
         CgRasterPass pass = rec.raster("secondLayerTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
         for (int i = 0; i < materials.length; i++) {
             pass.draw(quad, materials[i]).customData(0, MARGIN + i * (SIZE + MARGIN), MARGIN, SIZE, 0f);

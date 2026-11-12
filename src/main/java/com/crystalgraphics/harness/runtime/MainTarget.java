@@ -43,7 +43,7 @@ public final class MainTarget {
             window = CgExternalTarget.host(0, width, height);
             if (ON) {
                 colour = CgTextures.of("harness_main", CgTextureDesc.of(width, height, CgFormat.RGBA8_UNORM));
-                depth = CgTextures.of("harness_main.depth", CgTextureDesc.of(width, height, CgFormat.DEPTH24_PLUS_STENCIL8));
+                depth = CgTextures.of("harness_main.depth", CgTextureDesc.of(width, height, CgFormat.DEPTH32_FLOAT_STENCIL8));
                 target = CgTextures.target("harness_main", colour, depth);
             } else {
                 target = window;
@@ -60,7 +60,7 @@ public final class MainTarget {
 
     /** Before the overlays: our own target's depth cleared for their text. */
     public void overlays() {
-        if (ON) CgRenderer.clear(target, false, 0, 0, 0, 0, true, 1.0, false, 0);
+        if (ON) CgRenderer.clear(target, false, 0, 0, 0, 0, true, 0.0, false, 0);
     }
 
     /** Copies its colour into the window, where it is not the window's own, and puts back the current target: the frame's end. */

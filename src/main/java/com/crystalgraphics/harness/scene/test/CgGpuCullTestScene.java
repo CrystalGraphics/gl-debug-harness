@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshLods;
@@ -96,7 +97,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     private final Matrix4f wallPlace = new Matrix4f().translation(-100f, 0f, WALL_Z), identity = new Matrix4f();
     private final float[] positions = new float[N * 3];
     private final Matrix4f view = new Matrix4f();
-    private final Matrix4f projection = new Matrix4f().setPerspective((float) Math.toRadians(60), (float) W / H, 0.1f, 200f);
+    private final Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) W / H, 0.1f, 200f);
 
     @Override
     public void init(HarnessContext ctx) {

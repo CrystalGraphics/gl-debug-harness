@@ -130,7 +130,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, -0.2f, -0.1f, -1f, 0f, 1f, 0f);
-        projection.perspective((float) Math.toRadians(70), 16f / 9f, 0.05f, 300f);
+        CgCamera.perspectiveMatrix(projection, 70f, 16f / 9f, 0.05f, 300f);
         view.set(CAMERA_X, CAMERA_Y, CAMERA_Z, look, projection);
         viewProjection.set(projection).mul(look);
         Vector4f plane = new Vector4f();

@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.api.material.CgMaterialUsage;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -110,7 +111,7 @@ public class CgVfxMeshSectionsScene implements InteractiveSceneLifecycle {
             vfx.update(frame / 60.0);
             vfx.submit(CgWorldRenderer.get());
             for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-                stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, VIEW, PROJECTION.setPerspective(FOV, (float) w / h, 0.1f, 100f));
+                stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, VIEW, CgCamera.perspectiveMatrix(PROJECTION, (float) Math.toDegrees(FOV), (float) w / h, 0.1f, 100f));
                 stage.fire();
             }
             if (frame == FRAMES) target.captureToFile(ctx.getOutputDir(), "vfx-mesh-sections.png");

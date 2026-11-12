@@ -107,7 +107,7 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         CgGraphBuffer worldCounts = CgGraphBuffer.persistent("world-counts", desc);
         CgGraphBuffer records = CgGraphBuffer.persistent("records",
                 CgBufferDesc.elements(RECORDS, CgPrimitiveTable.FLOATS * 4, CgBufferUsage.STORAGE));
-        Matrix4f projection = new Matrix4f().setOrtho(0, w, h, 0, -1, 1);
+        Matrix4f projection = CgCamera.orthographicMatrix(new Matrix4f(), 0, w, h, 0, -1, 1);
 
         HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();

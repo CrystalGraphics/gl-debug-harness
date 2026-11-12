@@ -90,7 +90,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
     private final Matrix4f bobbed = new Matrix4f();
     private final Matrix4f low = new Matrix4f().lookAt(0f, 0f, 0f, (float) (CX + 6 - LOW_EYE[0]), (float) (GROUND - LOW_EYE[1]),
             (float) (CZ - LOW_EYE[2]), 0f, 1f, 0f);
-    private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), (float) W / H, 0.05f, 200f);
+    private final Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 70f, (float) W / H, 0.05f, 200f);
     private final float[] sun = new float[3];
     private double[] boxShadow, ballShadow, beside;
     private float[] sideSun;

@@ -122,7 +122,7 @@ public class CgVfxRibbonsScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, 0f, -0.15f, -1f, 0f, 1f, 0f);
-        view.set(CAMERA_X, CAMERA_Y, CAMERA_Z, look, new Matrix4f().perspective((float) Math.toRadians(70), 4f / 3f, 0.05f, 300f));
+        view.set(CAMERA_X, CAMERA_Y, CAMERA_Z, look, CgCamera.perspectiveMatrix(new Matrix4f(), 70f, 4f / 3f, 0.05f, 300f));
         CgVfxParticlePool.precache(emitter);
         CgVfxParticlePool.precache(trailEmitter);
         CgVfxParticlePool.precache(animEmitter);

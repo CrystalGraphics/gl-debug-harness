@@ -69,7 +69,7 @@ public final class HarnessTarget {
 
     /** Clears its colour to {@code (r, g, b, a)}, and its depth to the far plane. */
     public void clear(float r, float g, float b, float a) {
-        CgRenderer.clear(target, true, r, g, b, a, depth != null, 1.0, false, 0);
+        CgRenderer.clear(target, true, r, g, b, a, depth != null, 0.0, false, 0);
     }
 
     /** Photographs its colour into {@code outputDir/filename}, a PNG, top row first. */

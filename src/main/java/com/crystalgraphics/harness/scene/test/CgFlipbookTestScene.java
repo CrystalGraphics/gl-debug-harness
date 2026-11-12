@@ -149,7 +149,7 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
     private CgRecording record(int w, int h) {
         CgRecording rec = new CgRecording();
         CgCamera constants = new CgCamera().resolution(w, h);
-        constants.projection().set(new Matrix4f().setOrtho(0, w, h, 0, -1, 1));
+        constants.projection().set(CgCamera.orthographicMatrix(new Matrix4f(), 0, w, h, 0, -1, 1));
         CgRasterPass pass = rec.raster("flipbookTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
         int[] due = new int[3];
         for (int r = 0; r < materials.length; r++) {

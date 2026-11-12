@@ -84,7 +84,7 @@ public class CgVfxInputsScene implements InteractiveSceneLifecycle {
     private final float[] field = new float[FIELD * FIELD * FIELD * 4], heights = new float[HEIGHTS * HEIGHTS];
     private final float[] depths = new float[DEPTH * DEPTH];
     private final Matrix4f view = new Matrix4f().rotationY(YAW), inverse = new Matrix4f().rotationY(-YAW);
-    private final Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), 1f, 0.05f, 300f);
+    private final Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 70f, 1f, 0.05f, 300f);
     private final CgCamera host = new CgCamera();
     private CgTexture3D fieldTexture;
     private CgTexture2D heightTexture;

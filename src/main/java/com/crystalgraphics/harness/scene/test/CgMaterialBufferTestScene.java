@@ -71,7 +71,7 @@ public class CgMaterialBufferTestScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
-        Matrix4f projection = new Matrix4f().setOrtho(0, w, h, 0, -1, 1);
+        Matrix4f projection = CgCamera.orthographicMatrix(new Matrix4f(), 0, w, h, 0, -1, 1);
         HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
 

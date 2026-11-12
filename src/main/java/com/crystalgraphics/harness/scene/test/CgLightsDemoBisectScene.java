@@ -150,7 +150,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
         if (phase >= 0 && phase < PHASES.length) {
             for (int v = 0; v < VARS.length; v++) ((CgVar.Bool) CgVars.get(VARS[v])).set(PHASES[phase][v]);
         }
-        projection.setPerspective((float) Math.toRadians(70), (float) width / height, 0.05f, 400f);
+        CgCamera.perspectiveMatrix(projection, 70f, (float) width / height, 0.05f, 400f);
         target.bind();
         target.clear(0.01f, 0.01f, 0.03f, 1f);
         Matrix4f view = SWAY == 0f ? this.view
