@@ -563,7 +563,7 @@ Config classes:
 | `ctx.getArtifactService()` | `ArtifactService` | Interactive scenes | Framework-owned capture with semantic suffix API |
 | `ctx.getCamera3D()` | `Camera3D` | Interactive scenes | Shared 3D camera |
 | `ctx.getTaskScheduler()` | `TaskScheduler` | Interactive scenes | Time-based callback system |
-| `ctx.getUi()` | `HarnessUi` | 3D scenes | The harness as a CrystalGUI host (`HostSession`), as Minecraft's screen is: a desktop over the world (cursor free, camera held, Escape closes), its applications `ApplicationKind`s. `bind(key, kind)` gives one a key for the scene's run, `open(kind)` opens it; VFX Lab and Crystal Editor are in the launcher on every scene, with no key. Its workspace is `HarnessServer`'s: an in-memory connection serving the scratch project (`crystalgui/projects/scratch/`) as a single-player world's server does. A scene that is the desktop opens it with `openAtStart` and takes the keys its windows leave with `sceneKeys` (`cgui-desktop`). Its javadoc has the example |
+| `ctx.getUi()` | `HarnessUi` | 3D scenes | The harness as a CrystalGUI host (`CgUiScreen`), as Minecraft's screen is: a desktop over the world (cursor free, camera held, Escape closes), its applications `ApplicationKind`s. `bind(key, kind)` gives one a key for the scene's run, `open(kind)` opens it; VFX Lab and Crystal Editor are in the launcher on every scene, with no key. Its workspace is `HarnessServer`'s: an in-memory connection serving the scratch project (`crystalgui/projects/scratch/`) as a single-player world's server does. A scene that is the desktop opens it with `openAtStart` and takes the keys its windows leave with `sceneKeys` (`cgui-desktop`). Its javadoc has the example |
 | `ctx.getLoadPlan()` | `CgLoadPlan` | Interactive scenes | The loading screen's tasks: one named in `init` holds the screen until it ends, so a scene's first frames load nothing (`CrystalGraphics/docs/LOADING.md` §3) |
 
 Legacy convenience accessors like `ctx.getScreenWidth()` and `ctx.getOutputDir()` still work, but new code should use the typed accessors directly.
@@ -915,7 +915,7 @@ reg.register(
 ### A CrystalGUI scene — `UiDocumentScene`
 
 A 2D scene that is one CrystalGUI document extends `ui.UiDocumentScene` and writes only its tree: the base owns the
-document and its `DocumentDriver`, the root filling the window, the scale (`DesktopHost.UI_SCALE`, Ctrl+= and
+document and its `CgUiViewport`, the root filling the window, the scale (`CgUiScreen.UI_SCALE`, Ctrl+= and
 Ctrl+- to zoom, Ctrl+0 to reset), the stylesheets (`HarnessThemes`' stack, then the scene's), document-first input and
 teardown. Its javadoc lists the hooks: `theme`, `bare`, `attached`, `key`, `beforePaint`, `paintOver`, `tick`,
 `afterFrame`, `mode`, `painter`.
@@ -1151,7 +1151,7 @@ com.crystalgraphics.harness/
 ├── scheduler/
 │   └── TaskScheduler.java           # Time-based callback scheduling
 ├── ui/
-│   ├── HarnessUi.java               # The desktop over every 3D scene (HostSession), its global keys
+│   ├── HarnessUi.java               # The desktop over every 3D scene (CgUiScreen), its global keys
 │   ├── HarnessServer.java           # The in-memory server: the scratch project over the protocol
 │   ├── UiDocumentScene.java         # The base of a 2D scene that is one CrystalGUI document
 │   └── HarnessThemes.java           # The theme stack a scene installs

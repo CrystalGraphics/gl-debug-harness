@@ -1,17 +1,17 @@
 package com.crystalgraphics.harness.ui;
 
+import com.crystalgui.screen.CgUiScreen;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgInput;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgui.desktop.host.DesktopHost;
 import com.crystalgui.render.CgUiPaintContext;
 import com.crystalgui.style.StyleEngine;
 import com.crystalgui.style.StyleGroup;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgui.ui.dom.DocumentDriver;
+import com.crystalgui.viewport.CgUiViewport;
 import com.crystalgui.ui.dom.UIDocument;
 import com.crystalgui.ui.dom.UIElement;
 
@@ -19,7 +19,7 @@ import javax.annotation.Nullable;
 
 /**
  * A 2D scene that is one CrystalGUI document filling the window: the scene builds its tree and this runs it. It owns
- * the document and its driver, the scale, the stylesheets, input and teardown, so a scene writes only what it shows.
+ * the document and its viewport, the scale, the stylesheets, input and teardown, so a scene writes only what it shows.
  *
  * <pre>{@code
  * public final class MyScene extends UiDocumentScene {
@@ -45,8 +45,8 @@ import javax.annotation.Nullable;
  * @Override protected void beforePaint(CgUiPaintContext paint) { paint.textGamma(gamma); }
  * @Override protected void paintOver(CgUiPaintContext paint) { paint.text().draw()...submit(); }
  * @Override protected void tick(HarnessContext ctx, FrameInfo frame) { if (frame.getFrameNumber() == 8) ... }
- * @Override protected DocumentDriver.Mode mode() { return DocumentDriver.Mode.INLINE; }   // a scene timing its frame
- * @Override protected DocumentDriver.Painter<Void> painter() { ... }                      // layout only, say
+ * @Override protected CgUiViewport.Threading threading() { return CgUiViewport.Threading.INLINE; }   // a scene timing its frame
+ * @Override protected CgUiViewport.Content content() { ... }                      // layout only, say
  * }</pre>
  *
  * <ul>
@@ -67,8 +67,8 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
     private static final float MIN_SCALE = 0.5f, MAX_SCALE = 4f, ZOOM_STEP = 0.25f;
 
     private UIDocument document;
-    private DocumentDriver<Void> driver;
-    private DocumentDriver.Painter<Void> painter;
+    private CgUiViewport viewport;
+    private CgUiViewport.Content content;
     private CgRenderStage.Registration screen;
     private HarnessContext context;
     private FrameInfo lastFrame;
@@ -100,12 +100,12 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
 
     /** The scale at start, logical pixels to the window's. */
     protected float scale() {
-        return DesktopHost.UI_SCALE;
+        return CgUiScreen.UI_SCALE;
     }
 
     /** How the document runs: from the flags by default. {@code INLINE} for a scene that times its frame on this thread. */
-    protected DocumentDriver.Mode mode() {
-        return DocumentDriver.Mode.fromFlags();
+    protected CgUiViewport.Threading threading() {
+        return CgUiViewport.Threading.fromFlags();
     }
 
     /** A press or release the document did not take, on the document. @return whether the scene took it */
@@ -133,8 +133,8 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
      * The document's frame, for a scene that draws it some other way than whole: by default the document painted
      * between {@link #beforePaint} and {@link #paintOver}.
      */
-    protected DocumentDriver.Painter<Void> painter() {
-        return DocumentDriver.whole(document, this::beforePaint, this::paintOver);
+    protected CgUiViewport.Content content() {
+        return CgUiViewport.Content.whole(document, this::beforePaint, this::paintOver);
     }
 
     /** At teardown, on the document, before it closes. */
@@ -148,13 +148,13 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
         return document;
     }
 
-    protected final DocumentDriver<Void> driver() {
-        return driver;
+    protected final CgUiViewport viewport() {
+        return viewport;
     }
 
     /** Runs {@code work} on the document and waits for it. For a key, a probe or a script; never per frame. */
     protected final void inDocument(Runnable work) {
-        driver.run(work);
+        viewport.run(work);
     }
 
     /** Ends the run: the loop stops, and the program exits if {@link #shouldShutdownOnComplete} says so. */
@@ -167,15 +167,15 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
     @Override
     public final void init(HarnessContext ctx) {
         document = new UIDocument();
-        driver = DocumentDriver.attach(document, mode(), getClass().getSimpleName());
-        painter = painter();
+        viewport = CgUiViewport.open(document, threading(), getClass().getSimpleName());
+        content = content();
         context = ctx;
         screen = CgRenderStage.SCREEN.register(CgRenderStage.VIEWPORT_WIDGETS, stage -> {
-            if (driver == null || lastFrame == null) return;
-            driver.frame(stage, painter);
+            if (viewport == null || lastFrame == null) return;
+            viewport.frame(stage, content);
             afterFrame(context, lastFrame);
         });
-        driver.run(() -> {
+        viewport.run(() -> {
             document.boxes().setUiScale(scale());
             StyleEngine styles = document.styles();
             if (!bare()) HarnessThemes.install(styles, theme());
@@ -199,10 +199,10 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
     public final void dispose() {
         if (screen != null) screen.close();
         screen = null;
-        if (driver == null) return;
-        driver.run(this::disposed);
-        driver.close();
-        driver = null;
+        if (viewport == null) return;
+        viewport.run(this::disposed);
+        viewport.close();
+        viewport = null;
         document = null;
     }
 
@@ -225,12 +225,12 @@ public abstract class UiDocumentScene implements InteractiveSceneLifecycle, CgSy
 
     @Override
     public final boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
-        return driver.offerKey(event, () -> document.input().consumeKeyboardEvent(event) || zoom(event) || key(event));
+        return viewport.offerKey(event, () -> document.input().consumeKeyboardEvent(event) || zoom(event) || key(event));
     }
 
     @Override
     public final boolean consumeMouseEvent(CgSystemInput.Mouse.Event event) {
-        return driver.offerMouse(event, () -> document.input().consumeMouseEvent(event));
+        return viewport.offerMouse(event, () -> document.input().consumeMouseEvent(event));
     }
 
     private boolean zoom(CgSystemInput.Keyboard.Event event) {
