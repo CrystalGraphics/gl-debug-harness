@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.harness.util.HarnessCanvas;
 import com.crystalgraphics.gpu.resource.CgReadback;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
@@ -83,7 +84,7 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
     private ByteBuffer volumePixels;
     private CgTexture3D volume;
     private final CgCanvas canvas = new CgCanvas();
-    private CgMaterial material;
+    private CgMaterialInstance material;
     private int frame, burst, burstFrame, copiesAtStart;
     private long burstStart;
     private boolean landing, wasTracingGpu, running = true;
@@ -94,8 +95,8 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        material = CgMaterial.load("assets/harness/shader/quad_renderer_test.shader");
-        material.applyProperties(b -> b.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1));
+        material = CgMaterial.load("assets/harness/shader/quad_renderer_test.shader").instance();
+        material.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1);
         pixels = new ByteBuffer[textures];
         for (int i = 0; i < textures; i++) pixels[i] = pattern(size * size, i);
         volumePixels = pattern(volumeSize * volumeSize * volumeSize, textures);

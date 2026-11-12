@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.animation.CgAnimInstance;
 import com.crystalgraphics.loading.CgLoadingProcess;
 import com.crystalgraphics.loading.CgLoadingScreen;
@@ -311,7 +312,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** OL5's gate, under {@code -Dcrystalgraphics.harness.skinnedPlay.outlineCheck=true} ({@link SkinnedOutlineCheck}). */
     private SkinnedOutlineCheck outlineCheck;
     /** The outline's pass, and which of its edge tests O shows: all, then depth, normal and ID alone. */
-    private CgMaterial outlinePass;
+    private CgMaterialInstance outlinePass;
     private int outlineTests;
     private static final String[] OUTLINE_TESTS = {"all tests", "depth alone", "normal alone", "ID alone"};
     /** The outline's order among post materials: first, below any volume's priority. */
@@ -691,11 +692,11 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     LOGGER.info("[skinned-play] {}: drawn in its {} kit materials, at frame {}", actor.name, actor.kitMaterials.size(), frameNumber);
                     Map<?, ?> block = actor.outlineBlock;
                     if (outline == null && block != null) {
-                        CgMaterial pass = CgMaterial.of(kit.material(actor.kitMaterials.size()).get());
+                        CgMaterialInstance pass = CgMaterial.of(kit.material(actor.kitMaterials.size()).get()).instance();
                         if (Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.outlineYellow")) {
                             // A debug view: every pixel the outline draws in full yellow, not the capture's 0.35 black
-                            pass.applyProperties(b -> b.vec4("OutlineColor", 1f, 1f, 0f, 1f).set1f("Intensity", 1f)
-                                    .set1f("UseOutlineColor", 1f));
+                            pass.vec4("OutlineColor", 1f, 1f, 0f, 1f).set1f("Intensity", 1f)
+                                    .set1f("UseOutlineColor", 1f);
                         }
                         outlinePass = pass;
                         // Before every post material, as the game's outline draws after lighting (cut capture 4376):

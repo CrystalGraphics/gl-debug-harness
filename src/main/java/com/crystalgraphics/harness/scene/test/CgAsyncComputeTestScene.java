@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.render.graph.CgDraw;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
@@ -100,7 +101,7 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     private final CgFrameGraph graph = new CgFrameGraph();
     private final CgRecording recording = new CgRecording();
     private final List<CgTexture2D> owned = new ArrayList<>();
-    private CgMaterial pattern, down;
+    private CgMaterialInstance pattern, down;
     private CgGraphTexture source, blurred, canvas, result;
     private CgGraphBuffer word, keys, first;
     private int blurs, quads, sortKeys, frame;
@@ -115,9 +116,8 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     public void init(HarnessContext ctx) {
         blurs = Integer.getInteger("crystalgraphics.harness.async.blurs", 8);
         quads = Integer.getInteger("crystalgraphics.harness.async.quads", 48);
-        pattern = CgMaterial.newInstance("assets/harness/shader/raster_levels_test.shader");
-        down = CgMaterial.newInstance("assets/harness/shader/raster_levels_test.shader");
-        down.enableKeyword("DOWN");
+        pattern = CgMaterial.load("assets/harness/shader/raster_levels_test.shader").instance();
+        down = CgMaterial.load("assets/harness/shader/raster_levels_test.shader").keyword("DOWN", true).instance();
         source = texture("source", W, H, true);
         blurred = texture("blurred", W, H, false);
         canvas = texture("canvas", W, H, false);

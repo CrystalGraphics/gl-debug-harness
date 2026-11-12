@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.texture.CgSampler;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
@@ -39,16 +40,14 @@ public class CgTextureCubeScene implements HarnessSceneLifecycle {
     private static final int[][] DUE = {{40, 40, 40}, {80, 80, 80}, {120, 120, 120}, {160, 160, 160}, {200, 200, 200},
             {240, 240, 240}, {128, 64, 32}};
 
-    private CgMaterial material;
+    private CgMaterialInstance material;
 
     @Override
     public void init(HarnessContext ctx) {
-        material = CgMaterial.newInstance("assets/harness/shader/texture_cube.shader");
+        material = CgMaterial.load("assets/harness/shader/texture_cube.shader").instance();
         CgTextureSettings chained = CgTextureSettings.PLAIN.withMips(true).withSampler(CgSampler.TRILINEAR_CLAMP);
-        material.applyProperties(b -> {
-            b.sampler("_Cube", 0, CgTextureCubemap.createStacked("harness:textures/cube_stacked.png", chained));
-            b.sampler("_Ramp", 1, CgTexture2D.create("harness:textures/half_ramp.hdr", chained));
-        });
+        material.sampler("_Cube", 0, CgTextureCubemap.createStacked("harness:textures/cube_stacked.png", chained));
+        material.sampler("_Ramp", 1, CgTexture2D.create("harness:textures/half_ramp.hdr", chained));
     }
 
     private static int x(int i) {

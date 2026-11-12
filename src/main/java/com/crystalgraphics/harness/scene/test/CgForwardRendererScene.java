@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.harness.SceneRegistry;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgRenderQueue;
@@ -66,15 +67,14 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
 
     /**
      * GROUP B material A — red tint ({@code _Color = (1, 0.3, 0.3, 1)}).
-     * Independent instance created via {@code newInstance()} so it has its own
-     * property store without contaminating the cached {@code dual_path_test.shader}.
+     * An instance of the shared {@code dual_path_test.shader} material, with values of its own.
      */
-    private CgMaterial tintMaterialA;
+    private CgMaterialInstance tintMaterialA;
 
     /**
      * GROUP B material B — blue tint ({@code _Color = (0.3, 0.3, 1, 1)}).
      */
-    private CgMaterial tintMaterialB;
+    private CgMaterialInstance tintMaterialB;
 
     /**
      * GROUP C transparent material — {@code forward_transparent_test.shader},
@@ -101,11 +101,11 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
 
         // GROUP B — two independent instances from the same .shader asset so they each
         // have a distinct Java identity; auto-instancing will NOT merge A with B
-        tintMaterialA = CgMaterial.newInstance("assets/harness/shader/dual_path_test.shader");
-        tintMaterialA.applyProperties(b -> b.vec4("_Color", 1f, 0.3f, 0.3f, 1f));
+        tintMaterialA = CgMaterial.load("assets/harness/shader/dual_path_test.shader").instance();
+        tintMaterialA.vec4("_Color", 1f, 0.3f, 0.3f, 1f);
 
-        tintMaterialB = CgMaterial.newInstance("assets/harness/shader/dual_path_test.shader");
-        tintMaterialB.applyProperties(b -> b.vec4("_Color", 0.3f, 0.3f, 1f, 1f));
+        tintMaterialB = CgMaterial.load("assets/harness/shader/dual_path_test.shader").instance();
+        tintMaterialB.vec4("_Color", 0.3f, 0.3f, 1f, 1f);
 
         // GROUP C — transparent material with alpha blending and ZWrite OFF
         transparentMaterial = CgMaterial.load(
@@ -169,9 +169,7 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         // solidMaterial is owned by CgMaterialRegistry (loaded via load()) — do NOT delete directly.
-        // tintMaterialA/B and transparentMaterial: load() variants are registry-owned too.
-        // Per-instance materials created via newInstance() can technically be deleted here,
-        // but the registry cleanup in CgGraphicsLifecycle handles it safely either way.
+        // tintMaterialA/B are this scene's instances, freed with the context like the rest.
         tintMaterialA    = null;
         tintMaterialB    = null;
         transparentMaterial = null;

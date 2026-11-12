@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInterface;
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -44,19 +46,19 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
     /** How many pixels the ball in front must brighten: its halo, past its own silhouette. */
     private static final int FRONT_MIN_CHANGED = 50;
 
-    private CgMaterial wall, glow, emissionOnly, glowAlpha, pane, translucentPane;
+    private CgMaterialInstance wall, glow, emissionOnly, glowAlpha, pane, translucentPane;
 
     @Override
     public void init(HarnessContext ctx) {
-        wall = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
-        glow = CgMaterial.load("assets/harness/shader/bloom_glow.shader");
-        emissionOnly = CgMaterial.newInstance("crystalgraphics:shaders/emission_only.shader");
+        wall = CgMaterial.load("assets/harness/shader/bloom_wall.shader").instance();
+        glow = CgMaterial.load("assets/harness/shader/bloom_glow.shader").instance();
+        emissionOnly = CgMaterial.load("crystalgraphics:shaders/emission_only.shader").instance();
         // Its javadoc's glow: past white under the HDR scene's glow gain, as a glow meant to bloom is.
-        emissionOnly.applyProperties(b -> b.set1f("_EmissionStrength", 3f));
-        glowAlpha = CgMaterial.load("assets/harness/shader/bloom_glow_alpha.shader");
-        pane = CgMaterial.newInstance("assets/harness/shader/bloom_cover.shader");
-        translucentPane = CgMaterial.newInstance("assets/harness/shader/bloom_cover.shader");
-        translucentPane.applyProperties(b -> b.set1f("_Alpha", 0.5f));
+        emissionOnly.set1f("_EmissionStrength", 3f);
+        glowAlpha = CgMaterial.load("assets/harness/shader/bloom_glow_alpha.shader").instance();
+        pane = CgMaterial.load("assets/harness/shader/bloom_cover.shader").instance();
+        translucentPane = CgMaterial.load("assets/harness/shader/bloom_cover.shader").instance();
+        translucentPane.set1f("_Alpha", 0.5f);
     }
 
     @Override
@@ -102,14 +104,14 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
      * The wall at 5 blocks and {@code ball} (none if null) at 8 behind it or 3 in front, its glow scaled by
      * {@code emission}, into a target of its own, captured.
      */
-    private void draw(HarnessContext ctx, CgWorldRenderer world, int w, int h, CgMaterial ball, boolean hidden,
+    private void draw(HarnessContext ctx, CgWorldRenderer world, int w, int h, CgMaterialInstance ball, boolean hidden,
                       float emission, float bloom, String file) {
         draw(ctx, world, w, h, ball, hidden, emission, bloom, null, file);
     }
 
     /** As {@link #draw}, with {@code cover} (none if null) a pane at 2 blocks, in front of a ball in front. */
-    private void draw(HarnessContext ctx, CgWorldRenderer world, int w, int h, CgMaterial ball, boolean hidden,
-                      float emission, float bloom, CgMaterial cover, String file) {
+    private void draw(HarnessContext ctx, CgWorldRenderer world, int w, int h, CgMaterialInstance ball, boolean hidden,
+                      float emission, float bloom, CgMaterialInterface cover, String file) {
         HarnessTarget target = HarnessTarget.create(w, h, true);
         drawInto(ctx, world, target, w, h, ball, hidden, emission, bloom, cover, file);
         target.unbind();
@@ -117,8 +119,8 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
     }
 
     /** As {@link #draw}, into {@code target}, the stages told the host's size is {@code w} x {@code h}. */
-    private void drawInto(HarnessContext ctx, CgWorldRenderer world, HarnessTarget target, int w, int h, CgMaterial ball,
-                          boolean hidden, float emission, float bloom, CgMaterial cover, String file) {
+    private void drawInto(HarnessContext ctx, CgWorldRenderer world, HarnessTarget target, int w, int h, CgMaterialInstance ball,
+                          boolean hidden, float emission, float bloom, CgMaterialInterface cover, String file) {
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
         CgPostStack.get().bloom().intensity(bloom);
@@ -147,7 +149,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
      */
     private void covered(HarnessContext ctx, CgWorldRenderer world, List<String> failures) {
         draw(ctx, world, 321, 241, null, false, 1f, 1f, pane, "cover-pane.png");
-        for (CgMaterial ball : List.of(glow, glowAlpha)) {
+        for (CgMaterialInstance ball : List.of(glow, glowAlpha)) {
             String name = "cover-" + (ball == glow ? "opaque" : "transparent");
             draw(ctx, world, 321, 241, ball, false, 1f, 1f, pane, name + ".png");
             String failure = same(ctx, "cover-pane.png", name + ".png");

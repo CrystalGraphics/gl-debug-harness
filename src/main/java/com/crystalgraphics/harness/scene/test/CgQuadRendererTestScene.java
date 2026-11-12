@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.harness.util.HarnessCanvas;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.render.canvas.CgCanvas;
@@ -31,7 +32,7 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
     private static final int SPINNER_COUNT = 6;
     private static final float SPINNER_SIZE = 60f;
 
-    private CgMaterial material;
+    private CgMaterialInstance material;
     private final CgCanvas canvas = new CgCanvas();
 
     /** Reused across every spinner/frame — mutated in place via translation()/rotateZ()/translate(), never reallocated. */
@@ -43,18 +44,13 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
 
-        material = CgMaterial.load("assets/harness/shader/quad_renderer_test.shader");
-        // Attach BEFORE applyProperties(): CgMaterial.applyProperties() eagerly triggers
-        // recompile() on its first call (CgMaterial.java: "if (propStore == null...) recompile()"),
-        // and QUAD_DATA must already be attached by then or that first compile fails with an
-        // undefined-symbol error (it then "self-heals" on the next real bind(), but there's no
-        // reason to trigger the pointless failed compile at all — just attach first).
+        material = CgMaterial.load("assets/harness/shader/quad_renderer_test.shader").instance();
         // The shader's "Properties { _MainTex (...) = "white" }" default string is NOT
         // automatically resolved to a real bound texture (CgMaterialProperty.samplerTexture
         // stays null until explicitly set) — every real 2D consumer (e.g. CgUiPaintContext)
         // binds a real texture explicitly, so we do the same here rather than rely on a
         // shader-declared default that the property system doesn't currently apply.
-        material.applyProperties(b -> b.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1));
+        material.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1);
     }
 
     @Override

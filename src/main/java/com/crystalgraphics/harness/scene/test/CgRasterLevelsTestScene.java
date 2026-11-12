@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInterface;
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.render.graph.CgGraphStorage;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -38,13 +40,12 @@ public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
     private static final int W = 40, H = 24;
     private static final CgFormat HALF = CgFormat.RGBA16_FLOAT;
 
-    private CgMaterial top, down;
+    private CgMaterialInstance top, down;
 
     @Override
     public void init(HarnessContext ctx) {
-        top = CgMaterial.newInstance("assets/harness/shader/raster_levels_test.shader");
-        down = CgMaterial.newInstance("assets/harness/shader/raster_levels_test.shader");
-        down.enableKeyword("DOWN");
+        top = CgMaterial.load("assets/harness/shader/raster_levels_test.shader").instance();
+        down = CgMaterial.load("assets/harness/shader/raster_levels_test.shader").keyword("DOWN", true).instance();
     }
 
     @Override
@@ -54,7 +55,7 @@ public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
         for (int k = 0; k < chain.getLevels(); k++) {
             CgCamera constants = new CgCamera().resolution(Math.max(1, W >> k), Math.max(1, H >> k));
             CgRasterPass pass = rec.raster("rasterLevelsTestScene.chain").color(chain, k, 0, CgLoad.CLEAR).camera(constants).order(CgOrder.LOOKBACK);
-            CgMaterial material = k == 0 ? top : down;
+            CgMaterialInterface material = k == 0 ? top : down;
             int bindings = CgMaterialProxy.of(material).captureBindings(rec.bindings());
             if (k > 0) bindings = rec.bindings().withTexture(bindings, 0, chain.level(k - 1));
             CgChunkBuilder c = rec.chunks().begin();

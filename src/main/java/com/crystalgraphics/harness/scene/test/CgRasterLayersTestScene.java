@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.render.graph.CgGraphStorage;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -47,8 +48,8 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
     private final CgGraphTexture fields = CgGraphTexture.transientTexture("raster-layers.fields",
             CgTextureDesc.array(W, H, LAYERS, HALF));
     private final CgGraphTexture sum = CgGraphTexture.transientTexture("raster-layers.sum", new CgTextureDesc(W, H, HALF));
-    private final CgMaterial[] draw = new CgMaterial[LAYERS];
-    private final CgMaterial[] summing = new CgMaterial[LAYERS + 1];
+    private final CgMaterialInstance[] draw = new CgMaterialInstance[LAYERS];
+    private final CgMaterialInstance[] summing = new CgMaterialInstance[LAYERS + 1];
     private final List<CgRequest> requests = new ArrayList<>();
     private final Set<CgGraphStorage> storage = new HashSet<>();
     private int frame, layersRead, sumsRead;
@@ -60,13 +61,13 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
     public void init(HarnessContext ctx) {
         for (int k = 0; k < LAYERS; k++) {
             int layer = k;
-            draw[k] = CgMaterial.newInstance("assets/harness/shader/raster_layers_draw.shader");
-            draw[k].applyProperties(b -> b.set1i("_Layer", layer));
+            draw[k] = CgMaterial.load("assets/harness/shader/raster_layers_draw.shader").instance();
+            draw[k].set1i("_Layer", layer);
         }
         for (int n = 1; n <= LAYERS; n++) {
             int count = n;
-            summing[n] = CgMaterial.newInstance("assets/harness/shader/raster_layers_sum.shader");
-            summing[n].applyProperties(b -> b.sampler("_Fields", 0, fields).set1i("_Count", count));
+            summing[n] = CgMaterial.load("assets/harness/shader/raster_layers_sum.shader").instance();
+            summing[n].sampler("_Fields", 0, fields).set1i("_Count", count);
         }
         refused = refusesOwnArray();
     }

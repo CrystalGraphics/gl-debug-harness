@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import javax.annotation.Nullable;
 import com.crystalgraphics.platform.rhi.CgExternalTarget;
 import com.crystalgraphics.gpu.resource.CgReadback;
@@ -102,16 +103,16 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     private final CgFrameBuilder builder = new CgFrameBuilder();
     private final CgFrameGraph graph = new CgFrameGraph();
     private final CgRecording recording = new CgRecording();
-    private CgMaterial in, out, opaqueMaterial, overdrawMaterial;
+    private CgMaterialInstance in, out, opaqueMaterial, overdrawMaterial;
     private int frame;
     private boolean wasTracingGpu, running = true;
 
     @Override
     public void init(HarnessContext ctx) {
-        in = CgMaterial.newInstance("assets/harness/shader/hdr_scene_in.shader");
-        out = CgMaterial.newInstance("assets/harness/shader/hdr_scene_out.shader");
-        opaqueMaterial = CgMaterial.newInstance("assets/harness/shader/hdr_scene_opaque.shader");
-        overdrawMaterial = CgMaterial.newInstance("assets/harness/shader/hdr_scene_overdraw.shader");
+        in = CgMaterial.load("assets/harness/shader/hdr_scene_in.shader").instance();
+        out = CgMaterial.load("assets/harness/shader/hdr_scene_out.shader").instance();
+        opaqueMaterial = CgMaterial.load("assets/harness/shader/hdr_scene_opaque.shader").instance();
+        overdrawMaterial = CgMaterial.load("assets/harness/shader/hdr_scene_overdraw.shader").instance();
         for (String size : System.getProperty("crystalgraphics.harness.hdrScene.sizes", "1920x1080,3840x2160").split(",")) {
             String[] wh = size.trim().split("x");
             int w = Integer.parseInt(wh[0]), h = Integer.parseInt(wh[1]);
@@ -173,10 +174,10 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         builder.recycle(built);
     }
 
-    private static void fullscreen(CgRecording rec, CgGraphTexture target, CgMaterial material, String sampler,
+    private static void fullscreen(CgRecording rec, CgGraphTexture target, CgMaterialInstance material, String sampler,
                                    CgGraphTexture source, CgCamera constants) {
         CgRasterPass pass = rec.raster("hdr-scene.draw").color(target, CgLoad.load()).depth(target, CgLoad.load(), CgDepthAccess.WRITE).camera(constants).order(CgOrder.LOOKBACK);
-        material.applyProperties(b -> b.sampler(sampler, 0, source));
+        material.sampler(sampler, 0, source);
         pass.draw(CgMesh.quads(1), material);
         pass.end();
     }
@@ -299,7 +300,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
             world.draw(CgMeshShapes.cube(), opaqueMaterial).at(0, 0, -3).submit();
             fire(CgRenderStage.WORLD_OPAQUE, host, w, h, projection);
             if (overdraw) {
-                overdrawMaterial.applyProperties(b -> b.set1f("_Split", w / 4f));
+                overdrawMaterial.set1f("_Split", w / 4f);
                 CgCamera camera = new CgCamera().resolution(w, h).time(0f);
                 CgRecording now = new CgRecording();
                 CgRasterPass over = now.raster("hdr-scene.overdraw").color(CgGraphTexture.current(), CgLoad.load())

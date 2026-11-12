@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.material.CgMaterialProxy;
 import java.util.Arrays;
 import com.crystalgraphics.platform.rhi.CgDeviceSection;
@@ -66,7 +67,7 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
         }
     }
 
-    private record Drawn(String path, CgMaterial material, CgPipelineLayout layout) {}
+    private record Drawn(String path, CgMaterialInstance material, CgPipelineLayout layout) {}
 
     /** The material {@link #changeOne} changed, by index, and what: {@code "<path> <property>"}. */
     private record Change(int index, String name) {}
@@ -81,7 +82,7 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
         int skipped = 0;
         try {
             for (String path : materials()) {
-                CgMaterial m = CgMaterial.newInstance(path);
+                CgMaterialInstance m = CgMaterial.load(path).instance();
                 CgPipeline p = CgMaterialProxy.of(m).pipeline(CgInstanceKind.OBJECT);
                 CgShader linked = p == null ? null : p.program();
                 if (linked == null) {
@@ -209,7 +210,7 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
             Drawn d = drawn.get(i);
             for (CgMaterialProperty p : d.material().properties()) {
                 if (p.getType() != CgMaterialProperty.Type.FLOAT || p.getName().startsWith("_cg")) continue;
-                d.material().applyProperties(b -> b.set1f(p.getName(), 0.123f));
+                d.material().set1f(p.getName(), 0.123f);
                 return new Change(i, d.path() + " " + p.getName());
             }
         }

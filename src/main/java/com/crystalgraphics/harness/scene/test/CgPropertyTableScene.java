@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -31,7 +32,7 @@ public class CgPropertyTableScene implements HarnessSceneLifecycle {
 
     private static final int COUNT = 64, ACROSS = 8, SIZE = 12, MARGIN = 4, TOLERANCE = 1;
 
-    private CgMaterial material;
+    private CgMaterialInstance material;
 
     /** Element {@code i}'s colour: every channel differs from its neighbours'. */
     private static float[] colour(int i) {
@@ -40,14 +41,14 @@ public class CgPropertyTableScene implements HarnessSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        material = CgMaterial.newInstance("assets/harness/shader/property_table.shader");
+        material = CgMaterial.load("assets/harness/shader/property_table.shader").instance();
         float[] table = new float[COUNT * 4];
         for (int i = 0; i < COUNT; i++) {
             float[] c = colour(i);
             System.arraycopy(c, 0, table, i * 4, 3);
             table[i * 4 + 3] = 1f;
         }
-        material.applyProperties(b -> b.array("_Table", table));
+        material.array("_Table", table);
     }
 
     private static int x(int i) {

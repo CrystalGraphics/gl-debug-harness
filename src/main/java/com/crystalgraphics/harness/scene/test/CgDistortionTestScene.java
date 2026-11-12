@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -74,22 +75,19 @@ public class CgDistortionTestScene implements HarnessSceneLifecycle {
     /** Marked {@code afterDistortion()}, behind Q1: drawn before Q1's haze applies, so bent by it. */
     private static final Quad SHARP_BEHIND = new Quad(96, 125, 106, 145, 4f, 0, 0, 0);
 
-    private CgMaterial backdrop, wall;
-    private final List<CgMaterial> quads = new ArrayList<>();
+    private CgMaterialInstance backdrop, wall;
+    private final List<CgMaterialInstance> quads = new ArrayList<>();
 
     @Override
     public void init(HarnessContext ctx) {
-        backdrop = CgMaterial.newInstance("assets/harness/shader/distortion_backdrop.shader");
-        wall = CgMaterial.newInstance("assets/harness/shader/distortion_backdrop.shader");
-        wall.enableKeyword("WALL");
+        backdrop = CgMaterial.load("assets/harness/shader/distortion_backdrop.shader").instance();
+        wall = CgMaterial.load("assets/harness/shader/distortion_backdrop.shader").keyword("WALL", true).instance();
     }
 
-    private CgMaterial quad(float r, float g, float b, float a, float ox, float oy, float split) {
-        CgMaterial m = CgMaterial.newInstance("assets/harness/shader/distortion_quad.shader");
-        m.applyProperties(p -> {
-            p.vec4("_Color", r, g, b, a);
-            p.vec4("_Offset", ox, oy, split, 0f);
-        });
+    private CgMaterialInstance quad(float r, float g, float b, float a, float ox, float oy, float split) {
+        CgMaterialInstance m = CgMaterial.load("assets/harness/shader/distortion_quad.shader").instance();
+        m.vec4("_Color", r, g, b, a);
+        m.vec4("_Offset", ox, oy, split, 0f);
         quads.add(m);
         return m;
     }

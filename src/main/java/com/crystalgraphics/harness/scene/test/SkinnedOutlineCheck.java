@@ -3,6 +3,7 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.platform.rhi.resource.CgTextureView;
 import com.crystalgraphics.animation.CgAnimInstance;
 import com.crystalgraphics.api.material.CgMaterial;
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.api.material.CgMaterialValues;
 import com.crystalgraphics.asset.codec.CgAssetYaml;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
@@ -53,7 +54,7 @@ final class SkinnedOutlineCheck {
             + " completion: restore_state, colours: { outline: { keys: [[0, [1.0, 0.0, 0.0, 1.0], constant]] } } } ] }\n";
 
     private final CgPostMaterial outline;
-    private final CgMaterial pass;
+    private final CgMaterialInstance pass;
     private final List<CgAnimInstance> held;
     private final CgRenderStage.Registration reader;
     /** Goku's CustomStencil as the outline samples it. */
@@ -174,7 +175,7 @@ final class SkinnedOutlineCheck {
      * reach: the decisions at 0 make 1 / D and 1 / N infinite, and the ID test's gain 0 with thresholds past any ID
      * leaves its laplacian below them.
      */
-    static void tests(CgMaterial pass, boolean depth, boolean normal, boolean id) {
+    static void tests(CgMaterialInstance pass, boolean depth, boolean normal, boolean id) {
         set(pass, b -> b.vec4("D_Key0", depth ? 1f : 0f, 0f, 0f, 0f).vec4("D_Key1", depth ? 0.2f : 0f, 200f, 0f, 0f)
                 .vec4("D_Key2", depth ? 0.005f : 0f, 4000f, 0f, 0f));
         set(pass, b -> b.vec4("N_Key0", normal ? 3f : 0f, 0f, 0f, 0f).vec4("N_Key1", normal ? 2f : 0f, 200f, 0f, 0f));
@@ -182,8 +183,8 @@ final class SkinnedOutlineCheck {
                 .vec4("Tex_Threshold", id ? 1f : 1e6f, id ? 2f : 1e6f, 0f, 1000f));
     }
 
-    private static void set(CgMaterial pass, Consumer<CgMaterialValues> values) {
-        pass.applyProperties(values::accept);
+    private static void set(CgMaterialInstance pass, Consumer<CgMaterialValues> values) {
+        values.accept(pass);
     }
 
     private void report() {

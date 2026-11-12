@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -48,7 +49,7 @@ public class CgSecondLayerTestScene implements HarnessSceneLifecycle {
     private static final String[] NAMES = {"first UV", "second UV (SECOND_LAYER)"};
 
     private CgTexture2D texture;
-    private final CgMaterial[] materials = new CgMaterial[2];
+    private final CgMaterialInstance[] materials = new CgMaterialInstance[2];
     private CgMesh quad;
 
     @Override
@@ -58,11 +59,11 @@ public class CgSecondLayerTestScene implements HarnessSceneLifecycle {
         texels.put((byte) 255).put((byte) 255).put((byte) 255).put((byte) 255);   // white, left
         texels.put((byte) 255).put((byte) 0).put((byte) 0).put((byte) 255).flip(); // red, right
         texture.uploadRegion(0, 0, 0, 2, 1, texels);
+        CgMaterial test = CgMaterial.load("assets/harness/shader/second_layer_test.shader");
         for (int i = 0; i < 2; i++) {
-            materials[i] = CgMaterial.newInstance("assets/harness/shader/second_layer_test.shader");
-            materials[i].applyProperties(b -> b.sampler("_MainTex", 0, texture));
+            materials[i] = (i == 1 ? test.keyword("SECOND_LAYER", true) : test).instance();
+            materials[i].sampler("_MainTex", 0, texture);
         }
-        materials[1].enableKeyword("SECOND_LAYER");
         quad = CgMeshLoader.load("assets/harness/models/two_uv_quad.gltf");
     }
 
@@ -133,7 +134,7 @@ public class CgSecondLayerTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void dispose() {
-        for (CgMaterial m : materials) if (m != null) m.delete();
+        for (CgMaterialInstance m : materials) if (m != null) m.delete();
         if (texture != null) texture.delete();
     }
 }

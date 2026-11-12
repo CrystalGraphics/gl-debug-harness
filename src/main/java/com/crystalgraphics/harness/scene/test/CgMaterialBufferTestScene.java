@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.compute.CgCompute;
@@ -59,12 +60,12 @@ public class CgMaterialBufferTestScene implements HarnessSceneLifecycle {
     private static final int ORIGIN = 16;
     private static final int BACKGROUND_R = 20, BACKGROUND_G = 20, BACKGROUND_B = 26;
 
-    private CgMaterial material;
+    private CgMaterialInstance material;
     private CgCompute kernels;
 
     @Override
     public void init(HarnessContext ctx) {
-        material = CgMaterial.load("assets/harness/shader/material_buffer_test.shader");
+        material = CgMaterial.load("assets/harness/shader/material_buffer_test.shader").instance();
         kernels = CgCompute.load("harness:shaders/material_buffer.compute");
     }
 

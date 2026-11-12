@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgParameterCollection;
@@ -42,7 +43,7 @@ public class CgGlobalParametersTestScene implements HarnessSceneLifecycle {
     private static final String[] NAMES = {"the first shader reading it", "the first shader ignoring it",
             "a second shader reading it"};
 
-    private final CgMaterial[] materials = new CgMaterial[3];
+    private final CgMaterialInstance[] materials = new CgMaterialInstance[3];
 
     @Override
     public void init(HarnessContext ctx) {
@@ -50,11 +51,9 @@ public class CgGlobalParametersTestScene implements HarnessSceneLifecycle {
             String path = i < 2 ? "assets/harness/shader/global_parameters_a.shader"
                     : "assets/harness/shader/global_parameters_b.shader";
             float reads = i == 1 ? 0f : 1f;
-            materials[i] = CgMaterial.newInstance(path);
-            materials[i].applyProperties(b -> {
-                b.vec4("_Color", COLOUR[0], COLOUR[1], COLOUR[2], 1f);
-                if (path.endsWith("_a.shader")) b.set1f("_Reads", reads);
-            });
+            materials[i] = CgMaterial.load(path).instance();
+            materials[i].vec4("_Color", COLOUR[0], COLOUR[1], COLOUR[2], 1f);
+            if (path.endsWith("_a.shader")) materials[i].set1f("_Reads", reads);
         }
     }
 
@@ -135,6 +134,6 @@ public class CgGlobalParametersTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void dispose() {
-        for (CgMaterial m : materials) if (m != null) m.delete();
+        for (CgMaterialInstance m : materials) if (m != null) m.delete();
     }
 }

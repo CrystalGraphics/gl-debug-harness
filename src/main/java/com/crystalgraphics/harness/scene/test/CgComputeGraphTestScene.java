@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -60,13 +61,13 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
 
     private static final int SIZE = 64, ORIGIN = 32;
 
-    private CgMaterial material;
+    private CgMaterialInstance material;
     private CgCompute kernels;
 
     @Override
     public void init(HarnessContext ctx) {
-        material = CgMaterial.load("assets/harness/shader/quad_renderer_test.shader");
-        material.applyProperties(b -> b.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1));
+        material = CgMaterial.load("assets/harness/shader/quad_renderer_test.shader").instance();
+        material.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1);
         kernels = CgCompute.load("harness:shaders/compute_graph.compute");
         for (String kernel : new String[]{"Args", "Seed", "Step", "Paint"}) kernels.kernel(kernel).precache();
     }

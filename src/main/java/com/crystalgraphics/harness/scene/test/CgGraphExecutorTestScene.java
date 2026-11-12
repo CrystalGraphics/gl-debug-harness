@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -42,12 +43,12 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
     private static final int COLS = 16, ROWS = 10, SPINNERS = 6;
     private static final float SIZE = 32f, SPACING = 44f, ORIGIN = 20f, SPINNER = 60f;
 
-    private CgMaterial material;
+    private CgMaterialInstance material;
 
     @Override
     public void init(HarnessContext ctx) {
-        material = CgMaterial.load("assets/harness/shader/quad_renderer_test.shader");
-        material.applyProperties(b -> b.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1));
+        material = CgMaterial.load("assets/harness/shader/quad_renderer_test.shader").instance();
+        material.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1);
     }
 
     @Override

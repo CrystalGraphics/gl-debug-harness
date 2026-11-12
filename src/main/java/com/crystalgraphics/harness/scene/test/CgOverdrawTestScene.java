@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -36,7 +37,7 @@ public class CgOverdrawTestScene implements InteractiveSceneLifecycle {
     /** Bottom-left, bottom-right, top-left, top-right: GL's rows, bottom first. */
     private static final int[] EXPECTED = {3, 5, 4, 6};
 
-    private CgMaterial wall, plane, cut;
+    private CgMaterialInstance wall, plane, cut;
     private HarnessTarget target;
     private CgRenderStage.Registration reader;
     private volatile float[] counts;
@@ -45,10 +46,9 @@ public class CgOverdrawTestScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        wall = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
-        plane = CgMaterial.newInstance("assets/harness/shader/overdraw_plane.shader");
-        cut = CgMaterial.newInstance("assets/harness/shader/overdraw_plane.shader");
-        cut.enableKeyword("CUT");
+        wall = CgMaterial.load("assets/harness/shader/bloom_wall.shader").instance();
+        plane = CgMaterial.load("assets/harness/shader/overdraw_plane.shader").instance();
+        cut = CgMaterial.load("assets/harness/shader/overdraw_plane.shader").keyword("CUT", true).instance();
         target = HarnessTarget.create(W, H, true);
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();

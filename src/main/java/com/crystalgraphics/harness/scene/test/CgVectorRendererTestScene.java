@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.harness.util.HarnessCanvas;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.render.canvas.CgCanvas;
@@ -41,7 +42,7 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
 
     private static final int FAN_SPOKES = 12;
 
-    private CgMaterial material;
+    private CgMaterialInstance material;
     private final CgCanvas canvas = new CgCanvas();
 
     /** Reused every frame — mutated in place, never reallocated. */
@@ -54,7 +55,7 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
     public void init(HarnessContext ctx) {
         // The shipped reference material — no Properties to bind, since a stroke's colour, width and
         // softness are all per-instance data rather than material state.
-        material = CgMaterial.load("crystalgraphics:shaders/canvas/curve.shader");
+        material = CgMaterial.load("crystalgraphics:shaders/canvas/curve.shader").instance();
     }
 
     @Override

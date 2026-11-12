@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -92,7 +93,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     private static final float STAMP_SCALE = 0.6f;
     private static final float[] STAMP = {0.9f, 0.3f, 0.8f};
 
-    private CgMaterial material, wallMaterial;
+    private CgMaterialInstance material, wallMaterial;
     private CgMeshLods lods;
     private CgMesh wallMesh;
     private final Matrix4f wallPlace = new Matrix4f().translation(-100f, 0f, WALL_Z), identity = new Matrix4f();
@@ -102,8 +103,8 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        material = CgMaterial.load("assets/harness/shader/gpu_cull_test.shader");
-        wallMaterial = CgMaterial.newInstance("assets/harness/shader/gpu_cull_test.shader");
+        material = CgMaterial.load("assets/harness/shader/gpu_cull_test.shader").instance();
+        wallMaterial = CgMaterial.load("assets/harness/shader/gpu_cull_test.shader").instance();
         lods = CgMeshLods.builder()
                 .level(CgMeshShapes.sphere(CgVertexFormat.SPATIAL, 24, 48), HEIGHTS[0])
                 .level(CgMeshShapes.sphere(CgVertexFormat.SPATIAL, 12, 24), HEIGHTS[1])

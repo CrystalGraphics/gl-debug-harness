@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -57,7 +58,7 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
             "random, 10 a second", "frames 0 and 1 blended"};
 
     private final CgVfxFlipbook[] flipbooks = new CgVfxFlipbook[NAMES.length];
-    private final CgMaterial[] materials = new CgMaterial[NAMES.length];
+    private final CgMaterialInstance[] materials = new CgMaterialInstance[NAMES.length];
     private CgTexture2D sheet;
     private CgMesh quad;
 
@@ -90,13 +91,11 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
         for (int i = 0; i < flipbooks.length; i++) {
             CgVfxFlipbook f = flipbooks[i];
             float[] subImage = f.subImage(), subUv = f.subUv();
-            materials[i] = CgMaterial.newInstance("assets/harness/shader/flipbook_test.shader");
-            materials[i].applyProperties(b -> {
-                b.sampler("_Sheet", 0, sheet);
-                b.vec4("_SubImage", subImage[0], subImage[1], subImage[2], subImage[3]);
-                b.vec4("_SubUV", subUv[0], subUv[1], subUv[2], subUv[3]);
-                if (f.isTable()) b.sampler("_SubImages", 1, f.table());
-            });
+            materials[i] = CgMaterial.load("assets/harness/shader/flipbook_test.shader").instance();
+            materials[i].sampler("_Sheet", 0, sheet);
+            materials[i].vec4("_SubImage", subImage[0], subImage[1], subImage[2], subImage[3]);
+            materials[i].vec4("_SubUV", subUv[0], subUv[1], subUv[2], subUv[3]);
+            if (f.isTable()) materials[i].sampler("_SubImages", 1, f.table());
         }
         quad = CgMesh.quads(1);
     }
@@ -205,7 +204,7 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void dispose() {
-        for (CgMaterial m : materials) if (m != null) m.delete();
+        for (CgMaterialInstance m : materials) if (m != null) m.delete();
         if (sheet != null) sheet.delete();
     }
 }

@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -51,12 +52,12 @@ public class CgPostEffectsTestScene implements HarnessSceneLifecycle {
     private static final class Rect implements CgPostEffect {
         private final CgPostPoint point;
         private final int order;
-        private final CgMaterial material = CgMaterial.newInstance("assets/harness/shader/post_rect.shader");
+        private final CgMaterialInstance material = CgMaterial.load("assets/harness/shader/post_rect.shader").instance();
 
         Rect(CgPostPoint point, int order, float x0, float y0, float x1, float y1, float r, float g, float b) {
             this.point = point;
             this.order = order;
-            material.applyProperties(p -> p.vec4("_Rect", x0, y0, x1, y1).vec4("_Color", r, g, b, 1f));
+            material.vec4("_Rect", x0, y0, x1, y1).vec4("_Color", r, g, b, 1f);
         }
 
         @Override

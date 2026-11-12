@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
@@ -32,7 +33,7 @@ public final class CgLightsBenchScene implements InteractiveSceneLifecycle {
     private int columns;
     /** Ground under every light, as Minecraft's terrain is: what the light falls on, and what the grid's HZB culls by. */
     private CgMesh floor;
-    private CgMaterial floorMaterial;
+    private CgMaterialInstance floorMaterial;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -42,7 +43,7 @@ public final class CgLightsBenchScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().setPitch(-40f);
         float side = columns * SPACING + 2f * REACH;
         floor = CgMesh.build(CgVertexFormat.SPATIAL, m -> CgMeshShapes.plane(m, 1, 1, side, side));
-        floorMaterial = CgMaterial.newInstance("crystalgraphics:shaders/demo/vfx_floor.shader");
+        floorMaterial = CgMaterial.load("crystalgraphics:shaders/demo/vfx_floor.shader").instance();
     }
 
     @Override

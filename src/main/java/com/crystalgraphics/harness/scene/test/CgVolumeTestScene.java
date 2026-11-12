@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -64,7 +65,7 @@ public class CgVolumeTestScene implements InteractiveSceneLifecycle {
     private final List<CgRequest> requests = new ArrayList<>();
     private final int[] landed = new int[6];
     private CgCompute kernels;
-    private CgMaterial flatten;
+    private CgMaterialInstance flatten;
     private int frame;
     private String failure;
     private boolean running = true;
@@ -72,8 +73,8 @@ public class CgVolumeTestScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         kernels = CgCompute.load("harness:shaders/volumes.compute");
-        flatten = CgMaterial.newInstance("assets/harness/shader/volumes_test.shader");
-        flatten.applyProperties(b -> b.set1f("_Rows", H));
+        flatten = CgMaterial.load("assets/harness/shader/volumes_test.shader").instance();
+        flatten.set1f("_Rows", H);
     }
 
     @Override

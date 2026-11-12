@@ -132,7 +132,7 @@ public class CgCanvasGlassTestScene implements HarnessSceneLifecycle {
             CgQuadBatch.Quad quad = canvas.quad(pane.material()).pose(pose).at(-0.6f, -0.4f).size(1.2f, 0.8f);
             pane.look(look).saturation(1f).specular(0f).noise(0f).size(1.2f, 0.8f).radii(0.05f)
                     .backdrop(backdrop.capture(canvas, quad, look.blur(), pane.reach()))
-                    .apply();
+                    .apply(quad);
             quad.submit();
         });
         Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) W / H, 0.05f, 100f);

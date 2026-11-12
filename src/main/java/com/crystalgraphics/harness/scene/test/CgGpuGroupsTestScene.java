@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.render.graph.CgDraw;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
@@ -56,7 +57,7 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
     private final CgFrameBuilder builder = new CgFrameBuilder();
     private final CgFrameGraph graph = new CgFrameGraph();
     private final CgRecording recording = new CgRecording();
-    private final CgMaterial[] materials = new CgMaterial[SHADERS.length];
+    private final CgMaterialInstance[] materials = new CgMaterialInstance[SHADERS.length];
     private final int onZone = CgGpuTrace.name(ON), offZone = CgGpuTrace.name(OFF);
     private CgTexture2D fb;
     private CgGraphTexture target;
@@ -67,7 +68,7 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
     public void init(HarnessContext ctx) {
         quads = Integer.getInteger("crystalgraphics.harness.gpuGroups.quads", 6);
         for (int i = 0; i < SHADERS.length; i++) {
-            materials[i] = CgMaterial.newInstance("assets/harness/shader/" + SHADERS[i] + ".shader");
+            materials[i] = CgMaterial.load("assets/harness/shader/" + SHADERS[i] + ".shader").instance();
         }
         fb = CgTextures.of("gpu-groups", CgTextureDesc.of(W, H, CgFormat.RGBA16_FLOAT));
         target = CgGraphTexture.imported("gpu-groups", CgTextures.target("gpu-groups", fb, null));
@@ -97,7 +98,7 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
     private void draw(int zone) {
         recording.reset();
         CgRasterPass pass = recording.raster("gpuGroupsTestScene.target").color(target, CgLoad.CLEAR).camera(new CgCamera().resolution(W, H)).order(CgOrder.LOOKBACK).timed(zone);   // full-target draws all overlap, so stay in this order
-        for (CgMaterial material : materials) {
+        for (CgMaterialInstance material : materials) {
             CgDraw drawn = pass.draw(CgMesh.quads(1), material);
             for (int q = 1; q < quads; q++) drawn.instance();
         }

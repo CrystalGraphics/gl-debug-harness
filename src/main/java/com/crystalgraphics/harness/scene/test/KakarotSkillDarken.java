@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.asset.codec.CgAssetYaml;
@@ -47,8 +48,8 @@ final class KakarotSkillDarken implements AutoCloseable {
     private float outFrom = -1f, outAge;
 
     private KakarotSkillDarken(CgMaterialDefinition darken, float power, float fadeIn, float fadeOut) {
-        CgMaterial material = CgMaterial.of(darken);
-        material.applyProperties(b -> b.set1f("DarkPower", power));
+        CgMaterialInstance material = CgMaterial.of(darken).instance();
+        material.set1f("DarkPower", power);
         post = CgPostMaterial.of(material, CgPostPoint.BEFORE_TRANSLUCENCY, ORDER);
         post.weight(0f);
         on = CgPostStack.get().add(post);

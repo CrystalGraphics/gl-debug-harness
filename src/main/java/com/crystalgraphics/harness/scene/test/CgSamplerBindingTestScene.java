@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -52,7 +53,7 @@ public class CgSamplerBindingTestScene implements HarnessSceneLifecycle {
     private static final boolean[] BLUE_AT_LEFT = {true, false, false, false};
 
     private CgTexture2D texture;
-    private final CgMaterial[] materials = new CgMaterial[SAMPLERS.length];
+    private final CgMaterialInstance[] materials = new CgMaterialInstance[SAMPLERS.length];
     private CgMesh square;
 
     @Override
@@ -69,8 +70,8 @@ public class CgSamplerBindingTestScene implements HarnessSceneLifecycle {
         texture.uploadRegion(0, 0, 0, 4, 4, texels);
         for (int i = 0; i < SAMPLERS.length; i++) {
             CgSampler sampler = SAMPLERS[i];
-            materials[i] = CgMaterial.newInstance("assets/harness/shader/sampler_binding_test.shader");
-            materials[i].applyProperties(b -> b.sampler("_MainTex", 0, texture, sampler));
+            materials[i] = CgMaterial.load("assets/harness/shader/sampler_binding_test.shader").instance();
+            materials[i].sampler("_MainTex", 0, texture, sampler);
         }
         square = CgMesh.build(CgVertexFormat.SPATIAL, m -> {
             int a = m.vertex().position(0, 0, 0).normal(0, 0, 1).uv(0, 0).end();
@@ -145,7 +146,7 @@ public class CgSamplerBindingTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void dispose() {
-        for (CgMaterial m : materials) if (m != null) m.delete();
+        for (CgMaterialInstance m : materials) if (m != null) m.delete();
         if (square != null) square.release();
         if (texture != null) texture.delete();
     }

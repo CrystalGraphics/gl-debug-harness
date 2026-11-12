@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
@@ -60,7 +61,7 @@ public class CgCookedTextureTestScene implements HarnessSceneLifecycle {
     private static final int LEVEL_WORST = 4;
 
     private CgTexture2D png, cooked, level2;
-    private final CgMaterial[] materials = new CgMaterial[3];
+    private final CgMaterialInstance[] materials = new CgMaterialInstance[3];
     private CgMesh square;
 
     @Override
@@ -77,8 +78,8 @@ public class CgCookedTextureTestScene implements HarnessSceneLifecycle {
         CgTexture2D[] textures = {png, cooked, level2};
         for (int i = 0; i < 3; i++) {
             CgTexture2D texture = textures[i];
-            materials[i] = CgMaterial.newInstance("assets/harness/shader/cooked_texture_test.shader");
-            materials[i].applyProperties(b -> b.sampler("_MainTex", 0, texture));
+            materials[i] = CgMaterial.load("assets/harness/shader/cooked_texture_test.shader").instance();
+            materials[i].sampler("_MainTex", 0, texture);
         }
         square = CgMesh.build(CgVertexFormat.SPATIAL, m -> {
             int a = m.vertex().position(0, 0, 0).normal(0, 0, 1).uv(0, 0).end();
@@ -119,7 +120,7 @@ public class CgCookedTextureTestScene implements HarnessSceneLifecycle {
         for (int size : new int[] {BIG, SMALL}) {
             for (int q = 0; q < 4; q++) {
                 // The big row's twin is the PNG; the small row's, the file's level 2 decoded here.
-                CgMaterial m = materials[(q & 1) == 1 ? 1 : size == BIG ? 0 : 2];
+                CgMaterialInstance m = materials[(q & 1) == 1 ? 1 : size == BIG ? 0 : 2];
                 int[] p = corner(q, size);
                 pass.draw(square, m).customData(0, p[0], p[1], size, q >= 2 ? 1f : 0f);
             }
@@ -185,7 +186,7 @@ public class CgCookedTextureTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void dispose() {
-        for (CgMaterial m : materials) if (m != null) m.delete();
+        for (CgMaterialInstance m : materials) if (m != null) m.delete();
         if (square != null) square.release();
         if (png != null) png.delete();
         if (cooked != null) cooked.delete();

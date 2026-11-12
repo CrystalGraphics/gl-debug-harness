@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.runtime;
 
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -56,7 +57,7 @@ public final class HarnessEnvironment {
     private static final float NIGHT_RATE = 2.5f;
 
     private CgMesh sky, floor;
-    private CgMaterial skyMaterial, floorMaterial;
+    private CgMaterialInstance skyMaterial, floorMaterial;
     private boolean enabled, night, submitted;
     private float nightMix;
     /** Whether the world stages hold this mix's daylight. */
@@ -81,8 +82,8 @@ public final class HarnessEnvironment {
     private void prepare() {
         sky = CgMeshShapes.sphere(24, 32);
         floor = CgMesh.build(CgVertexFormat.SPATIAL, m -> CgMeshShapes.plane(m, 1, 1, FLOOR_FADE * 2.5f, FLOOR_FADE * 2.5f));
-        skyMaterial = CgMaterial.newInstance(SKY_SHADER);
-        floorMaterial = CgMaterial.newInstance(FLOOR_SHADER).applyProperties(b -> b.set1f("_Fade", FLOOR_FADE));
+        skyMaterial = CgMaterial.load(SKY_SHADER).instance();
+        floorMaterial = CgMaterial.load(FLOOR_SHADER).instance().set1f("_Fade", FLOOR_FADE);
         programs = CgPipelinePrecache.request(pipelines -> {
             pipelines.add(skyMaterial, false);
             pipelines.add(floorMaterial, false);
@@ -109,8 +110,8 @@ public final class HarnessEnvironment {
         float step = seconds * NIGHT_RATE;
         nightMix = Math.abs(to - nightMix) <= step ? to : nightMix + Math.signum(to - nightMix) * step;
         float mix = nightMix;
-        skyMaterial.applyProperties(b -> b.set1f("_Night", mix));
-        floorMaterial.applyProperties(b -> b.set1f("_Night", mix));
+        skyMaterial.set1f("_Night", mix);
+        floorMaterial.set1f("_Night", mix);
         daylight();
     }
 
