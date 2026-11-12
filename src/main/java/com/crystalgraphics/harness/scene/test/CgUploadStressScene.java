@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 import com.crystalgraphics.render.canvas.CgCanvas;
@@ -201,13 +203,13 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
     }
 
     private CgTexture2D make(ByteBuffer source) {
-        CgTexture2D t = CgTexture2D.createEmpty(size, size, CgFormat.RGBA8_UNORM);
+        CgTexture2D t = CgTextures.of("harness.uploadStress", CgTextureDesc.of(size, size, CgFormat.RGBA8_UNORM));
         t.uploadRegion(0, 0, 0, size, size, source);
         return t;
     }
 
     private CgTexture3D makeVolume() {
-        CgTexture3D v = CgTexture3D.createEmpty(volumeSize, volumeSize, volumeSize, CgFormat.RGBA8_UNORM);
+        CgTexture3D v = CgTextures.volume("harness.uploadStress", CgTextureDesc.volume(volumeSize, volumeSize, volumeSize, CgFormat.RGBA8_UNORM));
         v.uploadRegion(0, 0, 0, 0, volumeSize, volumeSize, volumeSize, volumePixels);
         return v;
     }

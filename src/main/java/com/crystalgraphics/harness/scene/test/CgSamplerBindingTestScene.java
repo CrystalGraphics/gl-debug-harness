@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.texture.CgSampler;
@@ -55,7 +57,7 @@ public class CgSamplerBindingTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        texture = CgTexture2D.createEmpty(4, 4, CgFormat.RGBA8_UNORM);
+        texture = CgTextures.of("harness.samplerBinding", CgTextureDesc.of(4, 4, CgFormat.RGBA8_UNORM));
         ByteBuffer texels = ByteBuffer.allocateDirect(4 * 4 * 4);
         for (int y = 0; y < 4; y++) {
             for (int x = 0; x < 4; x++) {

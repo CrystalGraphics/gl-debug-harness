@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.harness.util.ObjectDraws;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -136,7 +138,7 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
             }
         }
         texels.flip();
-        lightmap = CgTexture2D.createEmpty(16, 16, CgFormat.RGBA8_UNORM);
+        lightmap = CgTextures.of("harness.lightsDemoBisect", CgTextureDesc.of(16, 16, CgFormat.RGBA8_UNORM));
         lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
     }
 

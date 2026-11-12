@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.runtime;
 
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
@@ -127,7 +129,7 @@ public final class HarnessEnvironment {
             }
         }
         texels.flip();
-        if (lightmap == null) lightmap = CgTexture2D.createEmpty(16, 16, CgFormat.RGBA8_UNORM);
+        if (lightmap == null) lightmap = CgTextures.of("harness.harnessEnvironment", CgTextureDesc.of(16, 16, CgFormat.RGBA8_UNORM));
         lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
         for (CgRenderStage stage : WORLD) {
             stage.host().environment().sun(Float.NaN, 0, nightMix, 1f - nightMix);

@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
 import com.crystalgraphics.api.texture.CgSampler;
 import com.crystalgraphics.gpu.resource.CgTextureSettings;
@@ -69,7 +71,9 @@ public class CgCookedTextureTestScene implements HarnessSceneLifecycle {
         CgCookedTexture file = CgCookedTexture.read(COOKED);
         ByteBuffer texels = ByteBuffer.allocateDirect(4 * 16 * 12);
         CgBc7.decode(file.level(2), 16, 12, texels);
-        level2 = CgTexture2D.createFromPixels(16, 12, texels, CgFormat.RGBA8_SRGB).sampler(CgSampler.NEAREST_CLAMP);
+        level2 = CgTextures.of("harness.cookedTexture.level2", CgTextureDesc.of(16, 12, CgFormat.RGBA8_SRGB))
+                .sampler(CgSampler.NEAREST_CLAMP);
+        level2.write(0, 0, 0, 16, 12, CgFormat.RGBA8_SRGB, texels);
         CgTexture2D[] textures = {png, cooked, level2};
         for (int i = 0; i < 3; i++) {
             CgTexture2D texture = textures[i];

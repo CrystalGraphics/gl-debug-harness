@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.texture.CgTexture;
 import com.crystalgraphics.compute.CgCompute;
@@ -29,7 +30,7 @@ import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.graph.CgRecording;
-import com.crystalgraphics.render.graph.CgTextureDesc;
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -172,7 +173,10 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
             for (int x = 0; x < SIZE; x++) pixels.put((byte) (x * 4)).put((byte) (y * 4)).put((byte) 96).put((byte) 255);
         }
         pixels.flip();
-        return CgTexture2D.createFromPixels(SIZE, SIZE, pixels, CgFormat.RGBA8_UNORM).sampler(CgSampler.NEAREST_CLAMP);
+        CgTexture2D texture = CgTextures.of("harness.computeGraph.picture", CgTextureDesc.of(SIZE, SIZE, CgFormat.RGBA8_UNORM))
+                .sampler(CgSampler.NEAREST_CLAMP);
+        texture.write(0, 0, 0, SIZE, SIZE, CgFormat.RGBA8_UNORM, pixels);
+        return texture;
     }
 
     private static void compare(HarnessContext ctx, boolean glErrors) {

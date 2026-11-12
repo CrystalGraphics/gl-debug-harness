@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
@@ -51,7 +53,7 @@ public class CgSecondLayerTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        texture = CgTexture2D.createEmpty(2, 1, CgFormat.RGBA8_UNORM).sampler(CgSampler.NEAREST_CLAMP);
+        texture = CgTextures.of("harness.secondLayer", CgTextureDesc.of(2, 1, CgFormat.RGBA8_UNORM)).sampler(CgSampler.NEAREST_CLAMP);
         ByteBuffer texels = ByteBuffer.allocateDirect(8);
         texels.put((byte) 255).put((byte) 255).put((byte) 255).put((byte) 255);   // white, left
         texels.put((byte) 255).put((byte) 0).put((byte) 0).put((byte) 255).flip(); // red, right

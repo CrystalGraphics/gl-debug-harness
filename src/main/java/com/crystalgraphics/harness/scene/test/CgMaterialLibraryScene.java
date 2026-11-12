@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.compute.CgCompute;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
@@ -57,7 +59,7 @@ public class CgMaterialLibraryScene implements InteractiveSceneLifecycle {
         for (int k = 0; k < in.length; k++) in[k] = CgGraphBuffer.transientBuffer("material-library.in" + k, buffer());
         for (int k = 0; k < out.length; k++) out[k] = CgGraphBuffer.transientBuffer("material-library.out" + k, buffer());
         // Texels vary along x only, so the result does not depend on which row is v = 0.
-        sheet = CgTexture2D.createEmpty(SHEET, SHEET, CgFormat.RGBA8_UNORM).sampler(CgSampler.NEAREST_CLAMP);
+        sheet = CgTextures.of("harness.materialLibrary", CgTextureDesc.of(SHEET, SHEET, CgFormat.RGBA8_UNORM)).sampler(CgSampler.NEAREST_CLAMP);
         ByteBuffer texels = ByteBuffer.allocateDirect(SHEET * SHEET * 4);
         for (int y = 0; y < SHEET; y++) {
             for (int x = 0; x < SHEET; x++) {

@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.compute.ops.CgRng;
@@ -61,7 +63,7 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        sheet = CgTexture2D.createEmpty(SHEET, SHEET, CgFormat.RGBA8_UNORM).sampler(CgSampler.NEAREST_CLAMP);
+        sheet = CgTextures.of("harness.flipbook", CgTextureDesc.of(SHEET, SHEET, CgFormat.RGBA8_UNORM)).sampler(CgSampler.NEAREST_CLAMP);
         ByteBuffer texels = ByteBuffer.allocateDirect(SHEET * SHEET * 4);
         for (int y = 0; y < SHEET; y++) {
             for (int x = 0; x < SHEET; x++) {

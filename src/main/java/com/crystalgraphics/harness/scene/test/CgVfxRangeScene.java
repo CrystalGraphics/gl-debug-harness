@@ -12,7 +12,7 @@ import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.compute.ops.CgGpuOps;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgRecording;
-import com.crystalgraphics.render.graph.CgTextureDesc;
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.stage.CgHostView;
 import com.crystalgraphics.trace.CgGpuTrace;
