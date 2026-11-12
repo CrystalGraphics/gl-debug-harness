@@ -1,9 +1,9 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.platform.rhi.resource.CgTextureView;
 import com.crystalgraphics.animation.CgAnimInstance;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgMaterialValues;
-import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.asset.codec.CgAssetYaml;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.asset.tree.CgAssetData;
@@ -132,8 +132,9 @@ final class SkinnedOutlineCheck {
         if (phase == RESTORED && !keyed.finished()) return;
         if (--wait > 0) return;
         if (pictures[phase] == null && wait == 0) {
-            int at = phase, fb = ctx.getTargetFramebuffer();
-            CgReadback.pixels(fb, 0, 0, w, h, CgTextureType.RGBA8, d -> pictures[at] = copy(d, w * h * 4));
+            int at = phase;
+            CgTextureView colour = ctx.getTarget().color();
+            CgReadback.texture(colour.texture(), CgReadback.region(colour, 0, 0, w, h), d -> pictures[at] = copy(d, w * h * 4));
             if (phase == 0) readStencil = true;
             return;
         }

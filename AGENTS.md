@@ -449,10 +449,10 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 - **A scene never names `CgGL` or `org.lwjgl.opengl`: the build refuses it** (`cggl-uses.txt`, the host layer's
   two files alone). Geometry is a `CgMesh` drawn through the world renderer, `CgImmediate` or `ObjectDraws`; shaders
   are materials (`.shader`) and kernels (`.compute`); a target is a `HarnessTarget` or a graph texture; its pixels
-  come back through `CgFrameBuffer.readColor`/`readTexture` or a graph readback; a test of the device itself draws
+  come back through `CgReadback.now` (a check or a capture), `CgReadback.texture` or a graph readback; a test of the device itself draws
   through `CgRHI` (`rhi-scene`, `compute-seam`).
-- **A host's needs are CrystalGraphics API**: `CgFrameBuffer.drawInto()` binds a target with its viewport for a
-  stage firing, `CgPassConstants.hostDepth()` takes the host's depth convention. What the engine lacks is added
+- **A host's needs are CrystalGraphics API**: `CgExecutor.into(target)` makes a target current for a stage firing,
+  `CgImmediate.clear`/`copy` clear and present one outside a graph, `CgPassConstants.hostDepth()` takes the host's depth convention. What the engine lacks is added
   there, never worked around in a scene.
 
 ---
@@ -595,8 +595,8 @@ ArtifactService artifacts = ctx.getArtifactService();
 artifacts.requestCapture("front-view");
 // Writes: {outputDir}/{outputName}-front-view.png
 
-// Immediate FBO capture (not post-render):
-artifacts.captureFbo(fboId, texId, width, height, "fbo-dump");
+// Immediate capture of a target of the scene's (not post-render):
+artifacts.captureTarget(target.external(), "fbo-dump");
 
 // Immediate backbuffer capture (use only when you know the content is ready):
 artifacts.captureNow("snapshot");
@@ -940,8 +940,8 @@ A scene about the desktop is a 3D scene on `ctx.getUi()` instead: the desktop is
 
 ### State Rules for Scenes
 
-- A scene sets no device state: its materials declare theirs, and a target is bound through `HarnessTarget` or
-  `CgFrameBuffer.drawInto()`, which puts the previous one back.
+- A scene sets no device state: its materials declare theirs, and a target is made current through `HarnessTarget`
+  or `CgExecutor.into(target)`, which puts the previous one back.
 - Scenes should NOT directly manage overlay or capture timing. Use `ArtifactService` for captures.
 
 ### Testing

@@ -1,8 +1,10 @@
 package com.crystalgraphics.harness.runtime;
 
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
-import com.crystalgraphics.api.texture.CgTextureType;
-import com.crystalgraphics.gpu.resource.CgFrameBuffer;
+import com.crystalgraphics.platform.rhi.CgExternalTarget;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
+import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.render.graph.CgExecutor;
 import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -94,7 +96,8 @@ public final class OverlayPipeline {
 
 
     /** {@link #warmHud}'s target: drawn into, never read. */
-    private CgFrameBuffer hudWarmTarget;
+    private CgTexture2D hudWarmColour;
+    private CgExternalTarget hudWarmTarget;
     private static final int HUD_WARM_FRAMES = 240;
     private int hudWarmQuiet, hudWarmFrames;
     private long hudWarmFrame = -1;
@@ -113,15 +116,15 @@ public final class OverlayPipeline {
         if (CgPipelinePrecache.remaining() > 0) return false;
         if (++hudWarmFrames > HUD_WARM_FRAMES) return true;
         if (hudWarmTarget == null) {
-            hudWarmTarget = CgFrameBuffer.create("harness_hud_warm", 16, 16,
-                    CgFrameBufferFormat.builder("harness_hud_warm").color(0, CgTextureType.RGBA8).build());
+            hudWarmColour = CgTextures.of("harness_hud_warm", CgTextureDesc.of(16, 16, CgFormat.RGBA8_UNORM));
+            hudWarmTarget = CgTextures.target("harness_hud_warm", hudWarmColour, null);
         }
         // Under the window's camera, so its font and glyphs are the window's size
         CgPassConstants camera = CgImmediate.constants();
         camera.view.identity();
         camera.projection.setOrtho(0f, ctx.getScreenWidth(), ctx.getScreenHeight(), 0f, -1f, 1f);
         camera.resolution(ctx.getScreenWidth(), ctx.getScreenHeight());
-        try (CgExecutor.Into ignored = CgExecutor.into(hudWarmTarget.external())) {
+        try (CgExecutor.Into ignored = CgExecutor.into(hudWarmTarget)) {
             hudRenderer.render(warmCanvas, ctx);
             warmCanvas.flush();
         }
@@ -133,7 +136,8 @@ public final class OverlayPipeline {
     public void delete() {
         if (hudStage != null) hudStage.close();
         if (hudWarmTarget != null) {
-            hudWarmTarget.delete();
+            hudWarmColour.release();
+            hudWarmColour = null;
             hudWarmTarget = null;
         }
         hudRenderer.delete();

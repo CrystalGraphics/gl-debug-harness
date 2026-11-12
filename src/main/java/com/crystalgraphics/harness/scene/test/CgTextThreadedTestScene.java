@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.gpu.resource.CgReadback;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.api.text.CgTextLayout;
@@ -120,7 +121,7 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
                 ByteBuffer workerPixels = null;
                 if (pass == 1) {
                     fromWorker.captureToFile(dir, "text-threaded-worker.png");
-                    workerPixels = fromWorker.framebuffer().readColor(0, 0, w, h);
+                    workerPixels = CgReadback.now(fromWorker.external().color(), 0, 0, w, h, false);
                 }
                 fromWorker.unbind();
                 fromWorker.delete();
@@ -134,7 +135,7 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
                 renderText.flush();
                 if (pass == 1) {
                     fromRender.captureToFile(dir, "text-threaded-render.png");
-                    differing = differing(workerPixels, fromRender.framebuffer().readColor(0, 0, w, h));
+                    differing = differing(workerPixels, CgReadback.now(fromRender.external().color(), 0, 0, w, h, false));
                 }
                 fromRender.unbind();
                 fromRender.delete();

@@ -1,11 +1,11 @@
 package com.crystalgraphics.harness.runtime;
 
-import com.crystalgraphics.gpu.resource.CgFrameBuffer;
+import com.crystalgraphics.platform.rhi.CgExternalTarget;
+import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.harness.camera.FloorRenderer;
 import com.crystalgraphics.harness.config.WorldConfig;
 import com.crystalgraphics.harness.config.WorldSettings;
 import org.joml.Matrix4fc;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The world pass, first in each interactive frame: the frame's target cleared to the sky colour, then the floor drawn
@@ -21,9 +21,6 @@ public final class WorldPassCoordinator {
 
     private final FloorRenderer floorRenderer;
     private final WorldSettings worldSettings;
-    /** The frame's target as the engine names it, kept while its id and size hold. */
-    @Nullable
-    private CgFrameBuffer target;
 
     public WorldPassCoordinator(FloorRenderer floorRenderer, WorldSettings worldSettings) {
         if (floorRenderer == null) throw new IllegalArgumentException("floorRenderer must not be null");
@@ -38,19 +35,17 @@ public final class WorldPassCoordinator {
     }
 
     /**
-     * Clears {@code framebuffer} ({@code width} x {@code height}: the main target, or the window) to the sky, and draws
+     * Clears {@code target} ({@code width} x {@code height}: the main target, or the window) to the sky, and draws
      * the floor when the scene has a 3D camera.
      *
      * @param view       the view the scene draws its world with this frame: the 3D camera's, or the scene's own
      *                   ({@code InteractiveSceneLifecycle.worldView}), so the floor's depth matches the world's
      * @param projection that view's projection
      */
-    public void executeWorldPass(int framebuffer, int width, int height, Matrix4fc view, Matrix4fc projection,
+    public void executeWorldPass(CgExternalTarget target, int width, int height, Matrix4fc view, Matrix4fc projection,
                                  boolean uses3DCamera) {
-        if (target == null || target.getId() != framebuffer || target.getWidth() != width || target.getHeight() != height) {
-            target = CgFrameBuffer.wrap("harness_frame", framebuffer, width, height);
-        }
-        target.clearAll(worldSettings.getSkyR(), worldSettings.getSkyG(), worldSettings.getSkyB(), 1f);
+        CgImmediate.clear(target, true, worldSettings.getSkyR(), worldSettings.getSkyG(), worldSettings.getSkyB(), 1f,
+                true, 1.0, true, 0);
         if (uses3DCamera && WorldConfig.RENDER_FLOOR && !HarnessEnvironment.INSTANCE.enabled()) {
             floorRenderer.render(view, projection, width, height);
         }

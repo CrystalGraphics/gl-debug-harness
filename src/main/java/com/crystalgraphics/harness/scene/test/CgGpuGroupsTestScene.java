@@ -1,10 +1,11 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
+import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
-import com.crystalgraphics.api.texture.CgTextureType;
-import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -50,15 +51,13 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
     private static final int W = 1920, H = 1080;
     private static final String ON = "gpu-groups.on", OFF = "gpu-groups.off";
     private static final String[] SHADERS = {"gpu_groups_1", "gpu_groups_2", "gpu_groups_4"};
-    private static final CgFrameBufferFormat FORMAT = CgFrameBufferFormat.builder("gpu-groups")
-            .color(0, CgTextureType.RGBA16F).build();
 
     private final CgFrameBuilder builder = new CgFrameBuilder();
     private final CgFrameGraph graph = new CgFrameGraph();
     private final CgRecording recording = new CgRecording();
     private final CgMaterial[] materials = new CgMaterial[SHADERS.length];
     private final int onZone = CgGpuTrace.name(ON), offZone = CgGpuTrace.name(OFF);
-    private CgFrameBuffer fb;
+    private CgTexture2D fb;
     private CgGraphTexture target;
     private int quads, frame;
     private boolean wasGpu, wasGroups, running = true;
@@ -69,8 +68,8 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
         for (int i = 0; i < SHADERS.length; i++) {
             materials[i] = CgMaterial.newInstance("assets/harness/shader/" + SHADERS[i] + ".shader");
         }
-        fb = CgFrameBuffer.createOwned("gpu-groups", W, H, FORMAT, 1);
-        target = CgGraphTexture.imported("gpu-groups", fb.external());
+        fb = CgTextures.of("gpu-groups", CgTextureDesc.of(W, H, CgFormat.RGBA16_FLOAT));
+        target = CgGraphTexture.imported("gpu-groups", CgTextures.target("gpu-groups", fb, null));
         wasGpu = CgTrace.isEnabled(CgGpuTrace.GPU);
         wasGroups = CgTrace.isEnabled(CgChannels.GPU_GROUPS);
         CgTrace.setEnabled(CgGpuTrace.GPU, true);
@@ -164,6 +163,6 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
     public void dispose() {
         CgTrace.setEnabled(CgGpuTrace.GPU, wasGpu);
         CgTrace.setEnabled(CgChannels.GPU_GROUPS, wasGroups);
-        fb.delete();
+        fb.release();
     }
 }

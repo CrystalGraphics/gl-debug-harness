@@ -1,13 +1,17 @@
 package com.crystalgraphics.harness.scene.test;
 
+import javax.annotation.Nullable;
+import com.crystalgraphics.platform.rhi.CgExternalTarget;
+import com.crystalgraphics.gpu.resource.CgReadback;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
 import java.util.IdentityHashMap;
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.render.CgImmediate;
-import com.crystalgraphics.api.texture.CgTextureType;
-import com.crystalgraphics.gpu.resource.CgFrameBuffer;
+import com.crystalgraphics.gpu.resource.CgTextureType;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.harness.FrameInfo;
@@ -68,18 +72,33 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
 
     private static final int WARMUP = 10, MEASURED = 60, DRAIN = 30;
     private static final double BAR_MS = 0.5;
-    private static final CgTextureType[] SCENES = {CgTextureType.RGBA16F, CgTextureType.R11F_G11F_B10F};
-    private static final CgFrameBufferFormat HOST = CgFrameBufferFormat.builder("hdr_scene_host")
-            .color(0, CgTextureType.RGBA8).depth(CgTextureType.DEPTH24_STENCIL8).build();
+    private static final CgFormat[] SCENES = {CgFormat.RGBA16_FLOAT, CgFormat.RG11B10_UFLOAT};
+    /** A target of the scene's: its colour, a depth where it has one, and the two as the engine draws into them. */
+    private record Host(CgTexture2D colour, @Nullable CgTexture2D depth, CgExternalTarget target) {
+        static Host of(String name, int w, int h, CgFormat colour, boolean depth) {
+            CgTexture2D c = CgTextures.of(name, CgTextureDesc.of(w, h, colour));
+            CgTexture2D d = depth ? CgTextures.of(name + ".depth", CgTextureDesc.of(w, h, CgFormat.DEPTH24_PLUS_STENCIL8)) : null;
+            return new Host(c, d, CgTextures.target(name, c, d));
+        }
 
-    /** The framebuffer behind each target this scene imports, which it uploads into, copies and reads. */
-    private static final Map<CgGraphTexture, CgFrameBuffer> MADE = new IdentityHashMap<>();
+        ByteBuffer readColor() {
+            return CgReadback.now(target.color(), 0, 0, target.width(), target.height(), false);
+        }
+
+        void release() {
+            colour.release();
+            if (depth != null) depth.release();
+        }
+    }
+
+    /** The textures behind each target this scene imports, which it uploads into, copies and reads. */
+    private static final Map<CgGraphTexture, Host> MADE = new IdentityHashMap<>();
 
     private record Config(String name, int width, int height, boolean exact, CgGraphTexture host, CgGraphTexture scene,
-                          CgGraphTexture out, String in, String composite, CgFrameBuffer copy, String copyZone) {}
+                          CgGraphTexture out, String in, String composite, Host copy, String copyZone) {}
 
     private final List<Config> configs = new ArrayList<>();
-    private final List<CgFrameBuffer> owned = new ArrayList<>();
+    private final List<Host> owned = new ArrayList<>();
     private final CgFrameBuilder builder = new CgFrameBuilder();
     private final CgFrameGraph graph = new CgFrameGraph();
     private final CgRecording recording = new CgRecording();
@@ -96,17 +115,15 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         for (String size : System.getProperty("crystalgraphics.harness.hdrScene.sizes", "1920x1080,3840x2160").split(",")) {
             String[] wh = size.trim().split("x");
             int w = Integer.parseInt(wh[0]), h = Integer.parseInt(wh[1]);
-            CgGraphTexture host = target("host " + size, w, h, HOST);
+            CgGraphTexture host = target("host " + size, w, h, CgFormat.RGBA8_UNORM, true);
             upload(MADE.get(host), pattern(w, h), w, h);
-            CgGraphTexture composite = target("out " + size, w, h, HOST);
-            CgFrameBuffer copy = MADE.get(target("copy " + size, w, h, HOST));
-            for (CgTextureType type : SCENES) {
-                CgFrameBufferFormat format = CgFrameBufferFormat.builder("hdr_scene_" + type.name().toLowerCase())
-                        .color(0, type).build();
-                String name = (type == CgTextureType.RGBA16F ? "rgba16f" : "r11g11b10f") + " " + w + "x" + h;
-                configs.add(new Config(name, w, h, type == CgTextureType.RGBA16F, host,
-                        target("scene " + name, w, h, format), composite, "in " + name, "out " + name,
-                        copy, type == CgTextureType.RGBA16F ? "copy " + w + "x" + h : null));
+            CgGraphTexture composite = target("out " + size, w, h, CgFormat.RGBA8_UNORM, true);
+            Host copy = MADE.get(target("copy " + size, w, h, CgFormat.RGBA8_UNORM, true));
+            for (CgFormat type : SCENES) {
+                String name = (type == CgFormat.RGBA16_FLOAT ? "rgba16f" : "r11g11b10f") + " " + w + "x" + h;
+                configs.add(new Config(name, w, h, type == CgFormat.RGBA16_FLOAT, host,
+                        target("scene " + name, w, h, type, false), composite, "in " + name, "out " + name,
+                        copy, type == CgFormat.RGBA16_FLOAT ? "copy " + w + "x" + h : null));
             }
         }
         wasTracingGpu = CgTrace.isEnabled(CgGpuTrace.GPU);
@@ -131,9 +148,10 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     private void run(Config c, boolean measuring) {
         if (c.copyZone() != null) {
             // The host's colour and depth copied whole, as a scene keeping its own depth would take them each frame.
-            CgFrameBuffer host = MADE.get(c.host());
-            int copy = c.copy().getId();
-            execute(rec -> rec.callback("hdr-scene copy", null, () -> host.copyColorAndDepthTo(copy)), c.copyZone(), measuring);
+            Host host = MADE.get(c.host());
+            CgExternalTarget copy = c.copy().target();
+            execute(rec -> rec.callback("hdr-scene copy", null, () -> CgImmediate.copy(host.target(), copy, true)), c.copyZone(),
+                    measuring);
             // The same callback copying nothing: what the copy zone holds besides the blit.
             execute(rec -> rec.callback("hdr-scene empty", null, () -> {}), c.copyZone() + " empty", measuring);
         }
@@ -227,17 +245,17 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
      */
     private String engineRoundTrip(boolean gl) {
         int w = 640, h = 480;
-        CgFrameBuffer host = CgFrameBuffer.createOwned("hdr-scene engine host", w, h, HOST);
+        Host host = Host.of("hdr-scene engine host", w, h, CgFormat.RGBA8_UNORM, true);
         owned.add(host);
         upload(host, pattern(w, h), w, h);
         CgWorldRenderer world = CgWorldRenderer.get();
         world.install();
         CgPostStack.get().install();
         // A host draws its world into its own target: the stages take it as the current one.
-        try (CgExecutor.Into ignored = CgExecutor.into(host.external())) {
+        try (CgExecutor.Into ignored = CgExecutor.into(host.target())) {
             Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
             for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-                stage.host().set(0f, w, h, host.external()).view().set(0, 0, 0, new Matrix4f(), projection);
+                stage.host().set(0f, w, h, host.target()).view().set(0, 0, 0, new Matrix4f(), projection);
                 stage.fire();
             }
         }
@@ -272,15 +290,15 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
      * blue as blue, and the cube must keep its excess: rolled toward white by the composite, its green near 188 where a
      * value clamped at the opaque stage would leave 0. Null when all hold; else what failed.
      */
-    private String opaqueRoundTrip(CgFrameBuffer host, int w, int h, boolean overdraw, boolean blooming) {
+    private String opaqueRoundTrip(Host host, int w, int h, boolean overdraw, boolean blooming) {
         String which = blooming ? "opaque scene, blooming" : overdraw ? "opaque scene under the host's overdraw" : "opaque scene";
         CgWorldRenderer world = CgWorldRenderer.get();
         upload(host, pattern(w, h), w, h);
         boolean wasSkipping = world.skipUnready();
         world.skipUnready(false);
         Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
-        try (CgExecutor.Into ignored = CgExecutor.into(host.external())) {
-            host.clearDepth();
+        try (CgExecutor.Into ignored = CgExecutor.into(host.target())) {
+            CgImmediate.clear(host.target(), false, 0, 0, 0, 0, true, 1.0, false, 0);
             world.draw(CgMeshShapes.cube(), opaqueMaterial).at(0, 0, -3).submit();
             fire(CgRenderStage.WORLD_OPAQUE, host, w, h, projection);
             if (overdraw) {
@@ -296,7 +314,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         } finally {
             world.skipUnready(wasSkipping);
         }
-        ByteBuffer made = host.readColor(0, 0, w, h);
+        ByteBuffer made = host.readColor();
         ByteBuffer want = pattern(w, h);
         int changed = 0, blue = 0, worst = 0;
         int[] perChannel = new int[4], box = {w, h, -1, -1};
@@ -340,8 +358,8 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         return null;
     }
 
-    private static void fire(CgRenderStage stage, CgFrameBuffer host, int w, int h, Matrix4f projection) {
-        stage.host().set(0f, w, h, host.external()).view().set(0, 0, 0, new Matrix4f(), projection);
+    private static void fire(CgRenderStage stage, Host host, int w, int h, Matrix4f projection) {
+        stage.host().set(0f, w, h, host.target()).view().set(0, 0, 0, new Matrix4f(), projection);
         stage.fire();
     }
 
@@ -351,9 +369,9 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     }
 
     /** Channel values of {@code target}'s colour unlike the pattern; without {@code alpha}, RGB only. */
-    private static int changed(CgFrameBuffer target, boolean alpha) {
-        int w = target.getWidth(), h = target.getHeight();
-        ByteBuffer made = target.readColor(0, 0, w, h);
+    private static int changed(Host target, boolean alpha) {
+        int w = target.target().width(), h = target.target().height();
+        ByteBuffer made = target.readColor();
         ByteBuffer want = pattern(w, h);
         int changed = 0;
         for (int i = 0; i < w * h * 4; i++) {
@@ -374,14 +392,14 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         return pixels.flip();
     }
 
-    private static void upload(CgFrameBuffer fb, ByteBuffer pixels, int w, int h) {
-        ((CgTexture2D) fb.getColorTexture(0)).uploadRegion(0, 0, 0, w, h, pixels);
+    private static void upload(Host fb, ByteBuffer pixels, int w, int h) {
+        fb.colour().uploadRegion(0, 0, 0, w, h, pixels);
     }
 
-    private CgGraphTexture target(String name, int w, int h, CgFrameBufferFormat format) {
-        CgFrameBuffer fb = CgFrameBuffer.createOwned("hdr-scene " + name, w, h, format);
+    private CgGraphTexture target(String name, int w, int h, CgFormat colour, boolean depth) {
+        Host fb = Host.of("hdr-scene " + name, w, h, colour, depth);
         owned.add(fb);
-        CgGraphTexture texture = CgGraphTexture.imported(name, fb.external());
+        CgGraphTexture texture = CgGraphTexture.imported(name, fb.target());
         MADE.put(texture, fb);
         return texture;
     }
@@ -393,6 +411,6 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         CgTrace.setEnabled(CgGpuTrace.GPU, wasTracingGpu);
-        for (CgFrameBuffer fb : owned) fb.delete();
+        for (Host fb : owned) fb.release();
     }
 }

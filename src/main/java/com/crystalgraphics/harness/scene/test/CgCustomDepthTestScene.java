@@ -3,7 +3,6 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
-import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.gpu.resource.CgReadback;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.animation.CgBonePalettes;
@@ -155,8 +154,8 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
         }
         if (armed) {
             // The host's target after the post stack: what the probe drew there.
-            CgReadback.pixels(target.getFboId(), NX, NY, 1, 1, CgTextureType.RGBA8, d -> near = bytes(d));
-            CgReadback.pixels(target.getFboId(), BX, BY, 1, 1, CgTextureType.RGBA8, d -> background = bytes(d));
+            CgReadback.texture(target.getColor(), 0, NX, NY, 1, 1, d -> near = bytes(d));
+            CgReadback.texture(target.getColor(), 0, BX, BY, 1, 1, d -> background = bytes(d));
             armed = false;
         }
         target.unbind();

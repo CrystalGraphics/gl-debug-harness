@@ -284,7 +284,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // as post-render callbacks in the frame pipeline.
         OutputSettings outputSettings = ctx.getOutputSettings();
         ViewportState viewport = ctx.getViewport();
-        artifactService = new ArtifactService(outputSettings, viewport, this, ctx::getTargetFramebuffer);
+        artifactService = new ArtifactService(outputSettings, viewport, this, ctx::getTarget);
         ctx.setArtifactService(artifactService);
 
 
@@ -436,13 +436,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             CgDeviceSection.begin();
             try {
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.begin")) {
-                    ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
-                    ctx.setTarget(mainTarget.external());
+                    ctx.setTarget(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
                 }
 
                 try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "frame.worldPass")) {
                     boolean own = scene.worldView(ctx, worldView, worldProjection);
-                    worldPassCoordinator.executeWorldPass(ctx.getTargetFramebuffer(), ctx.getScreenWidth(),
+                    worldPassCoordinator.executeWorldPass(ctx.getTarget(), ctx.getScreenWidth(),
                             ctx.getScreenHeight(), own ? worldView : camera.getViewMatrix(),
                             own ? worldProjection : ctx.getProjection(), scene.uses3DCamera());
                 }
@@ -466,7 +465,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 }
                 // Before the HUD, whose readouts change every frame.
                 if (motion != null) {
-                    motionDone = motion.sample(frameClock.getFrameNumber(), ctx.getTargetFramebuffer(), ctx.getScreenWidth(),
+                    motionDone = motion.sample(frameClock.getFrameNumber(), ctx.getTarget(), ctx.getScreenWidth(),
                             ctx.getScreenHeight());
                 }
 
@@ -603,8 +602,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         // No world of the scene's: the screen fires its own, where pipelines settle and effects warm and rehearse.
         CgDeviceSection.begin();
         try {
-            ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
-            ctx.setTarget(mainTarget.external());
+            ctx.setTarget(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
             drawLoadingScreen();
             mainTarget.end();
         } finally {
@@ -627,8 +625,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
         CgFrameClock.set(loadingSeconds);   // the harness's clock from the first world frame: it never runs backwards
         CgDeviceSection.begin();
         try {
-            ctx.setTargetFramebuffer(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
-            ctx.setTarget(mainTarget.external());
+            ctx.setTarget(mainTarget.begin(ctx.getScreenWidth(), ctx.getScreenHeight()));
             drawLoadingScreen();
             mainTarget.end();
         } finally {

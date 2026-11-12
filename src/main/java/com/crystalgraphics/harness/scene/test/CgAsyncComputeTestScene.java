@@ -1,14 +1,14 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.platform.rhi.format.CgFormat;
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.render.graph.CgGraphStorage;
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
-import com.crystalgraphics.api.texture.CgTextureType;
 import com.crystalgraphics.compute.ops.CgGpuCount;
 import com.crystalgraphics.compute.ops.CgGpuOps;
 import com.crystalgraphics.compute.ops.CgRng;
-import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -93,13 +93,11 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     }
 
     private static final Mode[] MODES = Mode.values();
-    private static final CgFrameBufferFormat HALF = CgFrameBufferFormat.builder("async-compute")
-            .color(0, CgTextureType.RGBA16F).build();
 
     private final CgFrameBuilder builder = new CgFrameBuilder();
     private final CgFrameGraph graph = new CgFrameGraph();
     private final CgRecording recording = new CgRecording();
-    private final List<CgFrameBuffer> owned = new ArrayList<>();
+    private final List<CgTexture2D> owned = new ArrayList<>();
     private CgMaterial pattern, down;
     private CgGraphTexture source, blurred, canvas, result;
     private CgGraphBuffer word, keys, first;
@@ -370,15 +368,15 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     }
 
     private CgGraphTexture texture(String name, int w, int h, boolean noise) {
-        CgFrameBuffer fb = CgFrameBuffer.createOwned("async-compute " + name, w, h, HALF, 1);
+        CgTexture2D fb = CgTextures.of("async-compute " + name, CgTextureDesc.of(w, h, CgFormat.RGBA16_FLOAT));
         if (noise) {
             ByteBuffer pixels = ByteBuffer.allocateDirect(w * h * 8).order(ByteOrder.nativeOrder());
             for (int i = 0; i < w * h * 4; i++) pixels.putShort(Float.floatToFloat16((CgRng.rng(w, i, 3, 0) >>> 8) / (float) (1 << 24)));
             pixels.flip();
-            ((CgTexture2D) fb.getColorTexture(0)).uploadRegion(0, 0, 0, w, h, pixels);
+            fb.uploadRegion(0, 0, 0, w, h, pixels);
         }
         owned.add(fb);
-        return CgGraphTexture.imported(name, fb.external());
+        return CgGraphTexture.imported(name, CgTextures.target(name, fb, null));
     }
 
     @Override public boolean isRunning() { return running; }
@@ -392,6 +390,6 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
         recording.release(keys);
         recording.release(first);
         run();
-        for (CgFrameBuffer fb : owned) fb.delete();
+        for (CgTexture2D fb : owned) fb.release();
     }
 }

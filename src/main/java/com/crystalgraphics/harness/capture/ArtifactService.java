@@ -2,7 +2,8 @@ package com.crystalgraphics.harness.capture;
 
 import com.crystalgraphics.harness.config.OutputSettings;
 import com.crystalgraphics.harness.config.ViewportState;
-import java.util.function.IntSupplier;
+import java.util.function.Supplier;
+import com.crystalgraphics.platform.rhi.CgExternalTarget;
 import java.util.logging.Logger;
 
 /**
@@ -39,7 +40,7 @@ import java.util.logging.Logger;
  * // → writes: {outputDir}/{outputName}-front-view.png
  *
  * // For a target of the scene's (not post-render):
- * artifacts.captureFbo(target.getFboId(), target.getWidth(), target.getHeight(), "fbo-dump");
+ * artifacts.captureTarget(target.external(), "fbo-dump");
  * }</pre>
  *
  * @see OutputSettings
@@ -53,7 +54,7 @@ public final class ArtifactService {
     private final OutputSettings output;
     private final ViewportState viewport;
     private final CaptureCallback captureCallback;
-    private final IntSupplier frameTarget;
+    private final Supplier<CgExternalTarget> frameTarget;
 
     /**
      * Creates an artifact service with the given output settings, viewport state,
@@ -62,11 +63,11 @@ public final class ArtifactService {
      * @param output          immutable output settings (directory + name prefix)
      * @param viewport        live viewport dimensions (read at capture time)
      * @param captureCallback callback sink for scheduling post-render captures
-     * @param frameTarget     the framebuffer the frame is drawn into, read at capture time: the main target, or the window
+     * @param frameTarget     the target the frame is drawn into, read at capture time: the main target, or the window
      * @throws IllegalArgumentException if any argument is null
      */
     public ArtifactService(OutputSettings output, ViewportState viewport,
-                           CaptureCallback captureCallback, IntSupplier frameTarget) {
+                           CaptureCallback captureCallback, Supplier<CgExternalTarget> frameTarget) {
         if (output == null) {
             throw new IllegalArgumentException("output must not be null");
         }
@@ -109,33 +110,22 @@ public final class ArtifactService {
         captureCallback.schedulePostRenderCapture(new Runnable() {
             @Override
             public void run() {
-                int w = viewport.getWidth();
-                int h = viewport.getHeight();
-                HarnessCapture.framebuffer(frameTarget.getAsInt(), w, h, outputDir, filename);
-                LOGGER.info("[ArtifactService] Captured " + filename
-                        + " (" + w + "x" + h + ")");
+                CgExternalTarget target = frameTarget.get();
+                HarnessCapture.target(target, outputDir, filename);
+                LOGGER.info("[ArtifactService] Captured " + filename + " (" + target.width() + "x" + target.height() + ")");
             }
         });
     }
 
     /**
-     * Immediately captures a framebuffer's colour to a PNG file.
+     * Captures {@code target}'s colour to a PNG now: a target of the scene's, which needs no frame to finish first.
      *
-     * <p>Unlike {@link #requestCapture(String)}, this method executes
-     * synchronously because FBO captures don't need to wait for the
-     * full frame pipeline to complete.</p>
-     *
-     * @param fboId   the framebuffer's id
-     * @param width   its width in pixels
-     * @param height  FBO height in pixels
-     * @param suffix  the descriptive suffix for the filename
+     * @param suffix the descriptive suffix for the filename
      */
-    public void captureFbo(int fboId, int width, int height, String suffix) {
+    public void captureTarget(CgExternalTarget target, String suffix) {
         String filename = output.buildFilename(suffix);
-        String outputDir = output.getOutputDir();
-        HarnessCapture.framebuffer(fboId, width, height, outputDir, filename);
-        LOGGER.info("[ArtifactService] Captured FBO " + filename
-                + " (" + width + "x" + height + ")");
+        HarnessCapture.target(target, output.getOutputDir(), filename);
+        LOGGER.info("[ArtifactService] Captured " + filename + " (" + target.width() + "x" + target.height() + ")");
     }
 
     /**
@@ -151,11 +141,9 @@ public final class ArtifactService {
     public void captureNow(String suffix) {
         String filename = output.buildFilename(suffix);
         String outputDir = output.getOutputDir();
-        int w = viewport.getWidth();
-        int h = viewport.getHeight();
-        HarnessCapture.framebuffer(frameTarget.getAsInt(), w, h, outputDir, filename);
-        LOGGER.info("[ArtifactService] Captured (sync) " + filename
-                + " (" + w + "x" + h + ")");
+        CgExternalTarget target = frameTarget.get();
+        HarnessCapture.target(target, outputDir, filename);
+        LOGGER.info("[ArtifactService] Captured (sync) " + filename + " (" + target.width() + "x" + target.height() + ")");
     }
 
     /**

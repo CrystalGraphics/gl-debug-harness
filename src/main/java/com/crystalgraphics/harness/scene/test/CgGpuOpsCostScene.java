@@ -1,8 +1,11 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
+import com.crystalgraphics.api.texture.CgTextures;
+import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.api.texture.CgTexture;
-import com.crystalgraphics.api.texture.CgTextureType;
+import com.crystalgraphics.gpu.resource.CgTextureType;
 import com.crystalgraphics.compute.ops.CgGpuCount;
 import com.crystalgraphics.compute.ops.CgGpuOps;
 import com.crystalgraphics.compute.ops.CgGpuOps.Element;
@@ -11,7 +14,6 @@ import com.crystalgraphics.compute.ops.CgGpuOps.Fold;
 import com.crystalgraphics.compute.ops.CgGpuOps.Order;
 import com.crystalgraphics.compute.ops.CgGpuOps.Scan;
 import com.crystalgraphics.compute.ops.CgRng;
-import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -74,7 +76,7 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
     private final List<CgGraphBuffer> buffers = new ArrayList<>();
     /** The buffers' and textures' first contents, recorded once, on the first frame. */
     private final List<Consumer<CgRecording>> seeds = new ArrayList<>();
-    private final List<CgFrameBuffer> textures = new ArrayList<>();
+    private final List<CgTexture2D> textures = new ArrayList<>();
     private final CgFrameBuilder builder = new CgFrameBuilder();
     private final CgFrameGraph graph = new CgFrameGraph();
     private final CgRecording recording = new CgRecording();
@@ -120,9 +122,9 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
             rec.copy(valuesSource, 0, values, 0, words);
         };
 
-        CgGraphTexture chain = texture("chain", CgTextureType.RGBA16F, CgTexture.fullChain(WIDTH, HEIGHT));
-        CgGraphTexture depth = texture("depth", CgTextureType.R32F, CgTexture.fullChain(WIDTH, HEIGHT));
-        CgGraphTexture blurred = texture("blurred", CgTextureType.RGBA16F, 1);
+        CgGraphTexture chain = texture("chain", CgFormat.RGBA16_FLOAT, CgTexture.fullChain(WIDTH, HEIGHT));
+        CgGraphTexture depth = texture("depth", CgFormat.R32_FLOAT, CgTexture.fullChain(WIDTH, HEIGHT));
+        CgGraphTexture blurred = texture("blurred", CgFormat.RGBA16_FLOAT, 1);
 
         add(only, "fill", null, p -> CgGpuOps.fill(p, out, 7, all));
         add(only, "iota", null, p -> CgGpuOps.iota(p, out, 0, 1, all));
@@ -230,11 +232,10 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
         return buffer;
     }
 
-    private CgGraphTexture texture(String name, CgTextureType type, int levels) {
-        CgFrameBufferFormat format = CgFrameBufferFormat.builder("ops_cost_" + name).color(0, type).build();
-        CgFrameBuffer fb = CgFrameBuffer.createOwned("ops-cost " + name, WIDTH, HEIGHT, format, levels);
+    private CgGraphTexture texture(String name, CgFormat type, int levels) {
+        CgTexture2D fb = CgTextures.of("ops-cost " + name, new CgTextureDesc(WIDTH, HEIGHT, type, levels));
         // Noise in the texture's own format: RGBA16F's halves, R32F's floats.
-        boolean half = type == CgTextureType.RGBA16F;
+        boolean half = type == CgFormat.RGBA16_FLOAT;
         int values = half ? WIDTH * HEIGHT * 4 : WIDTH * HEIGHT;
         ByteBuffer pixels = ByteBuffer.allocateDirect(values * (half ? 2 : 4)).order(ByteOrder.nativeOrder());
         for (int i = 0; i < values; i++) {
@@ -244,7 +245,7 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
         }
         pixels.flip();
         textures.add(fb);
-        CgGraphTexture texture = CgGraphTexture.imported(name, fb.external());
+        CgGraphTexture texture = CgGraphTexture.imported(name, CgTextures.target(name, fb, null));
         seeds.add(rec -> rec.update(texture, 0, 0, 0, WIDTH, HEIGHT, pixels));
         return texture;
     }
@@ -263,6 +264,6 @@ public class CgGpuOpsCostScene implements InteractiveSceneLifecycle {
     public void dispose() {
         CgTrace.setEnabled(CgGpuTrace.GPU, wasTracingGpu);
         execute(rec -> buffers.forEach(rec::release), null, -1, false);
-        for (CgFrameBuffer fb : textures) fb.delete();
+        for (CgTexture2D fb : textures) fb.release();
     }
 }

@@ -1,7 +1,9 @@
 package com.crystalgraphics.harness.capture;
 
+import com.crystalgraphics.gpu.resource.CgReadback;
 import com.crystalgraphics.gpu.resource.CgTextureAbstract;
-import com.crystalgraphics.gpu.resource.CgFrameBuffer;
+import com.crystalgraphics.platform.rhi.CgExternalTarget;
+import com.crystalgraphics.platform.rhi.resource.CgTextureView;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -11,13 +13,13 @@ import java.nio.ByteBuffer;
 import java.util.logging.Logger;
 
 /**
- * Photographs to PNG, each a readback through CrystalGraphics: a target, the frame's own target, a texture or one
- * layer of an array. Every call waits for the GPU, which is what a capture is for.
+ * Photographs to PNG, each a readback through CrystalGraphics that waits for the GPU ({@link CgReadback#now}): a target,
+ * the frame's own target, a texture or one layer of an array.
  *
  * <pre>{@code
- * HarnessCapture.framebuffer(target, dir, "frame.png");     // a target, top row first
- * HarnessCapture.framebuffer(ctx.getTargetFramebuffer(), w, h, dir, "final.png");   // the frame's own target
- * HarnessCapture.texture(atlas, 3, dir, "page3.png");       // layer 3 of an array, its rows as uploaded
+ * HarnessCapture.target(target.external(), dir, "frame.png");     // a target, top row first
+ * HarnessCapture.target(ctx.getTarget(), dir, "final.png");       // the frame's own target
+ * HarnessCapture.texture(atlas, 3, dir, "page3.png");             // layer 3 of an array, its rows as uploaded
  * }</pre>
  *
  * <ul>
@@ -32,20 +34,17 @@ public final class HarnessCapture {
     private HarnessCapture() {}
 
     /** {@code target}'s colour, top row first. */
-    public static void framebuffer(CgFrameBuffer target, String outputDir, String filename) {
-        write(image(target.readColor(0, 0, target.getWidth(), target.getHeight()), target.getWidth(), target.getHeight(),
-                true), outputDir, filename);
-    }
-
-    /** {@code width} x {@code height} of the framebuffer named {@code framebuffer}: the frame's target, or the window. */
-    public static void framebuffer(int framebuffer, int width, int height, String outputDir, String filename) {
-        framebuffer(CgFrameBuffer.wrap("capture", framebuffer, width, height), outputDir, filename);
+    public static void target(CgExternalTarget target, String outputDir, String filename) {
+        int w = target.width(), h = target.height();
+        write(image(CgReadback.now(target.color(), 0, 0, w, h, false), w, h, true), outputDir, filename);
     }
 
     /** {@code texture} (an array's {@code layer}), its rows as uploaded. */
     public static void texture(CgTextureAbstract texture, int layer, String outputDir, String filename) {
-        write(image(CgFrameBuffer.readTexture(texture, layer), texture.getWidth(), texture.getHeight(), false),
-                outputDir, filename);
+        texture.getId();   // lands what is queued
+        CgTextureView view = CgTextureView.attachment(texture.rhiTexture(), 0, layer);
+        write(image(CgReadback.now(view, 0, 0, texture.getWidth(), texture.getHeight(), false), texture.getWidth(),
+                texture.getHeight(), false), outputDir, filename);
     }
 
     /** RGBA8 rows into an image, bottom row first when {@code flip}. */

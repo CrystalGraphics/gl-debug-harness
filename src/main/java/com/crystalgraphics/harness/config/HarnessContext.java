@@ -242,27 +242,16 @@ public final class HarnessContext {
      */
     public int getScreenHeight() { return viewport.getHeight(); }
 
-    private int targetFramebuffer;
-
-    /**
-     * The framebuffer every scene draws into, as a Minecraft host names its main target to the render stages: the
-     * runner's main target, or the window's own, 0, under {@code -Dcrystalgraphics.harness.mainTarget=false}. Stated
-     * here, never read back from GL.
-     */
-    public int getTargetFramebuffer() { return targetFramebuffer; }
-
-    /** Set by the interactive runner each frame it draws into its main target. */
-    public void setTargetFramebuffer(int framebuffer) { targetFramebuffer = framebuffer; }
-
     private CgExternalTarget target;
 
     /**
-     * {@link #getTargetFramebuffer()} as the render stages take it: what a scene hands {@code host().set(...)} and
-     * {@code fireOverlay}, since the runner's main target is a framebuffer of ours, which no host name reaches.
+     * The target every scene draws into, as a Minecraft host names its main target to the render stages: the runner's
+     * main target, or the window's own under {@code -Dcrystalgraphics.harness.mainTarget=false}. What a scene hands
+     * {@code host().set(...)} and {@code fireOverlay}.
      */
     public CgExternalTarget getTarget() { return target; }
 
-    /** Set by the interactive runner with {@link #setTargetFramebuffer}. */
+    /** Set by the interactive runner each frame it draws into its main target. */
     public void setTarget(CgExternalTarget target) { this.target = target; }
 
     /**

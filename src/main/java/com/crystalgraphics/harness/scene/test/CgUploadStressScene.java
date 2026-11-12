@@ -1,9 +1,9 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.gpu.resource.CgReadback;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
-import com.crystalgraphics.gpu.resource.CgFrameBuffer;
 import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.gpu.resource.CgFallbackTextures;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
@@ -144,7 +144,8 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
         t.uploadRegion(0, 0, 0, size, size, source);
         if (++rewrites % 10 != 0) return;
         checks++;
-        boolean same = CgFrameBuffer.readTexture(t, 0).equals(source.duplicate().rewind());
+        t.getId();
+        boolean same = CgReadback.now(t.rhiView(), 0, 0, size, size, false).equals(source.duplicate().rewind());
         if (!same) failed++;
         System.out.printf("[upload-stress] rewrite %d: %s%n", rewrites, same ? "PASS, read back as written" : "FAIL, read back differs");
     }

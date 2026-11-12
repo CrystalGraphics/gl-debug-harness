@@ -1,20 +1,19 @@
 package com.crystalgraphics.harness.util;
 
-import com.crystalgraphics.platform.rhi.CgExternalTarget;
-import com.crystalgraphics.api.framebuffer.CgFrameBufferFormat;
-import com.crystalgraphics.api.texture.CgTextureType;
-import com.crystalgraphics.gpu.resource.CgFrameBuffer;
+import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
+import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.harness.capture.HarnessCapture;
-import com.crystalgraphics.platform.rhi.CgRHI;
+import com.crystalgraphics.platform.rhi.CgExternalTarget;
+import com.crystalgraphics.platform.rhi.format.CgFormat;
+import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.graph.CgExecutor;
 import org.jspecify.annotations.Nullable;
 
 /**
  * A scene's offscreen host target, as Minecraft's main framebuffer is the host's: the scene draws what the host would
  * into it, fires the engine's stages into it, and photographs it. RGBA8 colour and, when asked for, 32-bit float depth,
- * which every Vulkan device takes; made on the installed device where there is one, so the frame graph names its
- * images as the device's.
+ * which every device takes: textures of the scene's own, imported as one target.
  *
  * <pre>{@code
  * HarnessTarget target = HarnessTarget.create(w, h, true);     // init
@@ -36,32 +35,29 @@ import org.jspecify.annotations.Nullable;
  */
 public final class HarnessTarget {
 
-    private static final CgFrameBufferFormat COLOR = CgFrameBufferFormat.builder("harness_target")
-            .color(0, CgTextureType.RGBA8).build();
-    private static final CgFrameBufferFormat COLOR_DEPTH = CgFrameBufferFormat.builder("harness_target_depth")
-            .color(0, CgTextureType.RGBA8).depth(CgTextureType.DEPTH32F).build();
-
-    private final CgFrameBuffer framebuffer;
-    private final boolean hasDepth;
+    private final CgTexture2D colour;
+    @Nullable
+    private final CgTexture2D depth;
+    private final CgExternalTarget target;
     private CgExecutor.@Nullable Into drawing;
 
-    private HarnessTarget(CgFrameBuffer framebuffer, boolean hasDepth) {
-        this.framebuffer = framebuffer;
-        this.hasDepth = hasDepth;
+    private HarnessTarget(CgTexture2D colour, @Nullable CgTexture2D depth) {
+        this.colour = colour;
+        this.depth = depth;
+        this.target = CgTextures.target("harness_target", colour, depth);
     }
 
     /** A target of {@code width} x {@code height}, with depth when {@code withDepth}. */
     public static HarnessTarget create(int width, int height, boolean withDepth) {
-        CgFrameBufferFormat format = withDepth ? COLOR_DEPTH : COLOR;
-        CgFrameBuffer framebuffer = CgRHI.installed()
-                ? CgFrameBuffer.createOnDevice("harness_target", width, height, format, 1)
-                : CgFrameBuffer.createOwned("harness_target", width, height, format);
-        return new HarnessTarget(framebuffer, withDepth);
+        CgTexture2D colour = CgTextures.of("harness_target", CgTextureDesc.of(width, height, CgFormat.RGBA8_UNORM));
+        CgTexture2D depth = withDepth
+                ? CgTextures.of("harness_target.depth", CgTextureDesc.of(width, height, CgFormat.DEPTH32_FLOAT)) : null;
+        return new HarnessTarget(colour, depth);
     }
 
     /** Makes it the current target of every execution, as the host's main target is, until {@link #unbind()}. */
     public void bind() {
-        if (drawing == null) drawing = CgExecutor.into(framebuffer.external());
+        if (drawing == null) drawing = CgExecutor.into(target);
     }
 
     /** Puts back the current target before {@link #bind()}. */
@@ -73,44 +69,35 @@ public final class HarnessTarget {
 
     /** Clears its colour to {@code (r, g, b, a)}, and its depth to the far plane. */
     public void clear(float r, float g, float b, float a) {
-        if (hasDepth) framebuffer.clearAll(r, g, b, a);
-        else framebuffer.clearColor(r, g, b, a);
+        CgImmediate.clear(target, true, r, g, b, a, depth != null, 1.0, false, 0);
     }
 
     /** Photographs its colour into {@code outputDir/filename}, a PNG, top row first. */
     public void captureToFile(String outputDir, String filename) {
-        HarnessCapture.framebuffer(framebuffer, outputDir, filename);
+        HarnessCapture.target(target, outputDir, filename);
     }
 
     public void delete() {
         unbind();
-        framebuffer.delete();
+        colour.release();
+        if (depth != null) depth.release();
     }
 
     /** It as the render stages take a target: what {@code host().set(...)} and {@code fireOverlay} are given. */
     public CgExternalTarget external() {
-        return framebuffer.external();
+        return target;
     }
 
-    /** The framebuffer id a stage's host frame names it by. */
-    public int getFboId() {
-        return framebuffer.getId();
-    }
-
-    /** Its colour texture, for a material to sample. */
+    /** Its colour texture, for a material to sample or a readback to read. */
     public CgTexture2D getColor() {
-        return (CgTexture2D) framebuffer.getColorTexture(0);
-    }
-
-    public CgFrameBuffer framebuffer() {
-        return framebuffer;
+        return colour;
     }
 
     public int getWidth() {
-        return framebuffer.getWidth();
+        return target.width();
     }
 
     public int getHeight() {
-        return framebuffer.getHeight();
+        return target.height();
     }
 }
