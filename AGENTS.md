@@ -22,6 +22,10 @@ Every scene accepts `--seconds=N`, and any agent or script launching one should 
 | Exit code | **0**. Reaching the cap is the requested outcome, not a failure — a non-zero code would make every timed run a red build |
 | Default | absent = run until closed, which is the right default for a human at the keyboard |
 
+**An unattended run that someone may be working beside: `-Dcrystalgraphics.harness.background=true`.** The window is
+made and never shown, so no white first frame is raised over the user's window; scenes draw into the harness's own
+target and read back from it, so verdicts and captures are the same. Gate sets and sweeps run this way.
+
 **Every interactive scene starts behind the loading screen** (`CgLoadingScreen`, the engine's logo over a bar): the
 scene's `init` runs behind its first frame, then the world stages fire with no scene content until pipelines, assets
 and effects are warm and a hold of quiet frames passes. Input is eaten and nothing paces those frames. The scene's

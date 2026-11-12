@@ -279,7 +279,8 @@ public final class HarnessWindow {
         });
 
         setIcon();
-        GLFW.glfwShowWindow(window);
+        // Background runs (gates, sweeps) never show the window: no white first frame raised over the user's.
+        if (!Boolean.getBoolean("crystalgraphics.harness.background")) GLFW.glfwShowWindow(window);
     }
 
     /** The engine's logo as the window's icon, at the sizes Windows asks for (title bar, taskbar, Alt+Tab). */
