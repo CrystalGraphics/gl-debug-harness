@@ -9,7 +9,7 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgExecutor;
 import com.crystalgraphics.render.graph.CgFrame;
 import com.crystalgraphics.render.graph.CgFrameBuilder;
@@ -76,7 +76,7 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
     private void stress(HarnessContext ctx, int w, int h, int n) {
         try {
             // The render thread's own text, while the worker records the block submitted last frame.
-            HarnessCanvas.screen(w, h);
+            renderText.camera(HarnessCanvas.screen(w, h));
             renderText.text().layout(CgTextLayout.of(block(n * 41 + 1500), large).maxWidth(w * 0.45f).build())
                     .font(large).at(w * 0.5f + 10f, 20f).color(0xFFFFD27F).submit();
             // The worker's own face too: shaping and rasterising it here contends for its lock.
@@ -129,7 +129,7 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
                 HarnessTarget fromRender = HarnessTarget.create(w, h, false);
                 fromRender.bind();
                 fromRender.clear(0.08f, 0.08f, 0.1f, 1f);
-                HarnessCanvas.screen(w, h);
+                renderText.camera(HarnessCanvas.screen(w, h));
                 renderText.text().layout(CgTextLayout.of(FIXED, large).maxWidth(w - 40f).build())
                         .font(large).at(20f, 40f).color(0xFFFFFFFF).submit();
                 renderText.flush();
@@ -157,8 +157,8 @@ public class CgTextThreadedTestScene implements InteractiveSceneLifecycle {
     /** Lays out and records {@code text} on the worker's canvas into a frame of its own. Worker thread. */
     private CgFrame record(int w, int h, String text, CgFont font, float x, float y, float maxWidth) {
         CgRecording recording = new CgRecording();
-        CgPassConstants constants = new CgPassConstants().resolution(w, h);
-        constants.projection.setOrtho(0, w, h, 0, -1, 1);
+        CgCamera constants = new CgCamera().resolution(w, h);
+        constants.projection().setOrtho(0, w, h, 0, -1, 1);
         workerText.recordInto(recording, CgGraphTexture.current(), CgLoad.load(), constants);
         workerText.text().layout(CgTextLayout.of(text, font).maxWidth(maxWidth).build())
                 .font(font).at(x, y).color(0xFFFFFFFF).submit();

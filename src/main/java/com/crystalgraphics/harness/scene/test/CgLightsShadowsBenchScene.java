@@ -17,7 +17,7 @@ import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.CgFrameClock;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
@@ -82,10 +82,10 @@ public final class CgLightsShadowsBenchScene implements InteractiveSceneLifecycl
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
         projection.setPerspective((float) Math.toRadians(70), (float) w / h, 0.05f, 400f);
         // The host's ground, drawn by the host as Minecraft draws its terrain.
-        CgPassConstants host = new CgPassConstants();
-        host.view.set(view);
-        host.projection.set(projection);
-        host.resolution(w, h).time(CgFrameClock.seconds()).hostDepth().cameraFromView();
+        CgCamera host = new CgCamera();
+        host.view().set(view);
+        host.projection().set(projection);
+        host.resolution(w, h).time(CgFrameClock.seconds());
         ground.translation((float) (X - EYE_X), (float) (GROUND - 0.5 - EYE_Y), (float) (Z - EYE_Z)).scale(400f, 1f, 400f);
         CgMesh cube = CgMeshShapes.cube();
         ObjectDraws.draw(host, floor, cube, 1, (i, data, at) -> ObjectDraws.object(data, at, ground, 1f, 1f, 1f, 1f));

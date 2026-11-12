@@ -76,11 +76,7 @@ public class CgPostEffectsTestScene implements HarnessSceneLifecycle {
         @Override
         public void record(CgPostContext post) {
             CgRasterPass pass = post.recording().raster("postEffectsTestScene.target").color(post.target(), CgLoad.load()).constants(post.constants());
-            CgChunkBuilder chunks = post.recording().chunks().begin();
-            chunks.draw(material.pipeline(CgInstanceKind.OBJECT), material.captureBindings(post.recording().bindings()),
-                    CgMesh.quads(1));
-            chunks.instance();
-            pass.add(chunks.end());
+            pass.draw(CgMesh.quads(1), material);
             pass.end();
         }
     }

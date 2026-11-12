@@ -1,7 +1,7 @@
 package com.crystalgraphics.harness.runtime;
 
 import com.crystalgraphics.platform.rhi.CgExternalTarget;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.harness.camera.FloorRenderer;
 import com.crystalgraphics.harness.config.WorldConfig;
 import com.crystalgraphics.harness.config.WorldSettings;
@@ -44,7 +44,7 @@ public final class WorldPassCoordinator {
      */
     public void executeWorldPass(CgExternalTarget target, int width, int height, Matrix4fc view, Matrix4fc projection,
                                  boolean uses3DCamera) {
-        CgImmediate.clear(target, true, worldSettings.getSkyR(), worldSettings.getSkyG(), worldSettings.getSkyB(), 1f,
+        CgRenderer.clear(target, true, worldSettings.getSkyR(), worldSettings.getSkyG(), worldSettings.getSkyB(), 1f,
                 true, 1.0, true, 0);
         if (uses3DCamera && WorldConfig.RENDER_FLOOR && !HarnessEnvironment.INSTANCE.enabled()) {
             floorRenderer.render(view, projection, width, height);

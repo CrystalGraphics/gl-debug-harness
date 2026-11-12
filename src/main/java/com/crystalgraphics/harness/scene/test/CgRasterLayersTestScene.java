@@ -9,11 +9,11 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
@@ -74,12 +74,10 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
     /** Whether a pass drawing into the array and sampling it is refused when its chunk is added. */
     private boolean refusesOwnArray() {
         CgRecording rec = new CgRecording();
-        CgRasterPass pass = rec.raster("rasterLayersTestScene.fields").color(fields, 0, 1, CgLoad.load()).constants(new CgPassConstants().resolution(W, H)).order(CgOrder.LOOKBACK);
-        CgChunkBuilder chunk = rec.chunks().begin();
-        chunk.draw(summing[1].pipeline(CgInstanceKind.OBJECT), summing[1].captureBindings(rec.bindings()), CgMesh.quads(1));
-        chunk.instance();
+        CgRasterPass pass = rec.raster("rasterLayersTestScene.fields").color(fields, 0, 1, CgLoad.load()).camera(new CgCamera().resolution(W, H)).order(CgOrder.LOOKBACK);
+        pass.draw(CgMesh.quads(1), summing[1]);
         try {
-            pass.add(chunk.end());
+            pass.end();   // the draw lands, and is refused, here
             return false;
         } catch (IllegalArgumentException expected) {
             return true;
@@ -103,15 +101,10 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
 
     private void record(int n, int used) {
         CgRecording rec = new CgRecording();
-        CgPassConstants constants = new CgPassConstants().resolution(W, H);
+        CgCamera constants = new CgCamera().resolution(W, H);
         for (int k = 0; k < used; k++) {
-            CgRasterPass pass = rec.raster("rasterLayersTestScene.fields").color(fields, 0, k, CgLoad.clear(0f, 0f, 0.125f * k, 0f)).constants(constants).order(CgOrder.LOOKBACK);
-            CgChunkBuilder chunk = rec.chunks().begin();
-            for (int twice = 0; twice < 2; twice++) {
-                chunk.draw(draw[k].pipeline(CgInstanceKind.OBJECT), draw[k].captureBindings(rec.bindings()), CgMesh.quads(1));
-                chunk.instance();
-            }
-            pass.add(chunk.end());
+            CgRasterPass pass = rec.raster("rasterLayersTestScene.fields").color(fields, 0, k, CgLoad.clear(0f, 0f, 0.125f * k, 0f)).camera(constants).order(CgOrder.LOOKBACK);
+            for (int twice = 0; twice < 2; twice++) pass.draw(CgMesh.quads(1), draw[k]);
             pass.end();
         }
         // The layers are read back before anything samples the array: on Mesa's llvmpipe a readback after the sum pass
@@ -123,18 +116,15 @@ public class CgRasterLayersTestScene implements InteractiveSceneLifecycle {
                 layersRead++;
             }));
         }
-        CgRasterPass add = rec.raster("rasterLayersTestScene.sum").color(sum, CgLoad.clear(0f, 0f, 0f, 0f)).constants(constants).order(CgOrder.LOOKBACK);
-        CgChunkBuilder chunk = rec.chunks().begin();
-        chunk.draw(summing[used].pipeline(CgInstanceKind.OBJECT), summing[used].captureBindings(rec.bindings()), CgMesh.quads(1));
-        chunk.instance();
-        add.add(chunk.end());
+        CgRasterPass add = rec.raster("rasterLayersTestScene.sum").color(sum, CgLoad.clear(0f, 0f, 0f, 0f)).camera(constants).order(CgOrder.LOOKBACK);
+        add.draw(CgMesh.quads(1), summing[used]);
         add.end();
         requests.add(rec.readback(sum, 0, 0, 0, W, H, data -> {
             check(data, 0, used, "the sum of " + used + " layers", n);
             sumsRead++;
         }));
         requests.add(rec.callback("raster-layers.storage", null, () -> storage.add(fields.storage()), fields));
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
     }
 
     /** Checks {@code data} against layers {@code first} to {@code first + count - 1} summed. */

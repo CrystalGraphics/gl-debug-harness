@@ -285,7 +285,7 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
         modelView.scale(worldScale, -worldScale, worldScale);
 
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.MISC, "kanjiWorldDraw")) {
-            HarnessCanvas.world(ctx.getProjection(), ctx.getScreenWidth(), ctx.getScreenHeight());
+            canvas.camera(HarnessCanvas.world(ctx.getProjection(), ctx.getScreenWidth(), ctx.getScreenHeight()));
             withShadow(canvas.text().layout(kanjiWorldLayout).at(0.0f, 0.0f).pose(poseStack)).submit();
             withShadow(canvas.text().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(labelFont).pose(poseStack)).submit();
             withShadow(canvas.text().text(ARIAL_PRINTABLE_CHARS).at(0.0f, 2112.0f).constraints(500,0).font(minecraftFont).pose(poseStack)).submit();
@@ -314,13 +314,13 @@ public class TextScene3D implements InteractiveSceneLifecycle, CgSystemInput.Mou
                 // start from the camera's view matrix, translate to where the block should sit in
                 // world space, then scale local px down to world units -- WORLD_SCALE is negated on
                 // Y because layout Y grows downward (screen convention) but world Y grows upward.
-                HarnessCanvas.world(ctx.getProjection(), ctx.getScreenWidth(), ctx.getScreenHeight());
+                canvas.camera(HarnessCanvas.world(ctx.getProjection(), ctx.getScreenWidth(), ctx.getScreenHeight()));
                 Matrix4f mv = pose.last().pose();
                 mv.set(viewMatrix);
                 mv.translate(WORLD_ORIGIN_X, WORLD_ORIGIN_Y, WORLD_ORIGIN_Z);
                 mv.scale(WORLD_SCALE, -WORLD_SCALE, WORLD_SCALE);
             } else {
-                HarnessCanvas.screen(ctx.getScreenWidth(), ctx.getScreenHeight());
+                canvas.camera(HarnessCanvas.screen(ctx.getScreenWidth(), ctx.getScreenHeight()));
                 pose.scale(scrollScale, scrollScale, 1);
             }
             // y (and MARGIN below) are tracked in DESIGN-SPACE screen pixels -- the same fixed,

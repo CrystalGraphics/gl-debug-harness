@@ -13,11 +13,11 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
@@ -97,13 +97,13 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
 
         CgRecording release = new CgRecording();
         release.release(state);
-        CgImmediate.execute(release);
+        CgRenderer.executeNow(release);
 
         target.clear(0.08f, 0.08f, 0.1f, 1f);
         CgTexture2D reference = reference();
         CgRecording rec = new CgRecording();
         show(rec, reference, w, h);
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
         target.captureToFile(ctx.getOutputDir(), "compute-graph-ref.png");
         reference.delete();
         target.unbind();
@@ -146,9 +146,9 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
 
     /** One quad sampling {@code texture} texel for pixel, into whatever is bound. */
     private void show(CgRecording rec, CgTexture texture, int w, int h) {
-        CgPassConstants constants = new CgPassConstants().resolution(w, h);
-        constants.projection.setOrtho(0, w, h, 0, -1, 1);
-        CgRasterPass pass = rec.raster("computeGraphTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
+        CgCamera constants = new CgCamera().resolution(w, h);
+        constants.projection().setOrtho(0, w, h, 0, -1, 1);
+        CgRasterPass pass = rec.raster("computeGraphTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
         int bindings = rec.bindings().withTexture(material.captureBindings(rec.bindings()), 0, texture);
         CgChunkBuilder c = rec.chunks().begin();
         c.draw(material.pipeline(CgInstanceKind.QUAD), bindings);

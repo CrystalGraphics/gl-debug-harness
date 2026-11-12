@@ -13,11 +13,11 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
@@ -137,7 +137,7 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
         target.bind();
         try {
             target.clear(0f, 0f, 0f, 1f);
-            CgImmediate.execute(record(w, h));
+            CgRenderer.executeNow(record(w, h));
             target.captureToFile(ctx.getOutputDir(), "flipbook.png");
         } finally {
             target.unbind();
@@ -148,27 +148,18 @@ public class CgFlipbookTestScene implements HarnessSceneLifecycle {
 
     private CgRecording record(int w, int h) {
         CgRecording rec = new CgRecording();
-        CgPassConstants constants = new CgPassConstants().resolution(w, h);
-        constants.projection.set(new Matrix4f().setOrtho(0, w, h, 0, -1, 1));
-        CgRasterPass pass = rec.raster("flipbookTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
-        CgChunkBuilder c = rec.chunks().begin();
+        CgCamera constants = new CgCamera().resolution(w, h);
+        constants.projection().set(new Matrix4f().setOrtho(0, w, h, 0, -1, 1));
+        CgRasterPass pass = rec.raster("flipbookTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
         int[] due = new int[3];
         for (int r = 0; r < materials.length; r++) {
             for (int k = 0; k < CELLS; k++) {
                 float[] p = particle(r, k, due);
-                c.draw(materials[r].pipeline(CgInstanceKind.OBJECT), materials[r].captureBindings(rec.bindings()), quad);
-                int at = c.instance();
-                float[] d = c.data();
-                d[at] = d[at + 5] = d[at + 10] = d[at + 15] = 1f;
-                d[at + 32] = MARGIN + k * (SIZE + MARGIN);
-                d[at + 33] = MARGIN + r * (SIZE + MARGIN);
-                d[at + 34] = SIZE;
-                d[at + 35] = p[0];
-                d[at + 36] = p[1];
-                d[at + 37] = SEED;
+                pass.draw(quad, materials[r])
+                        .customData(0, MARGIN + k * (SIZE + MARGIN), MARGIN + r * (SIZE + MARGIN), SIZE, p[0])
+                        .customData(1, p[1], SEED, 0f, 0f);
             }
         }
-        pass.add(c.end());
         pass.end();
         return rec;
     }

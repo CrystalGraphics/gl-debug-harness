@@ -9,9 +9,9 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferInspector;
 import com.crystalgraphics.render.graph.CgBufferUsage;
@@ -147,7 +147,7 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
             rec.release(history);
             rec.release(kept);
         }
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
         if (n < FRAMES) inspect(n + 1);
     }
 
@@ -266,9 +266,9 @@ public class CgReadbackTestScene implements InteractiveSceneLifecycle {
     }
 
     private static void clear(CgRecording rec, CgGraphTexture texture, int level, CgLoad load) {
-        CgPassConstants constants = new CgPassConstants().resolution(Math.max(1, texture.getWidth() >> level),
+        CgCamera constants = new CgCamera().resolution(Math.max(1, texture.getWidth() >> level),
                 Math.max(1, texture.getHeight() >> level));
-        rec.raster("readbackTestScene.texture").color(texture, level, 0, load).constants(constants).order(CgOrder.LOOKBACK).end();
+        rec.raster("readbackTestScene.texture").color(texture, level, 0, load).camera(constants).order(CgOrder.LOOKBACK).end();
     }
 
     private void landed(int kind, int requestedAt) {

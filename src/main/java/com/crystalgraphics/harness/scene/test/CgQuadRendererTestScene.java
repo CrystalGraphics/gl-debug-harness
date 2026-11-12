@@ -1,7 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.render.draw.CgPassConstants;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.harness.util.HarnessCanvas;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.gpu.resource.CgFallbackTextures;
@@ -67,10 +66,7 @@ public class CgQuadRendererTestScene implements InteractiveSceneLifecycle {
         // Pure 2D ortho projection via the frame UBO — no per-instance object-buffer
         // record needed since quad_renderer_test.shader never references
         // CG_OBJECT_TO_WORLD / CG_MATRIX_MVP (same pattern as crystalgui:gui_quad.shader).
-        CgPassConstants constants = CgImmediate.constants();
-        constants.view.identity();
-        constants.projection.identity().ortho(0, w, h, 0, -1, 1);
-        constants.resolution(w, h).cameraFromView();
+        canvas.camera(HarnessCanvas.screen(w, h));
 
         // Must be called every frame, not just once at setup: it (re)binds material on every
         // call regardless of whether it's the same instance as last time, since other harness

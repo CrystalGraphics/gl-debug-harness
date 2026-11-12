@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene;
 
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.PoseStack;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
@@ -123,11 +124,11 @@ public class TextScene2D implements HarnessSceneLifecycle {
         target.bind();
         target.clear(0.15f, 0.15f, 0.2f, 1.0f);
 
-        HarnessCanvas.screen(fboWidth, fboHeight);
+        CgCamera screen = HarnessCanvas.screen(fboWidth, fboHeight);
         // A canvas a band: a batch's raster history is per font, and each band picks its size afresh.
-        CgCanvas topCanvas = new CgCanvas();
+        CgCanvas topCanvas = new CgCanvas().camera(screen);
         CgCanvas[] bandCanvases = new CgCanvas[scales.size()];
-        for (int i = 0; i < bandCanvases.length; i++) bandCanvases[i] = new CgCanvas();
+        for (int i = 0; i < bandCanvases.length; i++) bandCanvases[i] = new CgCanvas().camera(screen);
         long frame = 1;
 
         if (config.isMtsdf()) {

@@ -12,12 +12,12 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgIndirect;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
@@ -92,7 +92,7 @@ public class CgMaterialBufferTestScene implements HarnessSceneLifecycle {
         release.release(world.flags);
         release.release(world.live);
         release.release(world.count);
-        CgImmediate.execute(release);
+        CgRenderer.executeNow(release);
         target.unbind();
         target.delete();
 
@@ -126,18 +126,11 @@ public class CgMaterialBufferTestScene implements HarnessSceneLifecycle {
         compute.end();
 
         material.buffer("CELLS", b.cells()).buffer("LIVE", b.live());
-        CgPassConstants constants = new CgPassConstants().resolution(w, h);
-        constants.projection.set(projection);
-        CgRasterPass pass = rec.raster("per.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
-        CgChunkBuilder c = rec.chunks().begin();
-        c.draw(material.pipeline(CgInstanceKind.OBJECT), material.captureBindings(rec.bindings()), CgMesh.quads(CELLS))
-                .indirect(b.count(), 0, CgIndirect.INDICES, 6);
-        int at = c.instance();
-        float[] r = c.data();
-        r[at] = r[at + 5] = r[at + 10] = r[at + 15] = 1f;
-        r[at + 32] = ORIGIN;
-        r[at + 33] = ORIGIN;
-        pass.add(c.end());
+        CgCamera constants = new CgCamera().resolution(w, h);
+        constants.projection().set(projection);
+        CgRasterPass pass = rec.raster("per.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
+        pass.draw(CgMesh.quads(CELLS), material).indirect(b.count(), 0, CgIndirect.INDICES, 6)
+                .customData(0, ORIGIN, ORIGIN, 0f, 0f);
         pass.end();
         return rec;
     }

@@ -451,12 +451,13 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 **These rules apply to ALL agents operating in this repository, including subagents.**
 
 - **A scene never names `CgGL` or `org.lwjgl.opengl`: the build refuses it** (`cggl-uses.txt`, the host layer's
-  two files alone). Geometry is a `CgMesh` drawn through the world renderer, `CgImmediate` or `ObjectDraws`; shaders
+  two files alone). Geometry is a `CgMesh` drawn through the world renderer, a raster pass's `draw(mesh, material)` executed with
+  `CgRenderer.executeNow`, or `ObjectDraws`; shaders
   are materials (`.shader`) and kernels (`.compute`); a target is a `HarnessTarget` or a graph texture; its pixels
   come back through `CgReadback.now` (a check or a capture), `CgReadback.texture` or a graph readback; a test of the device itself draws
   through `CgRHI` (`rhi-scene`, `compute-seam`).
 - **A host's needs are CrystalGraphics API**: `CgExecutor.into(target)` makes a target current for a stage firing,
-  `CgImmediate.clear`/`copy` clear and present one outside a graph, `CgPassConstants.hostDepth()` takes the host's depth convention. What the engine lacks is added
+  `CgRenderer.clear`/`copy` clear and present one outside a graph, and a pass's `camera(CgCamera)` takes the host's depth convention. What the engine lacks is added
   there, never worked around in a scene.
 
 ---
@@ -618,8 +619,8 @@ The service reads viewport dimensions live from `ViewportState` at capture time,
 | `HarnessBitmapUtil` | `util/` | FreeType bitmap normalization (pitch/row-order) |
 | `HarnessProjectionUtil` | `util/` | Orthographic + perspective projection. Owns shared constants: `FOV_DEGREES`, `NEAR_PLANE`, `FAR_PLANE` |
 | `HarnessTarget` | `util/` | A scene's offscreen host target: RGBA8 and depth, made on the device; bind, clear, capture, delete |
-| `HarnessCanvas` | `util/` | The camera an immediate `CgCanvas` draws under: `screen(w, h)` or `world(projection, w, h)`, set before the draws, then `flush()` |
-| `ObjectDraws` | `util/` | Object records drawn now through `CgImmediate`: a mesh under a material, one instance a record |
+| `HarnessCanvas` | `util/` | The camera an immediate `CgCanvas` draws through: `canvas.camera(HarnessCanvas.screen(w, h))` or `world(projection, w, h)`, set before the draws, then `flush()` |
+| `ObjectDraws` | `util/` | Object records drawn now into the current target, seen through a `CgCamera`: a mesh under a material, one instance a record |
 | `ValidationCube` | `util/` | The reference cube on the floor, a colour a face, as `flat_colour` draws |
 | `HarnessCapture` | `capture/` | PNGs from a target, a framebuffer id or a texture layer: readbacks |
 | `DeviceErrors` | `tool/` | Whether the device reported an error since the last ask: GL's error queue (Vulkan's count is `PlatformServiceHarness.validationErrors()`) |
@@ -1169,7 +1170,7 @@ com.crystalgraphics.harness/
 └── util/
     ├── HarnessTarget.java           # A scene's offscreen host target, made on the device
     ├── HarnessCanvas.java           # The camera an immediate canvas draws under
-    ├── ObjectDraws.java             # Object records drawn now through CgImmediate
+    ├── ObjectDraws.java             # Object records drawn now, seen through a CgCamera
     ├── ValidationCube.java          # The reference cube, a colour a face
     ├── HarnessProjectionUtil.java   # Projection matrices + shared FOV/near/far constants
     ├── HarnessFontUtil.java         # Font path resolution

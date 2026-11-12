@@ -9,7 +9,7 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
@@ -152,7 +152,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         for (float f : placed) bytes.putFloat(f);
         CgRecording rec = new CgRecording();
         rec.update(placedBuffer, 0, bytes.flip());
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
         appender = new CgWorldLights.Appender() {
             @Override
             public boolean append(CgComputePass pass, CgWorldLights lights) {
@@ -225,7 +225,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
                 .bind("OUT", falloffOut).set("_Samples", SAMPLES);
         pass.end();
         requests.add(rec.readback(falloffOut, 0, FALLOFF_LIGHTS * SAMPLES * 4L, data -> falloffRead = copy(data)));
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
     }
 
     private void compare() {
@@ -471,7 +471,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         for (float v : values) bytes.putFloat(v);
         CgRecording rec = new CgRecording();
         rec.update(buffer, 0, bytes.flip());
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
         return buffer;
     }
 

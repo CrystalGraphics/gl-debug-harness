@@ -8,7 +8,7 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
@@ -226,7 +226,7 @@ public class CgVfxBeamsScene implements InteractiveSceneLifecycle {
                 requests.add(rec.readback(p.pool.beamRuns(), 0, p.pool.beamRuns().size(), data -> p.runs = copy(data)));
             }
         }
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
     }
 
     /** Each pool's slots opened in order, its beams seeded newborn, and its cases' draw constants uploaded. */

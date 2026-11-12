@@ -19,7 +19,7 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.gl.CgCapabilities.ComputeTier;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgIndirect;
@@ -265,7 +265,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         release.release(counts);
         release.release(ordered);
         release.release(orderedCounts);
-        CgImmediate.execute(release);
+        CgRenderer.executeNow(release);
         target.unbind();
         target.delete();
 
@@ -345,7 +345,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         if (mismatch == null && keptAll == 0) mismatch = "the batch kept nothing: it checked nothing";
         CgRecording release = new CgRecording();
         for (CgGraphBuffer b : new CgGraphBuffer[]{gpuCount, alone, aloneCounts, batch, batchCounts}) release.release(b);
-        CgImmediate.execute(release);
+        CgRenderer.executeNow(release);
         return mismatch;
     }
 
@@ -388,19 +388,18 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     }
 
     /** The wall in a pass ahead of the world renderer, as a host's world is drawn: what its depth pyramid holds. */
+    private final float[] wallRecord = new float[48];
+
     private void recordWall(CgStageFrame stage) {
         CgRecording rec = stage.recording();
         CgRasterPass pass = stage.pass(stage.constants(), CgOrder.LOOKBACK);
-        CgChunkBuilder c = rec.chunks().begin();
-        c.draw(wallMaterial.pipeline(CgInstanceKind.OBJECT), wallMaterial.captureBindings(rec.bindings()), wallMesh);
-        int at = c.instance();
-        float[] data = c.data();
-        Arrays.fill(data, at, at + 48, 0f);
-        wallPlace.get(data, at);
-        identity.get(data, at + 16);
-        data[at + 32] = data[at + 33] = data[at + 34] = 0.5f;
-        data[at + 35] = 1f;
-        pass.add(c.end());
+        float[] data = wallRecord;
+        Arrays.fill(data, 0f);
+        wallPlace.get(data, 0);
+        identity.get(data, 16);
+        data[32] = data[33] = data[34] = 0.5f;
+        data[35] = 1f;
+        pass.draw(wallMesh, wallMaterial).records(data, 0, 1);
         pass.end();
     }
 

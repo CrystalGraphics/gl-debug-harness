@@ -270,7 +270,7 @@ public class CgTextFeatureStressScene implements InteractiveSceneLifecycle {
 
         CgGpuTrace.begin(mode.name());
         try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.TEXT, "text.draw")) {
-            HarnessCanvas.screen(context.getScreenWidth(), context.getScreenHeight());
+            canvas.camera(HarnessCanvas.screen(context.getScreenWidth(), context.getScreenHeight()));
             for (int i = 0; i < layouts.size(); i++) {
                 float x = 8f + (i % 8) * 90f;
                 float y = 8f + (i / 8) * 14f;

@@ -6,7 +6,7 @@ import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.harness.capture.HarnessCapture;
 import com.crystalgraphics.platform.rhi.CgExternalTarget;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgExecutor;
 import org.jspecify.annotations.Nullable;
 
@@ -69,7 +69,7 @@ public final class HarnessTarget {
 
     /** Clears its colour to {@code (r, g, b, a)}, and its depth to the far plane. */
     public void clear(float r, float g, float b, float a) {
-        CgImmediate.clear(target, true, r, g, b, a, depth != null, 1.0, false, 0);
+        CgRenderer.clear(target, true, r, g, b, a, depth != null, 1.0, false, 0);
     }
 
     /** Photographs its colour into {@code outputDir/filename}, a PNG, top row first. */

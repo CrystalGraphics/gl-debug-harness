@@ -10,7 +10,7 @@ import java.util.IdentityHashMap;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.runtime.HarnessWindow;
 import com.crystalgraphics.harness.FrameInfo;
@@ -22,7 +22,7 @@ import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgExecutor;
 import com.crystalgraphics.render.graph.CgFrame;
 import com.crystalgraphics.render.graph.CgFrameBuilder;
@@ -150,12 +150,12 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
             // The host's colour and depth copied whole, as a scene keeping its own depth would take them each frame.
             Host host = MADE.get(c.host());
             CgExternalTarget copy = c.copy().target();
-            execute(rec -> rec.callback("hdr-scene copy", null, () -> CgImmediate.copy(host.target(), copy, true)), c.copyZone(),
+            execute(rec -> rec.callback("hdr-scene copy", null, () -> CgRenderer.copy(host.target(), copy, true)), c.copyZone(),
                     measuring);
             // The same callback copying nothing: what the copy zone holds besides the blit.
             execute(rec -> rec.callback("hdr-scene empty", null, () -> {}), c.copyZone() + " empty", measuring);
         }
-        CgPassConstants constants = new CgPassConstants().resolution(c.width(), c.height()).time(frame / 60f);
+        CgCamera constants = new CgCamera().resolution(c.width(), c.height()).time(frame / 60f);
         execute(rec -> fullscreen(rec, c.scene(), in, "_Source", c.host(), constants), c.in(), measuring);
         execute(rec -> fullscreen(rec, c.out(), out, "_Scene", c.scene(), constants), c.composite(), measuring);
     }
@@ -174,13 +174,10 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     }
 
     private static void fullscreen(CgRecording rec, CgGraphTexture target, CgMaterial material, String sampler,
-                                   CgGraphTexture source, CgPassConstants constants) {
-        CgRasterPass pass = rec.raster("hdr-scene.draw").color(target, CgLoad.load()).depth(target, CgLoad.load(), CgDepthAccess.WRITE).constants(constants).order(CgOrder.LOOKBACK);
+                                   CgGraphTexture source, CgCamera constants) {
+        CgRasterPass pass = rec.raster("hdr-scene.draw").color(target, CgLoad.load()).depth(target, CgLoad.load(), CgDepthAccess.WRITE).camera(constants).order(CgOrder.LOOKBACK);
         material.applyProperties(b -> b.sampler(sampler, 0, source));
-        CgChunkBuilder c = rec.chunks().begin();
-        c.draw(material.pipeline(CgInstanceKind.OBJECT), material.captureBindings(rec.bindings()), CgMesh.quads(1));
-        c.instance();
-        pass.add(c.end());
+        pass.draw(CgMesh.quads(1), material);
         pass.end();
     }
 
@@ -298,17 +295,19 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         world.skipUnready(false);
         Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(60), (float) w / h, 0.05f, 100f);
         try (CgExecutor.Into ignored = CgExecutor.into(host.target())) {
-            CgImmediate.clear(host.target(), false, 0, 0, 0, 0, true, 1.0, false, 0);
+            CgRenderer.clear(host.target(), false, 0, 0, 0, 0, true, 1.0, false, 0);
             world.draw(CgMeshShapes.cube(), opaqueMaterial).at(0, 0, -3).submit();
             fire(CgRenderStage.WORLD_OPAQUE, host, w, h, projection);
             if (overdraw) {
                 overdrawMaterial.applyProperties(b -> b.set1f("_Split", w / 4f));
-                CgPassConstants camera = new CgPassConstants().resolution(w, h).time(0f);
-                try (CgImmediate draw = CgImmediate.begin(camera)) {
-                    draw.chunks().draw(overdrawMaterial.pipeline(CgInstanceKind.OBJECT),
-                            overdrawMaterial.captureBindings(draw.bindings()), CgMesh.quads(1));
-                    draw.chunks().instance();
-                }
+                CgCamera camera = new CgCamera().resolution(w, h).time(0f);
+                CgRecording now = new CgRecording();
+                CgRasterPass over = now.raster("hdr-scene.overdraw").color(CgGraphTexture.current(), CgLoad.load())
+                        .depth(CgGraphTexture.current(), CgLoad.load(), CgDepthAccess.WRITE).camera(camera)
+                        .order(CgOrder.LOOKBACK);
+                over.draw(CgMesh.quads(1), overdrawMaterial);
+                over.end();
+                CgRenderer.executeNow(now);
             }
             fire(CgRenderStage.WORLD_TRANSPARENT, host, w, h, projection);
         } finally {

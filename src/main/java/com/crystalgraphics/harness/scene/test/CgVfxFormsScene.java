@@ -8,7 +8,7 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.object.value.CgUnits;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.shape.primitive.CgBox;
@@ -413,7 +413,7 @@ public class CgVfxFormsScene implements InteractiveSceneLifecycle {
                     }
                 }
             }
-            CgImmediate.execute(rec);
+            CgRenderer.executeNow(rec);
             return;
         }
         boolean answered = true;

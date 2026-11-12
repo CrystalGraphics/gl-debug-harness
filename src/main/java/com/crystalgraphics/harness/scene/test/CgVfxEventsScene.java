@@ -9,7 +9,7 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.shape.primitive.CgSphere;
@@ -183,7 +183,7 @@ public class CgVfxEventsScene implements InteractiveSceneLifecycle {
                 requests.add(rec.readback(children.records(), 0, (long) children.storage() * children.record().bytes(),
                         data -> childRecords = copy(data)));
             }
-            CgImmediate.execute(rec);
+            CgRenderer.executeNow(rec);
             return;
         }
         boolean answered = true;

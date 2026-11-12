@@ -17,11 +17,11 @@ import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
@@ -96,7 +96,7 @@ public class CgCookedTextureTestScene implements HarnessSceneLifecycle {
         target.bind();
         try {
             target.clear(0f, 0f, 0f, 1f);
-            CgImmediate.execute(record(w, h));
+            CgRenderer.executeNow(record(w, h));
             target.captureToFile(ctx.getOutputDir(), "cooked-texture.png");
         } finally {
             target.unbind();
@@ -113,26 +113,17 @@ public class CgCookedTextureTestScene implements HarnessSceneLifecycle {
 
     private CgRecording record(int w, int h) {
         CgRecording rec = new CgRecording();
-        CgPassConstants constants = new CgPassConstants().resolution(w, h);
-        constants.projection.set(new Matrix4f().setOrtho(0, w, h, 0, -1, 1));
-        CgRasterPass pass = rec.raster("cookedTextureTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
-        CgChunkBuilder c = rec.chunks().begin();
+        CgCamera constants = new CgCamera().resolution(w, h);
+        constants.projection().set(new Matrix4f().setOrtho(0, w, h, 0, -1, 1));
+        CgRasterPass pass = rec.raster("cookedTextureTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
         for (int size : new int[] {BIG, SMALL}) {
             for (int q = 0; q < 4; q++) {
                 // The big row's twin is the PNG; the small row's, the file's level 2 decoded here.
                 CgMaterial m = materials[(q & 1) == 1 ? 1 : size == BIG ? 0 : 2];
-                c.draw(m.pipeline(CgInstanceKind.OBJECT), m.captureBindings(rec.bindings()), square);
-                int at = c.instance();
-                float[] r = c.data();
-                r[at] = r[at + 5] = r[at + 10] = r[at + 15] = 1f;
                 int[] p = corner(q, size);
-                r[at + 32] = p[0];
-                r[at + 33] = p[1];
-                r[at + 34] = size;
-                r[at + 35] = q >= 2 ? 1f : 0f;
+                pass.draw(square, m).customData(0, p[0], p[1], size, q >= 2 ? 1f : 0f);
             }
         }
-        pass.add(c.end());
         pass.end();
         return rec;
     }

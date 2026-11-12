@@ -5,7 +5,7 @@ import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.platform.rhi.CgExternalTarget;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgExecutor;
 import org.jspecify.annotations.Nullable;
 
@@ -60,12 +60,12 @@ public final class MainTarget {
 
     /** Before the overlays: our own target's depth cleared for their text. */
     public void overlays() {
-        if (ON) CgImmediate.clear(target, false, 0, 0, 0, 0, true, 1.0, false, 0);
+        if (ON) CgRenderer.clear(target, false, 0, 0, 0, 0, true, 1.0, false, 0);
     }
 
     /** Copies its colour into the window, where it is not the window's own, and puts back the current target: the frame's end. */
     public void end() {
-        if (ON) CgImmediate.copyColor(target, window);
+        if (ON) CgRenderer.copyColor(target, window);
         if (drawing != null) drawing.close();
         drawing = null;
     }

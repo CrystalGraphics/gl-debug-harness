@@ -8,7 +8,7 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.compute.ops.CgGpuOps;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgRecording;
@@ -193,7 +193,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
             CgRecording rec = new CgRecording();
             if (TIMED_WITH.contains("sort")) range.sorted(SORTED);
             CgVfxRange.record(rec, view, TIMED_WITH.contains("pyramid") ? pyramid(rec) : null);
-            CgImmediate.execute(rec);
+            CgRenderer.executeNow(rec);
         }
     }
 
@@ -268,7 +268,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         requests.add(rec.readback(range.visible(), 0, (allSlots + 1) * 4L, data -> visible = copy(data)));
         requests.add(rec.readback(range.order(), 0, (long) end * 4, data -> order = copy(data)));
         requests.add(rec.readback(range.objects(), 0, (long) end * OBJECT_FLOATS * 4, data -> objects = copy(data)));
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
     }
 
     /** A particle near its slot's origin, moving, part way through its life; its seed unique among them all. */

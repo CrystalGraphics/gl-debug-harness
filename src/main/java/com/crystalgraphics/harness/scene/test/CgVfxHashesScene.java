@@ -8,7 +8,7 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
@@ -91,7 +91,7 @@ public class CgVfxHashesScene implements InteractiveSceneLifecycle {
                 checked++;
             }
         }));
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
     }
 
     private ByteBuffer randInputs() {

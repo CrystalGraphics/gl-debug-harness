@@ -9,7 +9,7 @@ import com.crystalgraphics.easing.CgKeyframes;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.world.CgWorldLights;
@@ -146,7 +146,7 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
         requests.add(rec.readback(pool.liveBuffer(), pool.liveOffset(), 4, d -> live = copy(d)));
         requests.add(rec.readback(lights.list(), 0, (long) Math.min(PARTICLES, CgWorldLights.CAPACITY) * CgWorldLights.FLOATS * 4, d -> list = copy(d)));
         requests.add(rec.readback(lights.count(), 0, 4, d -> count = copy(d)));
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
     }
 
     /** Each live particle's light by Java, against the list as a set: every expected light found once, nothing more. */

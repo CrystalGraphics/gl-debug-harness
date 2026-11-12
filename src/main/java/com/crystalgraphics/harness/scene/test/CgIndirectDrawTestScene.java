@@ -11,13 +11,13 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgIndirect;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgPrimitiveTable;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.draw.CgPipeline;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
@@ -129,7 +129,7 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         release.release(counts);
         release.release(worldCounts);
         release.release(records);
-        CgImmediate.execute(release);
+        CgRenderer.executeNow(release);
         target.unbind();
         target.delete();
 
@@ -147,9 +147,9 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
                         (OBJECTS.rgb() & 0xFF) / 255f, 1f);
         count.end();
 
-        CgPassConstants constants = new CgPassConstants().resolution(w, h);
-        constants.projection.set(projection);
-        CgRasterPass pass = rec.raster("indirectDrawTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
+        CgCamera constants = new CgCamera().resolution(w, h);
+        constants.projection().set(projection);
+        CgRasterPass pass = rec.raster("indirectDrawTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
         CgPipeline pipeline = material.pipeline(CgInstanceKind.OBJECT);
         int bindings = material.captureBindings(rec.bindings());
         CgChunkBuilder c = rec.chunks().begin();

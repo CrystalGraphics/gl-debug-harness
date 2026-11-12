@@ -6,7 +6,7 @@ import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.harness.config.WorldSettings;
 import com.crystalgraphics.harness.util.ObjectDraws;
 import com.crystalgraphics.render.CgFrameClock;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
@@ -25,7 +25,7 @@ public final class FloorRenderer {
     private static final String SHADER = "assets/harness/shader/flat_colour.shader";
 
     private final Matrix4f model = new Matrix4f();
-    private final CgPassConstants constants = new CgPassConstants();
+    private final CgCamera constants = new CgCamera();
     private float r, g, b;
     private final ObjectDraws.Records record = (i, data, at) -> ObjectDraws.object(data, at, model, r, g, b, 1f);
     private CgMaterial material;
@@ -46,9 +46,9 @@ public final class FloorRenderer {
     /** Draws it under {@code view} and {@code projection}, into the bound target of {@code width} x {@code height}. */
     public void render(Matrix4fc view, Matrix4fc projection, int width, int height) {
         if (material == null) throw new IllegalStateException("FloorRenderer.init() must be called before render()");
-        constants.view.set(view);
-        constants.projection.set(projection);
-        constants.resolution(width, height).time(CgFrameClock.seconds()).hostDepth().cameraFromView();
+        constants.view().set(view);
+        constants.projection().set(projection);
+        constants.resolution(width, height).time(CgFrameClock.seconds());
         ObjectDraws.draw(constants, material, mesh, 1, record);
     }
 }

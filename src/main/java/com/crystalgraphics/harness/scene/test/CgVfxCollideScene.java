@@ -13,7 +13,7 @@ import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.stage.CgHostView;
@@ -136,7 +136,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
                 requests.add(rec.readback(children.records(), 0, (long) children.storage() * children.record().bytes(),
                         data -> childRecords = copy(data)));
             }
-            CgImmediate.execute(rec);
+            CgRenderer.executeNow(rec);
             return;
         }
         boolean answered = true;

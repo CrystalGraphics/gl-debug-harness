@@ -9,11 +9,11 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
@@ -51,8 +51,8 @@ public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
         CgGraphTexture chain = CgGraphTexture.requested("raster-levels", new CgTextureDesc(W, H, HALF).withMips());
         CgRecording rec = new CgRecording();
         for (int k = 0; k < chain.getLevels(); k++) {
-            CgPassConstants constants = new CgPassConstants().resolution(Math.max(1, W >> k), Math.max(1, H >> k));
-            CgRasterPass pass = rec.raster("rasterLevelsTestScene.chain").color(chain, k, 0, CgLoad.clear(0, 0, 0, 0)).constants(constants).order(CgOrder.LOOKBACK);
+            CgCamera constants = new CgCamera().resolution(Math.max(1, W >> k), Math.max(1, H >> k));
+            CgRasterPass pass = rec.raster("rasterLevelsTestScene.chain").color(chain, k, 0, CgLoad.clear(0, 0, 0, 0)).camera(constants).order(CgOrder.LOOKBACK);
             CgMaterial material = k == 0 ? top : down;
             int bindings = material.captureBindings(rec.bindings());
             if (k > 0) bindings = rec.bindings().withTexture(bindings, 0, chain.level(k - 1));
@@ -62,12 +62,12 @@ public class CgRasterLevelsTestScene implements HarnessSceneLifecycle {
             pass.add(c.end());
             pass.end();
         }
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
 
         String failure = check(chain.storage(), chain.getLevels());
         CgRecording release = new CgRecording();
         release.release(chain);
-        CgImmediate.execute(release);
+        CgRenderer.executeNow(release);
         report(failure, DeviceErrors.checkAndLog("raster-levels"), chain.getLevels());
     }
 

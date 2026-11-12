@@ -12,7 +12,7 @@ import com.crystalgraphics.platform.world.CgWorldEvents;
 import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.stage.CgHostView;
@@ -117,7 +117,7 @@ public class CgVfxWorldScene implements InteractiveSceneLifecycle {
             if (frame == FILL) seed(rec);
             if (frame > FILL) step(rec);
             if (frame == FILL + STEPS + 1) read(rec);
-            CgImmediate.execute(rec);
+            CgRenderer.executeNow(rec);
             return;
         }
         if (!compared && records != null && drawnParts != null && visible != null && order != null && distances != null

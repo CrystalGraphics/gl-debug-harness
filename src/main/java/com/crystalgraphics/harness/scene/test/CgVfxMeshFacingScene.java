@@ -7,7 +7,7 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.stage.CgHostView;
@@ -188,7 +188,7 @@ public class CgVfxMeshFacingScene implements InteractiveSceneLifecycle {
         requests.add(rec.readback(first.visible(), 0, words * 4L, data -> visible = copy(data)));
         requests.add(rec.readback(first.order(), 0, (long) end * 4, data -> order = copy(data)));
         requests.add(rec.readback(first.objects(), 0, (long) end * OBJECT_FLOATS * 4, data -> objects = copy(data)));
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
     }
 
     private void compare() {

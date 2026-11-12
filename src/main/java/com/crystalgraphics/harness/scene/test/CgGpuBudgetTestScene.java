@@ -9,7 +9,7 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.CgGpuBudget;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
@@ -56,7 +56,7 @@ public class CgGpuBudgetTestScene implements InteractiveSceneLifecycle {
         int n = frame <= MEASURE ? fullWords : frame <= 2 * MEASURE ? fullWords / 10 : Math.max(1, Math.round(fullWords * scale));
         for (int k = 0; k < fills; k++) CgGpuOps.fill(pass, words, k, CgGpuCount.of(n));
         pass.end();
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
 
         if (frame == MEASURE) {
             full = budget.spent();

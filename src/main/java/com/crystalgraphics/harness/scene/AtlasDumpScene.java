@@ -126,7 +126,7 @@ public class AtlasDumpScene implements HarnessSceneLifecycle {
         target.bind();
         target.clear(0.15f, 0.15f, 0.2f, 1.0f);
 
-        HarnessCanvas.screen(fboWidth, fboHeight);
+        canvas.camera(HarnessCanvas.screen(fboWidth, fboHeight));
         PoseStack poseStack = new PoseStack();
         long frame = 1;
 

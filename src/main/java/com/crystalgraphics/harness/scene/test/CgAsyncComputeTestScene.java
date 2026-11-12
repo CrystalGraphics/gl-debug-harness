@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.graph.CgDraw;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
@@ -19,7 +20,7 @@ import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
@@ -221,7 +222,7 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
 
     /** The pass reading the blur. */
     private void reader() {
-        CgRasterPass pass = recording.raster("asyncComputeTestScene.result").color(result, CgLoad.clear(0, 0, 0, 0)).constants(new CgPassConstants().resolution(W / 2, H / 2)).order(CgOrder.LOOKBACK);
+        CgRasterPass pass = recording.raster("asyncComputeTestScene.result").color(result, CgLoad.clear(0, 0, 0, 0)).camera(new CgCamera().resolution(W / 2, H / 2)).order(CgOrder.LOOKBACK);
         int bindings = recording.bindings().withTexture(down.captureBindings(recording.bindings()), 0, blurred);
         CgChunkBuilder c = recording.chunks().begin();
         c.draw(down.pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));
@@ -283,11 +284,9 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
 
     /** The fill-bound drawing, touching nothing the blurs do. */
     private void draw() {
-        CgRasterPass pass = recording.raster("asyncComputeTestScene.canvas").color(canvas, CgLoad.clear(0, 0, 0, 0)).constants(new CgPassConstants().resolution(W, H)).order(CgOrder.LOOKBACK);
-        CgChunkBuilder c = recording.chunks().begin();
-        c.draw(pattern.pipeline(CgInstanceKind.OBJECT), pattern.captureBindings(recording.bindings()), CgMesh.quads(1));
-        for (int q = 0; q < quads; q++) c.instance();
-        pass.add(c.end());
+        CgRasterPass pass = recording.raster("asyncComputeTestScene.canvas").color(canvas, CgLoad.clear(0, 0, 0, 0)).camera(new CgCamera().resolution(W, H)).order(CgOrder.LOOKBACK);
+        CgDraw quadsDrawn = pass.draw(CgMesh.quads(1), pattern);
+        for (int q = 1; q < quads; q++) quadsDrawn.instance();
         pass.end();
     }
 

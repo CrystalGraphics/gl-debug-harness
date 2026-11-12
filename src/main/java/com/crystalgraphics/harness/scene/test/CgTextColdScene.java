@@ -84,7 +84,7 @@ public class CgTextColdScene implements InteractiveSceneLifecycle {
         if (framesDrawn == 0) firstDrawNanos = start;
 
         int incomplete = 0;
-        HarnessCanvas.screen(w, h);
+        text.camera(HarnessCanvas.screen(w, h));
         for (int i = 0; i < LABELS.length; i++) {
             pose.setIdentity();
             pose.translate(20f, 20f + i * 18f * scale, 0f);
@@ -119,7 +119,7 @@ public class CgTextColdScene implements InteractiveSceneLifecycle {
 
     /** The same face at another size, scaled as the labels are, until it has drawn whole for a while. */
     private void drawPrimer(int w, int h) {
-        HarnessCanvas.screen(w, h);
+        text.camera(HarnessCanvas.screen(w, h));
         pose.setIdentity();
         pose.translate(20f, h - 60f, 0f);
         pose.scale(scale, scale, 1f);

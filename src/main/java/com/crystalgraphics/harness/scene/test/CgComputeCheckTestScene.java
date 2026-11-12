@@ -11,7 +11,7 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.gl.CgCapabilities.ComputeTier;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
@@ -69,7 +69,7 @@ public class CgComputeCheckTestScene implements InteractiveSceneLifecycle {
             pass.dispatch(file.kernel("Paint"), 40, 32, 1).image("HEAT", heat);
             pass.dispatch(file.kernel("Inside"), 64).bind("OUT", inside);
             pass.end();
-            CgImmediate.execute(rec);
+            CgRenderer.executeNow(rec);
             return;
         }
         if (reported().size() >= 3 || frame > FRAMES + DRAIN) {
@@ -148,7 +148,7 @@ public class CgComputeCheckTestScene implements InteractiveSceneLifecycle {
         release.release(out);
         release.release(inside);
         release.release(bins);
-        CgImmediate.execute(release);
+        CgRenderer.executeNow(release);
     }
 
     @Override public boolean isRunning() { return running; }

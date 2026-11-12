@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.graph.CgDraw;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
@@ -15,7 +16,7 @@ import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgExecutor;
 import com.crystalgraphics.render.graph.CgFrame;
 import com.crystalgraphics.render.graph.CgFrameBuilder;
@@ -95,12 +96,10 @@ public class CgGpuGroupsTestScene implements InteractiveSceneLifecycle {
 
     private void draw(int zone) {
         recording.reset();
-        CgRasterPass pass = recording.raster("gpuGroupsTestScene.target").color(target, CgLoad.clear(0, 0, 0, 0)).constants(new CgPassConstants().resolution(W, H)).order(CgOrder.LOOKBACK).timed(zone);   // full-target draws all overlap, so stay in this order
+        CgRasterPass pass = recording.raster("gpuGroupsTestScene.target").color(target, CgLoad.clear(0, 0, 0, 0)).camera(new CgCamera().resolution(W, H)).order(CgOrder.LOOKBACK).timed(zone);   // full-target draws all overlap, so stay in this order
         for (CgMaterial material : materials) {
-            CgChunkBuilder c = recording.chunks().begin();
-            c.draw(material.pipeline(CgInstanceKind.OBJECT), material.captureBindings(recording.bindings()), CgMesh.quads(1));
-            for (int q = 0; q < quads; q++) c.instance();
-            pass.add(c.end());
+            CgDraw drawn = pass.draw(CgMesh.quads(1), material);
+            for (int q = 1; q < quads; q++) drawn.instance();
         }
         pass.end();
         CgFrame built = builder.build(graph.add(recording.seal()));

@@ -11,7 +11,7 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
@@ -114,7 +114,7 @@ public class CgMaterialLibraryScene implements InteractiveSceneLifecycle {
                 results[at] = got;
             });
         }
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
     }
 
     /** The first case whose output disagrees with Unreal's formula, or null. */

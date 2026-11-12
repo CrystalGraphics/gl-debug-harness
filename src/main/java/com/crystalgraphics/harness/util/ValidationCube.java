@@ -4,7 +4,7 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.render.CgFrameClock;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
@@ -34,7 +34,7 @@ public final class ValidationCube {
             new Matrix4f().translation(0f, 2f, 0f).rotateX(-HALF_PI).scale(2f),
             new Matrix4f().translation(0f, 0f, 0f).rotateX(HALF_PI).scale(2f)};
 
-    private final CgPassConstants constants = new CgPassConstants();
+    private final CgCamera constants = new CgCamera();
     private final ObjectDraws.Records record = (i, data, at) ->
             ObjectDraws.object(data, at, faces[i], COLOURS[i][0], COLOURS[i][1], COLOURS[i][2], 1f);
     private final CgMaterial material = CgMaterial.load(SHADER);
@@ -42,9 +42,9 @@ public final class ValidationCube {
 
     /** Draws it under {@code view} and {@code projection}, into the bound target of {@code width} x {@code height}. */
     public void render(Matrix4fc view, Matrix4fc projection, int width, int height) {
-        constants.view.set(view);
-        constants.projection.set(projection);
-        constants.resolution(width, height).time(CgFrameClock.seconds()).hostDepth().cameraFromView();
+        constants.view().set(view);
+        constants.projection().set(projection);
+        constants.resolution(width, height).time(CgFrameClock.seconds());
         ObjectDraws.draw(constants, material, quad, faces.length, record);
     }
 }

@@ -18,7 +18,7 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.vfx.field.CgFieldBounds;
@@ -190,7 +190,7 @@ public class CgVfxFieldsScene implements InteractiveSceneLifecycle {
                             data -> read.set(at, copy(data))));
                 }
             }
-            CgImmediate.execute(rec);
+            CgRenderer.executeNow(rec);
             return;
         }
         boolean answered = true;

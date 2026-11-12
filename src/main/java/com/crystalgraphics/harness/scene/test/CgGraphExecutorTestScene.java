@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.gpu.resource.CgFallbackTextures;
@@ -8,11 +9,10 @@ import com.crystalgraphics.harness.HarnessSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.harness.util.HarnessTarget;
-import com.crystalgraphics.render.CgImmediate;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgExecutor;
 import com.crystalgraphics.render.graph.CgFrame;
 import com.crystalgraphics.render.graph.CgFrameBuilder;
@@ -31,7 +31,7 @@ import java.util.concurrent.Executors;
 
 /**
  * render-graph G1's gate on a real driver: one picture drawn three ways — an immediate {@link CgCanvas}, a
- * {@link CgImmediate}, and a frame recorded and built on a worker thread then executed here — into three PNGs that
+ * a recording executed now ({@link CgRenderer#executeNow}), and a frame recorded and built on a worker thread then executed here — into three PNGs that
  * must be identical. A grid of flat quads and a row of rotated ones, deterministic.
  */
 public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
@@ -65,9 +65,14 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
         HarnessTarget graph = HarnessTarget.create(w, h, false);
         graph.bind();
         graph.clear(0.08f, 0.08f, 0.1f, 1f);
-        try (CgImmediate draw = CgImmediate.begin(constants(w, h))) {
-            record(draw.chunks(), material.captureBindings(draw.bindings()));
-        }
+        CgRecording now = new CgRecording();
+        CgRasterPass drawn = now.raster("graphExecutorTestScene.now").color(CgGraphTexture.current(), CgLoad.load())
+                .camera(camera(w, h)).order(CgOrder.LOOKBACK);
+        now.chunks().begin();
+        record(now.chunks(), material.captureBindings(now.bindings()));
+        drawn.add(now.chunks().end());
+        drawn.end();
+        CgRenderer.executeNow(now);
         graph.captureToFile(dir, "graph-executor-graph.png");
         graph.unbind();
         graph.delete();
@@ -80,7 +85,7 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
         try {
             CgFrame built = worker.submit(() -> {
                 CgRecording rec = new CgRecording();
-                CgRasterPass pass = rec.raster("graphExecutorTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants(w, h)).order(CgOrder.LOOKBACK);
+                CgRasterPass pass = rec.raster("graphExecutorTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(camera(w, h)).order(CgOrder.LOOKBACK);
                 rec.chunks().begin();
                 record(rec.chunks(), material.captureBindings(rec.bindings()));
                 pass.add(rec.chunks().end());
@@ -101,19 +106,12 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
         LOG.info("[graph-executor] three captures written; glError={}", DeviceErrors.checkAndLog("graph-executor"));
     }
 
-    private static CgPassConstants constants(int w, int h) {
-        CgPassConstants c = new CgPassConstants().resolution(w, h);
-        c.projection.setOrtho(0, w, h, 0, -1, 1);
-        return c;
+    private static CgCamera camera(int w, int h) {
+        return CgCamera.screen(w, h);
     }
 
     private void drawImmediate(int w, int h) {
-        CgPassConstants constants = CgImmediate.constants();
-        constants.view.identity();
-        constants.projection.identity().ortho(0, w, h, 0, -1, 1);
-        constants.resolution(w, h).cameraFromView();
-
-        CgCanvas canvas = new CgCanvas();
+        CgCanvas canvas = new CgCanvas().camera(camera(w, h));
         Matrix4f pose = new Matrix4f();
         for (int row = 0; row < ROWS; row++) {
             for (int col = 0; col < COLS; col++) {

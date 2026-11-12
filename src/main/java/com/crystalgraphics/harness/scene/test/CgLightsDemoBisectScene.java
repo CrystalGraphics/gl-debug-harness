@@ -18,7 +18,7 @@ import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.CgFrameClock;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.variable.CgVar;
@@ -155,11 +155,10 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
         target.clear(0.01f, 0.01f, 0.03f, 1f);
         Matrix4f view = SWAY == 0f ? this.view
                 : swayed.rotationY(SWAY * (float) Math.sin(frame * 2.0 * Math.PI / 60.0)).mul(this.view);
-        CgPassConstants host = new CgPassConstants();
-        host.view.set(view);
-        host.projection.set(projection);
-        host.resolution(width, height).time(CgFrameClock.seconds()).hostDepth()
-                .cameraFromView();
+        CgCamera host = new CgCamera();
+        host.view().set(view);
+        host.projection().set(projection);
+        host.resolution(width, height).time(CgFrameClock.seconds());
         ground.translation((float) (X - EYE_X), (float) (GROUND - 0.5 - EYE_Y), (float) (Z - EYE_Z)).scale(400f, 1f, 400f);
         CgMesh cube = CgMeshShapes.cube();
         ObjectDraws.draw(host, floor, cube, 1, (i, data, at) -> ObjectDraws.object(data, at, ground, 0.35f, 0.4f, 0.3f, 1f));

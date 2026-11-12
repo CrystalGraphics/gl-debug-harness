@@ -13,11 +13,11 @@ import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.draw.CgPipeline;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
@@ -120,7 +120,7 @@ public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
                 store.multiDraw(mode == 0);
                 target.clear(BACKGROUND_R / 255f, BACKGROUND_G / 255f, BACKGROUND_B / 255f, 1f);
                 long before = store.drawCalls();
-                CgImmediate.execute(record(w, h));
+                CgRenderer.executeNow(record(w, h));
                 calls[mode] = store.drawCalls() - before;
                 target.captureToFile(ctx.getOutputDir(), captures[mode]);
             }
@@ -135,9 +135,9 @@ public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
     /** Every strip into its cell under one pipeline and bindings, then the two ring meshes. */
     private CgRecording record(int w, int h) {
         CgRecording rec = new CgRecording();
-        CgPassConstants constants = new CgPassConstants().resolution(w, h);
-        constants.projection.set(new Matrix4f().setOrtho(0, w, h, 0, -1, 1));
-        CgRasterPass pass = rec.raster("multiDrawTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
+        CgCamera constants = new CgCamera().resolution(w, h);
+        constants.projection().set(new Matrix4f().setOrtho(0, w, h, 0, -1, 1));
+        CgRasterPass pass = rec.raster("multiDrawTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
         CgPipeline pipeline = material.pipeline(CgInstanceKind.OBJECT);
         int bindings = material.captureBindings(rec.bindings());
         CgChunkBuilder c = rec.chunks().begin();

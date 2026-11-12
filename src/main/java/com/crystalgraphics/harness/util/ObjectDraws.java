@@ -1,24 +1,27 @@
 package com.crystalgraphics.harness.util;
 
 import com.crystalgraphics.api.material.CgMaterial;
-import com.crystalgraphics.api.state.CgRenderState;
 import com.crystalgraphics.api.mesh.CgMesh;
-import com.crystalgraphics.render.CgImmediate;
-import com.crystalgraphics.render.draw.CgChunkBuilder;
-import com.crystalgraphics.render.draw.CgInstanceKind;
+import com.crystalgraphics.api.state.CgRenderState;
+import com.crystalgraphics.camera.CgCamera;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
-import com.crystalgraphics.render.draw.CgPipeline;
+import com.crystalgraphics.render.draw.CgPrimitiveTable;
+import com.crystalgraphics.render.graph.CgDepthAccess;
+import com.crystalgraphics.render.graph.CgGraphTexture;
+import com.crystalgraphics.render.graph.CgLoad;
+import com.crystalgraphics.render.graph.CgRasterPass;
+import com.crystalgraphics.render.graph.CgRecording;
 import org.joml.Matrix4fc;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
 
 /**
- * Object records drawn now through {@link CgImmediate}: a mesh under a material and each pass of its chain, one
- * instance per record, into whatever framebuffer is bound.
+ * Object records drawn now into the current target and its depth: a mesh under a material, one instance per record.
  *
  * <pre>{@code
- * ObjectDraws.draw(constants, material, mesh, 1, (i, data, at) -> ObjectDraws.object(data, at, model, 1f, 1f, 1f, 1f));
+ * ObjectDraws.draw(camera, material, mesh, 1, (i, data, at) -> ObjectDraws.object(data, at, model, 1f, 1f, 1f, 1f));
  * }</pre>
  */
 public final class ObjectDraws {
@@ -29,28 +32,30 @@ public final class ObjectDraws {
         void write(int index, float[] data, int at);
     }
 
+    private static final CgRecording RECORDING = new CgRecording();
+    private static float[] records = new float[CgPrimitiveTable.FLOATS * 8];
+
     private ObjectDraws() {
     }
 
-    public static void draw(CgPassConstants constants, CgMaterial material, CgMesh mesh, int count, Records records) {
-        draw(constants, null, material, mesh, count, records);
+    public static void draw(CgCamera camera, CgMaterial material, CgMesh mesh, int count, Records records) {
+        draw(camera, null, material, mesh, count, records);
     }
 
-    /** As above, under {@code state} for whatever the materials leave unset: null keeps the framebuffer's. */
-    public static void draw(CgPassConstants constants, @Nullable CgRenderState state, CgMaterial material, CgMesh mesh,
-                     int count, Records records) {
-        try (CgImmediate draw = CgImmediate.begin(constants, state, CgOrder.LOOKBACK)) {
-            CgChunkBuilder chunks = draw.chunks();
-            for (CgMaterial link = material; link != null; link = link.getNextPass()) {
-                CgPipeline pipeline = link.pipeline(CgInstanceKind.OBJECT);
-                if (pipeline == null) continue;
-                chunks.draw(pipeline, link.captureBindings(draw.bindings()), mesh);
-                for (int i = 0; i < count; i++) {
-                    int at = chunks.instance();
-                    records.write(i, chunks.data(), at);
-                }
-            }
-        }
+    /** As above, under {@code state} for whatever the materials leave unset: null keeps the target's. */
+    public static void draw(CgCamera camera, @Nullable CgRenderState state, CgMaterial material, CgMesh mesh,
+                            int count, Records writer) {
+        int floats = count * CgPrimitiveTable.FLOATS;
+        if (records.length < floats) records = new float[floats];
+        Arrays.fill(records, 0, floats, 0f);
+        for (int i = 0; i < count; i++) writer.write(i, records, i * CgPrimitiveTable.FLOATS);
+        RECORDING.reset();
+        CgRasterPass pass = RECORDING.raster("objects").color(CgGraphTexture.current(), CgLoad.load())
+                .depth(CgGraphTexture.current(), CgLoad.load(), CgDepthAccess.WRITE).camera(camera).state(state)
+                .order(CgOrder.LOOKBACK);
+        pass.draw(mesh, material).records(records, 0, count);
+        pass.end();
+        CgRenderer.executeNow(RECORDING);
     }
 
     /** A record: {@code model}, its normal matrix taken as identity (rigid, unscaled), and custom0. */

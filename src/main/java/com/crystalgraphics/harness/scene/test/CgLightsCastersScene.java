@@ -20,7 +20,7 @@ import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.CgFrameClock;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.variable.CgVar;
@@ -132,11 +132,10 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
         double eyeX = phase >= 7 ? LOW_EYE[0] : EYE_X + SWING_SLIDE * swing, eyeY = phase >= 7 ? LOW_EYE[1] : EYE_Y;
         double eyeZ = phase >= 7 ? LOW_EYE[2] : EYE_Z;
         Matrix4f lens = phase == 4 ? bob(frame * WALK_STEP) : projection;
-        CgPassConstants host = new CgPassConstants();
-        host.view.set(view);
-        host.projection.set(lens);
-        host.resolution(W, H).time(CgFrameClock.seconds()).hostDepth()
-                .cameraFromView();
+        CgCamera host = new CgCamera();
+        host.view().set(view);
+        host.projection().set(lens);
+        host.resolution(W, H).time(CgFrameClock.seconds());
         Matrix4f ground = new Matrix4f().translation((float) (CX + 5 - eyeX), (float) (GROUND - 0.5 - eyeY),
                 (float) (CZ - eyeZ)).scale(60f, 1f, 60f);
         ObjectDraws.draw(host, grey, cube, 1, (i, data, at) -> ObjectDraws.object(data, at, ground, 1f, 1f, 1f, 1f));

@@ -10,11 +10,11 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgBufferDesc;
 import com.crystalgraphics.render.graph.CgBufferUsage;
 import com.crystalgraphics.render.graph.CgComputePass;
@@ -85,7 +85,7 @@ public class CgVolumeTestScene implements InteractiveSceneLifecycle {
         if (frame == FRAMES + 1) {
             CgRecording release = new CgRecording();
             release.release(kept);
-            CgImmediate.execute(release);
+            CgRenderer.executeNow(release);
         }
         boolean answered = true;
         for (CgRequest r : requests) answered &= r.status() != CgRequest.Status.PENDING;
@@ -104,8 +104,8 @@ public class CgVolumeTestScene implements InteractiveSceneLifecycle {
                 .bind("TEXELS", texels).bind("BETWEEN", between);
         pass.end();
 
-        CgPassConstants constants = new CgPassConstants().resolution(W, H * D);
-        CgRasterPass draw = rec.raster("volumeTestScene.flat").color(flat, CgLoad.clear(0f, 0f, 0f, 0f)).constants(constants).order(CgOrder.LOOKBACK);
+        CgCamera constants = new CgCamera().resolution(W, H * D);
+        CgRasterPass draw = rec.raster("volumeTestScene.flat").color(flat, CgLoad.clear(0f, 0f, 0f, 0f)).camera(constants).order(CgOrder.LOOKBACK);
         int bindings = rec.bindings().withTexture(flatten.captureBindings(rec.bindings()), 0, spread);
         CgChunkBuilder chunk = rec.chunks().begin();
         chunk.draw(flatten.pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));
@@ -153,7 +153,7 @@ public class CgVolumeTestScene implements InteractiveSceneLifecycle {
             landed[4]++;
         }));
         patchKept(rec, n);
-        CgImmediate.execute(rec);
+        CgRenderer.executeNow(rec);
     }
 
     /** Frame 1 writes the kept volume whole; every frame then writes a box at a new z, and reads it whole. */

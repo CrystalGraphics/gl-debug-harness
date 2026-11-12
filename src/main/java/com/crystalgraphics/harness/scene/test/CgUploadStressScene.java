@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.harness.util.HarnessCanvas;
 import com.crystalgraphics.gpu.resource.CgReadback;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
@@ -12,8 +13,6 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
-import com.crystalgraphics.render.CgImmediate;
-import com.crystalgraphics.render.draw.CgPassConstants;
 import com.crystalgraphics.trace.CgGpuTrace;
 import com.crystalgraphics.trace.CgTrace;
 
@@ -217,10 +216,7 @@ public class CgUploadStressScene implements InteractiveSceneLifecycle {
 
     /** The shown textures as a grid, one flush each: each samples its own texture at unit 0. */
     private void draw(int w, int h) {
-        CgPassConstants constants = CgImmediate.constants();
-        constants.view.identity();
-        constants.projection.identity().ortho(0, w, h, 0, -1, 1);
-        constants.resolution(w, h).cameraFromView();
+        canvas.camera(HarnessCanvas.screen(w, h));
         if (load > 0) {
             for (int i = 0; i < load; i++) canvas.quad(material).texture(0, CgFallbackTextures.WHITE_1x1).at(0, 0).size(w, h).color(0x08FFFFFF).submit();
             canvas.flush();

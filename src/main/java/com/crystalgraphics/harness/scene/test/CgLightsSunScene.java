@@ -20,7 +20,7 @@ import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.CgFrameClock;
-import com.crystalgraphics.render.draw.CgPassConstants;
+import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
@@ -101,11 +101,10 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
         target.clear(0.05f, 0.05f, 0.07f, 1f);
         CgMesh cube = CgMeshShapes.cube();
         // The host's ground, drawn before our stages as Minecraft's world is: it is in the host's depth.
-        CgPassConstants host = new CgPassConstants();
-        host.view.set(look);
-        host.projection.set(projection);
-        host.resolution(W, H).time(CgFrameClock.seconds()).hostDepth()
-                .cameraFromView();
+        CgCamera host = new CgCamera();
+        host.view().set(look);
+        host.projection().set(projection);
+        host.resolution(W, H).time(CgFrameClock.seconds());
         Matrix4f ground = new Matrix4f().translation((float) (CX + 0.5 - EYE_X), (float) (GROUND - 0.5 - EYE_Y),
                 (float) (CZ + 0.5 - EYE_Z)).scale(40f, 1f, 40f);
         ObjectDraws.draw(host, grey, cube, 1, (i, data, at) -> ObjectDraws.object(data, at, ground, 1f, 1f, 1f, 1f));

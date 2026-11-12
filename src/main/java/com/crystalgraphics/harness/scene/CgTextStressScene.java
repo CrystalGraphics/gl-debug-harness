@@ -279,7 +279,7 @@ public class CgTextStressScene implements InteractiveSceneLifecycle {
             // the only honest way to read it without stalling the pipeline being measured.
             CgGpuTrace.begin("textDraw");
             try (CgTrace.Zone ignored = CgTrace.zone(CgChannels.TEXT, "text.draw")) {
-                HarnessCanvas.screen(ctx.getScreenWidth(), ctx.getScreenHeight());
+                canvas.camera(HarnessCanvas.screen(ctx.getScreenWidth(), ctx.getScreenHeight()));
                 for (int i = 0; i < labels.size(); i++) {
                     Label label = labels.get(i);
                     canvas.text().layout(label.layout).font(font)

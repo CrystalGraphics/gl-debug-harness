@@ -1,7 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
-import com.crystalgraphics.render.draw.CgPassConstants;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.harness.util.HarnessCanvas;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.render.canvas.CgCurveBatch;
@@ -66,10 +65,7 @@ public class CgVectorRendererTestScene implements InteractiveSceneLifecycle {
 
         // Pure 2D ortho via the frame UBO — curve.shader reads cg_ProjMatrix and never touches
         // CG_OBJECT_TO_WORLD, so no per-instance object-buffer record is needed.
-        CgPassConstants constants = CgImmediate.constants();
-        constants.view.identity();
-        constants.projection.identity().ortho(0, w, h, 0, -1, 1);
-        constants.resolution(w, h).cameraFromView();
+        canvas.camera(HarnessCanvas.screen(w, h));
 
 
         int count = 0;

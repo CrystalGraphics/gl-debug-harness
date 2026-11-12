@@ -3,7 +3,7 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.shape.CgShape;
@@ -134,7 +134,7 @@ public final class CgVfxStackScene implements InteractiveSceneLifecycle {
                             data -> read.set(at, copy(data))));
                 }
             }
-            CgImmediate.execute(rec);
+            CgRenderer.executeNow(rec);
             return;
         }
         boolean answered = !requests.isEmpty();

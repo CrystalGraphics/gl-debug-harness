@@ -219,7 +219,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("graph-executor-test")
-                .description("render-graph G1: one picture drawn by CgQuadBatch, by CgImmediate, and by a frame built on a worker thread -- three PNGs that must match")
+                .description("render-graph G1: one picture drawn by an immediate canvas, by a recording executed now, and by a frame built on a worker thread -- three PNGs that must match")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(true)

@@ -11,7 +11,7 @@ import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
-import com.crystalgraphics.render.CgImmediate;
+import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.stage.CgHostView;
@@ -134,7 +134,7 @@ public class CgVfxCascadeCollideScene implements InteractiveSceneLifecycle {
             if (frame == FILL) seed(rec);
             if (frame > FILL) step(rec);
             if (frame == FILL + MID || frame == FILL + STEPS + 1) readBack(rec, frame == FILL + MID);
-            CgImmediate.execute(rec);
+            CgRenderer.executeNow(rec);
             return;
         }
         boolean answered = true;
