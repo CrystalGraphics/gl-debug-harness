@@ -369,7 +369,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
                 new CgTextureDesc(W, H, CgGpuOps.PYRAMID_FORMAT).withMips());
         CgGraphBuffer visible = CgGraphBuffer.transientBuffer("gpu-cull.visible",
                 CgBufferDesc.elements(CgGpuOps.cullRecords(cull, N), CgGpuOps.cullRecordBytes(), CgBufferUsage.STORAGE));
-        CgGpuOps.depthPyramid(rec, stage.target(), stage.constants(), pyramid);
+        CgGpuOps.depthPyramid(rec, stage.depth(), stage.constants(), pyramid);
         CgComputePass pass = rec.compute("gpu-cull");
         CgGpuOps.cull(pass, cull.view(view, projection).place(new Matrix4f()).pyramid(pyramid), instances,
                 CgGpuCount.of(N), visible, counts, 0);

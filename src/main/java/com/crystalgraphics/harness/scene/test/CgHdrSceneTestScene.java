@@ -43,6 +43,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.crystalgraphics.render.graph.CgDepthAccess;
 
 /**
  * The HDR scene's gate, cost first (render-hdr-scene H0): a host-like RGBA8 target holding every code of every channel,
@@ -174,7 +175,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
 
     private static void fullscreen(CgRecording rec, CgGraphTexture target, CgMaterial material, String sampler,
                                    CgGraphTexture source, CgPassConstants constants) {
-        CgRasterPass pass = rec.raster("hdrSceneTestScene.target").color(target, CgLoad.load()).constants(constants).order(CgOrder.LOOKBACK);
+        CgRasterPass pass = rec.raster("hdr-scene.draw").color(target, CgLoad.load()).depth(target, CgLoad.load(), CgDepthAccess.WRITE).constants(constants).order(CgOrder.LOOKBACK);
         material.applyProperties(b -> b.sampler(sampler, 0, source));
         CgChunkBuilder c = rec.chunks().begin();
         c.draw(material.pipeline(CgInstanceKind.OBJECT), material.captureBindings(rec.bindings()), CgMesh.quads(1));
