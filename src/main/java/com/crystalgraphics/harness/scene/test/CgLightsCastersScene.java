@@ -150,7 +150,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
             stage.host().set(0f, W, H, target.external()).view().set(eyeX, eyeY, eyeZ, view, lens);
             boolean night = phase == 1 || phase == 5 || phase == 6 || phase == 8;
             stage.host().environment().sun(night ? Float.NaN : phase >= 2 ? SIDE_SUN : SUN_ANGLE, 0, 0f, 1f);
-            stage.host().textures().importedLightmap(lightmap.getId(), 16, 16);
+            stage.host().textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
             if (boxShadow == null && phase == 0) place(stage);
             if (phase == 2 && sideSun == null) stage.host().environment().sunDirection(sideSun = new float[3]);
             stage.fire();

@@ -133,7 +133,7 @@ public final class HarnessEnvironment {
         lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
         for (CgRenderStage stage : WORLD) {
             stage.host().environment().sun(Float.NaN, 0, nightMix, 1f - nightMix);
-            stage.host().textures().importedLightmap(lightmap.getId(), 16, 16);
+            stage.host().textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
         }
         daylightSet = true;
     }

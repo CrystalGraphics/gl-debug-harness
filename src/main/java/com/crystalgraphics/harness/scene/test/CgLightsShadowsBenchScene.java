@@ -93,7 +93,7 @@ public final class CgLightsShadowsBenchScene implements InteractiveSceneLifecycl
         for (CgRenderStage stage : new CgRenderStage[]{CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT}) {
             stage.host().set(0f, w, h, ctx.getTarget()).view().set(EYE_X, EYE_Y, EYE_Z, view, projection);
             stage.host().environment().sun(SUN_ANGLE, 0, 0f, 1f);
-            stage.host().textures().importedLightmap(lightmap.getId(), 16, 16);
+            stage.host().textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
             stage.fire();
         }
     }

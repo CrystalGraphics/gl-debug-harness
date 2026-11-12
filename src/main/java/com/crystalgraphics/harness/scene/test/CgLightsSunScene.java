@@ -118,7 +118,7 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
         for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
             stage.host().set(0f, W, H, target.external()).view().set(EYE_X, EYE_Y, EYE_Z, look, projection);
             stage.host().environment().sun(phase == 0 ? 0f : Float.NaN, 0, 0f, 1f);
-            stage.host().textures().importedLightmap(lightmap.getId(), 16, 16);
+            stage.host().textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
             stage.fire();
         }
         CgFrameRing.endFrame();
