@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.render.graph.CgDraw;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
@@ -223,9 +224,9 @@ public class CgAsyncComputeTestScene implements InteractiveSceneLifecycle {
     /** The pass reading the blur. */
     private void reader() {
         CgRasterPass pass = recording.raster("asyncComputeTestScene.result").color(result, CgLoad.CLEAR).camera(new CgCamera().resolution(W / 2, H / 2)).order(CgOrder.LOOKBACK);
-        int bindings = recording.bindings().withTexture(down.captureBindings(recording.bindings()), 0, blurred);
+        int bindings = recording.bindings().withTexture(CgMaterialProxy.of(down).captureBindings(recording.bindings()), 0, blurred);
         CgChunkBuilder c = recording.chunks().begin();
-        c.draw(down.pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));
+        c.draw(CgMaterialProxy.of(down).pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));
         c.instance();
         pass.add(c.end());
         pass.end();

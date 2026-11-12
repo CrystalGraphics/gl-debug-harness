@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshTopology;
@@ -150,8 +151,8 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
         CgCamera constants = new CgCamera().resolution(w, h);
         constants.projection().set(projection);
         CgRasterPass pass = rec.raster("indirectDrawTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
-        CgPipeline pipeline = material.pipeline(CgInstanceKind.OBJECT);
-        int bindings = material.captureBindings(rec.bindings());
+        CgPipeline pipeline = CgMaterialProxy.of(material).pipeline(CgInstanceKind.OBJECT);
+        int bindings = CgMaterialProxy.of(material).captureBindings(rec.bindings());
         CgChunkBuilder c = rec.chunks().begin();
         for (Band band : BANDS) {
             c.draw(pipeline, bindings, band.mesh()).indirect(counts, band.uint() * 4L, band.mode(), band.factor());

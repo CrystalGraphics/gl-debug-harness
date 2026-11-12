@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.compute.CgCompute;
@@ -106,9 +107,9 @@ public class CgVolumeTestScene implements InteractiveSceneLifecycle {
 
         CgCamera constants = new CgCamera().resolution(W, H * D);
         CgRasterPass draw = rec.raster("volumeTestScene.flat").color(flat, CgLoad.CLEAR).camera(constants).order(CgOrder.LOOKBACK);
-        int bindings = rec.bindings().withTexture(flatten.captureBindings(rec.bindings()), 0, spread);
+        int bindings = rec.bindings().withTexture(CgMaterialProxy.of(flatten).captureBindings(rec.bindings()), 0, spread);
         CgChunkBuilder chunk = rec.chunks().begin();
-        chunk.draw(flatten.pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));
+        chunk.draw(CgMaterialProxy.of(flatten).pipeline(CgInstanceKind.OBJECT), bindings, CgMesh.quads(1));
         chunk.instance();
         draw.add(chunk.end());
         draw.end();

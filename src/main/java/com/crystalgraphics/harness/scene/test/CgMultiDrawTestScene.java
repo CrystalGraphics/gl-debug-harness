@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshTopology;
@@ -138,8 +139,8 @@ public class CgMultiDrawTestScene implements HarnessSceneLifecycle {
         CgCamera constants = new CgCamera().resolution(w, h);
         constants.projection().set(CgCamera.orthographicMatrix(new Matrix4f(), 0, w, h, 0, -1, 1));
         CgRasterPass pass = rec.raster("multiDrawTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
-        CgPipeline pipeline = material.pipeline(CgInstanceKind.OBJECT);
-        int bindings = material.captureBindings(rec.bindings());
+        CgPipeline pipeline = CgMaterialProxy.of(material).pipeline(CgInstanceKind.OBJECT);
+        int bindings = CgMaterialProxy.of(material).captureBindings(rec.bindings());
         CgChunkBuilder c = rec.chunks().begin();
         cells = 0;
         for (int i = 0; i < STRIPS; i++) {

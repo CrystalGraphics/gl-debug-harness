@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshTopology;
@@ -36,7 +37,7 @@ final class StencilProbe {
     /** Records the copy of {@code from}'s stencil, returning the R8 it lands in; null while its program builds. */
     @Nullable
     CgGraphTexture record(CgStageFrame stage, CgGraphTexture from) {
-        CgPipeline pipeline = copy.pipeline(CgInstanceKind.OBJECT);
+        CgPipeline pipeline = CgMaterialProxy.of(copy).pipeline(CgInstanceKind.OBJECT);
         if (pipeline == null) return null;
         int w = from.getWidth(), h = from.getHeight();
         if (into == null || into.getWidth() != w || into.getHeight() != h) {
@@ -44,7 +45,7 @@ final class StencilProbe {
         }
         CgRecording recording = stage.recording();
         CgRasterPass pass = recording.raster("stencilProbe.into").color(into, CgLoad.CLEAR).constants(stage.constants());
-        int reads = recording.bindings().withTexture(copy.captureBindings(recording.bindings()), 0, from.stencil());
+        int reads = recording.bindings().withTexture(CgMaterialProxy.of(copy).captureBindings(recording.bindings()), 0, from.stencil());
         CgChunkBuilder chunks = recording.chunks().begin();
         chunks.draw(pipeline, reads, FULLSCREEN);
         chunks.instance();

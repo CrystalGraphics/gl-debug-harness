@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -376,8 +377,8 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
                 CgGpuCount.of(N), visible, counts, 0);
         pass.end();
 
-        CgPipeline pipeline = material.pipeline(CgInstanceKind.OBJECT);
-        int bindings = material.captureBindings(rec.bindings());
+        CgPipeline pipeline = CgMaterialProxy.of(material).pipeline(CgInstanceKind.OBJECT);
+        int bindings = CgMaterialProxy.of(material).captureBindings(rec.bindings());
         CgRasterPass draw = stage.pass(stage.constants(), CgOrder.LOOKBACK);
         CgChunkBuilder c = rec.chunks().begin();
         for (int l = 0; l < cull.levels(); l++) {

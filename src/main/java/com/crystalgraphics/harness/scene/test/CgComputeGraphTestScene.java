@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.texture.CgTexture;
@@ -149,9 +150,9 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
         CgCamera constants = new CgCamera().resolution(w, h);
         CgCamera.orthographicMatrix(constants.projection(), 0, w, h, 0, -1, 1);
         CgRasterPass pass = rec.raster("computeGraphTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
-        int bindings = rec.bindings().withTexture(material.captureBindings(rec.bindings()), 0, texture);
+        int bindings = rec.bindings().withTexture(CgMaterialProxy.of(material).captureBindings(rec.bindings()), 0, texture);
         CgChunkBuilder c = rec.chunks().begin();
-        c.draw(material.pipeline(CgInstanceKind.QUAD), bindings);
+        c.draw(CgMaterialProxy.of(material).pipeline(CgInstanceKind.QUAD), bindings);
         int at = c.instance();
         float[] r = c.data();
         r[at] = ORIGIN;

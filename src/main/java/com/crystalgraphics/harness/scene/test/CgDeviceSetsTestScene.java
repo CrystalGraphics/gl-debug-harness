@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.material.CgMaterialProxy;
 import java.util.Arrays;
 import com.crystalgraphics.platform.rhi.CgDeviceSection;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -81,7 +82,7 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
         try {
             for (String path : materials()) {
                 CgMaterial m = CgMaterial.newInstance(path);
-                CgPipeline p = m.pipeline(CgInstanceKind.OBJECT);
+                CgPipeline p = CgMaterialProxy.of(m).pipeline(CgInstanceKind.OBJECT);
                 CgShader linked = p == null ? null : p.program();
                 if (linked == null) {
                     failures.add(path + ": no program");
@@ -193,7 +194,7 @@ public class CgDeviceSetsTestScene implements HarnessSceneLifecycle {
         int[] ids = new int[drawn.size()];
         for (int i = 0; i < drawn.size(); i++) {
             try {
-                ids[i] = drawn.get(i).material().captureBindings(table);
+                ids[i] = CgMaterialProxy.of(drawn.get(i).material()).captureBindings(table);
             } catch (IllegalStateException e) {
                 ids[i] = -1;   // reads a buffer only its owner binds: not a material set this scene can make
             }

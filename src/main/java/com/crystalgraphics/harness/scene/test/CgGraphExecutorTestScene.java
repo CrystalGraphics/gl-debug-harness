@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.render.canvas.CgCanvas;
@@ -69,7 +70,7 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
         CgRasterPass drawn = now.raster("graphExecutorTestScene.now").color(CgGraphTexture.current(), CgLoad.load())
                 .camera(camera(w, h)).order(CgOrder.LOOKBACK);
         now.chunks().begin();
-        record(now.chunks(), material.captureBindings(now.bindings()));
+        record(now.chunks(), CgMaterialProxy.of(material).captureBindings(now.bindings()));
         drawn.add(now.chunks().end());
         drawn.end();
         CgRenderer.executeNow(now);
@@ -87,7 +88,7 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
                 CgRecording rec = new CgRecording();
                 CgRasterPass pass = rec.raster("graphExecutorTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(camera(w, h)).order(CgOrder.LOOKBACK);
                 rec.chunks().begin();
-                record(rec.chunks(), material.captureBindings(rec.bindings()));
+                record(rec.chunks(), CgMaterialProxy.of(material).captureBindings(rec.bindings()));
                 pass.add(rec.chunks().end());
                 pass.end();
                 return builder.build(new CgFrameGraph().add(rec.seal()));
@@ -128,7 +129,7 @@ public class CgGraphExecutorTestScene implements HarnessSceneLifecycle {
 
     /** The same quads as {@link #drawImmediate}, as records in one draw. */
     private void record(CgChunkBuilder c, int bindings) {
-        c.draw(material.pipeline(CgInstanceKind.QUAD), bindings);
+        c.draw(CgMaterialProxy.of(material).pipeline(CgInstanceKind.QUAD), bindings);
         Matrix4f pose = new Matrix4f();
         Vector3f origin = new Vector3f(), right = new Vector3f(), up = new Vector3f();
         for (int row = 0; row < ROWS; row++) {
