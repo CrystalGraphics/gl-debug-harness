@@ -177,6 +177,8 @@ tasks.register<JavaExec>("runHarness") {
     mainClass.set("com.crystalgraphics.harness.FontDebugHarnessMain")
 
     systemProperty("harness.output.dir", file("harness-output").absolutePath)
+    // The graph's undeclared-access check (CgGraphCheck): refused here, as in a dev client; -D below overrides it.
+    systemProperty("crystalgraphics.graph.check", "throw")
 
     // Forward every -Dcrystalgraphics.* from the Gradle invocation into the forked JVM.
     //
