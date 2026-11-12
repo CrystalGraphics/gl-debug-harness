@@ -4,7 +4,6 @@ import com.crystalgraphics.platform.rhi.resource.CgTextureView;
 import com.crystalgraphics.animation.CgAnimInstance;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgMaterialInstance;
-import com.crystalgraphics.api.material.CgMaterialValues;
 import com.crystalgraphics.asset.codec.CgAssetYaml;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.asset.tree.CgAssetData;
@@ -26,7 +25,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -176,15 +174,10 @@ final class SkinnedOutlineCheck {
      * leaves its laplacian below them.
      */
     static void tests(CgMaterialInstance pass, boolean depth, boolean normal, boolean id) {
-        set(pass, b -> b.vec4("D_Key0", depth ? 1f : 0f, 0f, 0f, 0f).vec4("D_Key1", depth ? 0.2f : 0f, 200f, 0f, 0f)
-                .vec4("D_Key2", depth ? 0.005f : 0f, 4000f, 0f, 0f));
-        set(pass, b -> b.vec4("N_Key0", normal ? 3f : 0f, 0f, 0f, 0f).vec4("N_Key1", normal ? 2f : 0f, 200f, 0f, 0f));
-        set(pass, b -> b.set1f("Tex_Entering", id ? 5f : 0f)
-                .vec4("Tex_Threshold", id ? 1f : 1e6f, id ? 2f : 1e6f, 0f, 1000f));
-    }
-
-    private static void set(CgMaterialInstance pass, Consumer<CgMaterialValues> values) {
-        values.accept(pass);
+        pass.vec4("D_Key0", depth ? 1f : 0f, 0f, 0f, 0f).vec4("D_Key1", depth ? 0.2f : 0f, 200f, 0f, 0f)
+                .vec4("D_Key2", depth ? 0.005f : 0f, 4000f, 0f, 0f);
+        pass.vec4("N_Key0", normal ? 3f : 0f, 0f, 0f, 0f).vec4("N_Key1", normal ? 2f : 0f, 200f, 0f, 0f);
+        pass.set1f("Tex_Entering", id ? 5f : 0f).vec4("Tex_Threshold", id ? 1f : 1e6f, id ? 2f : 1e6f, 0f, 1000f);
     }
 
     private void report() {
