@@ -21,8 +21,8 @@ import java.nio.ByteOrder;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
- * VFX Lab's sky and floor (CrystalGUI's {@code VfxLab}) as a harness scene's world: {@code editor_sky.shader} on a
- * sphere round the eye and {@code editor_grid.shader} on a plane at y 0 under it, in place of the harness's own floor
+ * VFX Lab's sky and floor (CrystalGUI's {@code VfxLab}) as a harness scene's world: {@code materials/sky.shader} on a
+ * sphere round the eye and {@code materials/grid.shader} on a plane at y 0 under it, in place of the harness's own floor
  * and clear colour: an opaque ground, as a game's is, hiding what is under the floor. F9 eases between day and night,
  * the world stages' daylight and lightmap with it, so what adapts to the light (world lights, a colour region's gain)
  * follows.
@@ -48,8 +48,8 @@ public final class HarnessEnvironment {
     /** {@code editor} turns it on for any 3D scene. */
     public static final boolean FORCED = "editor".equals(System.getProperty("crystalgraphics.harness.environment"));
 
-    private static final String SKY_SHADER = "crystalgraphics:shaders/demo/editor_sky.shader";
-    private static final String FLOOR_SHADER = "crystalgraphics:shaders/demo/editor_grid.shader";
+    private static final String SKY_SHADER = "crystalgraphics:shaders/materials/sky.shader";
+    private static final String FLOOR_SHADER = "crystalgraphics:shaders/materials/grid.shader";
     private static final Matrix4fc SKY_SCALE = new Matrix4f().scale(600f);
     /** Metres the grid fades out by, from a quarter of it; the plane spans past it, so its edge never shows. */
     private static final float FLOOR_FADE = 100f;

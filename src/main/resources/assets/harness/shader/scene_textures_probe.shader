@@ -2,7 +2,7 @@
 // r CustomStencil / 255, g the custom data's alpha, b the shading model / 31, a the type / 6 plus 0.5 where the world
 // normal is +Z.
 #domain global
-#include "crystalgraphics:shaders/lib/post/post_material.glsl"
+#include "crystalgraphics:shaders/env/material/post.glsl"
 Material { Media On }
 
 RenderState {

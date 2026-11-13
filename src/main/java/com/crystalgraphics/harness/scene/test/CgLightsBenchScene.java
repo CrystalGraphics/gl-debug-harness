@@ -43,7 +43,7 @@ public final class CgLightsBenchScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().setPitch(-40f);
         float side = columns * SPACING + 2f * REACH;
         floor = CgMesh.build(CgVertexFormat.SPATIAL, m -> CgMeshShapes.plane(m, 1, 1, side, side));
-        floorMaterial = CgMaterial.load("crystalgraphics:shaders/demo/vfx_floor.shader").instance();
+        floorMaterial = CgMaterial.load("crystalgraphics:shaders/demo/floor.shader").instance();
     }
 
     @Override

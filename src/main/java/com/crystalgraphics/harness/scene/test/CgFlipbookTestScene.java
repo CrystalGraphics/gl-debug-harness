@@ -35,7 +35,7 @@ import com.crystalgraphics.api.texture.CgSampler;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
- * G0.5's gate, a flipbook's frames: a 4x4 sheet of solid colours drawn through {@code fx_particle.glsl}'s
+ * G0.5's gate, a flipbook's frames: a 4x4 sheet of solid colours drawn through {@code lib/vfx/particle.glsl}'s
  * {@code fx_subuv_frames} and {@code fx_subimage_uv}, as {@code sprite.shader} draws it, a row of eight particles per
  * flipbook, each at an age, a progress and a seed of its own. Every cell must show the frame Java says:
  *

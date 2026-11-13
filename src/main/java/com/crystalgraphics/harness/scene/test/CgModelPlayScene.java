@@ -38,7 +38,7 @@ import java.util.stream.Stream;
 /**
  * A kit's skinned models standing in a row, each playing its clips through the engine's own path: posed by
  * {@link CgAnimation} in {@code POSE}, skinned on the GPU and drawn in Minecraft's entity look
- * ({@code role/entity.shader}). A GeckoLib kit's {@code .geo.json} models play every clip of its
+ * ({@code materials/entity.shader}). A GeckoLib kit's {@code .geo.json} models play every clip of its
  * {@code .animation.json} files, converted for each model as GeckoLib plays them; any other kit's skinned glTF, GLB or
  * {@code .cgmesh} plays the clips it carries. Scene id {@code model-play}.
  *
@@ -118,7 +118,7 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
         float distance = Float.parseFloat(System.getProperty(P + "distance", "4"));
 
         String texture = System.getProperty(P + "texture");
-        CgMaterialDefinition.Builder body = CgMaterialDefinition.of("harness:model_play/body", "crystalgraphics:shaders/role/entity.shader")
+        CgMaterialDefinition.Builder body = CgMaterialDefinition.of("harness:model_play/body", "crystalgraphics:shaders/materials/entity.shader")
                 .cull(CgCullState.NONE);   // GeckoLib's entities draw as entityCutoutNoCull
         if (texture != null) {
             body.texture("_MainTex", CgTextures.of(namespace + ":" + texture),

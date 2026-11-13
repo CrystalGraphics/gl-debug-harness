@@ -1,6 +1,6 @@
 // hdr-scene's scene in (CgHdrSceneTestScene): the host's 8-bit colour decoded into the linear scene, texel for texel.
 #domain global
-#include "crystalgraphics:shaders/lib/post/composite.glsl"
+#include "crystalgraphics:shaders/post/composite.glsl"
 Material { ColorSpace sRGB  Queue Geometry  Media On }
 
 RenderState {

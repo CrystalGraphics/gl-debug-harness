@@ -2,7 +2,7 @@
 // same fx_beam_point, for the scene to hold against Cascade's formulas in Java. An element a point: record e, point k.
 #pragma kernel Points map
 
-#include "crystalgraphics:shaders/lib/vfx/fx_record.glsl"
+#include "crystalgraphics:shaders/lib/vfx/record.glsl"
 
 Properties {
     _RecordVectors ("A record's uvec4s: its pool's layout",         int) = 4
@@ -21,7 +21,7 @@ Buffers {
 
 // After the buffers, whose accessors its point functions read.
 #define FX_BEAM_RUN(at) RUNS(at)
-#include "crystalgraphics:shaders/lib/vfx/fx_beam.glsl"
+#include "crystalgraphics:shaders/lib/vfx/beam.glsl"
 
 void Points() {
     int e = CG_ELEMENT / _Stride, k = CG_ELEMENT - e * _Stride;

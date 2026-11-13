@@ -2,7 +2,7 @@
 // from the firing's eye, as a particle light renderer appends its own.
 #pragma kernel Append append
 
-#include "crystalgraphics:shaders/lib/lights.glsl"
+#include "crystalgraphics:shaders/world/lights/lights.glsl"
 
 struct CgLight { vec4 positionRadius; vec4 colorExponent; vec4 spotCos; vec4 segmentCone; vec4 ambient; vec4 air; };
 // A placed point light: position and radius, colour and exponent.

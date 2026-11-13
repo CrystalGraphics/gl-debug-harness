@@ -75,7 +75,7 @@ public class CgVfxCascadeCollideScene implements InteractiveSceneLifecycle {
     private static final String[] NAMES = {"damping", "freeze", "halt", "kill"};
     private static final float LO_X = 0.2f, LO_Y = 0.4f, LO_Z = 0.6f, HI_X = 0.4f, HI_Y = 0.8f, HI_Z = 0.9f;
     private static final float TURN = 0.5f, DELAY = 0.5f, KILL_LIFE = 2f;
-    /** What the collider's rolls are keyed by: fx_contact.glsl's FX_COLLISION_KEY. */
+    /** What the collider's rolls are keyed by: vfx/sim/collision/contact.glsl's FX_COLLISION_KEY. */
     private static final int KEY = 0x434F4C4C;
     private static final float TOLERANCE = 1e-4f;
 
@@ -325,7 +325,7 @@ public class CgVfxCascadeCollideScene implements InteractiveSceneLifecycle {
         }
     }
 
-    /** The collider's {@code k}th roll for particle {@code id}: fx_contact.glsl's, keyed by its id. */
+    /** The collider's {@code k}th roll for particle {@code id}: vfx/sim/collision/contact.glsl's, keyed by its id. */
     private static float roll(int id, int k) {
         return CgVfxEmitterInstance.rand(id, KEY, k);
     }

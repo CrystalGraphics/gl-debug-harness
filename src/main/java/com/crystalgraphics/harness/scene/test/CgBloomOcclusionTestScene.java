@@ -52,7 +52,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
     public void init(HarnessContext ctx) {
         wall = CgMaterial.load("assets/harness/shader/bloom_wall.shader").instance();
         glow = CgMaterial.load("assets/harness/shader/bloom_glow.shader").instance();
-        emissionOnly = CgMaterial.load("crystalgraphics:shaders/emission_only.shader").instance();
+        emissionOnly = CgMaterial.load("crystalgraphics:shaders/materials/emission_only.shader").instance();
         // Its javadoc's glow: past white under the HDR scene's glow gain, as a glow meant to bloom is.
         emissionOnly.set1f("_EmissionStrength", 3f);
         glowAlpha = CgMaterial.load("assets/harness/shader/bloom_glow_alpha.shader").instance();

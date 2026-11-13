@@ -420,7 +420,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("flipbook").checksPixels()
-                .description("G0.5: a flipbook's frames through fx_particle.glsl, as sprite.shader draws them: a rect table looped at 30 a second, the grid over a life, a range looped, random frames and a blend; every particle must show the frame due")
+                .description("G0.5: a flipbook's frames through lib/vfx/particle.glsl, as sprite.shader draws them: a rect table looped at 30 a second, the grid over a life, a range looped, random frames and a blend; every particle must show the frame due")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(true)

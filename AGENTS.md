@@ -160,7 +160,7 @@ compile. Scenes draw through the engine and `CgRHI`; a scene's verdict reads `De
   again, N/B change cue, Left Alt opens the desktop, with the cue picker in its launcher, a tree a namespace (a click plays a cue, folds a folder), Y/Shift+Y slow time and Tab pauses or plays it, Z/X step a frame back or forward, C the kit's colour grade; `.kitCues.regions=false` leaves the
   colour regions out, `.kitCues.capture=<n>` photographs n frames of play and exits. Its javadoc has Dragon Forge's s0.
   `--mode=model-play` is a kit's skinned models in a row playing their clips through `CgAnimation`, in Minecraft's
-  entity look (`role/entity.shader`): a GeckoLib kit's `.geo.json` models with every clip of its `.animation.json` files
+  entity look (`materials/entity.shader`): a GeckoLib kit's `.geo.json` models with every clip of its `.animation.json` files
   (`.modelPlay.namespace`, `.modelPlay.kit`, `.modelPlay.texture`; `.modelPlay.models` paths under the kit), or another
   kit's skinned glTF, GLB or `.cgmesh` with the clips it carries. N/B change every model's clip, M the HUD's model, `
   plays again, P pauses, `,` `.` step, U/I rate, K loops every clip, Left/Right turn the row. Its javadoc has RPG-Core's.
@@ -193,7 +193,7 @@ compile. Scenes draw through the engine and `CgRHI`; a scene's verdict reads `De
   colour and alpha, magnified and on a lower mip, every cooked quad matched to its PNG twin; blocks where the context
   has BPTC, decoded to RGBA8 on `mac41`. `--mode=second-layer` is a mesh's second UV and colour: a glTF quad drawn
   through `SPATIAL` at its first UV and, under `SECOND_LAYER`, its second; PASS on `gl`, `mac41` and `vulkan`.
-  `--mode=flipbook` is a flipbook's frames (`CgVfxFlipbook`, `fx_particle.glsl`): a rect table looped at 30 a second, a
+  `--mode=flipbook` is a flipbook's frames (`CgVfxFlipbook`, `lib/vfx/particle.glsl`): a rect table looped at 30 a second, a
   grid over a life, a range looped, random frames against `CgRng` and a blend, each particle's frame checked against
   Java; PASS on `gl`, `mac41` and `vulkan`. `--mode=global-parameters` is a `CgParameterCollection`'s: one value set
   once, read by two materials through the world renderer (one in its vertex stage too) and ignored by a third, each

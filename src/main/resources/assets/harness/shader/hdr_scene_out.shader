@@ -1,7 +1,7 @@
 // hdr-scene's composite (CgHdrSceneTestScene): the scene clamped and encoded into the 8-bit host. A value within 0.1 of
 // a code is what scene in decoded (RGBA16F lands within 0.04) and is written back exact; anything else is dithered.
 #domain global
-#include "crystalgraphics:shaders/lib/post/composite.glsl"
+#include "crystalgraphics:shaders/post/composite.glsl"
 Material { ColorSpace sRGB  Queue Geometry  Media On }
 
 RenderState {

@@ -2,7 +2,7 @@
 // frames fx_subuv_frames picks for a particle of age CG_OBJECT_CUSTOM0.w, progress CG_OBJECT_CUSTOM1.x and seed
 // CG_OBJECT_CUSTOM1.y, blended as it says: what sprite.shader draws.
 #domain global
-#include "crystalgraphics:shaders/lib/vfx/fx_particle.glsl"
+#include "crystalgraphics:shaders/lib/vfx/particle.glsl"
 Material { ColorSpace sRGB  Queue Geometry  Media On }
 
 RenderState {

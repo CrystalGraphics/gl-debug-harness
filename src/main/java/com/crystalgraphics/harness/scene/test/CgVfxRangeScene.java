@@ -437,7 +437,7 @@ public class CgVfxRangeScene implements InteractiveSceneLifecycle {
         return result;
     }
 
-    /** {@code lib/occlusion.glsl}'s cg_occluded over this scene's pyramid, for a cube of half-size {@code reach}. */
+    /** {@code compute/ops/occlusion.glsl}'s cg_occluded over this scene's pyramid, for a cube of half-size {@code reach}. */
     private boolean occluded(float cx, float cy, float cz, float reach) {
         float x0 = Float.MAX_VALUE, y0 = Float.MAX_VALUE, x1 = -Float.MAX_VALUE, y1 = -Float.MAX_VALUE, nearest = Float.MAX_VALUE;
         Matrix4f vp = viewProjection;
