@@ -1,29 +1,15 @@
-#type spatial
-
 // A flat, opaque colour from the record's custom0: the harness's floor, drawn as a host's world is.
+#domain surface
+Material { ShadingModel Unlit  Faces Both  Fog Off }
 
-Tags { "RenderType" = "Opaque" "Lighting" = "Unlit" "Fog" = "Off" }
-Queue = "Geometry"
+struct v2f {
+    vec3 localPos;
+};
 
-Pass {
-    Tags { "LightMode" = "Forward" }
+void vertex(inout CgVertex v, out v2f o) {
+    o.localPos = cg_Position;
+}
 
-    RenderState {
-        DepthTest LEQUAL
-        DepthWrite ON
-        Cull OFF
-    }
-
-    struct v2f {
-        vec3 localPos;
-    };
-
-    void vertex(out v2f o) {
-        o.localPos = cg_Position;
-        gl_Position = CG_MATRIX_MVP * vec4(cg_Position, 1.0);
-    }
-
-    void fragment(in v2f i, out vec4 fragColor) {
-        fragColor = vec4(CG_OBJECT_CUSTOM0.rgb, 1.0);
-    }
+void surface(in v2f i, inout CgSurface s) {
+    s.baseColor = CG_OBJECT_CUSTOM0.rgb;
 }
