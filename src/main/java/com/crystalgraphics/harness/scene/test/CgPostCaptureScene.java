@@ -50,9 +50,10 @@ import java.util.Map;
  * frame after the post. Scene id {@code post-capture}.
  *
  * <pre>{@code
+ * // the default sequence's pair, in the research repo: captures/post_capture_5nrtspl1_atk040/
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=post-capture --rhi=vulkan" \
- *     -Pharness.jvmArgs="-Dcrystalgraphics.harness.postCapture.scene=<before>.png \
- *     -Dcrystalgraphics.harness.postCapture.reference=<after>.png"
+ *     -Pharness.jvmArgs="-Dcrystalgraphics.harness.postCapture.scene=X:/research/captures/post_capture_5nrtspl1_atk040/before.png \
+ *     -Dcrystalgraphics.harness.postCapture.reference=X:/research/captures/post_capture_5nrtspl1_atk040/after.png"
  * // another sequence and tick
  * ... -Dcrystalgraphics.harness.postCapture.sequence=<ns>:<path> -Dcrystalgraphics.harness.postCapture.tick=30
  * }</pre>
