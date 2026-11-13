@@ -155,6 +155,11 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
         // Its first frame plays from tick 0: the frame's delta is the load's.
         sequencer.evaluate(frames == 0 ? 0f : frame.getDeltaTime());
         long cost = System.nanoTime() - t0;
+        if (player.failure() != null) {
+            System.out.println(TAG + "FAIL on " + device() + ": " + sequenceId + " stopped at tick " + tick() + ": " + player.failure());
+            running = false;
+            return;
+        }
         if (cost > worstNanos && frames > 0) {
             worstNanos = cost;
             worstTick = tick();
