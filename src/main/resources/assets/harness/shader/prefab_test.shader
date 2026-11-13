@@ -1,7 +1,7 @@
 // vfx-prefab's material (CgVfxPrefabScene): a prefab node's mesh in _Color times its presence, premultiplied, so a
 // node at presence 0 leaves the target black and one below 1 dims. Its front faces alone, so one layer blends.
 #domain surface
-#include "crystalgraphics:shaders/lib/vfx/draw.glsl"
+#include "crystalgraphics:shaders/factories/draw.glsl"
 Material { BlendMode AlphaComposite  ShadingModel Unlit  DepthTest Off  Fog Off  PerDrawValues On }
 
 Properties {
