@@ -2,7 +2,8 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.material.CgMaterialProperty;
-import com.crystalgraphics.material.parse.CgShaderParser;
+import com.crystalgraphics.material.shader.CgShaderSpec;
+import com.crystalgraphics.material.shader.syntax.CgPropertyGrammar;
 import com.crystalgraphics.util.io.CgIO;
 import com.crystalgraphics.vfx.look.CgVfxLook;
 import com.crystalgraphics.vfx.particle.renderer.CgVfxMeshRendererProperties;
@@ -82,7 +83,7 @@ final class HarnessMaterialDump {
         List<CgMaterialProperty> properties = declared.computeIfAbsent(shader, path -> {
             String source = CgIO.loadSource(path);
             if (source == null) throw new IllegalStateException("no shader at " + path + ", which " + d.id() + " draws");
-            return CgShaderParser.parseProperties(source, path);
+            return CgPropertyGrammar.readBlock(source, path);
         });
         for (CgMaterialProperty p : properties) {
             if (p.isHidden()) continue;
