@@ -31,11 +31,12 @@ import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=vfx-renderers --rhi=vulkan"
  * }</pre>
  *
- * <p>Prints {@code [vfx-renderers] PASS} or {@code FAIL} after {@link #WARM} frames, then exits.</p>
+ * <p>Prints {@code [vfx-renderers] PASS} once every set draws, or {@code FAIL} at {@link #DEADLINE}: the simulation
+ * kernels compile before the first step, which a cold shader cache spreads over many frames.</p>
  */
 public final class CgVfxRenderersScene implements InteractiveSceneLifecycle {
 
-    private static final int EFFECTS = 100, WARM = 90, RENDERERS = 4, SETS = 3;
+    private static final int EFFECTS = 100, WARM = 90, DEADLINE = 600, RENDERERS = 4, SETS = 3;
     private static final String SPRITE = "crystalgraphics:shaders/vfx/particle/sprite.shader";
     private static final String ARC = "crystalgraphics:shaders/vfx/particle/arc.shader";
     private static final String RIBBON = "crystalgraphics:shaders/vfx/trail/glow.shader";
@@ -89,7 +90,9 @@ public final class CgVfxRenderersScene implements InteractiveSceneLifecycle {
         if (++frames < WARM || !running) return;
         TraceReport report = TraceReport.lastFrame();
         long sets = report.counter("vfx.draws.particle-sets"), records = report.counter("vfx.draws.particle-gpu");
-        String verdict = sets == SETS && records == (long) RENDERERS * EFFECTS ? "PASS" : "FAIL";
+        boolean drawn = sets == SETS && records == (long) RENDERERS * EFFECTS;
+        if (!drawn && frames < DEADLINE) return;
+        String verdict = drawn ? "PASS" : "FAIL";
         System.out.printf("[vfx-renderers] %s: %d renderers of %d effects drew %d particle sets of %d records"
                 + " (want %d and %d)%n", verdict, RENDERERS, EFFECTS, sets, records, SETS, RENDERERS * EFFECTS);
         running = false;

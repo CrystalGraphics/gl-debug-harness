@@ -10,7 +10,7 @@ import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgSortLayer;
+import com.crystalgraphics.render.scene.sort.CgSortLayer;
 import com.crystalgraphics.render.world.CgPipelinePrecache;
 import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
