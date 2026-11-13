@@ -16,6 +16,7 @@ import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
 import com.crystalgraphics.vfx.system.CgVfxSystemAssets;
@@ -115,11 +116,15 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
         if (RELOAD) kit = copy = copyOf(kit);   // saved into, never the kit itself
         kitPath = kit.toAbsolutePath().normalize();
         CgVfxSystemAssets.register();
-        CgAssetRegistry registry = new CgAssetRegistry();
-        registry.registerEngine();
-        registry.scan("novamod", kit, CgAssetSource.DEV);
+        // The kit the harness mounted, scanned once at startup; a reload's copy or a kit named here is scanned on its own
+        CgAssetRegistry registry = CgVfxAssets.instance().registry();
+        if (RELOAD || System.getProperty("crystalgraphics.harness.nova.kit") != null) {
+            registry = new CgAssetRegistry();
+            registry.registerEngine();
+            registry.scan("novamod", kit, CgAssetSource.DEV);
+        }
         CgVfxAssets assets = new CgVfxAssets(registry);
-        assets.preparer(CgParticleKinds.SYSTEM, new CgVfxSystemPreparer(() -> vfx));
+        CgVfx.preparers(assets, () -> vfx);   // the systems on this scene's own
         CgVfxAssets.install(assets);   // the frame boundary drains and publishes the process's assets
         refs = new CgAssetRef[SYSTEMS.length];
         for (int i = 0; i < SYSTEMS.length; i++) refs[i] = assets.declare(CgParticleKinds.SYSTEM, SYSTEMS[i]);

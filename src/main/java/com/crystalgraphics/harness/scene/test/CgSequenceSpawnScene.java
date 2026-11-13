@@ -6,8 +6,6 @@ import com.crystalgraphics.api.animation.CgSkeleton;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgSkeletalMesh;
 import com.crystalgraphics.api.vertex.CgVertexFormat;
-import com.crystalgraphics.asset.kind.CgBodyKinds;
-import com.crystalgraphics.asset.kind.CgParticleKinds;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.asset.load.CgAssetRef;
 import com.crystalgraphics.asset.load.CgLoadHandle;
@@ -33,12 +31,11 @@ import com.crystalgraphics.sequence.animation.CgSequenceSkeletal;
 import com.crystalgraphics.sequence.spawn.CgSequenceSpawned;
 import com.crystalgraphics.sequence.spawn.CgSequenceSystem;
 import com.crystalgraphics.sequence.CgSequencer;
+import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.prefab.CgVfxPrefabAssets;
-import com.crystalgraphics.vfx.prefab.CgVfxPrefabPreparer;
 import com.crystalgraphics.vfx.prefab.CgVfxPrefabSpawner;
 import com.crystalgraphics.vfx.system.CgVfxSystemAssets;
-import com.crystalgraphics.vfx.system.CgVfxSystemPreparer;
 import com.crystalgraphics.vfx.system.CgVfxSystemSpawner;
 import com.crystalgraphics.world.CgAttachment;
 import org.joml.Vector3f;
@@ -58,12 +55,16 @@ import java.util.Map;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=sequence-spawn --rhi=vulkan"
  * // the Rasen Shuriken's demo, its worst boundary frame traced
- * ... -Dcrystalgraphics.harness.sequence.kit.namespace=nsuns4_kit \
- *     -Dcrystalgraphics.harness.sequence.id=nsuns4_kit:2efb_rsn/2efb_rsn_df_demo02 \
+ * ... -Dcrystalgraphics.harness.sequence.id=nsuns4_kit:2efb_rsn/2efb_rsn_df_demo02 \
  *     -Dcrystalgraphics.trace.channels=crystalgraphics.world,crystalgraphics.vfx
+ * // a kit outside the ones the harness mounts, scanned on its own
+ * ... -Dcrystalgraphics.harness.sequence.kit=<folder>/assets/mymod -Dcrystalgraphics.harness.sequence.kit.namespace=mymod \
+ *     -Dcrystalgraphics.harness.sequence.id=mymod:my_move
  * }</pre>
  *
  * <ul>
+ *   <li>A sequence's kit is one the harness mounts ({@code examples/novamod} and {@code local/kitroot}), already
+ *       scanned at startup; its assets load over that registry with the engine's preparers, systems on this scene's own.</li>
  *   <li>The caster is a fixture standing at the origin, facing +x, every socket at chest height; it takes any slot a
  *       track writes. Cameras and lights spawn as fixtures too: their systems are not this scene's.</li>
  *   <li>Prints each system's activations and deactivations at their sequence ticks, the frame whose sequencer cost
@@ -76,9 +77,6 @@ import java.util.Map;
 public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
 
     private static final String TAG = "[sequence-spawn] ";
-    /** From the harness's working directory, {@code gl-debug-harness/}. */
-    private static final String NOVA_KIT = "../plan/crystalgraphics/vfx-aaa/examples/novamod/assets/novamod";
-    private static final String KITS = "../plan/crystalgraphics/vfx-aaa/local/examples/";
     private static final String NOVA = "novamod:nova_cannon";
     /** Frames played past the sequence's end, for its systems to finish. */
     private static final int TAIL = 60;
@@ -107,18 +105,20 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().setYaw(-25f);
         ctx.getCamera3D().setPitch(-10f);
         sequenceId = System.getProperty("crystalgraphics.harness.sequence.id", NOVA);
-        String namespace = System.getProperty("crystalgraphics.harness.sequence.kit.namespace", "novamod");
-        Path kit = Paths.get(System.getProperty("crystalgraphics.harness.sequence.kit",
-                namespace.equals("novamod") ? NOVA_KIT : KITS + namespace));
-        if (!Files.isDirectory(kit)) throw new IllegalStateException("no kit at " + kit.toAbsolutePath() + ": check out plan/");
         CgVfxSystemAssets.register();
         CgVfxPrefabAssets.register();
-        CgAssetRegistry registry = new CgAssetRegistry();
-        registry.registerEngine();
-        registry.scan(namespace, kit, CgAssetSource.DEV);
+        // The kits the harness mounted, scanned once at startup; a kit folder named here is scanned on its own
+        CgAssetRegistry registry = CgVfxAssets.instance().registry();
+        String folder = System.getProperty("crystalgraphics.harness.sequence.kit");
+        if (folder != null) {
+            Path kit = Paths.get(folder);
+            if (!Files.isDirectory(kit)) throw new IllegalStateException("no kit at " + kit.toAbsolutePath());
+            registry = new CgAssetRegistry();
+            registry.registerEngine();
+            registry.scan(System.getProperty("crystalgraphics.harness.sequence.kit.namespace", "novamod"), kit, CgAssetSource.DEV);
+        }
         CgVfxAssets assets = new CgVfxAssets(registry);
-        assets.preparer(CgParticleKinds.SYSTEM, new CgVfxSystemPreparer(() -> vfx));
-        assets.preparer(CgBodyKinds.PREFAB, new CgVfxPrefabPreparer(() -> vfx));
+        CgVfx.preparers(assets, () -> vfx);   // the systems on this scene's own
         CgVfxAssets.install(assets);
         ref = assets.declare(CgSequenceKinds.SEQUENCE, sequenceId);
         handle = assets.load(List.of(ref), CgLoadPriority.MOVE);
