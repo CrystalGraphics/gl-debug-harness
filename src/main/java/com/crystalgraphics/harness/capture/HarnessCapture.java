@@ -20,6 +20,7 @@ import java.util.logging.Logger;
  * HarnessCapture.target(target.external(), dir, "frame.png");     // a target, top row first
  * HarnessCapture.target(ctx.getTarget(), dir, "final.png");       // the frame's own target
  * HarnessCapture.texture(atlas, 3, dir, "page3.png");             // layer 3 of an array, its rows as uploaded
+ * BufferedImage drawn = HarnessCapture.image(target.external());  // read back, no file
  * }</pre>
  *
  * <ul>
@@ -35,8 +36,13 @@ public final class HarnessCapture {
 
     /** {@code target}'s colour, top row first. */
     public static void target(CgExternalTarget target, String outputDir, String filename) {
+        write(image(target), outputDir, filename);
+    }
+
+    /** {@code target}'s colour as a picture, top row first, written nowhere: for a scene that scores what it drew. */
+    public static BufferedImage image(CgExternalTarget target) {
         int w = target.width(), h = target.height();
-        write(image(CgReadback.now(target.color(), 0, 0, w, h, false), w, h, true), outputDir, filename);
+        return image(CgReadback.now(target.color(), 0, 0, w, h, false), w, h, true);
     }
 
     /** {@code texture} (an array's {@code layer}), its rows as uploaded. */
