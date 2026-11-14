@@ -13,15 +13,14 @@ import com.crystalgraphics.api.mesh.geckolib.CgGeckoModel;
 import com.crystalgraphics.api.state.CgCullState;
 import com.crystalgraphics.api.texture.CgSampler;
 import com.crystalgraphics.api.texture.CgTextures;
-import com.crystalgraphics.frame.CgTickFunction;
-import com.crystalgraphics.frame.CgTickGroup;
-import com.crystalgraphics.frame.CgWorld;
+
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.render.scene.CgScene;
+import com.crystalgraphics.render.scene.component.CgSkeletalMeshComponent;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import org.joml.Matrix4f;
 
@@ -36,8 +35,9 @@ import java.util.Locale;
 import java.util.stream.Stream;
 
 /**
- * A kit's skinned models standing in a row, each playing its clips through the engine's own path: posed by
- * {@link CgAnimation} in {@code POSE}, skinned on the GPU and drawn in Minecraft's entity look
+ * A kit's skinned models standing in a row, each playing its clips through the engine's own path: a skeletal mesh
+ * component of the client scene, posed by {@link CgAnimation} in {@code POSE}, skinned on the GPU and drawn in
+ * Minecraft's entity look
  * ({@code materials/entity.shader}). A GeckoLib kit's {@code .geo.json} models play every clip of its
  * {@code .animation.json} files, converted for each model as GeckoLib plays them; any other kit's skinned glTF, GLB or
  * {@code .cgmesh} plays the clips it carries. Scene id {@code model-play}.
@@ -86,6 +86,7 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
     /** One model in the row: its instance, its clips, and its placement before the row's turn. */
     private static final class Model {
         final String name;
+        final CgSkeletalMeshComponent body;
         final CgAnimInstance instance;
         final List<Clip> clips;
         final Matrix4f fit;
@@ -94,7 +95,8 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
 
         Model(String name, CgSkeletalMesh mesh, List<Clip> clips, Matrix4f fit, double x) {
             this.name = name;
-            this.instance = new CgAnimInstance(mesh);
+            this.body = CgScene.client().skeletal(mesh);
+            this.instance = body.anim();
             this.clips = clips;
             this.fit = fit;
             this.x = x;
@@ -102,8 +104,7 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
     }
 
     private final List<Model> models = new ArrayList<>();
-    private final Matrix4f placed = new Matrix4f();
-    private CgTickFunction submit;
+
     private CgMaterial material;
     private boolean running = true, loopAll;
     private int selected, rate = 3, clipIndex;
@@ -145,11 +146,8 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
         }
 
         String start = System.getProperty(P + "clip");
-        CgAnimation animation = CgAnimation.client();
         for (Model m : models) {
-            animation.add(m.instance);
-            m.instance.material(0, material);
-            for (int s = 1; s < m.instance.materialSlots(); s++) m.instance.material(s, material);
+            m.body.materials(s -> material).spawn();
             if (start != null) {
                 for (int c = 0; c < m.clips.size(); c++) {
                     String name = m.clips.get(c).name();
@@ -163,11 +161,7 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
 
         ctx.getCamera3D().moveCamera(0f, 1.2f, distance);
         ctx.getCamera3D().setPitch(-5f);
-        // In SUBMIT, after POSE wrote this frame's palettes
-        submit = CgWorld.client().schedule().add(CgTickGroup.SUBMIT, "harness:model-play", dt -> {
-            CgWorldRenderer world = CgWorldRenderer.get();
-            for (Model m : models) if (m.instance.palette() >= 0) world.draw(m.instance);
-        });
+
     }
 
     /** A GeckoLib model at its own size, with every animation in {@code files} converted for it. */
@@ -218,7 +212,7 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
 
     /** Each model at its place in the row, turned by the row's yaw about its own feet. */
     private void place() {
-        for (Model m : models) m.instance.place(m.x, 0.0, 0.0, placed.rotationY(yaw).mul(m.fit));
+        for (Model m : models) m.body.at(m.x, 0.0, 0.0).transform(new Matrix4f().rotationY(yaw).mul(m.fit));
     }
 
     private static String require(String key) {
@@ -319,8 +313,7 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
 
     @Override
     public void dispose() {
-        if (submit != null) submit.close();
-        for (Model m : models) CgAnimation.client().remove(m.instance);
+        for (Model m : models) m.body.remove();
     }
 
     @Override public boolean isRunning() { return running; }

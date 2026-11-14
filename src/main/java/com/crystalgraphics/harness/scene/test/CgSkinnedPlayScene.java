@@ -37,7 +37,8 @@ import com.crystalgraphics.render.post.CgPostPoint;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.stage.CgDirectionalLights;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.render.scene.CgScene;
+import com.crystalgraphics.render.scene.component.CgSkeletalMeshComponent;
 import com.crystalgraphics.render.post.stage.CgStage;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencePlayer;
@@ -82,7 +83,8 @@ import java.util.function.Function;
 
 /**
  * Skinned meshes playing their clips, to look at and play with: Kakarot's Goku and his move clips, and Kurama with
- * his. Each is a {@link CgAnimInstance} posed by {@link CgAnimation} in {@code POSE} and drawn skinned on the GPU.
+ * his. Each is a skeletal mesh component of the client scene, its {@link CgAnimInstance} posed by {@link CgAnimation}
+ * in {@code POSE}, drawn skinned on the GPU.
  *
  * <ul>
  *   <li>Tab picks Goku or Kurama; N and B its next and previous clip, cross-fading over 0.25 s.</li>
@@ -137,6 +139,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         final String name;
         final CgSkeletalMesh mesh;
         final List<CgAnimSequence> clips;
+        /** Its skinned mesh in the client scene, spawned in its plain view; and the instance posing it. */
+        final CgSkeletalMeshComponent body;
         final CgAnimInstance instance;
         final double x, z;
         final Matrix4f transform = new Matrix4f();
@@ -169,7 +173,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             this.name = name;
             this.mesh = mesh;
             this.clips = clips;
-            this.instance = new CgAnimInstance(mesh);
+            this.body = CgScene.client().skeletal(mesh);
+            this.instance = body.anim();
             this.x = x;
             this.z = z;
             CgAABB box = mesh.mesh().bounds(new CgAABB());
@@ -179,7 +184,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             transform.scaling(scale).translate((float) -(box.minX() + box.maxX()) / 2f, (float) -box.minY(),
                     (float) -(box.minZ() + box.maxZ()) / 2f);
             this.height = height;
-            instance.place(x, 0.0, z, transform);
+            body.at(x, 0.0, z).transform(transform);
             this.r = (rgb >> 16 & 0xFF) / 255f;
             this.g = (rgb >> 8 & 0xFF) / 255f;
             this.b = (rgb & 0xFF) / 255f;
@@ -236,10 +241,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
         @Override
         public CgAttachment attachment(String socket) {
-            if (socket != null) return instance.attachment(socket);   // an unknown name answers where it stands
+            if (socket != null) return body.attachment(socket);   // an unknown name answers where it stands
             // No socket: the actor's origin, its prefab's root, rootLift above the mesh's (an ACharacter's capsule centre),
             // turned as the actor rather than its mesh
-            CgAttachment root = instance.attachment("");
+            CgAttachment root = body.attachment("");
             return (point, turn) -> {
                 if (!root.place(point, turn)) return false;
                 point[1] += rootLift;
@@ -252,7 +257,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         @Override
         @Nullable
         public CgAttachment node(String name) {
-            return name.equals("Mesh") ? instance.attachment("") : null;
+            return name.equals("Mesh") ? body.attachment("") : null;
         }
 
         @Override
@@ -557,7 +562,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             Actor actor = new Actor("Goku", goku.mesh(), goku.clips(), -2.0, -6.0, 0f, 0xFFF0A040);
             actor.kit = true;
             if (plan != null) {
-                int slots = actor.instance.materialSlots();
+                int slots = actor.body.materialSlots();
                 if (plan.materials().size() == slots) {
                     actor.kitMaterials = plan.materials();
                     actor.outlineBlock = plan.outline();
@@ -573,9 +578,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
         Body kurama = bodies.kurama();
         if (kurama != null) actors.add(new Actor("Kurama", kurama.mesh(), kurama.clips(), 8.0, -16.0, 9f, 0xFFE06030));
-        CgAnimation animation = CgAnimation.client();
         for (Actor actor : actors) {
-            animation.add(actor.instance);
+            // The plain skinned view in its colour until its kit materials are ready
+            actor.body.materials(s -> material).customData(0, actor.r, actor.g, actor.b, 1f).spawn();
             actor.play(0);
             if (!Double.isNaN(PAUSED_AT)) {
                 actor.instance.playing(false);
@@ -661,9 +666,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
     }
 
-    /** In SUBMIT, after POSE wrote this frame's palettes. */
+    /** In SUBMIT: the moves' ends, the kit's dressing and the darkening. The client scene draws the actors. */
     private void submit(float dt) {
-        CgWorldRenderer world = CgWorldRenderer.get();
         for (Actor actor : actors) {
             if (actor.stage == Stage.ENDING && actor.move.finished()) {
                 actor.release();
@@ -707,7 +711,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                         // The contract's outline colour in his slot, 1: the battle's first member, as gameplay would give
                         if (block.get("slot_parameter") instanceof String parameter
                                 && block.get("slot_colours") instanceof List<?> colours && !colours.isEmpty()) {
-                            actor.outline = new CgRoleOutline(actor.instance, battle, 1, parameter, String.valueOf(colours.get(0)));
+                            actor.outline = new CgRoleOutline(actor.body, battle, 1, parameter, String.valueOf(colours.get(0)));
                         }
                         if (Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.outlineCheck")) {
                             outlineCheck = new SkinnedOutlineCheck(battle, List.of(actor.instance), actor.x, actor.z, actor.height,
@@ -717,7 +721,6 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 }
             }
             if (actor.kit && kit != null && kit.ready()) darken(dt, actor.move != null);
-            draw(world, actor);
         }
     }
 
@@ -738,28 +741,19 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
      * stencil its outline's post reads it by. The outline post itself is the scene's, set by the real Goku alone.
      */
     private void dress(Actor actor) {
-        for (int s = 0; s < actor.kitMaterials.size(); s++) actor.instance.material(s, kit.material(s).get());
+        actor.body.materials(s -> CgMaterial.of(kit.material(s).get())).customData(0, 0f, 0f, 0f, 0f);
         actor.dressed = true;
         Map<?, ?> rim = actor.rimBlock;
         if (rim != null && rim.get("strength") instanceof String strength && rim.get("power") instanceof String power
                 && rim.get("colour") instanceof String colour) {
-            actor.rim = new CgRoleRim(actor.instance, strength, power, colour);
+            actor.rim = new CgRoleRim(actor.body, strength, power, colour);
         }
         Map<?, ?> block = actor.outlineBlock;
         if (block != null && block.get("custom_depth_stencil_value") instanceof Number stencil) {
-            actor.instance.customDepth(stencil.intValue(), 0xFF);
+            actor.body.customDepth(stencil.intValue(), 0xFF);
         }
     }
 
-    /** {@code actor}'s draw once posed: in its kit materials once dressed, else the plain skinned view in its colour. */
-    private void draw(CgWorldRenderer world, Actor actor) {
-        if (actor.instance.palette() < 0) return;
-        if (actor.dressed) {
-            world.draw(actor.instance);
-        } else {
-            world.draw(actor.instance, material).pad(actor.height * 50f).custom(0, actor.r, actor.g, actor.b, 1f).submit();
-        }
-    }
 
     /** The cut's own kind on {@code sequencer}, beside the engine's: the beam its notify fires through {@code cues}. */
     private KakarotProjectileBeam installCut(CgSequencer sequencer, CgCueManager cues, Function<CgSequencePlayer, CgSequenceRole> casters) {
@@ -1111,10 +1105,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (darken != null) darken.close();
         if (stageLight != null) stageLight.close();
         CgWorld.client().timeDilation(1f);   // the client world outlives the scene
-        CgAnimation animation = CgAnimation.client();
         for (Actor actor : actors) {
             actor.release();
-            animation.remove(actor.instance);
+            actor.body.remove();
         }
     }
 
