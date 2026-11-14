@@ -6,6 +6,7 @@ import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshTopology;
 import com.crystalgraphics.render.draw.CgChunkBuilder;
 import com.crystalgraphics.render.draw.CgInstanceKind;
+import com.crystalgraphics.render.draw.CgPassConstants;
 import com.crystalgraphics.render.draw.CgPipeline;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
@@ -38,14 +39,19 @@ final class StencilProbe {
     /** Records the copy of {@code from}'s stencil, returning the R8 it lands in; null while its program builds. */
     @Nullable
     CgGraphTexture record(CgStageFrame stage, CgGraphTexture from) {
+        return record(stage.recording(), stage.constants(), from);
+    }
+
+    /** As {@link #record(CgStageFrame, CgGraphTexture)}, into {@code recording} under {@code constants}. */
+    @Nullable
+    CgGraphTexture record(CgRecording recording, CgPassConstants constants, CgGraphTexture from) {
         CgPipeline pipeline = CgMaterialProxy.of(copy).pipeline(CgInstanceKind.OBJECT);
         if (pipeline == null) return null;
         int w = from.getWidth(), h = from.getHeight();
         if (into == null || into.getWidth() != w || into.getHeight() != h) {
             into = CgGraphTexture.transientTexture("stencil_probe", new CgTextureDesc(w, h, R8));
         }
-        CgRecording recording = stage.recording();
-        CgRasterPass pass = recording.raster("stencilProbe.into").color(into, CgLoad.CLEAR).constants(stage.constants());
+        CgRasterPass pass = recording.raster("stencilProbe.into").color(into, CgLoad.CLEAR).constants(constants);
         CgMaterialBindings reads = CgMaterialProxy.of(copy).bindings().with(0, from.stencil());
         CgChunkBuilder chunks = recording.chunks().begin();
         chunks.draw(pipeline, reads, FULLSCREEN);

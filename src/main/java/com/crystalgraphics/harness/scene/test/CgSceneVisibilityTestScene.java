@@ -173,8 +173,10 @@ public class CgSceneVisibilityTestScene implements HarnessSceneLifecycle {
     private static String strangeIds(CgInstanceCulling culling, int kept, CgViewVisibility seenBy) {
         if (seenBy == null) return "a firing's visibility was not the frame's first";
         if (kept <= 0 || culling.ids() == null) return null;
+        int[] entries = new int[kept * 2];
+        CgBufferReadback.readWords(culling.ids().bufferId(), culling.first(0) * 8L, entries, 0, kept * 2);
         int[] got = new int[kept];
-        CgBufferReadback.readWords(culling.ids().bufferId(), culling.first(0) * 4L, got, 0, kept);
+        for (int k = 0; k < kept; k++) got[k] = entries[k * 2];
         CgMeshBatches.Instances instances = seenBy.batches().instances(culling.batch(0));
         Set<Integer> live = new HashSet<>();
         Set<Integer> seen = new HashSet<>();

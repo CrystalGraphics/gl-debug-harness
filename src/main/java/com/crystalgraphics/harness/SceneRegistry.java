@@ -46,6 +46,7 @@ import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuCullTestScene;
 import com.crystalgraphics.harness.scene.test.CgSceneVisibilityTestScene;
+import com.crystalgraphics.harness.scene.test.CgMeshPassesTestScene;
 import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgSkinnedBenchScene;
 import com.crystalgraphics.harness.scene.test.CgSkinnedMeshTestScene;
@@ -375,6 +376,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgSceneVisibilityTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("mesh-passes").checksPixels()
+                .description("renderer R11: the client scene through the engine's mesh passes (depth, base, custom depth, velocity, decal, translucent) and a consumer's pass type, from cached draw commands with no chunk: colours, a decal on the floor, a custom depth stencil, velocity at the moving cube alone, the consumer's mark on the flagged cube alone, read back")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(480)
+                .defaultHeight(270)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgMeshPassesTestScene()
         );
 
         reg.register(
