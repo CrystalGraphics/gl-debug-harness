@@ -1,6 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.render.scene.CgScene;
+import com.crystalgraphics.world.actor.kit.CgKitAssets;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.demo.CgVfxDemoControls;
@@ -89,7 +90,7 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
     private final HarnessVfxControls controls = new HarnessVfxControls();
     private final CgVfxSystemInstance<?>[] playing = new CgVfxSystemInstance<?>[STATIONS.size()];
     private final int[] plays = new int[STATIONS.size()];
-    private HarnessKitSystems kit;
+    private CgKitAssets kit;
     private CgFont font;
     private Camera3D camera;
     private boolean shift, started;
@@ -104,7 +105,7 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
         camera = ctx.getCamera3D();
         camera.setMoveSpeed(10f);
         font = CgFont.load(HarnessFontUtil.LATIN_FONT, CgFontStyle.REGULAR, 48);
-        kit = HarnessKitSystems.load(vfx, "kakarot_kit", KIT, systems());
+        kit = CgKitAssets.load(vfx, "kakarot_kit", KIT, systems());
         probe = HarnessParticleProbe.fromProperties(vfx);
         overview();
     }

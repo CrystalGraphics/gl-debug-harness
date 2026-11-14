@@ -3,6 +3,7 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
 import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.render.scene.CgScene;
+import com.crystalgraphics.world.actor.kit.CgKitAssets;
 import com.crystalgui.screen.CgUiScreen;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -105,9 +106,9 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
     private final Matrix4f dummyShape = new Matrix4f().translate(0f, 16 * STEVE, 0f).scale(16 * STEVE, 32 * STEVE, 8 * STEVE);
     private final float fireEvery = Float.parseFloat(System.getProperty("crystalgraphics.harness.kitCues.fireEvery", "2"));
     private final int capture = Integer.getInteger("crystalgraphics.harness.kitCues.capture", 0);
-    private HarnessKitSystems kit;
+    private CgKitAssets kit;
     private boolean shakeWasOn;
-    private final List<HarnessKitSystems> extraKits = new ArrayList<>();
+    private final List<CgKitAssets> extraKits = new ArrayList<>();
     /** What the extra kits load: a failure there is named and skipped, as the main kit's is fatal. */
     private final Set<CgAssetRef<?>> extras = new HashSet<>(), warned = new HashSet<>();
     private CgSequencer sequencer;
@@ -137,11 +138,11 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         // A cue's camera shake reaches the view only while the harness camera applies it, and C is this scene's grade key
         shakeWasOn = HarnessCameraShake.INSTANCE.on();
         if (!shakeWasOn) HarnessCameraShake.INSTANCE.toggle();
-        kit = HarnessKitSystems.load(CgVfx.world(), namespace, Paths.get(folder), List.of());
+        kit = CgKitAssets.load(CgVfx.world(), namespace, Paths.get(folder), List.of());
         // Further kits, for the picker: registered beside the first, not stepped through or waited on
         for (String entry : System.getProperty("crystalgraphics.harness.kitCues.extraKits", "").split(",")) {
             int eq = entry.indexOf('=');
-            if (eq > 0) extraKits.add(HarnessKitSystems.load(CgVfx.world(), entry.substring(0, eq).trim(), Paths.get(entry.substring(eq + 1).trim()), List.of()));
+            if (eq > 0) extraKits.add(CgKitAssets.load(CgVfx.world(), entry.substring(0, eq).trim(), Paths.get(entry.substring(eq + 1).trim()), List.of()));
         }
         // The engine's sequencer, as a client's: a burst's sequences play through it
         sequencer = CgVfxSequencer.install(CgWorld.client(), CgVfx.world());
@@ -190,7 +191,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         // The other kits' cues load behind the loading screen too, so a pick in the picker plays at once
         if (declared && !extrasDeclared) {
             boolean scanned = true;
-            for (HarnessKitSystems extra : extraKits) scanned &= extra.declared() || extra.failed();
+            for (CgKitAssets extra : extraKits) scanned &= extra.declared() || extra.failed();
             if (scanned) {
                 extrasDeclared = true;
                 for (CgAssetEntry e : CgVfxAssets.instance().registry().entries(CgGameplayKinds.CUE)) {
