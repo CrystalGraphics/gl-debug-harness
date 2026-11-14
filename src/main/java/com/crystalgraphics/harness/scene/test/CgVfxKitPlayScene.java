@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.asset.load.CgVfxAssets;
 import com.crystalgraphics.material.CgMaterialShader;
 import com.crystalgraphics.gpu.resource.CgTextureAbstract;
@@ -8,7 +9,6 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.system.CgVfxSystemDefinition;
 import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
@@ -92,7 +92,7 @@ public final class CgVfxKitPlayScene implements InteractiveSceneLifecycle {
             }
         }
         vfx.update(frame.getElapsedTime());
-        vfx.submit(CgWorldRenderer.get());
+        vfx.submit();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         if (!started) return;
         for (int i = 0; i < playing.length; i++) {

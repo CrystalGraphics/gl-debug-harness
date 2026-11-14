@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.host.CgHostFrame;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -19,7 +22,6 @@ import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 import java.nio.ByteBuffer;
@@ -62,7 +64,6 @@ public final class CgLightsShadowsBenchScene implements InteractiveSceneLifecycl
     @Override
     public void init(HarnessContext ctx) {
         CgPlatform.provide(CgLevels.HOST, CgLevels.single(new Flat(), ENTITIES > 0 ? new Herd() : CgEntityQuery.NONE));
-        CgWorldRenderer.get().install();
         floor = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         demo.precache();
         ByteBuffer texels = ByteBuffer.allocateDirect(16 * 16 * 4).order(ByteOrder.nativeOrder());
@@ -89,13 +90,12 @@ public final class CgLightsShadowsBenchScene implements InteractiveSceneLifecycl
         ground.translation((float) (X - EYE_X), (float) (GROUND - 0.5 - EYE_Y), (float) (Z - EYE_Z)).scale(400f, 1f, 400f);
         CgMesh cube = CgMeshShapes.cube();
         ObjectDraws.draw(host, floor, cube, 1, (i, data, at) -> ObjectDraws.object(data, at, ground, 1f, 1f, 1f, 1f));
-        if (demo.ready()) demo.submit(CgWorldRenderer.get(), X, GROUND, Z, frame.getElapsedTime());
-        for (CgRenderStage stage : new CgRenderStage[]{CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT}) {
-            stage.host().set(0f, w, h, ctx.getTarget()).camera().set(EYE_X, EYE_Y, EYE_Z, view, projection);
-            stage.host().environment().sun(SUN_ANGLE, 0, 0f, 1f);
-            stage.host().textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
-            stage.fire();
-        }
+        if (demo.ready()) demo.submit(CgScene.client(), X, GROUND, Z, frame.getElapsedTime());
+        CgHostFrame hostFrame = CgStageHost.frame(CgStageHost.WORLD_OPAQUE);
+        hostFrame.set(0f, w, h, ctx.getTarget()).camera().set(EYE_X, EYE_Y, EYE_Z, view, projection);
+        hostFrame.environment().sun(SUN_ANGLE, 0, 0f, 1f);
+        hostFrame.textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
+        HarnessWorld.fireCallbacks();
     }
 
     @Override

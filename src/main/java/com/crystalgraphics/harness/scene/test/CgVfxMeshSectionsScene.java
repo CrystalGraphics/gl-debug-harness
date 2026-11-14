@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.api.material.CgMaterialUsage;
@@ -14,7 +16,6 @@ import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.look.CgVfxLook;
 import com.crystalgraphics.vfx.particle.CgVfxEmitter;
@@ -109,11 +110,9 @@ public class CgVfxMeshSectionsScene implements InteractiveSceneLifecycle {
         try {
             target.clear(0f, 0f, 0f, 1f);
             vfx.update(frame / 60.0);
-            vfx.submit(CgWorldRenderer.get());
-            for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-                stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, VIEW, CgCamera.perspectiveMatrix(PROJECTION, (float) Math.toDegrees(FOV), (float) w / h, 0.1f, 100f));
-                stage.fire();
-            }
+            vfx.submit();
+            CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, w, h, target.external()).camera().set(0, 0, 0, VIEW, CgCamera.perspectiveMatrix(PROJECTION, (float) Math.toDegrees(FOV), (float) w / h, 0.1f, 100f));
+            HarnessWorld.fireCallbacks();
             if (frame == FRAMES) target.captureToFile(ctx.getOutputDir(), "vfx-mesh-sections.png");
         } finally {
             target.unbind();

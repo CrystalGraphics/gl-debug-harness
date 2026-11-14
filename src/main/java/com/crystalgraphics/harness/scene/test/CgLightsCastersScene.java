@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.host.CgHostFrame;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -22,7 +25,6 @@ import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.variable.CgVar;
 import com.crystalgraphics.variable.CgVars;
 import org.joml.Matrix4f;
@@ -103,7 +105,6 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         CgPlatform.provide(CgLevels.HOST, CgLevels.single(world, CgEntityQuery.NONE));
-        CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         target = HarnessTarget.create(W, H, true);
         ByteBuffer texels = ByteBuffer.allocateDirect(16 * 16 * 4).order(ByteOrder.nativeOrder());
@@ -122,7 +123,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo info) {
         frame++;
         int phase = (frame - 1) / PHASE;
-        CgWorldRenderer renderer = CgWorldRenderer.get();
+        CgScene renderer = CgScene.client();
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
         CgMesh cube = CgMeshShapes.cube(), ball = CgMeshShapes.sphere(24, 32);
@@ -139,21 +140,20 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
         Matrix4f ground = new Matrix4f().translation((float) (CX + 5 - eyeX), (float) (GROUND - 0.5 - eyeY),
                 (float) (CZ - eyeZ)).scale(60f, 1f, 60f);
         ObjectDraws.draw(host, grey, cube, 1, (i, data, at) -> ObjectDraws.object(data, at, ground, 1f, 1f, 1f, 1f));
-        renderer.draw(cube, grey).at(BOX[0], BOX[1], BOX[2]).transform(new Matrix4f().scale(2f)).submit();
-        renderer.draw(cube, grey).at(BALL[0], GROUND + SLAB_TOP / 2, BALL[2]).transform(new Matrix4f().scale(10f, (float) SLAB_TOP, 10f))
-                .submit();
-        renderer.draw(ball, grey).at(BALL[0], BALL[1], BALL[2]).submit();
+        renderer.once().mesh(cube, grey).at(BOX[0], BOX[1], BOX[2]).transform(new Matrix4f().scale(2f)).add();
+        renderer.once().mesh(cube, grey).at(BALL[0], GROUND + SLAB_TOP / 2, BALL[2]).transform(new Matrix4f().scale(10f, (float) SLAB_TOP, 10f))
+                .add();
+        renderer.once().mesh(ball, grey).at(BALL[0], BALL[1], BALL[2]).add();
         if (phase == 5 || phase == 6) renderer.lights().add(LAMP[0], LAMP[1], LAMP[2], 16f, 0xFFFFFFFF, 20f * (float) Math.PI * 16f, 0f);
         ((CgVar.Bool) CgVars.get("crystalgraphics.world.lightsShadows")).set(phase != 6);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(eyeX, eyeY, eyeZ, view, lens);
-            boolean night = phase == 1 || phase == 5 || phase == 6 || phase == 8;
-            stage.host().environment().sun(night ? Float.NaN : phase >= 2 ? SIDE_SUN : SUN_ANGLE, 0, 0f, 1f);
-            stage.host().textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
-            if (boxShadow == null && phase == 0) place(stage);
-            if (phase == 2 && sideSun == null) stage.host().environment().sunDirection(sideSun = new float[3]);
-            stage.fire();
-        }
+        CgHostFrame hostFrame = CgStageHost.frame(CgStageHost.WORLD_OPAQUE);
+        hostFrame.set(0f, W, H, target.external()).camera().set(eyeX, eyeY, eyeZ, view, lens);
+        boolean night = phase == 1 || phase == 5 || phase == 6 || phase == 8;
+        hostFrame.environment().sun(night ? Float.NaN : phase >= 2 ? SIDE_SUN : SUN_ANGLE, 0, 0f, 1f);
+        hostFrame.textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
+        if (boxShadow == null && phase == 0) place(hostFrame);
+        if (phase == 2 && sideSun == null) hostFrame.environment().sunDirection(sideSun = new float[3]);
+        HarnessWorld.fireCallbacks();
         CgFrameRing.endFrame();
         if (frame % PHASE == 0) target.captureToFile(ctx.getOutputDir(), NAMES[phase] + ".png");
         target.unbind();
@@ -165,8 +165,8 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
     }
 
     /** Where the shadows fall, from the sun the stage will draw by: each caster's centre along it to the surface below. */
-    private void place(CgRenderStage stage) {
-        stage.host().environment().sunDirection(sun);
+    private void place(CgHostFrame host) {
+        host.environment().sunDirection(sun);
         double down = HEIGHT / sun[1], downOnSlab = (HEIGHT - SLAB_TOP) / sun[1];
         boxShadow = new double[]{BOX[0] - sun[0] * down, GROUND, BOX[2] - sun[2] * down};
         ballShadow = new double[]{BALL[0] - sun[0] * downOnSlab, GROUND + SLAB_TOP, BALL[2] - sun[2] * downOnSlab};

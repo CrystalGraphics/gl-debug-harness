@@ -1,12 +1,12 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.text.style.CgTextLayer;
 import com.crystalgraphics.text.style.CgTextStyle;
 
@@ -47,7 +47,7 @@ public final class CgWorldLabelsScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         int side = (int) Math.ceil(Math.sqrt(COUNT));
         float half = (side - 1) * SPACING * 0.5f;
         long n = frame.getFrameNumber();
@@ -56,7 +56,7 @@ public final class CgWorldLabelsScene implements InteractiveSceneLifecycle {
             int col = i % side, row = i / side;
             String text = CHANGING && i % 16 == 7 ? texts[i] + ": " + n / 4 : texts[i];
             int color = CHANGING && i % 32 == 3 && (n / 30) % 2 == 1 ? 0xFFFFD040 : 0xFFFFFFFF;
-            world.text(text).at(col * SPACING - half, 1.5, row * SPACING - half).height((i & 3) == 0 ? 0.9f : 0.4f)
+            scene.label(text).at(col * SPACING - half, 1.5, row * SPACING - half).height((i & 3) == 0 ? 0.9f : 0.4f)
                     .font(font).color(color).style(LABEL).submit();
         }
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());

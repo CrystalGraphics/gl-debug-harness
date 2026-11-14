@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -17,8 +19,7 @@ import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldHaze;
-import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.render.scene.renderer.feature.media.CgSceneHaze;
 import com.crystalgraphics.variable.CgVar;
 import com.crystalgraphics.variable.CgVars;
 import org.joml.Matrix4f;
@@ -32,7 +33,7 @@ import java.util.List;
 
 /**
  * The world lights in the air's gate (plan clustered-lights-decals L6): a floor, a wall of blocks 14 high and a light
- * west of it, all in a haze ({@code CgWorldHaze}). Drawn with the air lit, then not ({@code crystalgraphics.world.lightsAir}),
+ * west of it, all in a haze ({@code CgSceneHaze}). Drawn with the air lit, then not ({@code crystalgraphics.world.lightsAir}),
  * then with no light. Looking down past the light's side of the wall the haze must glow; past the other side, where the
  * wall shadows the air, it must not.
  *
@@ -61,7 +62,7 @@ public class CgLightsAirScene implements InteractiveSceneLifecycle {
     private final Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 70f, (float) W / H, 0.05f, 200f);
     private HarnessTarget target;
     private CgMaterial grey;
-    private final CgWorldHaze haze = new CgWorldHaze().box(CX - 20, GROUND, CZ - 20, CX + 20, GROUND + 20, CZ + 20)
+    private final CgSceneHaze haze = new CgSceneHaze().box(CX - 20, GROUND, CZ - 20, CX + 20, GROUND + 20, CZ + 20)
             .density(0.05f, 2f);
     private int frame;
     private boolean running = true;
@@ -69,9 +70,8 @@ public class CgLightsAirScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         CgPlatform.provide(CgLevels.HOST, CgLevels.single(world, CgEntityQuery.NONE));
-        CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
-        CgWorldRenderer.get().media().add(haze);
+        CgScene.client().media().add(haze);
         target = HarnessTarget.create(W, H, true);
     }
 
@@ -80,18 +80,16 @@ public class CgLightsAirScene implements InteractiveSceneLifecycle {
         frame++;
         int phase = (frame - 1) / PHASE;
         ((CgVar.Bool) CgVars.get(AIR)).set(phase != 1);
-        CgWorldRenderer renderer = CgWorldRenderer.get();
+        CgScene renderer = CgScene.client();
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
         CgMesh cube = CgMeshShapes.cube();
-        renderer.draw(cube, grey).at(CX + 0.5, GROUND - 0.5, CZ + 0.5).transform(new Matrix4f().scale(40f, 1f, 40f)).submit();
-        renderer.draw(cube, grey).at(CX + 0.5, GROUND + WALL / 2.0, CZ + 0.5).transform(new Matrix4f().scale(1f, WALL, 13f))
-                .submit();
+        renderer.once().mesh(cube, grey).at(CX + 0.5, GROUND - 0.5, CZ + 0.5).transform(new Matrix4f().scale(40f, 1f, 40f)).add();
+        renderer.once().mesh(cube, grey).at(CX + 0.5, GROUND + WALL / 2.0, CZ + 0.5).transform(new Matrix4f().scale(1f, WALL, 13f))
+                .add();
         if (phase < 2) renderer.lights().add(LIGHT_X, LIGHT_Y, LIGHT_Z, 16f, 0xFFFFE0C0, 600f, 0f);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, look, projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, look, projection);
+        HarnessWorld.fireCallbacks();
         CgFrameRing.endFrame();
         if (frame % PHASE == 0) target.captureToFile(ctx.getOutputDir(), NAMES[phase] + ".png");
         target.unbind();
@@ -150,7 +148,7 @@ public class CgLightsAirScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         if (target != null) target.delete();
-        CgWorldRenderer.get().media().remove(haze);
+        CgScene.client().media().remove(haze);
         CgPlatform.provide(CgLevels.HOST, null);
     }
 

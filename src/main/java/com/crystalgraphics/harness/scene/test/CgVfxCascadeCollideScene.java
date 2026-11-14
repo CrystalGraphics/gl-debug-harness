@@ -26,7 +26,7 @@ import com.crystalgraphics.vfx.particle.gpu.CgVfxInstanceView;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
 import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
-import com.crystalgraphics.render.world.CgWorldVoxelWindow;
+import com.crystalgraphics.render.scene.renderer.feature.field.CgVoxelWindow;
 import org.joml.Matrix4f;
 
 import java.nio.ByteBuffer;
@@ -130,7 +130,7 @@ public class CgVfxCascadeCollideScene implements InteractiveSceneLifecycle {
         frame++;
         if (frame <= FILL + STEPS + 1) {
             CgRecording rec = new CgRecording();
-            CgWorldVoxelWindow.get().useDistance().record(rec, view);
+            CgVoxelWindow.get().useDistance().record(rec, view);
             if (frame == FILL) seed(rec);
             if (frame > FILL) step(rec);
             if (frame == FILL + MID || frame == FILL + STEPS + 1) readBack(rec, frame == FILL + MID);
@@ -162,7 +162,7 @@ public class CgVfxCascadeCollideScene implements InteractiveSceneLifecycle {
 
     /** Each pool seeded once with every group it holds: a seed replaces what a pool held. */
     private void seed(CgRecording rec) {
-        if (!CgWorldVoxelWindow.get().live()) fail("the window has no level after " + FILL + " frames");
+        if (!CgVoxelWindow.get().live()) fail("the window has no level after " + FILL + " frames");
         for (int g = 0; g < 4; g++) {
             pools[g] = CgVfxParticlePool.of(this, emitters[g]);
             slots[g] = pools[g].open(emitters[g], N);

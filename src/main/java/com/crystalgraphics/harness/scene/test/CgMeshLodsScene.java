@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.component.CgMeshCollector;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMeshLods;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
@@ -7,7 +9,6 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.mesh.CgMeshStore;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 
 import java.util.logging.Logger;
 
@@ -35,13 +36,13 @@ public class CgMeshLodsScene implements InteractiveSceneLifecycle {
         long n = frame.getFrameNumber();
         boolean useLods = n > SWITCH;
         CgMeshLods lods = CgMeshShapes.sphereLods();
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         for (int row = 0; row < ROWS; row++) {
             for (int column = 0; column < COLUMNS; column++) {
                 float x = (column - (COLUMNS - 1) * 0.5f) * 3f, z = -3f - row * 3f;
                 float shade = 0.5f + 0.5f * ((row + column) & 1);
-                CgWorldRenderer.Draw draw = useLods ? world.draw(lods, solid) : world.draw(lods.finest(), solid);
-                draw.at(x, -1f, z).custom(0, 0.4f + 0.6f * shade, 0.4f + 0.5f * shade, 1.4f, 1.4f).submit();
+                CgMeshCollector draw = useLods ? scene.once().mesh(lods, solid) : scene.once().mesh(lods.finest(), solid);
+                draw.at(x, -1f, z).customData(0, 0.4f + 0.6f * shade, 0.4f + 0.5f * shade, 1.4f, 1.4f).add();
             }
         }
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());

@@ -17,9 +17,7 @@ import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.post.CgOutline;
 import com.crystalgraphics.api.material.CgParameterCollection;
 import com.crystalgraphics.asset.kind.CgLookKinds;
-import com.crystalgraphics.render.stage.CgFrameKeys;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 
@@ -84,14 +82,14 @@ final class SkinnedOutlineCheck {
         this.eyeZ = (float) z + 1.8f;
         this.outline = outline;
         this.held = held;
-        this.reader = CgRenderStage.WORLD_TRANSPARENT.register(CgWorldRenderer.ORDER + 1, stage -> {
-            CgGraphTexture mask = stage.resources().get(CgFrameKeys.CUSTOM_DEPTH);
+        this.reader = CgRenderStage.TRANSLUCENT.register(1, stage -> {
+            CgGraphTexture mask = stage.view().textures().customDepth();
             if (!readStencil || mask == null) return;
             CgGraphTexture bytes = stencilProbe.record(stage, mask);
             if (bytes == null) return;   // the probe's program is still building: the next frame reads
             readStencil = false;
             stage.recording().readback(bytes, 0, 0, 0, mask.getWidth(), mask.getHeight(), d -> stencil = copy(d, mask.getWidth() * mask.getHeight()));
-            CgGraphTexture data = stage.resources().get(CgFrameKeys.CUSTOM_DATA);
+            CgGraphTexture data = stage.view().textures().customData();
             if (data != null) {
                 int n = data.getWidth() * data.getHeight();
                 stage.recording().readback(data, 0, 0, 0, data.getWidth(), data.getHeight(), d -> {

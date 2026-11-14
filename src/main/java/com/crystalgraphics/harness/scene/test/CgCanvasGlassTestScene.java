@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -19,7 +21,6 @@ import com.crystalgraphics.render.canvas.CgCanvasMaterials;
 import com.crystalgraphics.render.canvas.CgQuadBatch;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 import javax.annotation.Nullable;
@@ -64,19 +65,18 @@ public class CgCanvasGlassTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
+        CgScene scene = CgScene.client();
         CgPostStack.get().install();
         CgPostStack.get().bloom().intensity(0f);
         List<String> failures = new ArrayList<>();
 
-        draw(ctx, world, null, false, "wall.png");
+        draw(ctx, scene, null, false, "wall.png");
         CgCanvasGlass.Look clear = CgCanvasGlass.CLEAR.scaled(UNITS_PER_PIXEL);
-        draw(ctx, world, clear, false, "clear.png");
+        draw(ctx, scene, clear, false, "clear.png");
         CgCanvasGlass.Look frosted = CgCanvasGlass.FROSTED.withTint(0).scaled(UNITS_PER_PIXEL);
-        draw(ctx, world, frosted, false, "frosted.png");
-        draw(ctx, world, null, true, "slab.png");
-        draw(ctx, world, frosted, true, "hidden.png");
+        draw(ctx, scene, frosted, false, "frosted.png");
+        draw(ctx, scene, null, true, "slab.png");
+        draw(ctx, scene, frosted, true, "hidden.png");
 
         BufferedImage wall = read(ctx, "wall.png"), clearPane = read(ctx, "clear.png");
         BufferedImage frostedPane = read(ctx, "frosted.png"), hidden = read(ctx, "hidden.png"), slabAlone = read(ctx, "slab.png");
@@ -111,16 +111,16 @@ public class CgCanvasGlassTestScene implements HarnessSceneLifecycle {
     }
 
     /** The wall, then {@code look}'s pane (none if null) through the transparent stage's canvas, a slab in front if asked. */
-    private void draw(HarnessContext ctx, CgWorldRenderer world, @Nullable CgCanvasGlass.Look look, boolean slabInFront,
+    private void draw(HarnessContext ctx, CgScene scene, @Nullable CgCanvasGlass.Look look, boolean slabInFront,
                       String file) {
         HarnessTarget target = HarnessTarget.create(W, H, true);
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
         if (slabInFront) {
             CgMesh cube = CgMeshShapes.cube();
-            world.draw(cube, slab).at(0, 0, -1.5f).transform(new Matrix4f().scale(1.5f, 1.5f, 0.05f)).submit();
+            scene.once().mesh(cube, slab).at(0, 0, -1.5f).transform(new Matrix4f().scale(1.5f, 1.5f, 0.05f)).add();
         }
-        CgRenderStage.Registration drawing = CgRenderStage.WORLD_TRANSPARENT.register(100, frame -> {
+        CgRenderStage.Registration drawing = CgRenderStage.SURFACES.register(100, frame -> {
             CgCanvas canvas = frame.canvas();
             for (int i = 0; i < 24; i++) {
                 int argb = (i & 1) == 0 ? 0xFFE03020 : 0xFF2050E0;
@@ -136,10 +136,8 @@ public class CgCanvasGlassTestScene implements HarnessSceneLifecycle {
             quad.submit();
         });
         Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) W / H, 0.05f, 100f);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
+        HarnessWorld.fireCallbacks();
         drawing.close();
         CgFrameRing.endFrame();
         target.captureToFile(ctx.getOutputDir(), file);

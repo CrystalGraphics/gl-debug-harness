@@ -1,5 +1,9 @@
 package com.crystalgraphics.harness.runtime;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.host.CgHostFrame;
+import com.crystalgraphics.harness.scene.test.HarnessWorld;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
@@ -11,8 +15,7 @@ import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.scene.sort.CgSortLayer;
-import com.crystalgraphics.render.world.CgPipelinePrecache;
-import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.render.precache.CgPipelinePrecache;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
@@ -132,25 +135,22 @@ public final class HarnessEnvironment {
         texels.flip();
         if (lightmap == null) lightmap = CgTextures.of("harness.harnessEnvironment", CgTextureDesc.of(16, 16, CgFormat.RGBA8_UNORM));
         lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
-        for (CgRenderStage stage : WORLD) {
-            stage.host().environment().sun(Float.NaN, 0, nightMix, 1f - nightMix);
-            stage.host().textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
-        }
+        CgHostFrame host = CgStageHost.frame(CgStageHost.WORLD_OPAQUE);
+        host.environment().sun(Float.NaN, 0, nightMix, 1f - nightMix);
+        host.textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
         daylightSet = true;
     }
-
-    private static final CgRenderStage[] WORLD = {CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT};
 
     /** The sky round {@code camera} and the floor under it, the first time a frame asks. */
     public void submit(Camera3D camera) {
         if (!enabled || submitted) return;
         submitted = true;
         if (!programs.ready()) return;
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         double x = camera.getPosX(), y = camera.getPosY(), z = camera.getPosZ();
-        world.draw(sky, skyMaterial).at(x, y, z).transform(SKY_SCALE).layer(CgSortLayer.BACKGROUND).submit();
+        scene.once().mesh(sky, skyMaterial).at(x, y, z).transform(SKY_SCALE).layer(CgSortLayer.BACKGROUND).add();
         // Under the eye, so flying never reaches its edge; the grid's lines are absolute and hold still.
-        world.draw(floor, floorMaterial).at(x, 0.0, z).layer(CgSortLayer.BACKGROUND).submit();
+        scene.once().mesh(floor, floorMaterial).at(x, 0.0, z).layer(CgSortLayer.BACKGROUND).add();
     }
 
     private CgPipelinePrecache.Request programs;

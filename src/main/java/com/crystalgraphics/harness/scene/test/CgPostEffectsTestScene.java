@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -22,7 +24,6 @@ import com.crystalgraphics.render.post.CgPostEffect;
 import com.crystalgraphics.render.post.CgPostPoint;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -108,21 +109,20 @@ public class CgPostEffectsTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
+        CgScene scene = CgScene.client();
         CgPostStack post = CgPostStack.get();
         post.install();
         List<String> failures = new ArrayList<>();
 
-        BufferedImage plain = draw(ctx, world, "plain");
-        List<CgRenderStage.Registration> effects = new ArrayList<>();
+        BufferedImage plain = draw(ctx, scene, "plain");
+        List<CgPostStack.Registration> effects = new ArrayList<>();
         effects.add(post.add(new Rect(CgPostPoint.AFTER_COMPOSITE, 1, 0.85f, 0.85f, 1f, 1f, 0f, 0f, 1f)));   // blue, later
         effects.add(post.add(new Rect(CgPostPoint.AFTER_WORLD, 0, 0f, 0.7f, 0.3f, 1f, 1f, 0f, 0f)));         // red
         effects.add(post.add(new Vignette()));
         effects.add(post.add(new Rect(CgPostPoint.AFTER_COMPOSITE, 0, 0.7f, 0.7f, 1f, 1f, 0f, 1f, 0f)));     // green
-        BufferedImage with = draw(ctx, world, "effects");
-        for (CgRenderStage.Registration r : effects) r.close();
-        BufferedImage after = draw(ctx, world, "closed");
+        BufferedImage with = draw(ctx, scene, "effects");
+        for (CgPostStack.Registration r : effects) r.close();
+        BufferedImage after = draw(ctx, scene, "closed");
 
         int red = with.getRGB(1, 1), green = with.getRGB(W * 3 / 4, H / 4 - 4), blue = with.getRGB(W - 2, 1);
         if (((red >> 16) & 0xFF) > 200 || (red & 0xFFFF) != 0) {
@@ -141,17 +141,15 @@ public class CgPostEffectsTestScene implements HarnessSceneLifecycle {
     }
 
     /** The wall, through both world stages, captured. */
-    private BufferedImage draw(HarnessContext ctx, CgWorldRenderer world, String name) {
+    private BufferedImage draw(HarnessContext ctx, CgScene scene, String name) {
         HarnessTarget target = HarnessTarget.create(W, H, true);
         target.bind();
         target.clear(0.25f, 0.3f, 0.4f, 1f);
         CgMesh cube = CgMeshShapes.cube();
-        world.draw(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).submit();
+        scene.once().mesh(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).add();
         Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) W / H, 0.05f, 100f);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
+        HarnessWorld.fireCallbacks();
         CgFrameRing.endFrame();
         target.captureToFile(ctx.getOutputDir(), name + ".png");
         target.unbind();

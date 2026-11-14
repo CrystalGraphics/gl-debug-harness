@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -15,8 +17,7 @@ import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldHaze;
-import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.render.scene.renderer.feature.media.CgSceneHaze;
 import com.crystalgraphics.variable.CgVar;
 import com.crystalgraphics.variable.CgVars;
 import com.crystalgraphics.vfx.CgVfx;
@@ -72,7 +73,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
     /** The searchlight's VolumetricScatteringIntensity (-Dcrystalgraphics.harness.airQuality.scattering): the demo's 8. */
     private static final float SCATTERING = Float.parseFloat(System.getProperty("crystalgraphics.harness.airQuality.scattering", "8"));
 
-    private final CgWorldHaze haze = new CgWorldHaze().box(-30, GROUND - 1, -30, 30, GROUND + 18, 30).density(0.003f, 4f);
+    private final CgSceneHaze haze = new CgSceneHaze().box(-30, GROUND - 1, -30, 30, GROUND + 18, 30).density(0.003f, 4f);
     private final Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 70f, (float) W / H, 0.05f, 300f);
     private final Matrix4f look = new Matrix4f();
     private final Vector3d eye = new Vector3d();
@@ -86,9 +87,8 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         CgPlatform.provide(CgLevels.HOST, CgLevels.single(new Flat(), CgEntityQuery.NONE));
-        CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
-        CgWorldRenderer.get().media().add(haze);
+        CgScene.client().media().add(haze);
         target = HarnessTarget.create(W, H, true);
         demo.precache();
     }
@@ -103,7 +103,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
             at = 0;
         } else if (phase == DEMO && demoFrom < 0) {
             demoFrom = frame;
-            CgWorldRenderer.get().media().remove(haze);
+            CgScene.client().media().remove(haze);
         }
         if (!waiting) frame++;
         if (phase >= NAMES.length) {
@@ -117,11 +117,11 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
         if (phase >= DEMO + 2) ((CgVar.Bool) CgVars.get(HISTORY)).set(phase == DEMO + 2);
         ((CgVar.Bool) CgVars.get(AIR)).set(phase != 3 && phase != 5);
         Vector3d on = camera(phase);
-        CgWorldRenderer renderer = CgWorldRenderer.get();
+        CgScene renderer = CgScene.client();
         target.bind();
         target.clear(0.01f, 0.01f, 0.02f, 1f);
         CgMesh cube = CgMeshShapes.cube();
-        renderer.draw(cube, grey).at(0, GROUND - 0.5, 0).transform(new Matrix4f().scale(120f, 1f, 120f)).submit();
+        renderer.once().mesh(cube, grey).at(0, GROUND - 0.5, 0).transform(new Matrix4f().scale(120f, 1f, 120f)).add();
         if (waiting) {
             demo.ready();
         } else if (phase >= DEMO) {
@@ -130,10 +130,8 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
             renderer.lights().add(SOURCE.x, SOURCE.y, SOURCE.z, 45f, 0xFFFFF4E0, 4f * (float) Math.PI * 144f, 0f)
                     .spot((float) DIR.x, (float) DIR.y, (float) DIR.z, 5f, 10f).scattering(SCATTERING);
         }
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(eye.x, eye.y, eye.z, look, projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(eye.x, eye.y, eye.z, look, projection);
+        HarnessWorld.fireCallbacks();
         CgFrameRing.endFrame();
         if (series(phase) && at >= SETTLE) target.captureToFile(ctx.getOutputDir(), NAMES[phase] + "-" + (at - SETTLE) + ".png");
         else if (!series(phase) && at == PHASE - 1) target.captureToFile(ctx.getOutputDir(), NAMES[phase] + ".png");
@@ -238,7 +236,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
     public void dispose() {
         demo.delete();
         if (target != null) target.delete();
-        CgWorldRenderer.get().media().remove(haze);
+        CgScene.client().media().remove(haze);
         CgPlatform.provide(CgLevels.HOST, null);
     }
 

@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterialInterface;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.camera.CgCamera;
@@ -16,7 +18,6 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.settings.CgGraphicsSettings;
 import com.crystalgraphics.settings.CgQuality;
 import org.joml.Matrix4f;
@@ -29,7 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The world bloom's gate: an opaque ball with an Emissive pass, drawn through {@code CgWorldRenderer} and bloomed by
+ * The world bloom's gate: an opaque ball with an Emissive pass, drawn through the scene renderer and bloomed by
  * {@code CgPostStack}, once with bloom off and once on. Behind a wall, bloom must change no pixel; in front of it, it
  * must. Each at every quality tier (each its own chain) and three target sizes, one odd and one tall.
  *
@@ -63,8 +64,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
+        CgScene scene = CgScene.client();
         CgPostStack.get().install();
         List<String> failures = new ArrayList<>();
         CgQuality original = CgGraphicsSettings.QUALITY.get();
@@ -73,8 +73,8 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
             for (int[] size : SIZES) {
                 for (boolean hidden : new boolean[]{true, false}) {
                     String name = tier.name().toLowerCase() + "-" + size[0] + "x" + size[1] + "-" + (hidden ? "hidden" : "front");
-                    draw(ctx, world, size[0], size[1], glow, hidden, 1f, 0f, name + "-off.png");
-                    draw(ctx, world, size[0], size[1], glow, hidden, 1f, 1f, name + "-on.png");
+                    draw(ctx, scene, size[0], size[1], glow, hidden, 1f, 0f, name + "-off.png");
+                    draw(ctx, scene, size[0], size[1], glow, hidden, 1f, 1f, name + "-on.png");
                     String failure = compare(ctx, name, hidden);
                     if (failure != null) failures.add(name + ": " + failure);
                 }
@@ -82,20 +82,20 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         }
         CgGraphicsSettings.QUALITY.set(original);
         // .emission(0) takes a ball in front out of the bloom
-        draw(ctx, world, 320, 240, glow, false, 0f, 0f, "emission0-off.png");
-        draw(ctx, world, 320, 240, glow, false, 0f, 1f, "emission0-on.png");
+        draw(ctx, scene, 320, 240, glow, false, 0f, 0f, "emission0-off.png");
+        draw(ctx, scene, 320, 240, glow, false, 0f, 1f, "emission0-on.png");
         String failure = compare(ctx, "emission0", true);
         if (failure != null) failures.add("emission(0): " + failure);
         // An emission-only ball's glow is in the scene, and blooms
-        draw(ctx, world, 320, 240, null, false, 1f, 0f, "emission-only-scene-off.png");
-        draw(ctx, world, 320, 240, emissionOnly, false, 1f, 0f, "emission-only-scene-on.png");
+        draw(ctx, scene, 320, 240, null, false, 1f, 0f, "emission-only-scene-off.png");
+        draw(ctx, scene, 320, 240, emissionOnly, false, 1f, 0f, "emission-only-scene-on.png");
         failure = compare(ctx, "emission-only-scene", false);
         if (failure != null) failures.add("emission-only, bloom off: " + failure);
-        draw(ctx, world, 320, 240, emissionOnly, false, 1f, 0f, "emission-only-off.png");
-        draw(ctx, world, 320, 240, emissionOnly, false, 1f, 1f, "emission-only-on.png");
+        draw(ctx, scene, 320, 240, emissionOnly, false, 1f, 0f, "emission-only-off.png");
+        draw(ctx, scene, 320, 240, emissionOnly, false, 1f, 1f, "emission-only-on.png");
         failure = compare(ctx, "emission-only", false);
         if (failure != null) failures.add("emission-only: " + failure);
-        covered(ctx, world, failures);
+        covered(ctx, scene, failures);
         CgPostStack.get().bloom().intensity(1f);
         report(failures, DeviceErrors.checkAndLog("bloom-occlusion"));
     }
@@ -104,39 +104,37 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
      * The wall at 5 blocks and {@code ball} (none if null) at 8 behind it or 3 in front, its glow scaled by
      * {@code emission}, into a target of its own, captured.
      */
-    private void draw(HarnessContext ctx, CgWorldRenderer world, int w, int h, CgMaterialInstance ball, boolean hidden,
+    private void draw(HarnessContext ctx, CgScene scene, int w, int h, CgMaterialInstance ball, boolean hidden,
                       float emission, float bloom, String file) {
-        draw(ctx, world, w, h, ball, hidden, emission, bloom, null, file);
+        draw(ctx, scene, w, h, ball, hidden, emission, bloom, null, file);
     }
 
     /** As {@link #draw}, with {@code cover} (none if null) a pane at 2 blocks, in front of a ball in front. */
-    private void draw(HarnessContext ctx, CgWorldRenderer world, int w, int h, CgMaterialInstance ball, boolean hidden,
+    private void draw(HarnessContext ctx, CgScene scene, int w, int h, CgMaterialInstance ball, boolean hidden,
                       float emission, float bloom, CgMaterialInterface cover, String file) {
         HarnessTarget target = HarnessTarget.create(w, h, true);
-        drawInto(ctx, world, target, w, h, ball, hidden, emission, bloom, cover, file);
+        drawInto(ctx, scene, target, w, h, ball, hidden, emission, bloom, cover, file);
         target.unbind();
         target.delete();
     }
 
     /** As {@link #draw}, into {@code target}, the stages told the host's size is {@code w} x {@code h}. */
-    private void drawInto(HarnessContext ctx, CgWorldRenderer world, HarnessTarget target, int w, int h, CgMaterialInstance ball,
+    private void drawInto(HarnessContext ctx, CgScene scene, HarnessTarget target, int w, int h, CgMaterialInstance ball,
                           boolean hidden, float emission, float bloom, CgMaterialInterface cover, String file) {
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
         CgPostStack.get().bloom().intensity(bloom);
         CgMesh cube = CgMeshShapes.cube(), sphere = CgMeshShapes.sphere(24, 32);
-        world.draw(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).submit();
+        scene.once().mesh(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).add();
         if (ball != null) {
-            world.draw(sphere, ball).at(0, 0, hidden ? -8 : -3).transform(new Matrix4f().scale(hidden ? 1f : 0.6f))
-                    .emission(emission).submit();
+            scene.once().mesh(sphere, ball).at(0, 0, hidden ? -8 : -3).transform(new Matrix4f().scale(hidden ? 1f : 0.6f))
+                    .emission(emission).add();
         }
-        if (cover != null) world.draw(cube, cover).at(0, 0, -2).transform(new Matrix4f().scale(2f, 2f, 0.05f)).submit();
+        if (cover != null) scene.once().mesh(cube, cover).at(0, 0, -2).transform(new Matrix4f().scale(2f, 2f, 0.05f)).add();
         Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) w / h, 0.05f, 100f);
         Matrix4f view = new Matrix4f();
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
+        HarnessWorld.fireCallbacks();
         CgFrameRing.endFrame();   // a draw lives one frame: the next capture starts empty
         target.captureToFile(ctx.getOutputDir(), file);
     }
@@ -147,18 +145,18 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
      * own draw) leave the picture the pane alone makes, bloom on, byte for byte. Behind a translucent pane the halo
      * beside the ball blooms less than bare, or not at all once the pane takes the glow under white.
      */
-    private void covered(HarnessContext ctx, CgWorldRenderer world, List<String> failures) {
-        draw(ctx, world, 321, 241, null, false, 1f, 1f, pane, "cover-pane.png");
+    private void covered(HarnessContext ctx, CgScene scene, List<String> failures) {
+        draw(ctx, scene, 321, 241, null, false, 1f, 1f, pane, "cover-pane.png");
         for (CgMaterialInstance ball : List.of(glow, glowAlpha)) {
             String name = "cover-" + (ball == glow ? "opaque" : "transparent");
-            draw(ctx, world, 321, 241, ball, false, 1f, 1f, pane, name + ".png");
+            draw(ctx, scene, 321, 241, ball, false, 1f, 1f, pane, name + ".png");
             String failure = same(ctx, "cover-pane.png", name + ".png");
             if (failure != null) failures.add(name + ": " + failure);
         }
         for (boolean behind : new boolean[]{false, true}) {
             String name = behind ? "cover-translucent" : "cover-bare";
-            draw(ctx, world, 321, 241, glow, false, 1f, 0f, behind ? translucentPane : null, name + "-off.png");
-            draw(ctx, world, 321, 241, glow, false, 1f, 1f, behind ? translucentPane : null, name + "-on.png");
+            draw(ctx, scene, 321, 241, glow, false, 1f, 0f, behind ? translucentPane : null, name + "-off.png");
+            draw(ctx, scene, 321, 241, glow, false, 1f, 1f, behind ? translucentPane : null, name + "-on.png");
         }
         // Beside the ball's silhouette (about 42 px across at 3 blocks), inside the pane's (about 104)
         int x = 321 / 2 + 60, y = 241 / 2, bare = brightening(ctx, "cover-bare", x, y), dimmed = brightening(ctx, "cover-translucent", x, y);

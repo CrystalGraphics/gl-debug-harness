@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.demo.CgVfxDemoControls;
@@ -12,7 +13,6 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.settings.CgGraphicsSettings;
 import com.crystalgraphics.settings.CgQuality;
 
@@ -57,9 +57,9 @@ public final class CgVfxFluidScene implements InteractiveSceneLifecycle, CgSyste
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
-        fluid.submit(world, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(frame.getElapsedTime()));
-        stage.submitStage(world, 0.0, 0.0, 0.0, camera.getPosX(), camera.getPosY(), camera.getPosZ());
+        CgScene scene = CgScene.client();
+        fluid.submit(scene, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(frame.getElapsedTime()));
+        stage.submitStage(scene, 0.0, 0.0, 0.0, camera.getPosX(), camera.getPosY(), camera.getPosZ());
         HarnessWorld.fire(ctx, camera.getViewMatrix(), ctx.getProjection());
     }
 

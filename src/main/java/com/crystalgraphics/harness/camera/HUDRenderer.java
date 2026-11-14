@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.camera;
 
+import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
+import com.crystalgraphics.render.view.CgView;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.font.CgDefaultFont;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.text.CgTextLayout;
@@ -8,7 +11,6 @@ import com.crystalgraphics.text.style.CgTextStyle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.bloom.CgBloom;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.camera.CgCameraShake;
@@ -104,7 +106,7 @@ public final class HUDRenderer {
                     ? String.format("\nShake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "\nShake [C]: off");
         }
         text.append(bloom.intensity() == 0f ? "\nBloom [L]: off" : String.format("\nBloom [L]: on, %.2f [- =]", bloom.intensity()));
-        if (shakeAndGlow) text.append(String.format(" | Emission [ ]: %.2f", CgWorldRenderer.get().sceneEmission()));
+        if (shakeAndGlow) text.append(String.format(" | Emission [ ]: %.2f", CgView.main().flag(CgSceneRenderer.SCENE_EMISSION)));
         String own = sceneLines.get();
         if (own != null) text.append('\n').append(own);
         return text.toString();

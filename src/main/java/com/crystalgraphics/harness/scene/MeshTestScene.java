@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
@@ -12,7 +13,6 @@ import com.crystalgraphics.harness.capture.ArtifactService;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.scene.test.HarnessWorld;
 import com.crystalgraphics.harness.scheduler.TaskScheduler;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 import javax.annotation.Nullable;
@@ -68,19 +68,19 @@ public class MeshTestScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.draw(CgMeshShapes.cube(FORMAT), checker).at(-6f, 0f, 0f).submit();
-        world.draw(CgMeshShapes.quad(FORMAT), checker).at(-3f, 0f, 0f).submit();
-        world.draw(CgMeshShapes.grid(FORMAT, 4), checker).at(0f, -2f, 0f).transform(scale.scaling(2f)).submit();
-        world.draw(CgMeshShapes.sphere(FORMAT, 16, 16), checker).at(0f, 2f, 0f).transform(scale.scaling(0.8f)).submit();
-        world.draw(CgMeshShapes.icosphere(FORMAT, 4), checker).at(0f, 0f, -4f).submit();
-        if (obj != null) world.draw(obj.mesh(), checker).at(-1.5f, 0f, 0f).submit();
-        if (glb != null) world.draw(glb.mesh(), checker).at(4.5f, 2f, 0f).submit();
+        CgScene scene = CgScene.client();
+        scene.once().mesh(CgMeshShapes.cube(FORMAT), checker).at(-6f, 0f, 0f).add();
+        scene.once().mesh(CgMeshShapes.quad(FORMAT), checker).at(-3f, 0f, 0f).add();
+        scene.once().mesh(CgMeshShapes.grid(FORMAT, 4), checker).at(0f, -2f, 0f).transform(scale.scaling(2f)).add();
+        scene.once().mesh(CgMeshShapes.sphere(FORMAT, 16, 16), checker).at(0f, 2f, 0f).transform(scale.scaling(0.8f)).add();
+        scene.once().mesh(CgMeshShapes.icosphere(FORMAT, 4), checker).at(0f, 0f, -4f).add();
+        if (obj != null) scene.once().mesh(obj.mesh(), checker).at(-1.5f, 0f, 0f).add();
+        if (glb != null) scene.once().mesh(glb.mesh(), checker).at(4.5f, 2f, 0f).add();
         if (parts != null) {
             for (int i = 0; i < parts.mesh().submeshCount(); i++) {
                 CgMaterial material = "tint".equals(parts.material(i)) ? tint : checker;
-                world.draw(parts.mesh(), material).at(2.5f, -0.5f, 0f).submesh(i).custom(0, 1.4f, 0.9f, 0.5f, 1.4f)
-                        .submit();
+                scene.once().mesh(parts.mesh(), material).at(2.5f, -0.5f, 0f).submesh(i).customData(0, 1.4f, 0.9f, 0.5f, 1.4f)
+                        .add();
             }
         }
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());

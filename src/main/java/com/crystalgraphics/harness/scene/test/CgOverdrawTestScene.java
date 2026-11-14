@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.view.CgView;
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -13,9 +16,7 @@ import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.graph.CgGraphTexture;
-import com.crystalgraphics.render.stage.CgFrameKeys;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 import java.nio.ByteBuffer;
@@ -23,7 +24,7 @@ import java.util.List;
 
 /**
  * The gate for the overdraw view (render-distortion T3): an opaque wall over the left half, three transparent planes in
- * front of it, two behind, and one in front discarding its bottom half, counted by {@code CgWorldRenderer.overdraw} and
+ * front of it, two behind, and one in front discarding its bottom half, counted by the scene renderer's overdraw view and
  * read back. Each quadrant's centre must hold exactly 3, 4, 5 or 6.
  *
  * <pre>
@@ -50,12 +51,11 @@ public class CgOverdrawTestScene implements InteractiveSceneLifecycle {
         plane = CgMaterial.load("assets/harness/shader/overdraw_plane.shader").instance();
         cut = CgMaterial.load("assets/harness/shader/overdraw_plane.shader").keyword("CUT", true).instance();
         target = HarnessTarget.create(W, H, true);
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
-        wasOverdraw = world.overdraw();
-        world.overdraw(true);
-        reader = CgRenderStage.WORLD_TRANSPARENT.register(CgWorldRenderer.ORDER + 1, stage -> {
-            CgGraphTexture overdraw = stage.resources().get(CgFrameKeys.OVERDRAW);
+        CgScene scene = CgScene.client();
+        wasOverdraw = CgView.main().showFlags().overdraw();
+        CgView.main().showFlags().overdraw(true);
+        reader = CgRenderStage.TRANSLUCENT.register(1, stage -> {
+            CgGraphTexture overdraw = stage.view().textures().overdraw();
             if (!armed || overdraw == null) return;
             armed = false;
             stage.recording().readback(overdraw, 0, 0, 0, W, H, CgOverdrawTestScene.this::read);
@@ -76,21 +76,19 @@ public class CgOverdrawTestScene implements InteractiveSceneLifecycle {
             return;
         }
         armed = frame == ARM_AT;
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         CgMesh slab = CgMeshShapes.cube();
         Matrix4f thin = new Matrix4f().scale(40f, 40f, 0.01f);
-        world.draw(slab, wall).at(-5, 0, -5).transform(new Matrix4f().scale(10f, 10f, 0.2f)).submit();
-        for (int k = 0; k < 3; k++) world.draw(slab, plane).at(0, 0, -2 - k * 0.3).transform(thin).submit();
-        for (int k = 0; k < 2; k++) world.draw(slab, plane).at(0, 0, -8 - k * 0.3).transform(thin).submit();
-        world.draw(slab, cut).at(0, 0, -1.5).transform(thin).submit();
+        scene.once().mesh(slab, wall).at(-5, 0, -5).transform(new Matrix4f().scale(10f, 10f, 0.2f)).add();
+        for (int k = 0; k < 3; k++) scene.once().mesh(slab, plane).at(0, 0, -2 - k * 0.3).transform(thin).add();
+        for (int k = 0; k < 2; k++) scene.once().mesh(slab, plane).at(0, 0, -8 - k * 0.3).transform(thin).add();
+        scene.once().mesh(slab, cut).at(0, 0, -1.5).transform(thin).add();
 
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
         Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) W / H, 0.05f, 100f);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
+        HarnessWorld.fireCallbacks();
         target.unbind();
         frame++;
     }
@@ -122,7 +120,7 @@ public class CgOverdrawTestScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         reader.close();
-        CgWorldRenderer.get().overdraw(wasOverdraw);
+        CgView.main().showFlags().overdraw(wasOverdraw);
         target.delete();
     }
 }

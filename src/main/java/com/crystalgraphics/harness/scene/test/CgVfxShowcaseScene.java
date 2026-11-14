@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.demo.CgVfxDemoControls;
 import com.crystalgraphics.demo.CgVfxShowcase;
 import com.crystalgraphics.harness.FrameInfo;
@@ -7,7 +9,6 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxEffect;
 import com.crystalgraphics.vfx.effect.beam.CgEnergyWave;
 import org.apache.logging.log4j.LogManager;
@@ -67,7 +68,6 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle, CgSy
     private static final String MOMENTS = System.getProperty("crystalgraphics.harness.vfx.moments");
     private static final boolean ALL_LANES = "true".equals(MOMENTS);
     /** Where a moment's camera stands from what it frames, and how far for each block of the frame's radius. */
-    private static final CgRenderStage[] NIGHT = {CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT};
     private static final float[] MOMENT_VIEW = normalized(0.35f, 0.62f, 0.7f);
     private static final float MOMENT_DISTANCE = 1.55f;
     /** {@code -Dcrystalgraphics.harness.vfx.beams=<n>}: the stress scene's beams, 30 by default. */
@@ -130,9 +130,9 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle, CgSy
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         double seconds = frame.getElapsedTime();
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         // First, so a moment announced in it chooses this frame's camera. The camera keeps real time.
-        showcase.submit(world, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(seconds));
+        showcase.submit(scene, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(seconds));
         float camX, camY, camZ;
         Matrix4f view;
         if (momentNames != null) {
@@ -174,9 +174,9 @@ public final class CgVfxShowcaseScene implements InteractiveSceneLifecycle, CgSy
             camZ = ctx.getCamera3D().getPosZ();
             view = ctx.getCamera3D().getViewMatrix();
         }
-        showcase.submitStage(world, 0.0, 0.0, 0.0, camX, camY, camZ);
+        showcase.submitStage(scene, 0.0, 0.0, 0.0, camX, camY, camZ);
         // Night under the stars: lights authored for the night shine full, not faded by a day sky.
-        for (CgRenderStage stage : NIGHT) stage.host().environment().sun(Float.NaN, 0, 1f, 0f);
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).environment().sun(Float.NaN, 0, 1f, 0f);   // night
         HarnessWorld.fire(ctx, view, ctx.getProjection());
     }
 

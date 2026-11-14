@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.demo.CgVfxBlastFlash;
 import com.crystalgraphics.demo.CgVfxDemoControls;
 import com.crystalgraphics.demo.CgVfxShowcase;
@@ -7,7 +8,6 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.effect.beam.CgEnergyWave;
 import com.crystalgraphics.vfx.element.CgVfxBlast;
 import org.apache.logging.log4j.LogManager;
@@ -72,13 +72,13 @@ public final class CgVfxBlastFlashScene implements InteractiveSceneLifecycle, Cg
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         seconds += frame.getDeltaTime();
-        CgWorldRenderer world = CgWorldRenderer.get();
-        blast.submit(world, TARGET_X, 0.0, Z, 0.0, -1.0, CgVfxDemoControls.get().time(seconds));
+        CgScene scene = CgScene.client();
+        blast.submit(scene, TARGET_X, 0.0, Z, 0.0, -1.0, CgVfxDemoControls.get().time(seconds));
         if (photographing) {
             if (photographed == null && blast.fired() == photographWave) photographed = blast.wave();
             if (photographed != null) photograph(ctx);
         }
-        stage.submitStage(world, 0.0, 0.0, 0.0, ctx.getCamera3D().getPosX(), ctx.getCamera3D().getPosY(),
+        stage.submitStage(scene, 0.0, 0.0, 0.0, ctx.getCamera3D().getPosX(), ctx.getCamera3D().getPosY(),
                 ctx.getCamera3D().getPosZ());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }

@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.graph.CgLoad;
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.camera.CgCamera;
@@ -40,7 +43,6 @@ import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.render.mesh.CgMeshStore;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.stage.CgStageFrame;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.FrustumIntersection;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -57,7 +59,7 @@ import com.crystalgraphics.render.draw.CgMaterialBindings;
 
 /**
  * gpu-compute C9b's gate: a set of spheres in rows at four distances, half of the nearer rows behind a wall, culled
- * twice. {@code gpu-cull-cpu.png} is {@code CgWorldRenderer} drawing every sphere, each culled and given its level on
+ * twice. {@code gpu-cull-cpu.png} is the scene renderer drawing every sphere, each culled and given its level on
  * the CPU; {@code gpu-cull.png} is the world renderer drawing the wall alone and a renderer after it building a depth
  * pyramid from the target, culling the set with {@code CgGpuOps.cull} and drawing each level's kept spheres by one
  * indirect draw, the levels joined into one multi-draw where the executor joins them; {@code gpu-cull-world.png} is
@@ -129,19 +131,17 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo frame) {
         HarnessTarget target = HarnessTarget.create(W, H, true);
         target.bind();
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
+        CgScene scene = CgScene.client();
 
         CgMeshStore store = CgMeshStore.get();
         boolean joins = store.multiDraw();
         boolean levelsJoin = levelsJoin();
 
-        world.release();
-        wall(world);
+        wall(scene);
         for (int i = 0; i < N; i++) {
             float[] rgb = colour(i);
-            world.draw(lods, material).at(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2])
-                    .custom(0, rgb[0], rgb[1], rgb[2], 1f).submit();
+            scene.once().mesh(lods, material).at(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2])
+                    .customData(0, rgb[0], rgb[1], rgb[2], 1f).add();
         }
         store.multiDraw(false);
         fire(target);
@@ -156,9 +156,8 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
                 CgBufferDesc.of(16, CgBufferUsage.STORAGE, CgBufferUsage.INDIRECT));
         CgCull cull = new CgCull().mesh(lods);
         boolean[] uploaded = {false};
-        world.release();
-        wall(world);
-        CgRenderStage.Registration culling = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER + 1,
+        wall(scene);
+        CgRenderStage.Registration culling = CgRenderStage.OPAQUE.register(1,
                 stage -> recordCull(stage, cull, instances, counts, uploaded));
         store.multiDraw(false);
         long separateCalls = calls(target);
@@ -169,9 +168,8 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         target.captureToFile(ctx.getOutputDir(), "gpu-cull.png");
         culling.close();
 
-        world.release();
-        CgRenderStage.Registration walling = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, this::recordWall);
-        world.draw(lods, material).instances(instances, CgGpuCount.of(N)).submit();
+        CgRenderStage.Registration walling = CgRenderStage.PREPARE.register(-1, this::recordWall);
+        scene.once().mesh(lods, material).from(instances, CgGpuCount.of(N)).add();
         store.multiDraw(false);
         long setSeparateCalls = calls(target);
         target.captureToFile(ctx.getOutputDir(), "gpu-cull-world-separate.png");
@@ -180,59 +178,53 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         long set = timed(target);
         target.captureToFile(ctx.getOutputDir(), "gpu-cull-world.png");
         walling.close();
-        world.release();
 
         // The same set as two world draws of ranges of one buffer, split where no level's region is aligned.
-        CgRenderStage.Registration rangeWall = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, this::recordWall);
+        CgRenderStage.Registration rangeWall = CgRenderStage.PREPARE.register(-1, this::recordWall);
         int split = N / 2 + 7;
-        world.draw(lods, material).instances(instances, 0, CgGpuCount.of(split)).submit();
-        world.draw(lods, material).instances(instances, split, CgGpuCount.of(N - split)).submit();
+        scene.once().mesh(lods, material).from(instances, 0, CgGpuCount.of(split)).add();
+        scene.once().mesh(lods, material).from(instances, split, CgGpuCount.of(N - split)).add();
         store.multiDraw(false);
         fire(target);
         target.captureToFile(ctx.getOutputDir(), "gpu-cull-world-ranges.png");
         store.multiDraw(joins);
         rangeWall.close();
-        world.release();
 
         // Stamped: every sphere at STAMP_SCALE its size in one colour, by the CPU's transform and custom, and as the
         // set's instance scale and a custom its cull stamps over each record's own.
-        world.release();
-        wall(world);
+        wall(scene);
         Matrix4f smaller = new Matrix4f().scaling(STAMP_SCALE);
         for (int i = 0; i < N; i++) {
-            world.draw(lods, material).at(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]).transform(smaller)
-                    .custom(0, STAMP[0], STAMP[1], STAMP[2], 1f).submit();
+            scene.once().mesh(lods, material).at(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]).transform(smaller)
+                    .customData(0, STAMP[0], STAMP[1], STAMP[2], 1f).add();
         }
         store.multiDraw(false);
         fire(target);
         target.captureToFile(ctx.getOutputDir(), "gpu-cull-cpu-stamped.png");
-        world.release();
-        CgRenderStage.Registration stampWall = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, this::recordWall);
-        world.draw(lods, material).instances(instances, CgGpuCount.of(N)).instanceScale(STAMP_SCALE)
-                .custom(0, STAMP[0], STAMP[1], STAMP[2], 1f).submit();
+        CgRenderStage.Registration stampWall = CgRenderStage.PREPARE.register(-1, this::recordWall);
+        scene.once().mesh(lods, material).from(instances, CgGpuCount.of(N)).culled(STAMP_SCALE, 0f)
+                .customData(0, STAMP[0], STAMP[1], STAMP[2], 1f).add();
         fire(target);
         target.captureToFile(ctx.getOutputDir(), "gpu-cull-world-stamped.png");
         store.multiDraw(joins);
         stampWall.close();
-        world.release();
 
         // Ordered: as a world draw, the same picture; by hand, each level's records read back in the set's order.
-        CgRenderStage.Registration orderWall = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, this::recordWall);
-        world.draw(lods, material).instances(instances, CgGpuCount.of(N)).submit();
+        CgRenderStage.Registration orderWall = CgRenderStage.PREPARE.register(-1, this::recordWall);
+        scene.once().mesh(lods, material).from(instances, CgGpuCount.of(N)).add();
         store.multiDraw(false);
         fire(target);
         target.captureToFile(ctx.getOutputDir(), "gpu-cull-world-ordered.png");
         store.multiDraw(joins);
         orderWall.close();
-        world.release();
         CgGraphBuffer ordered = CgGraphBuffer.persistent("gpu-cull.ordered", CgBufferDesc.elements(
                 CgGpuOps.cullRecords(cull, N), CgGpuOps.cullRecordBytes(), CgBufferUsage.STORAGE, CgBufferUsage.COPY));
         CgGraphBuffer orderedCounts = CgGraphBuffer.persistent("gpu-cull.ordered-counts",
                 CgBufferDesc.of(16, CgBufferUsage.STORAGE, CgBufferUsage.INDIRECT));
-        CgRenderStage.Registration orderedCull = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, stage -> {
+        CgRenderStage.Registration orderedCull = CgRenderStage.PREPARE.register(-1, stage -> {
             recordWall(stage);
             CgComputePass pass = stage.recording().compute("gpu-cull.ordered");
-            CgGpuOps.cull(pass, cull.view(view, projection).place(new Matrix4f()).pyramid(stage.depthPyramid()).ordered(true),
+            CgGpuOps.cull(pass, cull.view(view, projection).place(new Matrix4f()).pyramid(stage.view().textures().hzb()).ordered(true),
                     instances, CgGpuCount.of(N), ordered, orderedCounts, 0);
             pass.end();
         });
@@ -304,12 +296,12 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         CgCullSets sets = new CgCullSets();
         int[] handles = new int[2];
         ByteBuffer short5 = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder()).putInt(0, rest - 5);
-        CgRenderStage.Registration culling = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, stage -> {
+        CgRenderStage.Registration culling = CgRenderStage.PREPARE.register(-1, stage -> {
             recordWall(stage);
             CgRecording rec = stage.recording();
             rec.update(gpuCount, 0, short5.duplicate());
             CgComputePass pass = rec.compute("gpu-cull.batched");
-            cull.view(view, projection).place(new Matrix4f()).pyramid(stage.depthPyramid()).ordered(true);
+            cull.view(view, projection).place(new Matrix4f()).pyramid(stage.view().textures().hzb()).ordered(true);
             CgGpuCount counted = CgGpuCount.at(gpuCount, 0, rest);
             CgGpuOps.cull(pass, cull, instances, 0, CgGpuCount.of(split), alone, 0, aloneCounts, 0);
             CgGpuOps.cull(pass, cull, instances, split, counted, alone, recordsA, aloneCounts, CgCull.MAX_LEVELS);
@@ -381,7 +373,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
 
         CgPipeline pipeline = CgMaterialProxy.of(material).pipeline(CgInstanceKind.OBJECT);
         CgMaterialBindings bindings = CgMaterialProxy.of(material).bindings();
-        CgRasterPass draw = stage.pass(stage.constants(), CgOrder.LOOKBACK);
+        CgRasterPass draw = stage.recording().raster("gpuCull.target").color(stage.target(), CgLoad.load()).constants(stage.constants()).order(CgOrder.LOOKBACK);
         CgChunkBuilder c = rec.chunks().begin();
         for (int l = 0; l < cull.levels(); l++) {
             c.draw(pipeline, bindings, lods.level(l)).objects(visible, CgGpuOps.cullFirst(l, N), N)
@@ -396,7 +388,7 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
 
     private void recordWall(CgStageFrame stage) {
         CgRecording rec = stage.recording();
-        CgRasterPass pass = stage.pass(stage.constants(), CgOrder.LOOKBACK);
+        CgRasterPass pass = stage.recording().raster("gpuCull.target").color(stage.target(), CgLoad.load()).constants(stage.constants()).order(CgOrder.LOOKBACK);
         float[] data = wallRecord;
         Arrays.fill(data, 0f);
         wallPlace.get(data, 0);
@@ -432,9 +424,9 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
         return data;
     }
 
-    private void wall(CgWorldRenderer world) {
-        world.draw(wallMesh, wallMaterial).at(-100.0, 0.0, WALL_Z)
-                .custom(0, 0.5f, 0.5f, 0.5f, 1f).submit();
+    private void wall(CgScene scene) {
+        scene.once().mesh(wallMesh, wallMaterial).at(-100.0, 0.0, WALL_Z)
+                .customData(0, 0.5f, 0.5f, 0.5f, 1f).add();
     }
 
     private static float[] colour(int i) {
@@ -464,10 +456,8 @@ public class CgGpuCullTestScene implements HarnessSceneLifecycle {
 
     private void fire(HarnessTarget target) {
         target.clear(0.08f, 0.08f, 0.1f, 1f);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(0, 0, 0, view, projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, view, projection);
+        HarnessWorld.fireCallbacks();
     }
 
     /**

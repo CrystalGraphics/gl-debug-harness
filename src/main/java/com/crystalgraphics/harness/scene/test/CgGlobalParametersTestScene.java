@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -13,7 +15,6 @@ import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -65,17 +66,14 @@ public class CgGlobalParametersTestScene implements HarnessSceneLifecycle {
         try {
             target.clear(0f, 0f, 0f, 1f);
             DARKEN.set(DARK);                                   // keyed once, for every material reading it
-            TINT.set(TINTED[0], TINTED[1], TINTED[2], 1f);            CgWorldRenderer world = CgWorldRenderer.get();
-            world.install();
+            TINT.set(TINTED[0], TINTED[1], TINTED[2], 1f);            CgScene scene = CgScene.client();
             for (int i = 0; i < materials.length; i++) {
-                world.draw(CgMesh.quads(1), materials[i]).custom(0, MARGIN + i * (SIZE + MARGIN), MARGIN, SIZE, 0f)
-                        .submit();
+                scene.once().mesh(CgMesh.quads(1), materials[i]).customData(0, MARGIN + i * (SIZE + MARGIN), MARGIN, SIZE, 0f)
+                        .add();
             }
             Matrix4f view = new Matrix4f(), projection = CgCamera.orthographicMatrix(new Matrix4f(), 0, w, h, 0, -1, 1);
-            for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-                stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
-                stage.fire();
-            }
+            CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
+            HarnessWorld.fireCallbacks();
             target.captureToFile(ctx.getOutputDir(), "global-parameters.png");
         } finally {
             target.unbind();

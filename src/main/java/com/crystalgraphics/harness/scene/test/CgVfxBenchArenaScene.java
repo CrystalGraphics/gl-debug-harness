@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.api.material.CgMaterialUsage;
 import com.crystalgraphics.vfx.particle.renderer.CgVfxRenderers;
@@ -7,7 +8,6 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.api.material.CgBlendMode;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.shape.primitive.CgSphere;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.look.CgVfxLook;
@@ -197,7 +197,7 @@ public final class CgVfxBenchArenaScene implements InteractiveSceneLifecycle {
             }
         }
         vfx.update(frame.getElapsedTime());
-        vfx.submit(CgWorldRenderer.get());
+        vfx.submit();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }
 

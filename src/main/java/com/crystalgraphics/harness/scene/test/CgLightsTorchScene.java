@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.host.CgHostFrame;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -22,7 +25,6 @@ import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
@@ -69,7 +71,6 @@ public class CgLightsTorchScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         CgPlatform.provide(CgLevels.HOST, CgLevels.single(world, CgEntityQuery.NONE));
-        CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         target = HarnessTarget.create(W, H, true);
         // Minecraft's lightmap, shaped: brighter with block light and with sky light.
@@ -89,7 +90,7 @@ public class CgLightsTorchScene implements InteractiveSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo info) {
         frame++;
         int phase = (frame - 1) / PHASE;
-        CgWorldRenderer renderer = CgWorldRenderer.get();
+        CgScene renderer = CgScene.client();
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
         CgMesh cube = CgMeshShapes.cube();
@@ -102,13 +103,12 @@ public class CgLightsTorchScene implements InteractiveSceneLifecycle {
                 (float) (CZ + 0.5 - EYE_Z)).scale(40f, 1f, 40f);
         ObjectDraws.draw(host, grey, cube, 1, (i, data, at) -> ObjectDraws.object(data, at, ground, 1f, 1f, 1f, 1f));
         // Ours: a box two blocks across, three blocks from the torch.
-        if (phase == 0) renderer.draw(cube, grey).at(CX + 3.5, GROUND + 1, CZ + 0.5).transform(new Matrix4f().scale(2f)).submit();
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, look, projection);
-            stage.host().environment().sun(Float.NaN, 0, 0f, 0f);
-            stage.host().textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
-            stage.fire();
-        }
+        if (phase == 0) renderer.once().mesh(cube, grey).at(CX + 3.5, GROUND + 1, CZ + 0.5).transform(new Matrix4f().scale(2f)).add();
+        CgHostFrame hostFrame = CgStageHost.frame(CgStageHost.WORLD_OPAQUE);
+        hostFrame.set(0f, W, H, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, look, projection);
+        hostFrame.environment().sun(Float.NaN, 0, 0f, 0f);
+        hostFrame.textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
+        HarnessWorld.fireCallbacks();
         CgFrameRing.endFrame();
         if (frame % PHASE == 0) target.captureToFile(ctx.getOutputDir(), NAMES[phase] + ".png");
         target.unbind();

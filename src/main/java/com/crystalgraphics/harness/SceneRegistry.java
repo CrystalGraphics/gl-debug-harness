@@ -97,6 +97,7 @@ import com.crystalgraphics.harness.scene.test.CgGraphExecutorTestScene;
 import com.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import com.crystalgraphics.harness.scene.test.CgSceneColorScene;
+import com.crystalgraphics.harness.scene.test.CgSecondViewScene;
 import com.crystalgraphics.harness.scene.test.CgMeshDrawsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshFrameStressScene;
@@ -1229,6 +1230,20 @@ public final class SceneRegistry {
         );
 
         reg.register(
+            SceneDescriptor.builder("second-view").checksPixels()
+                .description("Views of one's own: the game's view, a second view of the client scene from its side (renderInto), and a view of a scene of its own, each seeing only its scene, the main picture untouched")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
+                .build(),
+            () -> new CgSecondViewScene()
+        );
+
+        reg.register(
             SceneDescriptor.builder("custom-depth").checksPixels()
                 .description("aaa-milestones OL2: CustomDepth and CustomStencil, a hidden cube still written, a partial mask over a full one, a skinned quad, each stencil byte read back exactly")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
@@ -1467,7 +1482,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("world-labels")
-                .description("CgWorldRenderer.text under load: a grid of outlined, shadowed labels (-Dcrystalgraphics.harness.labels=<n>)")
+                .description("Scene labels under load: a grid of outlined, shadowed labels (-Dcrystalgraphics.harness.labels=<n>)")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)

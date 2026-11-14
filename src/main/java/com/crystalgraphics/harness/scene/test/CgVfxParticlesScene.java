@@ -1,10 +1,10 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.demo.CgVfxShowcase;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxEffect;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.element.CgVfxBlast;
@@ -81,15 +81,15 @@ public final class CgVfxParticlesScene implements InteractiveSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         double seconds = frame.getElapsedTime();
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         if (seconds >= nextBurst) {
             float[] spot = SPOTS[bursts++ % SPOTS.length];
             vfx.play(new Burst(spot[0], 0.0, spot[1]));
             nextBurst = seconds + PERIOD;
         }
         vfx.update(seconds);
-        vfx.submit(world);
-        stage.submitStage(world, 0.0, 0.0, 0.0, ctx.getCamera3D().getPosX(), ctx.getCamera3D().getPosY(),
+        vfx.submit();
+        stage.submitStage(scene, 0.0, 0.0, 0.0, ctx.getCamera3D().getPosX(), ctx.getCamera3D().getPosY(),
                 ctx.getCamera3D().getPosZ());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }

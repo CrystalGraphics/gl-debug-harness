@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgBlendMode;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.api.material.CgMaterialUsage;
@@ -12,8 +13,7 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.CgRenderer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
-import com.crystalgraphics.render.world.CgWorldLights;
-import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.render.scene.renderer.feature.light.CgSceneLights;
 import com.crystalgraphics.shape.primitive.CgBox;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.look.CgVfxLook;
@@ -104,7 +104,7 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         vfx.update(frame.getElapsedTime());
-        vfx.submit(CgWorldRenderer.get());
+        vfx.submit();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         frames++;
         if (!running || compared) return;
@@ -125,7 +125,7 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
     /** The firing's lights, the pool's records and drawn parts and its live count, with the eye and slot origins they were made at. */
     private void ask() {
         for (CgVfxParticlePool p : CgVfxParticlePool.pools()) if (p.shape().lights()) pool = p;
-        CgWorldLights lights = CgWorldRenderer.get().lights();
+        CgSceneLights lights = CgScene.client().lights();
         // Asked once what it reads exists: the warm-up makes the pool's storage and the light list in its own time
         if (pool == null || pool.records() == null || pool.drawn() == null || pool.liveBuffer() == null
                 || lights.list() == null || lights.count() == null) {
@@ -144,7 +144,7 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
         requests.add(rec.readback(pool.drawn(), 0, (long) pool.storage() * pool.shape().drawnStride() * CgVfxRecord.DRAWN_BYTES,
                 d -> drawn = copy(d)));
         requests.add(rec.readback(pool.liveBuffer(), pool.liveOffset(), 4, d -> live = copy(d)));
-        requests.add(rec.readback(lights.list(), 0, (long) Math.min(PARTICLES, CgWorldLights.CAPACITY) * CgWorldLights.FLOATS * 4, d -> list = copy(d)));
+        requests.add(rec.readback(lights.list(), 0, (long) Math.min(PARTICLES, CgSceneLights.CAPACITY) * CgSceneLights.FLOATS * 4, d -> list = copy(d)));
         requests.add(rec.readback(lights.count(), 0, 4, d -> count = copy(d)));
         CgRenderer.executeNow(rec);
     }
@@ -202,7 +202,7 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
             for (int i = 0; i < listed && found < 0; i++) {
                 if (taken[i]) continue;
                 boolean same = true;
-                for (int c = 0; c < 19 && same; c++) same = Math.abs(list.getFloat((i * CgWorldLights.FLOATS + c) * 4) - w[c]) <= TOLERANCE * (1f + Math.abs(w[c]));
+                for (int c = 0; c < 19 && same; c++) same = Math.abs(list.getFloat((i * CgSceneLights.FLOATS + c) * 4) - w[c]) <= TOLERANCE * (1f + Math.abs(w[c]));
                 if (same) found = i;
             }
             if (found < 0) {
@@ -211,7 +211,7 @@ public final class CgVfxLightsScene implements InteractiveSceneLifecycle {
             }
             taken[found] = true;
             for (int c = 0; c < 19; c++) {
-                worst = Math.max(worst, Math.abs(list.getFloat((found * CgWorldLights.FLOATS + c) * 4) - w[c]) / (TOLERANCE * (1f + Math.abs(w[c]))));
+                worst = Math.max(worst, Math.abs(list.getFloat((found * CgSceneLights.FLOATS + c) * 4) - w[c]) / (TOLERANCE * (1f + Math.abs(w[c]))));
             }
         }
         System.out.printf("[vfx-lights] PASS: %d of %d particles give light (share %.2f), each listed as Java gathers it"

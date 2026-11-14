@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
@@ -9,7 +10,6 @@ import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.shape.bounds.CgAABBc;
 
@@ -71,25 +71,25 @@ public class CgMeshDrawsScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         CgMesh quads = CgMesh.quads(1024);
-        world.draw(quads, quadsMaterial).at(-3.5f, 0f, -1f).indices(0, 300 * 6).bounds(QUADS_BOX).submit();
-        world.draw(quads, quadsMaterial).at(-3.5f, 0f, -1f).indices(600 * 6, 100 * 6).bounds(QUADS_BOX)
-                .submit();
-        world.draw(quads, quadsMaterial).at(-3.5f, 0f, -1f).bounds(OFF_SCREEN).submit();
+        scene.once().mesh(quads, quadsMaterial).at(-3.5f, 0f, -1f).indices(0, 300 * 6).bounds(QUADS_BOX).add();
+        scene.once().mesh(quads, quadsMaterial).at(-3.5f, 0f, -1f).indices(600 * 6, 100 * 6).bounds(QUADS_BOX)
+                .add();
+        scene.once().mesh(quads, quadsMaterial).at(-3.5f, 0f, -1f).bounds(OFF_SCREEN).add();
 
-        world.draw(CgMesh.vertices(64, CgMeshTopology.TRIANGLE_STRIP), stripMaterial).at(-0.2f, 1f, -1f)
-                .bounds(STRIP_BOX).submit();
+        scene.once().mesh(CgMesh.vertices(64, CgMeshTopology.TRIANGLE_STRIP), stripMaterial).at(-0.2f, 1f, -1f)
+                .bounds(STRIP_BOX).add();
 
-        world.draw(model, solid).at(3.2f, 2.6f, -1f).submesh(1).custom(0, 0.4f, 0.8f, 1f, 1f).submit();
-        world.draw(model, solid).at(3.2f, 0.8f, -1f).submesh(0).custom(0, 1f, 0.5f, 0.5f, 1f).submit();
+        scene.once().mesh(model, solid).at(3.2f, 2.6f, -1f).submesh(1).customData(0, 0.4f, 0.8f, 1f, 1f).add();
+        scene.once().mesh(model, solid).at(3.2f, 0.8f, -1f).submesh(0).customData(0, 1f, 0.5f, 0.5f, 1f).add();
         frameNumber = frame.getFrameNumber();
         pulse.edit(this, CgMeshDrawsScene::writePulse);
         ribbon.edit(this, CgMeshDrawsScene::writeRibbon);
         ribbon24.edit(this, CgMeshDrawsScene::writeRibbon);
-        world.draw(pulse, solid).at(-2f, -0.8f, -1f).custom(0, 1.3f, 1.3f, 0.6f, 1.4f).submit();
-        world.draw(ribbon, solid).at(-0.2f, -1.1f, -1f).custom(0, 0.6f, 1.3f, 0.7f, 1.4f).submit();
-        world.draw(ribbon24, solid).at(3.2f, -0.8f, -1f).custom(0, 1.3f, 0.6f, 1.2f, 1.4f).submit();
+        scene.once().mesh(pulse, solid).at(-2f, -0.8f, -1f).customData(0, 1.3f, 1.3f, 0.6f, 1.4f).add();
+        scene.once().mesh(ribbon, solid).at(-0.2f, -1.1f, -1f).customData(0, 0.6f, 1.3f, 0.7f, 1.4f).add();
+        scene.once().mesh(ribbon24, solid).at(3.2f, -0.8f, -1f).customData(0, 1.3f, 0.6f, 1.2f, 1.4f).add();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }
 

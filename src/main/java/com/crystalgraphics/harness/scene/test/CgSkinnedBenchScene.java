@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgSkinning;
@@ -8,7 +9,6 @@ import com.crystalgraphics.animation.CgBonePalettes;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 /**
@@ -74,17 +74,17 @@ public class CgSkinnedBenchScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         float t = (float) frame.getElapsedTime();
         int columns = (int) Math.ceil(Math.sqrt(count));
         for (int i = 0; i < count; i++) {
             double x = (i % columns - columns / 2.0) * 7.0, z = -(i / columns) * 2.0;
             if (still) {
-                world.draw(twin, material).at(x, 1.0, z).custom(0, 0.8f, 0.7f, 0.6f, 1f).submit();
+                scene.once().mesh(twin, material).at(x, 1.0, z).customData(0, 0.8f, 0.7f, 0.6f, 1f).add();
             } else {
                 pose(0.5f * (float) Math.sin(t * 2f + i * 0.37f));
                 int base = CgBonePalettes.write(skinning, BONES);
-                world.draw(bar, material).bones(base).pad(LENGTH).at(x, 1.0, z).custom(0, 0.8f, 0.7f, 0.6f, 1f).submit();
+                scene.once().mesh(bar, material).bones(base).pad(LENGTH).at(x, 1.0, z).customData(0, 0.8f, 0.7f, 0.6f, 1f).add();
             }
         }
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());

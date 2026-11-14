@@ -1,12 +1,12 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.demo.CgVfxBlasts;
 import com.crystalgraphics.demo.CgVfxDemoControls;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -39,8 +39,8 @@ public final class CgVfxBlastsScene implements InteractiveSceneLifecycle, CgSyst
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
-        blasts.submit(world, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(frame.getElapsedTime()));
+        CgScene scene = CgScene.client();
+        blasts.submit(scene, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(frame.getElapsedTime()));
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }
 

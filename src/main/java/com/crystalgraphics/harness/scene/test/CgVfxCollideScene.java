@@ -35,7 +35,7 @@ import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxDataInterfaces;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxParticlePool;
 import com.crystalgraphics.vfx.particle.gpu.sim.CgVfxRecord;
 import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
-import com.crystalgraphics.render.world.CgWorldVoxelWindow;
+import com.crystalgraphics.render.scene.renderer.feature.field.CgVoxelWindow;
 import org.joml.Matrix4f;
 
 import java.nio.ByteBuffer;
@@ -125,7 +125,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         frame++;
         if (frame <= FILL + STEPS + 1) {
             CgRecording rec = new CgRecording();
-            CgWorldVoxelWindow.get().useDistance().record(rec, view);
+            CgVoxelWindow.get().useDistance().record(rec, view);
             if (frame == FILL) seed(rec);
             if (frame > FILL) step(rec);
             if (frame == FILL + STEPS + 1) {
@@ -154,7 +154,7 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
     }
 
     private void seed(CgRecording rec) {
-        if (!CgWorldVoxelWindow.get().live()) fail("the window has no level after " + FILL + " frames");
+        if (!CgVoxelWindow.get().live()) fail("the window has no level after " + FILL + " frames");
         parents = CgVfxParticlePool.of(this, debris);
         children = CgVfxParticlePool.of(this, dust, 1);   // its feed tier: spawned by debris's events
         if (parents == children) fail("the debris and its dust share a pool");
@@ -385,9 +385,9 @@ public class CgVfxCollideScene implements InteractiveSceneLifecycle {
         public String gpuSource() {
             return """
                     void fx_gate_bounce(inout FxParticle p, FxStep s, vec4 m, FxWorld world) {
-                        if (!fx_world_solid(world, p.position)) return;
+                        if (!fx_world_solid(scene, p.position)) return;
                         vec3 g;
-                        fx_world_sdf(world, p.previous, g);
+                        fx_world_sdf(scene, p.previous, g);
                         vec3 n = length(g) > 0.0 ? normalize(g) : vec3(0.0, 1.0, 0.0);
                         float into = -dot(p.velocity, n);
                         p.position = p.previous;

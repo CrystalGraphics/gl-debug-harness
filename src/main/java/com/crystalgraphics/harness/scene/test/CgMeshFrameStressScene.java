@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshTopology;
@@ -8,7 +9,6 @@ import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 
 import java.time.LocalTime;
 
@@ -61,13 +61,13 @@ public class CgMeshFrameStressScene implements InteractiveSceneLifecycle {
                     LocalTime.now());
         }
         lastRender = now;
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         for (int i = 0; i < MESHES; i++) {
             writing = i;
             strips[i].edit(this, CgMeshFrameStressScene::write);
             float shade = (float) i / MESHES;
-            world.draw(strips[i], solid).at(-3f, 3.2f - i * (4.4f / MESHES), -1f)
-                    .custom(0, 0.5f + shade, 1.2f - shade * 0.5f, 1.3f, 1.4f).submit();
+            scene.once().mesh(strips[i], solid).at(-3f, 3.2f - i * (4.4f / MESHES), -1f)
+                    .customData(0, 0.5f + shade, 1.2f - shade * 0.5f, 1.3f, 1.4f).add();
         }
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }

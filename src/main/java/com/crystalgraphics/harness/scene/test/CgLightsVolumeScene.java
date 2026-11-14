@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -17,7 +19,6 @@ import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.variable.CgVar;
 import com.crystalgraphics.variable.CgVars;
 import org.joml.Matrix4f;
@@ -74,7 +75,6 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         CgPlatform.provide(CgLevels.HOST, CgLevels.single(world, CgEntityQuery.NONE));
-        CgWorldRenderer.get().install();
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         glass = CgMaterial.load("assets/harness/shader/forward_transparent_test.shader");
         surface = CgMaterial.load("assets/harness/shader/surface_lit_pane.shader");
@@ -87,26 +87,24 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
         frame++;
         int phase = (frame - 1) / PHASE;
         ((CgVar.Bool) CgVars.get(VOLUME)).set(phase != 1);
-        CgWorldRenderer renderer = CgWorldRenderer.get();
+        CgScene renderer = CgScene.client();
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
         CgMesh cube = CgMeshShapes.cube();
-        renderer.draw(cube, grey).at(CX + 0.5, GROUND - 0.5, CZ + 0.5).transform(new Matrix4f().scale(40f, 1f, 40f)).submit();
-        renderer.draw(cube, grey).at(CX + 0.5, GROUND + 1.5, CZ + 0.5).transform(new Matrix4f().scale(1f, 3f, 9f)).submit();
+        renderer.once().mesh(cube, grey).at(CX + 0.5, GROUND - 0.5, CZ + 0.5).transform(new Matrix4f().scale(40f, 1f, 40f)).add();
+        renderer.once().mesh(cube, grey).at(CX + 0.5, GROUND + 1.5, CZ + 0.5).transform(new Matrix4f().scale(1f, 3f, 9f)).add();
         for (double[] pane : new double[][]{BEHIND, OPEN}) {
-            renderer.draw(cube, glass).at(pane[0], pane[1], pane[2]).transform(new Matrix4f().scale(2f, 0.1f, 2f))
-                    .custom(0, 0.5f, 0.5f, 0.5f, 1.8f).submit();
+            renderer.once().mesh(cube, glass).at(pane[0], pane[1], pane[2]).transform(new Matrix4f().scale(2f, 0.1f, 2f))
+                    .customData(0, 0.5f, 0.5f, 0.5f, 1.8f).add();
         }
         for (double[] pane : new double[][]{FACING, AWAY}) {
-            renderer.draw(cube, surface).at(pane[0], pane[1], pane[2]).transform(new Matrix4f().scale(2f, 0.1f, 2f))
-                    .custom(0, 0.5f, 0.5f, 0.5f, 0.9f).custom(1, 0f, 0f, pane == FACING ? -1f : 1f, 0f).submit();
+            renderer.once().mesh(cube, surface).at(pane[0], pane[1], pane[2]).transform(new Matrix4f().scale(2f, 0.1f, 2f))
+                    .customData(0, 0.5f, 0.5f, 0.5f, 0.9f).customData(1, 0f, 0f, pane == FACING ? -1f : 1f, 0f).add();
         }
-        renderer.draw(cube, handed).at(HANDED[0], HANDED[1], HANDED[2]).transform(new Matrix4f().scale(2f, 0.1f, 2f)).submit();
+        renderer.once().mesh(cube, handed).at(HANDED[0], HANDED[1], HANDED[2]).transform(new Matrix4f().scale(2f, 0.1f, 2f)).add();
         if (phase < 2) renderer.lights().add(LIGHT_X, LIGHT_Y, LIGHT_Z, LIGHT_RADIUS, 0xFFFFE0C0, 600f, 0f);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, look, projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, look, projection);
+        HarnessWorld.fireCallbacks();
         CgFrameRing.endFrame();
         if (frame % PHASE == 0) target.captureToFile(ctx.getOutputDir(), NAMES[phase] + ".png");
         target.unbind();

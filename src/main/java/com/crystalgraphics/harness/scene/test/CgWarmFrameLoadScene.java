@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.demo.CgVfxDemoControls;
@@ -13,7 +14,6 @@ import com.crystalgraphics.loading.CgLoadingScreen;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.trace.CgGpuTrace;
 
 /**
@@ -62,7 +62,7 @@ public final class CgWarmFrameLoadScene implements InteractiveSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         if (!running) return;
-        modules.submit(CgWorldRenderer.get(), 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(frame.getElapsedTime()));
+        modules.submit(CgScene.client(), 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(frame.getElapsedTime()));
         CgLoadingScreen.fireWarmFrame();
         if (!settled) {
             // A zone split across submissions while a pipeline built counts the GPU's wait for it: measured once built

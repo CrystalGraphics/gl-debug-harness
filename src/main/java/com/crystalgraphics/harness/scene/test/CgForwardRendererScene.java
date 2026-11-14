@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.harness.SceneRegistry;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -9,12 +10,11 @@ import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * GL harness scene exercising {@link CgWorldRenderer} through both world stages, the harness standing in for the host.
+ * GL harness scene exercising the scene through both world stages, the harness standing in for the host.
  * Three behaviours in one run:
  *
  * <ol>
@@ -117,37 +117,35 @@ public class CgForwardRendererScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
 
         // ── GROUP A — auto-instancing stress ─────────────────────────────────
         // 50 cubes in a 10-column × 5-row grid at y=0, all solidMaterial + unitCubeMesh: one instanced draw.
         for (int idx = 0; idx < GROUP_A_COUNT; idx++) {
             float[] rgb = hsvToRgb(idx / (float) GROUP_A_COUNT, 1f, 1f);
-            world.draw(unitCubeMesh, solidMaterial)
+            scene.once().mesh(unitCubeMesh, solidMaterial)
                     .at(idx % 10 - 4.5f, 0f, idx / 10 - 2.0f + idx * 0.1f)
-                    .custom(0, rgb[0], rgb[1], rgb[2], 1f)
-                    .queue(CgRenderQueue.GEOMETRY)
-                    .submit();
+                    .customData(0, rgb[0], rgb[1], rgb[2], 1f)
+                    .add();
         }
 
         // ── GROUP B — material break test ────────────────────────────────────
         // 20 cubes at y=1.5, submitted interleaved A-B-A-B; the sort groups them by material: two draws of 10.
         for (int i = 0; i < GROUP_B_EACH; i++) {
             float x = (i - 4.5f) * 1.1f;
-            world.draw(unitCubeMesh, tintMaterialA).at(x, 1.5f, -0.5f).custom(0, 1f, 1f, 1f, 1f)
-                    .queue(CgRenderQueue.GEOMETRY).submit();
-            world.draw(unitCubeMesh, tintMaterialB).at(x, 1.5f, 0.5f).custom(0, 1f, 1f, 1f, 1f)
-                    .queue(CgRenderQueue.GEOMETRY).submit();
+            scene.once().mesh(unitCubeMesh, tintMaterialA).at(x, 1.5f, -0.5f).customData(0, 1f, 1f, 1f, 1f)
+                    .add();
+            scene.once().mesh(unitCubeMesh, tintMaterialB).at(x, 1.5f, 0.5f).customData(0, 1f, 1f, 1f, 1f)
+                    .add();
         }
 
         // ── GROUP C — transparent depth order ────────────────────────────────
         // 8 cubes at y=2, z = -1 … -8, submitted front to back; drawn back to front. Bluer is further.
         for (int i = 0; i < GROUP_C_COUNT; i++) {
             float depth = (i + 1f) / GROUP_C_COUNT;
-            world.draw(unitCubeMesh, transparentMaterial).at(0f, 2f, -(i + 1f))
-                    .custom(0, 1f - depth, 0.5f, depth, 0.5f)
-                    .queue(CgRenderQueue.TRANSPARENT)
-                    .submit();
+            scene.once().mesh(unitCubeMesh, transparentMaterial).at(0f, 2f, -(i + 1f))
+                    .customData(0, 1f - depth, 0.5f, depth, 0.5f)
+                    .add();
         }
 
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());

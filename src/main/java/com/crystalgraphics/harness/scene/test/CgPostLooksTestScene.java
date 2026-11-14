@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -25,8 +27,7 @@ import com.crystalgraphics.render.post.volume.CgPostSettings.Control;
 import com.crystalgraphics.render.post.volume.CgPostSettings.Region;
 import com.crystalgraphics.render.post.volume.CgPostVolume;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgPipelinePrecache;
-import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.render.precache.CgPipelinePrecache;
 import com.crystalgraphics.settings.CgGraphicsSettings;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -76,8 +77,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
+        CgScene scene = CgScene.client();
         CgPostStack post = CgPostStack.get();
         post.install();
         // Every program built first, as a loading screen leaves them: a cold one draws its fallback for a frame, and each
@@ -96,39 +96,39 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         float flashes = CgGraphicsSettings.FLASHES.get();
         CgGraphicsSettings.FLASHES.set(1f);
 
-        BufferedImage base = draw(ctx, world, "base", v -> { });
+        BufferedImage base = draw(ctx, scene, "base", v -> { });
         same(failures, "a volume at weight 0", base,
-                draw(ctx, world, "weight0", v -> v.add(post.volume(0, new CgPostSettings().flash(1f)).weight(0f))));
-        same(failures, "a volume out of reach", base, draw(ctx, world, "far",
+                draw(ctx, scene, "weight0", v -> v.add(post.volume(0, new CgPostSettings().flash(1f)).weight(0f))));
+        same(failures, "a volume out of reach", base, draw(ctx, scene, "far",
                 v -> v.add(post.volume(0, new CgPostSettings().flash(1f)).at(0, 0, 100).radius(5f).blend(5f))));
         CgGraphicsSettings.FLASHES.set(0f);
         same(failures, "a flash with flashes at 0", base,
-                draw(ctx, world, "flashes0", v -> v.add(post.volume(0, new CgPostSettings().flash(1f)))));
+                draw(ctx, scene, "flashes0", v -> v.add(post.volume(0, new CgPostSettings().flash(1f)))));
         CgGraphicsSettings.FLASHES.set(1f);
 
-        BufferedImage flash = draw(ctx, world, "flash", v -> v.add(post.volume(0, new CgPostSettings().flash(1f))));
+        BufferedImage flash = draw(ctx, scene, "flash", v -> v.add(post.volume(0, new CgPostSettings().flash(1f))));
         if (!(mean(flash, 0, 0, W, H) > mean(base, 0, 0, W, H) * 1.25f)) {
             failures.add("a one-stop flash: mean " + mean(flash, 0, 0, W, H) + " against " + mean(base, 0, 0, W, H));
         }
-        BufferedImage vignette = draw(ctx, world, "vignette", v -> v.add(post.volume(0, new CgPostSettings().vignette(1f))));
+        BufferedImage vignette = draw(ctx, scene, "vignette", v -> v.add(post.volume(0, new CgPostSettings().vignette(1f))));
         if (!(mean(vignette, 0, 0, 24, 24) < mean(base, 0, 0, 24, 24) * 0.7f)) {
             failures.add("a full vignette: corner mean " + mean(vignette, 0, 0, 24, 24) + " against " + mean(base, 0, 0, 24, 24));
         }
-        same(failures, "a higher-priority vignette over a lower", vignette, draw(ctx, world, "priority", v -> {
+        same(failures, "a higher-priority vignette over a lower", vignette, draw(ctx, scene, "priority", v -> {
             v.add(post.volume(0, new CgPostSettings().vignette(0.2f)));
             v.add(post.volume(5, new CgPostSettings().vignette(1f)));
         }));
-        BufferedImage invert = draw(ctx, world, "invert", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.INVERT, 1f))));
+        BufferedImage invert = draw(ctx, scene, "invert", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.INVERT, 1f))));
         float negative = 255f - mean(base, 0, 0, W, H);
         if (Math.abs(mean(invert, 0, 0, W, H) - negative) > 8f) {
             failures.add("an inverted impact frame: mean " + mean(invert, 0, 0, W, H) + " against " + negative);
         }
-        BufferedImage chromatic = draw(ctx, world, "chromatic", v -> v.add(post.volume(0, new CgPostSettings().chromatic(5f))));   // Unreal's percent, its usual most
-        BufferedImage linear = draw(ctx, world, "copy-form", v -> v.add(post.volume(0, new CgPostSettings().vignette(0.0001f))));
+        BufferedImage chromatic = draw(ctx, scene, "chromatic", v -> v.add(post.volume(0, new CgPostSettings().chromatic(5f))));   // Unreal's percent, its usual most
+        BufferedImage linear = draw(ctx, scene, "copy-form", v -> v.add(post.volume(0, new CgPostSettings().vignette(0.0001f))));
         if (changed(chromatic, linear) < 50) failures.add("chromatic aberration moved " + changed(chromatic, linear) + " pixels");
         // Unreal's Gaussian layers at its defaults: the glow spread round the ball, its widest layer reaching the corners
-        BufferedImage unbloomed = draw(ctx, world, "no-bloom", v -> v.add(post.volume(0, new CgPostSettings().bloom(0f))));
-        BufferedImage gaussian = draw(ctx, world, "gaussian", v -> v.add(post.volume(0, new CgPostSettings().gaussianBloom())));
+        BufferedImage unbloomed = draw(ctx, scene, "no-bloom", v -> v.add(post.volume(0, new CgPostSettings().bloom(0f))));
+        BufferedImage gaussian = draw(ctx, scene, "gaussian", v -> v.add(post.volume(0, new CgPostSettings().gaussianBloom())));
         float near = mean(gaussian, W / 2 + 44, H / 2 - 4, 8, 8) - mean(unbloomed, W / 2 + 44, H / 2 - 4, 8, 8);
         float far = mean(gaussian, 0, 0, 24, 24) - mean(unbloomed, 0, 0, 24, 24);
         if (!(near > 2f && far > 0.05f && near > far)) {
@@ -136,7 +136,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         }
         // Unreal 4.21's tonemapper: each pixel as the CPU's bake of the same table reads it from the untoned picture.
         CgPostSettings stage = new CgPostSettings().tonemap().filmHeal(0.18f);
-        BufferedImage toned = draw(ctx, world, "tonemap", v -> v.add(post.volume(0, stage)));
+        BufferedImage toned = draw(ctx, scene, "tonemap", v -> v.add(post.volume(0, stage)));
         float[] table = new float[CgFilmLut.CELLS * 3];
         CgFilmLut.bake(stage, table);
         toneWorst = toneError(linear, toned, table);
@@ -148,42 +148,42 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
                 .grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0.7f).tint(1f, 0.95f, 0.9f);
         List<CgPostSettings> tables = List.of(stage, filmic, filmicGraded);
         for (int t = 0; t < tables.size(); t++) {
-            tableWorst[t] = tableError(world, tables.get(t));
+            tableWorst[t] = tableError(scene, tables.get(t));
             if (!(tableWorst[t] <= TABLE_STEP)) failures.add("the GPU's table " + t + ": a cell " + tableWorst[t] + " from the CPU's");
         }
         // Unreal's colour grading: each pixel as the CPU grades the untoned picture, then tinted.
         CgPostSettings cold = new CgPostSettings().grade(Region.SHADOWS, Control.GAIN, 0.8f, 0.9f, 1.2f, 1f)
                 .grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0.7f).grade(Region.HIGHLIGHTS, Control.GAIN, 1f, 1f, 1f, 0.9f)
                 .grade(Region.MIDTONES, Control.GAMMA, 1.1f, 1f, 0.9f, 1f).whiteBalance(5500f, 0f).tint(1f, 0.95f, 0.9f);
-        BufferedImage graded = draw(ctx, world, "grade", v -> v.add(post.volume(0, cold)));
+        BufferedImage graded = draw(ctx, scene, "grade", v -> v.add(post.volume(0, cold)));
         double[] grade = new double[CgColorGrade.PACKED];
         CgColorGrade.pack(cold, grade);
         gradeWorst = gradeError(linear, graded, grade, new double[] {cold.tintR(), cold.tintG(), cold.tintB()});
         if (gradeWorst > 3) failures.add("the grade: a pixel " + gradeWorst + " codes from the CPU's");
-        same(failures, "a neutral grade", base, draw(ctx, world, "grade-neutral", v -> v.add(post.volume(0,
+        same(failures, "a neutral grade", base, draw(ctx, scene, "grade-neutral", v -> v.add(post.volume(0,
                 new CgPostSettings().grade(Region.SHADOWS, Control.GAIN, 1f, 1f, 1f, 1f).whiteBalance(6500f, 0f).tint(1f, 1f, 1f)))));
-        BufferedImage lines = draw(ctx, world, "lines", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.LINES, 1f))));
+        BufferedImage lines = draw(ctx, scene, "lines", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.LINES, 1f))));
         if (!(mean(lines, 0, 0, W, H) < mean(base, 0, 0, W, H) * 0.95f)) {
             failures.add("focus lines: mean " + mean(lines, 0, 0, W, H) + " against " + mean(base, 0, 0, W, H));
         }
         // Drawn frames: the subject is what glows (the ball's Emissive pass), not the lit wall.
-        BufferedImage subject = draw(ctx, world, "subject", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.SUBJECT, 1f))));
+        BufferedImage subject = draw(ctx, scene, "subject", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.SUBJECT, 1f))));
         if (!(mean(subject, W / 2 - 4, H / 2 - 4, 8, 8) > 200f && mean(subject, 0, 0, 24, 24) < 30f)) {
             failures.add("a subject frame: ball " + mean(subject, W / 2 - 4, H / 2 - 4, 8, 8) + ", corner " + mean(subject, 0, 0, 24, 24));
         }
-        BufferedImage focus = draw(ctx, world, "focus-lines", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.FOCUS_LINES, 1f))));
+        BufferedImage focus = draw(ctx, scene, "focus-lines", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.FOCUS_LINES, 1f))));
         float rim = mean(focus, 0, 0, W, 24);
         if (!(mean(focus, W / 2 - 4, H / 2 - 4, 8, 8) > 200f && rim > 60f && rim < 245f)) {
             failures.add("focus lines on white: ball " + mean(focus, W / 2 - 4, H / 2 - 4, 8, 8) + ", top rows " + rim);
         }
 
         // A graded draw: its own look on its light alone, the rest of the frame as it was
-        BufferedImage bare = draw(ctx, world, "graded-bare", v -> { });
+        BufferedImage bare = draw(ctx, scene, "graded-bare", v -> { });
         glassBall = true;
-        BufferedImage plain = draw(ctx, world, "graded-plain", v -> { });
+        BufferedImage plain = draw(ctx, scene, "graded-plain", v -> { });
         CgPostSettings grey = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).bloom(0f);
         glassGrade = grey;
-        BufferedImage greyed = draw(ctx, world, "graded", v -> { });
+        BufferedImage greyed = draw(ctx, scene, "graded", v -> { });
         int changedAway = changed(bare, greyed, 0, 0, 150, H);
         if (changedAway > 0) failures.add("a graded draw changed " + changedAway + " pixels away from it");
         float own = saturation(greyed, 266, 116, 8, 8), was = saturation(plain, 266, 116, 8, 8);
@@ -191,7 +191,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         gradedSaturation[1] = was;
         if (!(was > 0.3f && own < was * 0.5f)) failures.add("a graded draw's look: saturation " + own + " against " + was);
         glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).gaussianBloom();
-        BufferedImage bloomed = draw(ctx, world, "graded-bloom", v -> { });
+        BufferedImage bloomed = draw(ctx, scene, "graded-bloom", v -> { });
         float beside = mean(bloomed, 204, 116, 12, 8) - mean(greyed, 204, 116, 12, 8);
         gradedSaturation[2] = beside;
         if (!(beside > 1f)) failures.add("a graded draw's own bloom: " + beside + " brighter beside it");
@@ -203,11 +203,11 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
                 .place(1.6, 0, -4.9, new Quaternionf(), 1.4f, 1.4f, 1.4f);
         float[] regionBeside = new float[2];
         for (int r = 0; r < 2; r++) {
-            CgRenderStage.Registration region = r == 1 ? box.show() : null;
+            CgPostStack.Registration region = r == 1 ? box.show() : null;
             glassGrade = dark;
-            BufferedImage regionDark = draw(ctx, world, "graded-region-" + r + "-dark", v -> { });
+            BufferedImage regionDark = draw(ctx, scene, "graded-region-" + r + "-dark", v -> { });
             glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).gaussianBloom();
-            BufferedImage bloomedHere = draw(ctx, world, "graded-region-" + r, v -> { });
+            BufferedImage bloomedHere = draw(ctx, scene, "graded-region-" + r, v -> { });
             regionBeside[r] = mean(bloomedHere, 204, 116, 12, 8) - mean(regionDark, 204, 116, 12, 8);
             if (region != null) region.close();
         }
@@ -220,9 +220,9 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         // An opaque graded draw, drawn in the opaque firing: its layer covers what is behind it, whatever alpha it writes
         solidBall = true;
         glassGrade = null;
-        BufferedImage solidPlain = draw(ctx, world, "graded-solid-plain", v -> { });
+        BufferedImage solidPlain = draw(ctx, scene, "graded-solid-plain", v -> { });
         glassGrade = grey;
-        BufferedImage solidGreyed = draw(ctx, world, "graded-solid", v -> { });
+        BufferedImage solidGreyed = draw(ctx, scene, "graded-solid", v -> { });
         int solidAway = changed(solidPlain, solidGreyed, 150, 0, W - 150, H);
         if (solidAway > 0) failures.add("an opaque graded draw changed " + solidAway + " pixels away from it");
         float solidOwn = saturation(solidGreyed, W - 266 - 8, 116, 8, 8), solidWas = saturation(solidPlain, W - 266 - 8, 116, 8, 8);
@@ -232,7 +232,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
             failures.add("an opaque graded draw's look: saturation " + solidOwn + " against " + solidWas);
         }
         glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).gaussianBloom();
-        BufferedImage solidBloomed = draw(ctx, world, "graded-solid-bloom", v -> { });
+        BufferedImage solidBloomed = draw(ctx, scene, "graded-solid-bloom", v -> { });
         float solidBeside = mean(solidBloomed, W - 204 - 12, 116, 12, 8) - mean(solidGreyed, W - 204 - 12, 116, 12, 8);
         gradedSaturation[5] = solidBeside;
         if (!(solidBeside > 1f)) failures.add("an opaque graded draw's own bloom: " + solidBeside + " brighter beside it");
@@ -252,12 +252,12 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
      * {@code s}'s table as the GPU builds it ({@code CgFilmLut}), read back, against {@link CgFilmLut#bake}'s: the most
      * any channel of any cell differs; infinity if it never came back.
      */
-    private double tableError(CgWorldRenderer world, CgPostSettings s) {
+    private double tableError(CgScene scene, CgPostSettings s) {
         int n = CgFilmLut.SIZE;
         CgFilmLut lut = new CgFilmLut();
         float[] got = new float[CgFilmLut.CELLS * 4];
         boolean[] read = new boolean[2];
-        CgRenderStage.Registration reading = CgRenderStage.WORLD_TRANSPARENT.register(CgWorldRenderer.ORDER + 1, stage -> {
+        CgRenderStage.Registration reading = CgRenderStage.TRANSLUCENT.register(1, stage -> {
             if (read[0]) return;
             read[0] = true;
             CgGraphTexture table = lut.texture(stage.recording(), s);
@@ -268,7 +268,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         });
         // A managed scene renders once, so no frame of the device's ends by itself: a readback lands when one does
         for (int f = 0; f < 10 && !read[1]; f++) {
-            fire(world);
+            fire(scene);
             CgRHI.get().endFrame();
             CgReadback.poll();
         }
@@ -284,36 +284,34 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
     }
 
     /** One frame of the stages over the wall and the ball, into a target of its own, not kept. */
-    private void fire(CgWorldRenderer world) {
+    private void fire(CgScene scene) {
         HarnessTarget target = HarnessTarget.create(W, H, true);
         target.bind();
-        fire(world, target);
+        fire(scene, target);
         target.unbind();
         target.delete();
     }
 
-    private void fire(CgWorldRenderer world, HarnessTarget target) {
+    private void fire(CgScene scene, HarnessTarget target) {
         CgMesh cube = CgMeshShapes.cube(), ball = CgMeshShapes.sphere(24, 32);
-        world.draw(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).submit();
-        world.draw(ball, glow).at(0, 0, -3).transform(new Matrix4f().scale(0.6f)).submit();
-        if (solidBall) world.draw(ball, solid).at(-1.6, 0, -3).transform(new Matrix4f().scale(0.6f)).grade(glassGrade).submit();
-        if (glassBall) world.draw(ball, glass).at(1.6, 0, -3).transform(new Matrix4f().scale(0.6f)).grade(glassGrade).submit();
+        scene.once().mesh(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).add();
+        scene.once().mesh(ball, glow).at(0, 0, -3).transform(new Matrix4f().scale(0.6f)).add();
+        if (solidBall) scene.once().mesh(ball, solid).at(-1.6, 0, -3).transform(new Matrix4f().scale(0.6f)).grade(glassGrade).add();
+        if (glassBall) scene.once().mesh(ball, glass).at(1.6, 0, -3).transform(new Matrix4f().scale(0.6f)).grade(glassGrade).add();
         Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) W / H, 0.05f, 100f);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
+        HarnessWorld.fireCallbacks();
         CgFrameRing.endFrame();
     }
 
     /** The wall and the ball in front of it under the volumes {@code setup} opens, captured; then the volumes closed. */
-    private BufferedImage draw(HarnessContext ctx, CgWorldRenderer world, String name, Consumer<List<CgPostVolume>> setup) {
+    private BufferedImage draw(HarnessContext ctx, CgScene scene, String name, Consumer<List<CgPostVolume>> setup) {
         List<CgPostVolume> open = new ArrayList<>();
         setup.accept(open);
         HarnessTarget target = HarnessTarget.create(W, H, true);
         target.bind();
         target.clear(0.25f, 0.3f, 0.4f, 1f);
-        fire(world, target);
+        fire(scene, target);
         target.captureToFile(ctx.getOutputDir(), name + ".png");
         target.unbind();
         target.delete();

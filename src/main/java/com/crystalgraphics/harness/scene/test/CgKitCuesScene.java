@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
+import com.crystalgraphics.render.view.CgView;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgui.screen.CgUiScreen;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -24,7 +27,6 @@ import com.crystalgui.app.cues.CueSelection;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.post.volume.CgColourRegion;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencer;
@@ -161,7 +163,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
         cube = CgMeshShapes.cube();
         // Submitted in the world's frame, as a mod's draws are: before it, the world's frame drops them
         submit = CgWorld.client().schedule().add(CgTickGroup.SUBMIT, "harness:kit-cues", dt -> {
-            CgWorldRenderer.get().draw(cube, dummy).at(HIT_X, 0, HIT_Z - 0.4).transform(dummyShape).submit();
+            CgScene.client().once().mesh(cube, dummy).at(HIT_X, 0, HIT_Z - 0.4).transform(dummyShape).add();
         });
         ctx.getLoadPlan().task("harness:kit-cues").render(task -> {
             prepare();
@@ -344,7 +346,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
                 if (speed == 0) speed = resumeSpeed;
                 else pause();
             }
-            case CgKeyCodes.KEY_C -> CgWorldRenderer.get().gradeDraws(!CgWorldRenderer.get().gradeDraws());
+            case CgKeyCodes.KEY_C -> CgView.main().override(CgSceneRenderer.GRADE_DRAWS, !CgView.main().flag(CgSceneRenderer.GRADE_DRAWS));
             default -> {
                 return false;
             }
@@ -374,7 +376,7 @@ public final class CgKitCuesScene implements InteractiveSceneLifecycle, CgSystem
                 inspector.age(),
                 Double.isNaN(inspector.duration()) ? "?" : String.format(Locale.ROOT, "%.3f", inspector.duration()),
                 selection.state(), selection.fires(), selection.hit().size(),
-                CgWorldRenderer.get().gradeDraws() ? "on" : "off", CgColourRegion.gainTuning()).replace("\r", "");
+                CgView.main().flag(CgSceneRenderer.GRADE_DRAWS) ? "on" : "off", CgColourRegion.gainTuning()).replace("\r", "");
     }
 
     @Override

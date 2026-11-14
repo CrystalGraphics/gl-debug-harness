@@ -24,7 +24,7 @@ import com.crystalgraphics.render.draw.CgMaterialBindings;
  * ({@link CgGraphTexture#stencil()}): a pass sampling it into an R8 of its size, value / 255, to read back.
  *
  * <pre>{@code
- * CgGraphTexture bytes = probe.record(stage, stage.resources().get(CgFrameKeys.CUSTOM_DEPTH));
+ * CgGraphTexture bytes = probe.record(stage, stage.view().textures().customDepth());
  * if (bytes != null) stage.recording().readback(bytes, 0, 0, 0, w, h, data -> stencil = copy(data));
  * }</pre>
  */

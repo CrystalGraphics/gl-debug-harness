@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.animation.CgAnimInstance;
 import com.crystalgraphics.api.animation.CgAnimSequence;
 import com.crystalgraphics.api.animation.CgSkeleton;
@@ -23,7 +24,6 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.volume.CgPostVolumeSpawner;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.binding.CgSequenceRole;
@@ -143,7 +143,7 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
             }
             if (!handle.ready()) {
                 vfx.update(now);   // the world's frame precaches the bundle's GPU work
-                vfx.submit(CgWorldRenderer.get());
+                vfx.submit();
                 HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
                 return;
             }
@@ -166,7 +166,7 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
             worstSpawns = spawnedThisFrame;
         }
         vfx.update(now);
-        vfx.submit(CgWorldRenderer.get());
+        vfx.submit();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         frames++;
         if (frames % 120 == 0) System.out.println(TAG + "frame " + frames + ": tick " + String.format("%.1f", tick()));

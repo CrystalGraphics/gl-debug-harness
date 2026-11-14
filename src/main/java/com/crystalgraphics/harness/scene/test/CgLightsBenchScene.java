@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -8,8 +9,7 @@ import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.render.world.CgWorldLights;
-import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.render.scene.renderer.feature.light.CgSceneLights;
 
 /**
  * Effect lights' cost: {@code n} point lights over a floor, a grid of them glowing on the ground, added to the
@@ -48,13 +48,13 @@ public final class CgLightsBenchScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldLights lights = CgWorldRenderer.get().lights();
+        CgSceneLights lights = CgScene.client().lights();
         float half = columns * SPACING * 0.5f;
         for (int i = 0; i < LIGHTS; i++) {
             float x = (i % columns) * SPACING - half, z = (i / columns) * SPACING - half;
             lights.add(x, 0.6, z, REACH, 0xE62E73FF, INTENSITY, 0f);
         }
-        CgWorldRenderer.get().draw(floor, floorMaterial).at(0.0, 0.0, 0.0).submit();
+        CgScene.client().once().mesh(floor, floorMaterial).at(0.0, 0.0, 0.0).add();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }
 

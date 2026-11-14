@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -36,7 +38,6 @@ import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.volume.CgPostVolumePreparer;
 import com.crystalgraphics.render.post.volume.CgPostVolumeSpawner;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.CgSequencer;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
@@ -233,16 +234,13 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle, CgSy
     /** The scene into the target, then the world's stages over it. */
     private void draw() {
         int w = scene.getWidth(), h = scene.getHeight();
-        CgWorldRenderer.get().install();
         CgPostStack.get().install();
         target.bind();
         target.clear(0f, 0f, 0f, 1f);
         target.getColor().uploadRegion(0, 0, 0, w, h, pixels);
         CgCamera.perspectiveMatrix(projection, 60f, (float) w / h, 0.05f, 100f);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
+        HarnessWorld.fireCallbacks();
         CgFrameRing.endFrame();
         target.unbind();
     }

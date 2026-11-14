@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -10,7 +11,6 @@ import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.stage.CgStageFrame;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.shape.primitive.CgSphere;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.look.CgVfxLook;
@@ -101,7 +101,7 @@ public final class CgVfxBooksScene implements InteractiveSceneLifecycle {
     public void init(HarnessContext ctx) {
         ctx.getCamera3D().moveCamera(0f, 3f, 12f);
         // After the pools record their step: each pool's records read back, its slots' openings noted.
-        watch = CgRenderStage.WORLD_OPAQUE.register(Integer.MAX_VALUE, this::watch);
+        watch = CgRenderStage.OPAQUE.register(Integer.MAX_VALUE, this::watch);
     }
 
     @Override
@@ -118,7 +118,7 @@ public final class CgVfxBooksScene implements InteractiveSceneLifecycle {
         }
         clock += FRAME_SECONDS;
         vfx.update(clock);
-        vfx.submit(CgWorldRenderer.get());
+        vfx.submit();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         frame++;
         check();

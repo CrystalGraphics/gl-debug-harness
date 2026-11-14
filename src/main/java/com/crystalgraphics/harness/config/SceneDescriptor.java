@@ -93,7 +93,7 @@ public  class SceneDescriptor {
 
         /**
          * A gate checking what it drew from its first frames: the world renderer compiles a program at its draw rather
-         * than holding the draw until it is built ({@code CgWorldRenderer.skipUnready(false)}), as Unreal's screenshot
+         * than holding the draw until it is built ({@code CgView.main().override(CgSceneRenderer.SKIP_UNREADY, false)}), as Unreal's screenshot
          * tests wait for shaders before capturing. Leave it off a scene measuring hitches or the warm-up itself.
          *
          * <pre>{@code

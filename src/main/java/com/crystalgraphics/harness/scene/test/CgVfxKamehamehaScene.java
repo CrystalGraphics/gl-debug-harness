@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.demo.CgVfxDemoControls;
@@ -11,7 +12,6 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.text.style.CgTextLayer;
 import com.crystalgraphics.text.style.CgTextStyle;
 import com.crystalgraphics.vfx.CgVfxSystem;
@@ -125,13 +125,13 @@ public final class CgVfxKamehamehaScene implements InteractiveSceneLifecycle, Cg
                 if (playing[i].state() == CgVfxSystemInstance.State.DEAD) play(i);
             }
         }
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         vfx.update(CgVfxDemoControls.get().time(frame.getElapsedTime()));
-        vfx.submit(world);
+        vfx.submit();
         for (int i = 0; i < STATIONS.size(); i++) {
-            world.text(STATIONS.get(i).title()).at(0.0, LABEL, z(i)).height(0.4f).font(font).style(LABEL_STYLE).submit();
+            scene.label(STATIONS.get(i).title()).at(0.0, LABEL, z(i)).height(0.4f).font(font).style(LABEL_STYLE).submit();
         }
-        stage.submitStage(world, 0.0, 0.0, 0.0, camera.getPosX(), camera.getPosY(), camera.getPosZ());
+        stage.submitStage(scene, 0.0, 0.0, 0.0, camera.getPosX(), camera.getPosY(), camera.getPosZ());
         HarnessWorld.fire(ctx, camera.getViewMatrix(), ctx.getProjection());
     }
 

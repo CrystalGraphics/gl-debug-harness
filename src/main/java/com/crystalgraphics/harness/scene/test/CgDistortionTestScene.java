@@ -1,5 +1,10 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
+import com.crystalgraphics.render.view.CgView;
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.component.CgMeshCollector;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -14,7 +19,6 @@ import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -94,26 +98,23 @@ public class CgDistortionTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
+        CgScene scene = CgScene.client();
         // A texel a pixel, so every pixel's sample is exact.
-        world.distortionScale(1f);
+        CgView.main().override(CgSceneRenderer.DISTORTION_SCALE, 1f);
         HarnessTarget target = HarnessTarget.create(W, H, true);
         target.bind();
         target.clear(0f, 0f, 0f, 1f);
         CgMesh slab = CgMeshShapes.cube();
-        submit(world.draw(slab, backdrop), new Quad(-20, -20, W + 20, H + 20, 10f, 0, 0, 0));
-        submit(world.draw(slab, wall), new Quad(-20, -20, WALL_X, H + 20, 5f, 0, 0, 0));
-        for (Quad q : BENDS) submit(world.draw(slab, quad(0, 0, 0, 0, q.ox, q.oy, q.split)), q);
-        submit(world.draw(slab, quad(1, 1, 0, 1, 0, 0, 0)), SOLID_BENT);
-        submit(world.draw(slab, quad(1, 0, 1, 1, 0, 0, 0)).afterDistortion(), SOLID_SHARP);
-        submit(world.draw(slab, quad(0, 1, 1, 1, 0, 0, 0)).afterDistortion(), SHARP_BEHIND);
+        submit(scene.once().mesh(slab, backdrop), new Quad(-20, -20, W + 20, H + 20, 10f, 0, 0, 0));
+        submit(scene.once().mesh(slab, wall), new Quad(-20, -20, WALL_X, H + 20, 5f, 0, 0, 0));
+        for (Quad q : BENDS) submit(scene.once().mesh(slab, quad(0, 0, 0, 0, q.ox, q.oy, q.split)), q);
+        submit(scene.once().mesh(slab, quad(1, 1, 0, 1, 0, 0, 0)), SOLID_BENT);
+        submit(scene.once().mesh(slab, quad(1, 0, 1, 1, 0, 0, 0)).afterDistortion(), SOLID_SHARP);
+        submit(scene.once().mesh(slab, quad(0, 1, 1, 1, 0, 0, 0)).afterDistortion(), SHARP_BEHIND);
 
         Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, ASPECT, 0.05f, 100f);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), projection);
+        HarnessWorld.fireCallbacks();
         CgFrameRing.endFrame();
         target.captureToFile(ctx.getOutputDir(), "distortion.png");
         target.unbind();
@@ -122,11 +123,11 @@ public class CgDistortionTestScene implements HarnessSceneLifecycle {
     }
 
     /** A slab covering {@code q}'s pixels at its depth, facing the camera at the origin. */
-    private static void submit(CgWorldRenderer.Draw draw, Quad q) {
+    private static void submit(CgMeshCollector draw, Quad q) {
         float d = q.depth;
         float x0 = (q.x0 / (float) W * 2 - 1) * d * TAN * ASPECT, x1 = (q.x1 / (float) W * 2 - 1) * d * TAN * ASPECT;
         float y0 = (q.y0 / (float) H * 2 - 1) * d * TAN, y1 = (q.y1 / (float) H * 2 - 1) * d * TAN;
-        draw.at((x0 + x1) * 0.5, (y0 + y1) * 0.5, -d).transform(new Matrix4f().scale(x1 - x0, y1 - y0, 0.001f)).submit();
+        draw.at((x0 + x1) * 0.5, (y0 + y1) * 0.5, -d).transform(new Matrix4f().scale(x1 - x0, y1 - y0, 0.001f)).add();
     }
 
     private static String check(HarnessContext ctx) {
@@ -214,6 +215,6 @@ public class CgDistortionTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void dispose() {
-        CgWorldRenderer.get().distortionScale(0.5f);
+        CgView.main().override(CgSceneRenderer.DISTORTION_SCALE, 0.5f);
     }
 }

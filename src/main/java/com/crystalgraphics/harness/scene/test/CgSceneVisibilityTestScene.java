@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
+import com.crystalgraphics.render.view.CgView;
+import com.crystalgraphics.render.host.CgStageHost;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -30,7 +33,6 @@ import com.crystalgraphics.render.scene.visibility.CgInstanceCulling;
 import com.crystalgraphics.render.scene.visibility.CgViewVisibility;
 import com.crystalgraphics.render.stage.CgRenderStage;
 
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import org.joml.FrustumIntersection;
 import org.joml.Matrix4f;
@@ -90,9 +92,7 @@ public class CgSceneVisibilityTestScene implements HarnessSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo frame) {
         HarnessTarget target = HarnessTarget.create(W, H, true);
         target.bind();
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
-        world.release();
+        CgScene client = CgScene.client();
 
         CgScene scene = new CgScene();
         CgInstancedMeshComponent grid = scene.instanced(sphere, sphereMaterial).spawn();
@@ -103,8 +103,8 @@ public class CgSceneVisibilityTestScene implements HarnessSceneLifecycle {
         scene.mesh(sphere, sphereMaterial).at(400, 0, -20).spawn();  // far to the side
         // The wall compiled at its draw, not skipped while its program builds off the frame: every counted frame's
         // pyramid holds it
-        boolean skipped = world.skipUnready();
-        world.skipUnready(false);
+        boolean skipped = CgView.main().flag(CgSceneRenderer.SKIP_UNREADY);
+        CgView.main().override(CgSceneRenderer.SKIP_UNREADY, false);
 
         CgInstanceCulling culling = new CgInstanceCulling("scene-visibility.culling");
         boolean[] pyramidOn = {true};
@@ -112,7 +112,7 @@ public class CgSceneVisibilityTestScene implements HarnessSceneLifecycle {
         boolean[] mismatch = {false};
         CgViewVisibility[] seen = {null};
         // After the world renderer has drawn the wall: the pyramid is built from the depth it left, as gpu-cull's is
-        CgRenderStage.Registration opaque = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER + 1, stage -> {
+        CgRenderStage.Registration opaque = CgRenderStage.OPAQUE.register(1, stage -> {
             CgViewVisibility v = CgViewVisibility.of(stage.view(), scene, stage.camera());
             asks[0]++;
             seen[0] = v;
@@ -124,26 +124,26 @@ public class CgSceneVisibilityTestScene implements HarnessSceneLifecycle {
             }
             culling.cull(stage.recording(), scene, v, stage.camera(), pyramid);
         });
-        CgRenderStage.Registration transparent = CgRenderStage.WORLD_TRANSPARENT.register(0, stage -> {
+        CgRenderStage.Registration transparent = CgRenderStage.SURFACES.register(0, stage -> {
             CgViewVisibility again = CgViewVisibility.of(stage.view(), scene, stage.camera());
             asks[0]++;
             if (again != seen[0] || again.frame() != CgFrameRing.frame()) mismatch[0] = true;   // the frame's first, as it was
         });
 
         for (int f = 0; f < FRAMES; f++) {
-            fire(target, world);
+            fire(target, client);
             CgFrameRing.endFrame();
         }
         int occluded = readCount(culling);
         String strange = strangeIds(culling, occluded, seen[0]);
         pyramidOn[0] = false;
-        fire(target, world);
+        fire(target, client);
         CgFrameRing.endFrame();
         int frustum = readCount(culling);
         if (strange == null) strange = strangeIds(culling, frustum, seen[0]);
         opaque.close();
         transparent.close();
-        world.skipUnready(skipped);
+        CgView.main().override(CgSceneRenderer.SKIP_UNREADY, skipped);
 
         CgViewVisibility v = seen[0];
         int computations = v == null ? -1 : v.computations(), tested = v == null ? -1 : v.tested(), culled = v == null ? -1 : v.culled();
@@ -153,7 +153,6 @@ public class CgSceneVisibilityTestScene implements HarnessSceneLifecycle {
         CgRenderer.executeNow(release);
         scene.clear();
         scene.gpu().release();
-        world.release();
         target.unbind();
         target.delete();
 
@@ -189,13 +188,11 @@ public class CgSceneVisibilityTestScene implements HarnessSceneLifecycle {
     }
 
     /** A frame: the wall submitted to the world renderer, which draws it ahead of the cull, then both world stages. */
-    private void fire(HarnessTarget target, CgWorldRenderer world) {
-        world.draw(wallMesh, wallMaterial).at(-100.0, 0.0, WALL_Z).custom(0, 0.5f, 0.5f, 0.5f, 1f).submit();
+    private void fire(HarnessTarget target, CgScene scene) {
+        scene.once().mesh(wallMesh, wallMaterial).at(-100.0, 0.0, WALL_Z).customData(0, 0.5f, 0.5f, 0.5f, 1f).add();
         target.clear(0.08f, 0.08f, 0.1f, 1f);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(0, 0, 0, view, projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, view, projection);
+        HarnessWorld.fireCallbacks();
     }
 
     /** In view, behind the wall at all, and deep behind it: what the frustum keeps, and what any pyramid hides. */

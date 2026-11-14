@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
+import com.crystalgraphics.render.scene.component.CgDynamicComponent;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -18,18 +21,17 @@ import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.post.CgPostMaterial;
 import com.crystalgraphics.render.post.CgPostPoint;
 import com.crystalgraphics.render.post.CgPostStack;
-import com.crystalgraphics.render.stage.CgFrameKeys;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * The gate for CustomDepth and CustomStencil ({@code Draw.customDepth}, aaa-milestones OL2): the stencil byte of
- * {@link CgFrameKeys#CUSTOM_DEPTH}, sampled as a reader samples it ({@link StencilProbe}), at five pixels. A cube hidden behind an unmarked wall must still be written (3:
+ * the view's custom depth ({@code textures().customDepth()}), sampled as a reader samples it ({@link StencilProbe}), at five pixels. A cube hidden behind an unmarked wall must still be written (3:
  * tested against CustomDepth alone); a near cube (0x0F, mask 0xFF) in front of a larger far one (0x30, mask 0xF0) must
  * read 0x3F where they overlap (the far one fails depth and replaces its bits, Unreal's partial-mask rule) and 0x30
  * where the far one shows alone; a skinned quad reads 0x80; the empty background 0.
@@ -51,6 +53,10 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
     private static final int[] EXPECTED = {3, 0x3F, 0x30, 0x80, 0};
 
     private CgMaterial wall, skin, writer;
+    /** The marked draws: custom depth is a primitive's, so each stencil value is a dynamic primitive of its own. */
+    private final List<CgDynamicComponent> marked = new ArrayList<>();
+    /** This frame's bone palette for the skinned quad. */
+    private int palette;
     private CgMesh quad;
     private HarnessTarget target;
     /** The near cube's front face, where {@code WORLD_NORMALS_READ} must have the opaque pass write +Z at eye depth 4.5. */
@@ -64,7 +70,8 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
     private static final int[] PROBE_NEAR = {0x3F, 128, 107, 212}, PROBE_BACKGROUND = {0, 0, 8, 128};
     private static final int BX = 14, BY = 223;
 
-    private CgRenderStage.Registration asking, reader, probing;
+    private CgRenderStage.Registration asking, reader;
+    private CgPostStack.Registration probing;
     private CgPostMaterial probe;
     /** CustomStencil as a reader samples it: the bytes compared at the five pixels. */
     private StencilProbe stencilProbe;
@@ -89,17 +96,26 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
         });
         writer = CgMaterial.load("assets/harness/shader/custom_data_test.shader");
         target = HarnessTarget.create(W, H, true);
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
-        asking = CgRenderStage.WORLD_OPAQUE.register(0, stage -> stage.resources().put(CgFrameKeys.WORLD_NORMALS_READ, Boolean.TRUE));
+        CgScene scene = CgScene.client();
+        CgMesh cube = CgMeshShapes.cube();
+        // A writer of custom data hidden by the wall: CustomDepth takes it, the custom data must not.
+        marked.add(scene.dynamic((view, out) -> out.mesh(cube, writer).at(-2.5, 0, -8).add()).customDepth(3, 0xFF).spawn());
+        marked.add(scene.dynamic((view, out) -> out.mesh(cube, writer).at(2.5, -1.2, -5).add()).customDepth(0x0F, 0xFF).spawn());
+        // One material with the near cube: opaque draws sort by material first, then front to back, and the partial
+        // mask's result depends on which draws first.
+        marked.add(scene.dynamic((view, out) -> out.mesh(cube, writer).at(2.5, -1.2, -7).transform(new Matrix4f().scale(2f)).add())
+                .customDepth(0x30, 0xF0).spawn());
+        marked.add(scene.dynamic((view, out) -> out.mesh(quad, skin).bones(palette).at(2.5, 1.8, -6).add())
+                .customDepth(0x80, 0xFF).spawn());
+        asking = CgRenderStage.PREPARE.register(0, stage -> stage.view().textures().requestNormals());
         // After the composite, onto the host's RGBA8, read back as it stands: in the scene its values would be encoded
         probe = CgPostMaterial.of("assets/harness/shader/scene_textures_probe.shader", CgPostPoint.AFTER_COMPOSITE);
         probing = CgPostStack.get().add(probe);
         stencilProbe = new StencilProbe();
-        reader = CgRenderStage.WORLD_TRANSPARENT.register(CgWorldRenderer.ORDER + 1, stage -> {
-            CgGraphTexture mask = stage.resources().get(CgFrameKeys.CUSTOM_DEPTH);
-            CgGraphTexture normals = stage.resources().get(CgFrameKeys.WORLD_NORMALS);
-            CgGraphTexture custom = stage.resources().get(CgFrameKeys.CUSTOM_DATA);
+        reader = CgRenderStage.TRANSLUCENT.register(1, stage -> {
+            CgGraphTexture mask = stage.view().textures().customDepth();
+            CgGraphTexture normals = stage.view().textures().normals();
+            CgGraphTexture custom = stage.view().textures().customData();
             if (!armed || mask == null || normals == null || custom == null) return;
             stage.recording().readback(normals, 0, NX, NY, 1, 1, this::readNormal);
             stage.recording().readback(custom, 0, NX, NY, 1, 1, d -> data = new float[]{d.getFloat(0), d.getFloat(4)});
@@ -135,24 +151,15 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
             return;
         }
         armed = frame == ARM_AT;
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         CgMesh cube = CgMeshShapes.cube();
-        world.draw(cube, wall).at(-3, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).submit();
-        // A writer of custom data hidden by the wall: CustomDepth takes it, the custom data must not.
-        world.draw(cube, writer).at(-2.5, 0, -8).customDepth(3, 0xFF).submit();
-        world.draw(cube, writer).at(2.5, -1.2, -5).customDepth(0x0F, 0xFF).submit();
-        // One material with the near cube: opaque draws sort by material first, then front to back, and the partial
-        // mask's result depends on which draws first.
-        world.draw(cube, writer).at(2.5, -1.2, -7).transform(new Matrix4f().scale(2f)).customDepth(0x30, 0xF0).submit();
-        int base = CgBonePalettes.write(new Matrix4f[]{new Matrix4f()}, 1);
-        world.draw(quad, skin).bones(base).at(2.5, 1.8, -6).customDepth(0x80, 0xFF).submit();
+        scene.once().mesh(cube, wall).at(-3, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).add();
+        palette = CgBonePalettes.write(new Matrix4f[]{new Matrix4f()}, 1);
 
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), PROJECTION);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), PROJECTION);
+        HarnessWorld.fireCallbacks();
         if (armed) {
             // The host's target after the post stack: what the probe drew there.
             CgReadback.texture(target.getColor(), 0, NX, NY, 1, 1, d -> near = bytes(d));
@@ -224,6 +231,8 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
+        for (CgDynamicComponent c : marked) c.remove();
+        marked.clear();
         asking.close();
         reader.close();
         probing.close();

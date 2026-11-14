@@ -378,7 +378,7 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 # Material
 ./gradlew :gl-debug-harness:runHarness --args="--mode=material-dual-path"
 
-# CgWorldRenderer, fired as the world stages are
+# The scene renderer, fired through both world callbacks as a host fires them
 ./gradlew :gl-debug-harness:runHarness --args="--mode=forward-renderer"
 
 # Attached buffer stress test
@@ -427,7 +427,7 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 # Text recorded on a worker beside render-thread text; prints PASS/FAIL lines
 ./gradlew :gl-debug-harness:runHarness --args="--mode=text-threaded"
 
-# CgWorldRenderer.text under load: a grid of outlined, shadowed labels; profile with crystalgraphics.world.
+# Scene labels (scene.label) under load: a grid of outlined, shadowed labels; profile with crystalgraphics.world.
 # .labels.changing=true has some change, come and go
 ./gradlew :gl-debug-harness:runHarness --args="--mode=world-labels" -Dcrystalgraphics.harness.labels=10000
 
@@ -710,10 +710,10 @@ The interactive runner sequences these steps every frame:
 | F1 | Hide or show the harness's HUD text, as a game's F1 hides its interface: a clean frame to compare against a game capture. The HUD stage still fires, so the engine's subtitles stay |
 | C | Camera shake on and off (the HUD says which); a scene whose HUD hides the shake (`hudShowsShakeAndGlow`, kit-cues) takes C for its own |
 | L | Bloom in the target's encoding, then in linear light, then off (the HUD says which) |
-| [ ] | The HDR scene's glow gain down or up by a quarter (`CgWorldRenderer.sceneEmission`, 0.5 by default): how much an Emissive pass adds sharp into the scene. Held, it repeats; the HUD shows it |
+| [ ] | The HDR scene's glow gain down or up by a quarter (the main view's `CgSceneRenderer.SCENE_EMISSION`, 0.5 by default): how much an Emissive pass adds sharp into the scene. Held, it repeats; the HUD shows it |
 | - = | Bloom's intensity down or up by a quarter while it is on (`CgBloom.intensity`); the HUD shows it |
-| H | Half-resolution draws on or off (`CgWorldRenderer.halfResolution`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
-| J | The distortion target at half size or full size (`CgWorldRenderer.distortionScale`): the hazes' bend at a quarter of the pixels, or a pixel per texel to compare |
+| H | Half-resolution draws on or off (the main view's `CgSceneRenderer.HALF_RESOLUTION`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
+| J | The distortion target at half size or full size (the main view's `CgSceneRenderer.DISTORTION_SCALE`): the hazes' bend at a quarter of the pixels, or a pixel per texel to compare |
 | F9 | Day or night, under VFX Lab's sky and floor (`HarnessEnvironment`): a scene opts in with `editorEnvironment()`, any scene with `-Dcrystalgraphics.harness.environment=editor`. Off by default, since gates check pixels against the plain clear colour and floor |
 
 ### HUD Display

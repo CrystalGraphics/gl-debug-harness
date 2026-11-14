@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.host.CgHostFrame;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -20,7 +23,6 @@ import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.variable.CgVar;
 import com.crystalgraphics.variable.CgVars;
 import com.crystalgraphics.vfx.CgVfx;
@@ -122,7 +124,6 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         CgPlatform.provide(CgLevels.HOST, CgLevels.single(new Flat(), CgEntityQuery.NONE));
-        CgWorldRenderer.get().install();
         floor = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         demo.precache();
         width = ctx.getScreenWidth();
@@ -163,13 +164,12 @@ public class CgLightsDemoBisectScene implements InteractiveSceneLifecycle {
         CgMesh cube = CgMeshShapes.cube();
         ObjectDraws.draw(host, floor, cube, 1, (i, data, at) -> ObjectDraws.object(data, at, ground, 0.35f, 0.4f, 0.3f, 1f));
         // One moment of the show for every capture, between its lightning's flashes: only the passes differ.
-        if (warmAt >= 0) demo.submit(CgWorldRenderer.get(), X, GROUND, Z, SHOW_AT);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, width, height, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, view, projection);
-            stage.host().environment().sun(0.5f, 0, 0f, 1f);
-            stage.host().textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
-            stage.fire();
-        }
+        if (warmAt >= 0) demo.submit(CgScene.client(), X, GROUND, Z, SHOW_AT);
+        CgHostFrame hostFrame = CgStageHost.frame(CgStageHost.WORLD_OPAQUE);
+        hostFrame.set(0f, width, height, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, view, projection);
+        hostFrame.environment().sun(0.5f, 0, 0f, 1f);
+        hostFrame.textures().importedLightmap(lightmap.rhiTexture(), 16, 16);
+        HarnessWorld.fireCallbacks();
         CgFrameRing.endFrame();
         if (phase >= 0 && phase < PHASES.length && (frame - warmAt) % PHASE == PHASE - 1) {
             target.captureToFile(ctx.getOutputDir(), NAMES[phase] + ".png");

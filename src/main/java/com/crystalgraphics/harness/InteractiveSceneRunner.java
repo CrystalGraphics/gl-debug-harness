@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness;
 
+import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
+import com.crystalgraphics.render.view.CgView;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.lifecycle.CgEngineLifecycle;
 import com.crystalgraphics.lifecycle.CgGraphicsLifecycle;
@@ -27,7 +30,6 @@ import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.camera.HarnessCameraShake;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.bloom.CgBloom;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.harness.capture.ArtifactService;
 import com.crystalgraphics.harness.capture.CaptureCallback;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -690,17 +692,17 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             }
             // [ ]: emission, the HDR scene's glow gain, down or up; - =: bloom's intensity, while it is on. Held, they repeat.
             if (event.pressed() && !isCtrlDown() && letters) {
-                CgWorldRenderer world = CgWorldRenderer.get();
+                CgScene scene = CgScene.client();
                 CgBloom bloom = CgPostStack.get().bloom();
-                if (event.key() == CgKeyCodes.KEY_LBRACKET) world.sceneEmission(world.sceneEmission() / 1.25f);
-                if (event.key() == CgKeyCodes.KEY_RBRACKET) world.sceneEmission(world.sceneEmission() * 1.25f);
+                if (event.key() == CgKeyCodes.KEY_LBRACKET) CgView.main().override(CgSceneRenderer.SCENE_EMISSION, CgView.main().flag(CgSceneRenderer.SCENE_EMISSION) / 1.25f);
+                if (event.key() == CgKeyCodes.KEY_RBRACKET) CgView.main().override(CgSceneRenderer.SCENE_EMISSION, CgView.main().flag(CgSceneRenderer.SCENE_EMISSION) * 1.25f);
                 if (event.key() == CgKeyCodes.KEY_MINUS && bloom.intensity() > 0f) bloom.intensity(bloom.intensity() / 1.25f);
                 if (event.key() == CgKeyCodes.KEY_EQUALS && bloom.intensity() > 0f) bloom.intensity(bloom.intensity() * 1.25f);
             }
             // H: half-resolution draws (the beams' glow and light volumes) at half size, or at full size to compare.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_H && !isCtrlDown()
                     && letters) {
-                CgWorldRenderer.get().halfResolution(!CgWorldRenderer.get().halfResolution());
+                CgView.main().override(CgSceneRenderer.HALF_RESOLUTION, !CgView.main().flag(CgSceneRenderer.HALF_RESOLUTION));
             }
             // F1: the HUD hidden or shown.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F1 && overlayPipeline != null) {
@@ -713,8 +715,8 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // J: the distortion target at half size, or at full size to compare.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_J && !isCtrlDown()
                     && letters) {
-                CgWorldRenderer world = CgWorldRenderer.get();
-                world.distortionScale(world.distortionScale() < 1f ? 1f : 0.5f);
+                CgScene scene = CgScene.client();
+                CgView.main().override(CgSceneRenderer.DISTORTION_SCALE, CgView.main().flag(CgSceneRenderer.DISTORTION_SCALE) < 1f ? 1f : 0.5f);
             }
             for (CgSystemInput.Keyboard listener : keyboardListeners) {
                 if (!listener.consumeKeyboardEvent(event)) break;

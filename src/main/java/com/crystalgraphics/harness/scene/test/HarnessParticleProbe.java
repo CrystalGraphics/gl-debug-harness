@@ -62,7 +62,7 @@ final class HarnessParticleProbe implements AutoCloseable {
         this.emitter = emitter;
         this.frames = frames;
         this.skip = skip;
-        registration = CgRenderStage.WORLD_OPAQUE.register(CgVfxRange.ORDER + 1, this::record);
+        registration = CgRenderStage.PREPARE.register(CgVfxRange.ORDER + 1, this::record);
     }
 
     /** The probe {@code crystalgraphics.harness.probe} asks for, or null. */

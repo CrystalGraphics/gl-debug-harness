@@ -1,5 +1,9 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
+import com.crystalgraphics.render.view.CgView;
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import javax.annotation.Nullable;
 import com.crystalgraphics.platform.rhi.CgExternalTarget;
@@ -34,7 +38,6 @@ import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.trace.CgGpuTrace;
 import com.crystalgraphics.trace.CgTrace;
 import org.joml.Matrix4f;
@@ -246,16 +249,13 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         Host host = Host.of("hdr-scene engine host", w, h, CgFormat.RGBA8_UNORM, true);
         owned.add(host);
         upload(host, pattern(w, h), w, h);
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
+        CgScene scene = CgScene.client();
         CgPostStack.get().install();
         // A host draws its world into its own target: the stages take it as the current one.
         try (CgExecutor.Into ignored = CgExecutor.into(host.target())) {
             Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) w / h, 0.05f, 100f);
-            for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-                stage.host().set(0f, w, h, host.target()).camera().set(0, 0, 0, new Matrix4f(), projection);
-                stage.fire();
-            }
+            CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, w, h, host.target()).camera().set(0, 0, 0, new Matrix4f(), projection);
+            HarnessWorld.fireCallbacks();
         }
         if (gl && HarnessWindow.framebufferSrgb()) return "GL_FRAMEBUFFER_SRGB is on";
         int changed = changed(host, true);
@@ -290,15 +290,15 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
      */
     private String opaqueRoundTrip(Host host, int w, int h, boolean overdraw, boolean blooming) {
         String which = blooming ? "opaque scene, blooming" : overdraw ? "opaque scene under the host's overdraw" : "opaque scene";
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         upload(host, pattern(w, h), w, h);
-        boolean wasSkipping = world.skipUnready();
-        world.skipUnready(false);
+        boolean wasSkipping = CgView.main().flag(CgSceneRenderer.SKIP_UNREADY);
+        CgView.main().override(CgSceneRenderer.SKIP_UNREADY, false);
         Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) w / h, 0.05f, 100f);
         try (CgExecutor.Into ignored = CgExecutor.into(host.target())) {
             CgRenderer.clear(host.target(), false, 0, 0, 0, 0, true, 0.0, false, 0);
-            world.draw(CgMeshShapes.cube(), opaqueMaterial).at(0, 0, -3).submit();
-            fire(CgRenderStage.WORLD_OPAQUE, host, w, h, projection);
+            scene.once().mesh(CgMeshShapes.cube(), opaqueMaterial).at(0, 0, -3).add();
+            fire(CgStageHost.WORLD_OPAQUE, host, w, h, projection);
             if (overdraw) {
                 overdrawMaterial.set1f("_Split", w / 4f);
                 CgCamera camera = new CgCamera().resolution(w, h).time(0f);
@@ -310,9 +310,9 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
                 over.end();
                 CgRenderer.executeNow(now);
             }
-            fire(CgRenderStage.WORLD_TRANSPARENT, host, w, h, projection);
+            fire(CgStageHost.WORLD_TRANSPARENT, host, w, h, projection);
         } finally {
-            world.skipUnready(wasSkipping);
+            CgView.main().override(CgSceneRenderer.SKIP_UNREADY, wasSkipping);
         }
         ByteBuffer made = host.readColor();
         ByteBuffer want = pattern(w, h);
@@ -359,8 +359,8 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
     }
 
     private static void fire(CgRenderStage stage, Host host, int w, int h, Matrix4f projection) {
-        stage.host().set(0f, w, h, host.target()).camera().set(0, 0, 0, new Matrix4f(), projection);
-        stage.fire();
+        CgStageHost.frame(stage).set(0f, w, h, host.target()).view(CgView.main()).camera().set(0, 0, 0, new Matrix4f(), projection);
+        CgStageHost.fire(stage);
     }
 
     /** Channel values of {@code c}'s out unlike the pattern: RGB only where the scene has no alpha. */

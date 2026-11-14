@@ -1,6 +1,7 @@
 package com.crystalgraphics.harness.runtime;
 
 import com.crystalgraphics.platform.rhi.CgExternalTarget;
+import com.crystalgraphics.render.host.CgStageHost;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
@@ -12,7 +13,7 @@ import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgPipelinePrecache;
+import com.crystalgraphics.render.precache.CgPipelinePrecache;
 import com.crystalgraphics.text.cache.CgFontRegistry;
 
 import java.util.logging.Logger;
@@ -79,10 +80,10 @@ public final class OverlayPipeline {
     public void renderOverlays(HarnessContext ctx, boolean uses3DCamera, boolean screenUp) {
         firing = ctx;
         if (uses3DCamera) {
-            CgRenderStage.HUD.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTarget());
+            CgStageHost.fireOverlay(CgRenderStage.HUD, ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTarget());
         }
         if (screenUp) {
-            CgRenderStage.SCREEN.fireOverlay(ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTarget());
+            CgStageHost.fireOverlay(CgRenderStage.SCREEN, ctx.getScreenWidth(), ctx.getScreenHeight(), 1f, ctx.getTarget());
         }
     }
 

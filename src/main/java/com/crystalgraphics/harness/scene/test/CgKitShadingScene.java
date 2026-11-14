@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.api.material.CgMaterialDefinitions;
@@ -17,7 +18,6 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.DeviceErrors;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -127,11 +127,11 @@ public final class CgKitShadingScene implements InteractiveSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo frame) {
         if (!running) return;
         if (failure == null) {
-            CgWorldRenderer world = CgWorldRenderer.get();
+            CgScene scene = CgScene.client();
             if (mesh == null) {
-                world.draw(CgMeshShapes.cube(CgVertexFormat.SPATIAL), material).at(0f, 1f, 0f).submit();
+                scene.once().mesh(CgMeshShapes.cube(CgVertexFormat.SPATIAL), material).at(0f, 1f, 0f).add();
             } else {
-                for (int i = 0; i < parts.size(); i++) world.draw(mesh, parts.get(i)).submesh(submeshes.get(i)).at(0f, 0f, 0f).submit();
+                for (int i = 0; i < parts.size(); i++) scene.once().mesh(mesh, parts.get(i)).submesh(submeshes.get(i)).at(0f, 0f, 0f).add();
             }
             HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
             if (++frames < FRAMES || reported) return;

@@ -41,7 +41,7 @@ final class KakarotSkillDarken implements AutoCloseable {
     private static final int ORDER = -700_000;
 
     private final CgPostMaterial post;
-    private final CgRenderStage.Registration on;
+    private final CgPostStack.Registration on;
     private final float fadeIn, fadeOut;
     private float weight;
     /** The weight the fade-out started from, and its age; -1 while the action runs. */

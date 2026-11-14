@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -15,7 +17,6 @@ import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -102,16 +103,13 @@ public class CgSkinnedMeshTestScene implements HarnessSceneLifecycle {
         HarnessTarget target = HarnessTarget.create(w, h, false);
         target.bind();
         target.clear((BACKGROUND >> 16 & 0xFF) / 255f, (BACKGROUND >> 8 & 0xFF) / 255f, (BACKGROUND & 0xFF) / 255f, 1f);
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
+        CgScene scene = CgScene.client();
         int base = CgBonePalettes.write(skinning, skinning.length);
-        world.draw(bar, material).bones(base).at(w / 4.0, h / 2.0, 0).submit();
-        world.draw(posed, material).at(w * 3 / 4.0, h / 2.0, 0).submit();
+        scene.once().mesh(bar, material).bones(base).at(w / 4.0, h / 2.0, 0).add();
+        scene.once().mesh(posed, material).at(w * 3 / 4.0, h / 2.0, 0).add();
         Matrix4f view = new Matrix4f();
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
+        HarnessWorld.fireCallbacks();
         target.captureToFile(ctx.getOutputDir(), "skinned-mesh.png");
         target.unbind();
         target.delete();

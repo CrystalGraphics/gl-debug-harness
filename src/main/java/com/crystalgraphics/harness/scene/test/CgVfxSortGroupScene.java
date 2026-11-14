@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.vfx.render.CgVfxSlotRenderer;
@@ -11,7 +13,6 @@ import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfxEffect;
 import com.crystalgraphics.vfx.CgVfxFrame;
 import com.crystalgraphics.vfx.CgVfxSystem;
@@ -93,13 +94,11 @@ public class CgVfxSortGroupScene implements HarnessSceneLifecycle {
         try {
             target.clear(0f, 0f, 0f, 1f);
             for (int i = 1; i <= 4; i++) vfx.update(i / 60.0);
-            vfx.submit(CgWorldRenderer.get());
+            vfx.submit();
             Matrix4f view = new Matrix4f();
             Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 90f, (float) w / h, 0.1f, 100f);
-            for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-                stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
-                stage.fire();
-            }
+            CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
+            HarnessWorld.fireCallbacks();
             target.captureToFile(ctx.getOutputDir(), "vfx-sort-group.png");
         } finally {
             target.unbind();

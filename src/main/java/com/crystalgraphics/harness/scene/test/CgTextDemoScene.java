@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.font.CgDefaultFont;
 import com.crystalgraphics.asset.kind.CgLookKinds;
 import com.crystalgraphics.asset.load.CgVfxAssets;
@@ -10,7 +11,6 @@ import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.camera.CgCamera;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.util.io.CgIO;
 import org.joml.Matrix4f;
 
@@ -53,7 +53,7 @@ public final class CgTextDemoScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        if (text.ready()) text.submit(CgWorldRenderer.get(), start, ANCHOR_X, 0.0, 0.0, frame.getElapsedTime());
+        if (text.ready()) text.submit(CgScene.client(), start, ANCHOR_X, 0.0, 0.0, frame.getElapsedTime());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }
 

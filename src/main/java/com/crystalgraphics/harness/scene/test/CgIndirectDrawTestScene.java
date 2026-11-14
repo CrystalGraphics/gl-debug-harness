@@ -1,5 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.component.CgMeshCollector;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.material.CgMaterialProxy;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -33,7 +36,6 @@ import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -54,7 +56,7 @@ import com.crystalgraphics.render.draw.CgMaterialBindings;
  * <ul>
  *   <li>{@code indirect-draw.png}: chunk draws in a frame graph, the kernels in a compute pass of the same graph.</li>
  *   <li>{@code indirect-draw-again.png}: that frame executed again, the commands written again.</li>
- *   <li>{@code indirect-draw-world.png}: {@code CgWorldRenderer} draws, the kernel recorded into the opaque world
+ *   <li>{@code indirect-draw-world.png}: the scene renderer draws, the kernel recorded at {@code PREPARE}
  *       stage's frame by a renderer ahead of the world renderer's.</li>
  * </ul>
  *
@@ -195,36 +197,33 @@ public class CgIndirectDrawTestScene implements HarnessSceneLifecycle {
 
     /** The same draws through the world renderer, the counts written in the opaque stage's own frame. */
     private void drawWorld(CgGraphBuffer counts, HarnessTarget target, int w, int h, Matrix4f projection) {
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
-        CgRenderStage.Registration counting = CgRenderStage.WORLD_OPAQUE.register(0, stage -> {
+        CgScene scene = CgScene.client();
+        CgRenderStage.Registration counting = CgRenderStage.PREPARE.register(0, stage -> {
             CgComputePass count = stage.recording().compute("counts");
             count.dispatch(kernels.kernel("Count"), 1).bind("COUNTS", counts);
             count.end();
         });
         for (Band band : BANDS) {
             float r = (band.rgb() >> 16 & 0xFF) / 255f, g = (band.rgb() >> 8 & 0xFF) / 255f, b = (band.rgb() & 0xFF) / 255f;
-            world.draw(band.mesh(), material).indirect(counts, band.uint() * 4L, band.mode(), band.factor())
-                    .custom(0, band.x(), band.y(), band.by(), 0f).custom(1, r, g, b, 1f).submit();
-            world.draw(band.reference(), material).indices(0, band.referenceCount())
-                    .custom(0, band.x() + HALF, band.y(), band.referenceBy(), 0f).custom(1, r, g, b, 1f).submit();
+            scene.once().mesh(band.mesh(), material).count(counts, band.uint() * 4L, band.mode(), band.factor())
+                    .customData(0, band.x(), band.y(), band.by(), 0f).customData(1, r, g, b, 1f).add();
+            scene.once().mesh(band.reference(), material).indices(0, band.referenceCount())
+                    .customData(0, band.x() + HALF, band.y(), band.referenceBy(), 0f).customData(1, r, g, b, 1f).add();
         }
-        CgWorldRenderer.Draw each = world.draw(EACH.get(0).mesh(), material).indirectEach(counts, CgIndirect.INDICES, 6);
+        // One mesh, a row a band, each its own count in the shared buffer: the per-record form
         for (Band band : EACH) {
             float r = (band.rgb() >> 16 & 0xFF) / 255f, g = (band.rgb() >> 8 & 0xFF) / 255f, b = (band.rgb() & 0xFF) / 255f;
-            each.each(0, 0, 0, band.uint() * 4L).custom(0, band.x(), band.y(), band.by(), 0f).custom(1, r, g, b, 1f);
+            scene.once().perRecord(EACH.get(0).mesh(), material).counts(counts, CgIndirect.INDICES, 6).countAt(band.uint() * 4L)
+                    .customData(0, band.x(), band.y(), band.by(), 0f).customData(1, r, g, b, 1f).add();
         }
-        each.submit();
         for (Band band : EACH) {
             float r = (band.rgb() >> 16 & 0xFF) / 255f, g = (band.rgb() >> 8 & 0xFF) / 255f, b = (band.rgb() & 0xFF) / 255f;
-            world.draw(band.reference(), material).indices(0, band.referenceCount())
-                    .custom(0, band.x() + HALF, band.y(), band.referenceBy(), 0f).custom(1, r, g, b, 1f).submit();
+            scene.once().mesh(band.reference(), material).indices(0, band.referenceCount())
+                    .customData(0, band.x() + HALF, band.y(), band.referenceBy(), 0f).customData(1, r, g, b, 1f).add();
         }
         Matrix4f view = new Matrix4f();
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
+        HarnessWorld.fireCallbacks();
         counting.close();
     }
 

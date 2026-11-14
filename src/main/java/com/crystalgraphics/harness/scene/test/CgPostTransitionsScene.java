@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
@@ -15,7 +17,6 @@ import com.crystalgraphics.render.post.CgPostStack;
 import com.crystalgraphics.render.post.volume.CgPostSettings;
 import com.crystalgraphics.render.post.volume.CgPostVolume;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -54,13 +55,12 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         this.ctx = ctx;
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
+        CgScene scene = CgScene.client();
         CgPostStack.get().install();
         target = HarnessTarget.create(SIZE, SIZE, false);
         try {
             CgPostMaterial invert = CgPostMaterial.of("harness:shader/post_invert.shader", CgPostPoint.AFTER_COMPOSITE);
-            CgRenderStage.Registration on = CgPostStack.get().add(invert);
+            CgPostStack.Registration on = CgPostStack.get().add(invert);
             check("a post material at weight 1", fire(A, 0f), 1f - A[0], 1f - A[1], 1f - A[2]);
             invert.weight(0.5f);
             check("a post material at weight 0.5", fire(A, 0f), 0.5f, 0.5f, 0.5f);
@@ -100,10 +100,8 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
         target.bind();
         target.clear(clear[0], clear[1], clear[2], 1f);
         Matrix4f view = new Matrix4f(), projection = CgCamera.orthographicMatrix(new Matrix4f(), 0, SIZE, 0, SIZE, -1, 1);
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, SIZE, SIZE, target.external()).camera().set(0, 0, 0, view, projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, SIZE, SIZE, target.external()).camera().set(0, 0, 0, view, projection);
+        HarnessWorld.fireCallbacks();
         String name = "post-transitions-" + (firing++) + ".png";
         target.captureToFile(ctx.getOutputDir(), name);
         target.unbind();

@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
@@ -32,7 +34,6 @@ import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -48,7 +49,7 @@ import java.util.List;
  *
  * <ul>
  *   <li>{@code material-buffer.png}: one frame graph, the buffers transient.</li>
- *   <li>{@code material-buffer-world.png}: {@code CgWorldRenderer}, the kernel recorded ahead of it in the opaque
+ *   <li>{@code material-buffer-world.png}: the scene renderer, the kernel recorded ahead of it in the opaque
  *       stage, the buffers persistent.</li>
  * </ul>
  *
@@ -137,21 +138,18 @@ public class CgMaterialBufferTestScene implements HarnessSceneLifecycle {
     }
 
     private void drawWorld(Buffers b, HarnessTarget target, int w, int h, Matrix4f projection) {
-        CgWorldRenderer world = CgWorldRenderer.get();
-        world.install();
-        CgRenderStage.Registration simulating = CgRenderStage.WORLD_OPAQUE.register(CgWorldRenderer.ORDER - 1, stage -> {
+        CgScene scene = CgScene.client();
+        CgRenderStage.Registration simulating = CgRenderStage.PREPARE.register(-1, stage -> {
             CgComputePass compute = stage.recording().compute("cells");
             cells(compute, b);
             compute.end();
         });
         material.buffer("CELLS", b.cells()).buffer("LIVE", b.live());
-        world.draw(CgMesh.quads(CELLS), material).indirect(b.count(), 0, CgIndirect.INDICES, 6)
-                .custom(0, ORIGIN, ORIGIN, 0f, 0f).submit();
+        scene.once().mesh(CgMesh.quads(CELLS), material).count(b.count(), 0, CgIndirect.INDICES, 6)
+                .customData(0, ORIGIN, ORIGIN, 0f, 0f).add();
         Matrix4f view = new Matrix4f();
-        for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-            stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
-            stage.fire();
-        }
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
+        HarnessWorld.fireCallbacks();
         simulating.close();
     }
 

@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.asset.kind.CgParticleKinds;
 import com.crystalgraphics.asset.load.CgAssetRef;
 import com.crystalgraphics.asset.load.CgLoadHandle;
@@ -15,7 +16,6 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.mc.CgAssetReloader;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.particle.CgVfxEmitterInstance;
@@ -161,7 +161,7 @@ public final class CgVfxNovaScene implements InteractiveSceneLifecycle {
             }
         }
         vfx.update(frame.getElapsedTime());
-        vfx.submit(CgWorldRenderer.get());
+        vfx.submit();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         if (!playing) return;
         mostDrawn = Math.max(mostDrawn, CgVfxSystem.particlesDrawn());

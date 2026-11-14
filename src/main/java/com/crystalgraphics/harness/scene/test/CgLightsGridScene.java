@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.compute.CgCompute;
 import com.crystalgraphics.compute.CgKernel;
 import com.crystalgraphics.harness.FrameInfo;
@@ -16,9 +17,8 @@ import com.crystalgraphics.render.graph.CgComputePass;
 import com.crystalgraphics.render.graph.CgGraphBuffer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
-import com.crystalgraphics.render.world.CgPipelinePrecache;
-import com.crystalgraphics.render.world.CgWorldLights;
-import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.render.precache.CgPipelinePrecache;
+import com.crystalgraphics.render.scene.renderer.feature.light.CgSceneLights;
 import org.joml.Matrix4f;
 
 import java.nio.ByteBuffer;
@@ -29,12 +29,12 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * The gate for the world's light list and its grid ({@code CgWorldLights}): lights added from the CPU (points, spots
+ * The gate for the world's light list and its grid ({@code CgSceneLights}): lights added from the CPU (points, spots
  * and tubes) and appended by a kernel each frame, the list and the grid read back after the world fires and held to
  * Java. The CPU's come first, exactly; the kernel's follow, as a set; and every cell lists exactly the lights whose
  * sphere reaches its view-space box, a spot's cone tested first (Unreal's LightGridInjection), in index order, all of
  * them: where compute runs through the parent grid, below it from every light. A cluster of lights round one point puts
- * more than {@link CgWorldLights#PER_CELL} in the cells about it, past the average the cells share. The
+ * more than {@link CgSceneLights#PER_CELL} in the cells about it, past the average the cells share. The
  * falloff every light is applied by ({@code lights.glsl}'s {@code cg_light_falloff}) is evaluated by a kernel at sample
  * points round a point, spots and tubes, and held to Java too. Scene id {@code lights-grid}.
  *
@@ -56,9 +56,9 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
     private final float[] cpuLight = new float[CPU * 5];
     /** A third of the CPU's lights are spots (direction, inner and outer degrees), a third tubes (axis, length). */
     private final float[] cpuSpot = new float[CPU * 5], cpuTube = new float[CPU * 4];
-    /** The falloff check: its lights (CgWorldLights.FLOATS each), its sample points, the kernel's answers. */
+    /** The falloff check: its lights (CgSceneLights.FLOATS each), its sample points, the kernel's answers. */
     private static final int FALLOFF_LIGHTS = 6, SAMPLES = 64;
-    private final float[] falloffLights = new float[FALLOFF_LIGHTS * CgWorldLights.FLOATS], samples = new float[SAMPLES * 4];
+    private final float[] falloffLights = new float[FALLOFF_LIGHTS * CgSceneLights.FLOATS], samples = new float[SAMPLES * 4];
     private CgKernel falloff;
     private CgGraphBuffer falloffLightBuffer, sampleBuffer, falloffOut;
     private ByteBuffer falloffRead;
@@ -68,7 +68,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
     private CgGraphBuffer placedBuffer;
     private CgKernel append;
     private CgPipelinePrecache.Request kernels;
-    private CgWorldLights.Appender appender;
+    private CgSceneLights.Appender appender;
     /** The frame whose firing last ran the kernel, and the frame the check read back on (0 before). */
     private int appendedAt, checkedAt;
     private ByteBuffer count, list, cells, indices;
@@ -105,7 +105,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         }
         // The falloff check's lights at the origin: a point, two spots, a tube, a spotted tube, one by an exponent.
         for (int k = 0; k < FALLOFF_LIGHTS; k++) {
-            int l = k * CgWorldLights.FLOATS;
+            int l = k * CgSceneLights.FLOATS;
             falloffLights[l + 3] = 6f;
             falloffLights[l + 4] = 1f;
             falloffLights[l + 7] = k == 5 ? 4f : 0f;
@@ -142,7 +142,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
             p.add(append);
             p.add(falloff);
         });
-        falloffLightBuffer = upload("lights-grid.falloff-lights", falloffLights, CgWorldLights.FLOATS * 4);
+        falloffLightBuffer = upload("lights-grid.falloff-lights", falloffLights, CgSceneLights.FLOATS * 4);
         sampleBuffer = upload("lights-grid.samples", samples, 16);
         falloffOut = CgGraphBuffer.persistent("lights-grid.falloff",
                 CgBufferDesc.elements(FALLOFF_LIGHTS * SAMPLES, 4, CgBufferUsage.STORAGE, CgBufferUsage.COPY));
@@ -153,22 +153,22 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         CgRecording rec = new CgRecording();
         rec.update(placedBuffer, 0, bytes.flip());
         CgRenderer.executeNow(rec);
-        appender = new CgWorldLights.Appender() {
+        appender = new CgSceneLights.Appender() {
             @Override
-            public boolean append(CgComputePass pass, CgWorldLights lights) {
+            public boolean append(CgComputePass pass, CgSceneLights lights) {
                 if (!kernels.ready()) return false;   // the loading screen's warm frames fire the world already
                 lights.into(pass.dispatch(append, KERNEL)).bind("PLACED", placedBuffer);
                 appendedAt = frame;
                 return true;
             }
         };
-        CgWorldRenderer.get().lights().add(appender);
+        CgScene.client().lights().add(appender);
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo info) {
         frame++;
-        CgWorldLights lights = CgWorldRenderer.get().lights();
+        CgSceneLights lights = CgScene.client().lights();
         for (int i = 0; i < CPU; i++) {
             lights.add(cpuAt[i * 3], cpuAt[i * 3 + 1], cpuAt[i * 3 + 2], cpuLight[i * 5],
                     Float.floatToRawIntBits(cpuLight[i * 5 + 1]), cpuLight[i * 5 + 2], cpuLight[i * 5 + 3]);
@@ -186,7 +186,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
             if (checkedAt == 0 && frame > CHECK_AT + DRAIN) {
                 fail("the kernel never appended by frame " + frame);
                 report();
-                CgWorldRenderer.get().lights().remove(appender);
+                CgScene.client().lights().remove(appender);
                 running = false;
             }
             return;
@@ -196,13 +196,13 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         if (answered || frame > checkedAt + DRAIN) {
             if (answered) compare();
             report();
-            CgWorldRenderer.get().lights().remove(appender);
+            CgScene.client().lights().remove(appender);
             running = false;
         }
     }
 
     /** What the firing just listed and binned, with what placed it. */
-    private void readBack(CgWorldLights lights) {
+    private void readBack(CgSceneLights lights) {
         eyeX = lights.cameraX();
         eyeY = lights.cameraY();
         eyeZ = lights.cameraZ();
@@ -214,12 +214,12 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         tileU = lights.tileU();
         tileV = lights.tileV();
         toView.set(lights.toView());
-        int n = gridX * gridY * CgWorldLights.SLICES;
+        int n = gridX * gridY * CgSceneLights.SLICES;
         CgRecording rec = new CgRecording();
         requests.add(rec.readback(lights.count(), 0, 4, data -> count = copy(data)));
-        requests.add(rec.readback(lights.list(), 0, (long) (CPU + KERNEL) * CgWorldLights.FLOATS * 4, data -> list = copy(data)));
+        requests.add(rec.readback(lights.list(), 0, (long) (CPU + KERNEL) * CgSceneLights.FLOATS * 4, data -> list = copy(data)));
         requests.add(rec.readback(lights.cells(), 0, n * 16L, data -> cells = copy(data)));
-        requests.add(rec.readback(lights.indices(), 0, (long) n * CgWorldLights.PER_CELL * 4, data -> indices = copy(data)));
+        requests.add(rec.readback(lights.indices(), 0, (long) n * CgSceneLights.PER_CELL * 4, data -> indices = copy(data)));
         CgComputePass pass = rec.compute("lights-grid.falloff");
         pass.dispatch(falloff, FALLOFF_LIGHTS * SAMPLES).bind("LIGHTS", falloffLightBuffer).bind("SAMPLES", sampleBuffer)
                 .bind("OUT", falloffOut).set("_Samples", SAMPLES);
@@ -238,7 +238,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
         for (int i = 0; i < CPU; i++) {
             int argb = Float.floatToRawIntBits(cpuLight[i * 5 + 1]);
             float scale = (argb >>> 24) / 255f * cpuLight[i * 5 + 2];
-            float[] want = new float[CgWorldLights.FLOATS];
+            float[] want = new float[CgSceneLights.FLOATS];
             float[] head = {(float) (cpuAt[i * 3] - eyeX), (float) (cpuAt[i * 3 + 1] - eyeY), (float) (cpuAt[i * 3 + 2] - eyeZ),
                     cpuLight[i * 5], srgb(argb >> 16 & 0xFF) * scale, srgb(argb >> 8 & 0xFF) * scale, srgb(argb & 0xFF) * scale,
                     cpuLight[i * 5 + 3]};
@@ -252,7 +252,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
             want[20] = 1f;
             want[22] = 1f;
             if (i % 3 == 1) {
-                // SpotLightComponent.cpp:49-55's clamp, as CgWorldLights.spot does it.
+                // SpotLightComponent.cpp:49-55's clamp, as CgSceneLights.spot does it.
                 double inner = Math.toRadians(Math.max(0f, Math.min(89f, cpuSpot[i * 5 + 3])));
                 double outer = Math.max(inner + 0.001, Math.min(Math.toRadians(cpuSpot[i * 5 + 4]), Math.toRadians(89) + 0.001));
                 for (int c = 0; c < 3; c++) want[8 + c] = cpuSpot[i * 5 + c];
@@ -261,7 +261,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
             } else if (i % 3 == 2) {
                 for (int c = 0; c < 3; c++) want[12 + c] = cpuTube[i * 4 + c] * cpuTube[i * 4 + 3];
             }
-            for (int w = 0; w < CgWorldLights.FLOATS; w++) near("CPU light " + i + " word " + w, light(i, w), want[w]);
+            for (int w = 0; w < CgSceneLights.FLOATS; w++) near("CPU light " + i + " word " + w, light(i, w), want[w]);
         }
         falloffs();
         // The kernel's, as a set: an append's order is the GPU's.
@@ -286,7 +286,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
 
     /** Every cell's lights against Unreal's test: the light's sphere against the cell's view-space box. */
     private void bins(int listed) {
-        int per = CgWorldLights.PER_CELL;
+        int per = CgSceneLights.PER_CELL;
         float[] view = new float[listed * 3], spot = new float[listed * 4];
         for (int i = 0; i < listed; i++) {
             turn(light(i, 0), light(i, 1), light(i, 2), view, i * 3);
@@ -296,7 +296,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
             turn(light(i, 8), light(i, 9), light(i, 10), spot, i * 4);
             spot[i * 4 + 3] = light(i, 11);
         }
-        for (int z = 0; z < CgWorldLights.SLICES; z++) {
+        for (int z = 0; z < CgSceneLights.SLICES; z++) {
             float d0 = sliceDepth(z), d1 = sliceDepth(z + 1);
             for (int y = 0; y < gridY; y++) {
                 for (int x = 0; x < gridX; x++) {
@@ -393,7 +393,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
      * drawn, -1 not, 0 within rounding of the edge.
      */
     private static int drawn(float[] at, float[] spot, int s) {
-        float min = CgWorldLights.minScreenRadius();
+        float min = CgSceneLights.minScreenRadius();
         if (min <= 0f) return 1;
         float cx = at[0], cy = at[1], cz = at[2], bound = at[3], c = spot[s + 3];
         if (c > -1.5f) {
@@ -425,12 +425,12 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
     private void falloffs() {
         for (int k = 0; k < FALLOFF_LIGHTS; k++) {
             for (int s = 0; s < SAMPLES; s++) {
-                float got = falloffRead.getFloat((k * SAMPLES + s) * 4), want = falloff(falloffLights, k * CgWorldLights.FLOATS,
+                float got = falloffRead.getFloat((k * SAMPLES + s) * 4), want = falloff(falloffLights, k * CgSceneLights.FLOATS,
                         samples[s * 4], samples[s * 4 + 1], samples[s * 4 + 2]);
                 falloffChecked++;
                 // Float rounding where the mask nears zero is relative to the light unmasked, not to what is left.
                 float x = samples[s * 4], y = samples[s * 4 + 1], z = samples[s * 4 + 2];
-                float unmasked = falloffLights[k * CgWorldLights.FLOATS + 7] != 0f ? 1f : 1f / (x * x + y * y + z * z + 1e-4f);
+                float unmasked = falloffLights[k * CgSceneLights.FLOATS + 7] != 0f ? 1f : 1f / (x * x + y * y + z * z + 1e-4f);
                 if (!(Math.abs(got - want) <= 2e-3f * want + 1e-5f * unmasked)) {
                     fail("falloff of light " + k + " at sample " + s + " is " + got + ", Java gives " + want);
                     return;
@@ -497,7 +497,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
 
     private float sliceDepth(int z) {
         if (z <= 0) return 0f;
-        if (z >= CgWorldLights.SLICES) return 2.0e6f;
+        if (z >= CgSceneLights.SLICES) return 2.0e6f;
         return (float) ((Math.pow(2, z / zParams[2]) - zParams[1]) / zParams[0]);
     }
 
@@ -511,7 +511,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
     }
 
     private float light(int i, int word) {
-        return list.getFloat((i * CgWorldLights.FLOATS + word) * 4);
+        return list.getFloat((i * CgSceneLights.FLOATS + word) * 4);
     }
 
     private static float srgb(int c) {
@@ -554,7 +554,7 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
             System.out.println("[lights-grid] FAIL on " + on + ": " + failure);
         } else {
             System.out.printf("[lights-grid] PASS on %s: %d light words, %d cells (%d holding over %d), %d falloffs%n", on,
-                    checked, cellsChecked, dense, CgWorldLights.PER_CELL, falloffChecked);
+                    checked, cellsChecked, dense, CgSceneLights.PER_CELL, falloffChecked);
         }
     }
 

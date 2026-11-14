@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.api.material.CgMaterialUsage;
@@ -13,7 +15,6 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.gl.CgCapabilities;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import com.crystalgraphics.vfx.scalability.CgVfxScalability;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.look.CgVfxKit;
@@ -153,12 +154,10 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
             try {
                 target.clear(0f, 0f, 0f, 1f);
                 vfx.update(frame * (double) DT);
-                vfx.submit(CgWorldRenderer.get());
+                vfx.submit();
                 Matrix4f view = new Matrix4f(), projection = CgCamera.orthographicMatrix(new Matrix4f(), 0, w, 0, h, -100, 100);
-                for (CgRenderStage stage : List.of(CgRenderStage.WORLD_OPAQUE, CgRenderStage.WORLD_TRANSPARENT)) {
-                    stage.host().set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
-                    stage.fire();
-                }
+                CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
+                HarnessWorld.fireCallbacks();
                 for (int s = 0; s < SHOTS.length; s++) {
                     if (frame == SHOTS[s]) target.captureToFile(ctx.getOutputDir(), "vfx-sequence-" + SHOT_NAMES[s] + ".png");
                 }

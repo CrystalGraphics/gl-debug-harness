@@ -1,12 +1,12 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 import org.joml.Matrix4f;
 
 /**
@@ -30,15 +30,15 @@ public class CgSceneColorScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
+        CgScene scene = CgScene.client();
         for (int i = 0; i < 8; i++) {
             float hue = i / 8f;
-            world.draw(cube, solid).at(i - 3.5f, 1f, -1f)
-                    .custom(0, 0.5f + 0.5f * (float) Math.cos(hue * 6.283f), 0.5f + 0.5f * (float) Math.cos((hue - 0.33f) * 6.283f),
+            scene.once().mesh(cube, solid).at(i - 3.5f, 1f, -1f)
+                    .customData(0, 0.5f + 0.5f * (float) Math.cos(hue * 6.283f), 0.5f + 0.5f * (float) Math.cos((hue - 0.33f) * 6.283f),
                             0.5f + 0.5f * (float) Math.cos((hue - 0.67f) * 6.283f), 1f)
-                    .submit();
+                    .add();
         }
-        world.draw(lens, lensMaterial).at(-1.5f, 1.5f, 1f).transform(lensTransform).submit();
+        scene.once().mesh(lens, lensMaterial).at(-1.5f, 1.5f, 1f).transform(lensTransform).add();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }
 

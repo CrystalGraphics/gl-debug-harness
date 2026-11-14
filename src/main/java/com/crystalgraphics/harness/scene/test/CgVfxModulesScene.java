@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.api.font.CgFont;
 import com.crystalgraphics.api.font.CgFontStyle;
 import com.crystalgraphics.demo.CgVfxDemoControls;
@@ -10,7 +11,6 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.harness.util.HarnessFontUtil;
-import com.crystalgraphics.render.world.CgWorldRenderer;
 
 /**
  * {@link CgVfxModules}, X6's module catalogue, on the showcase's floor under its sky, to fly round and compare. Every
@@ -43,9 +43,9 @@ public final class CgVfxModulesScene implements InteractiveSceneLifecycle, CgSys
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgWorldRenderer world = CgWorldRenderer.get();
-        modules.submit(world, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(frame.getElapsedTime()));
-        stage.submitStage(world, 0.0, 0.0, 0.0, ctx.getCamera3D().getPosX(), ctx.getCamera3D().getPosY(),
+        CgScene scene = CgScene.client();
+        modules.submit(scene, 0.0, 0.0, 0.0, CgVfxDemoControls.get().time(frame.getElapsedTime()));
+        stage.submitStage(scene, 0.0, 0.0, 0.0, ctx.getCamera3D().getPosX(), ctx.getCamera3D().getPosY(),
                 ctx.getCamera3D().getPosZ());
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
     }

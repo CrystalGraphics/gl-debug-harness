@@ -1,5 +1,9 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.pass.CgViewPasses;
+import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
+import com.crystalgraphics.render.view.CgView;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.material.CgMaterialShader;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
@@ -7,8 +11,7 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.HarnessJitWatch;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.graph.CgRehearsal;
-import com.crystalgraphics.render.world.CgWorldRenderer;
+import com.crystalgraphics.lifecycle.rehearsal.CgRehearsal;
 import com.crystalgraphics.settings.CgGraphicsSettings;
 import com.crystalgraphics.settings.CgQuality;
 import com.crystalgraphics.vfx.CgVfx;
@@ -134,7 +137,7 @@ public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
         if (!SKIP && DELAY > 0 && warmFrames == DELAY) precacheLooks();
         if (!playing && (SKIP ? warmFrames >= IDLE : warmFrames >= DELAY && vfx.ready())) {
             before = CgMaterialShader.compileWaits();
-            unreadyBefore = CgWorldRenderer.get().unreadyDraws();
+            unreadyBefore = CgViewPasses.unreadyDraws();
             owner.play(MOVE[0], 0, 1.5, 0, 0, 0.5, -24).ground(0f);
             owner.play(MOVE[1], 6, 0, -8, 6, 0, -8).ground(0f);
             owner.play(MOVE[2], -4, 0.5, -4, -4, 0.5, -4).ground(0f);
@@ -146,11 +149,11 @@ public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
             CgGraphicsSettings.QUALITY.set(qualityWas == CgQuality.LOW ? CgQuality.HIGH : CgQuality.LOW);
         }
         vfx.update(frame.getElapsedTime());
-        vfx.submit(CgWorldRenderer.get());
+        vfx.submit();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         if (playing) mostDrawn = Math.max(mostDrawn, CgVfxSystem.particlesDrawn());
         if (playing && ++frames == FRAMES) {
-            report(CgMaterialShader.compileWaits() - before, CgWorldRenderer.get().unreadyDraws() - unreadyBefore);
+            report(CgMaterialShader.compileWaits() - before, CgViewPasses.unreadyDraws() - unreadyBefore);
             restoreSettings();
             running = false;
         }
@@ -181,7 +184,7 @@ public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
         }
         long start = System.nanoTime();
         vfx.update(frame.getElapsedTime());
-        vfx.submit(CgWorldRenderer.get());
+        vfx.submit();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         if (!playing) return;
         long took = System.nanoTime() - start;
@@ -243,7 +246,7 @@ public final class CgVfxPrecacheScene implements InteractiveSceneLifecycle {
         } else if (mostDrawn == 0) {
             // A move that draws nothing also compiles nothing: never a pass.
             System.out.println("[vfx-precache] FAIL on " + on + ": the move drew no particle in its " + FRAMES + " frames");
-        } else if (SKIP && CgWorldRenderer.get().skipUnready()) {
+        } else if (SKIP && CgView.main().flag(CgSceneRenderer.SKIP_UNREADY)) {
             System.out.println("[vfx-precache] " + (waits == 0 && unready > 0 ? "PASS" : "FAIL") + " on " + on
                     + " (unprecached, unready draws skipped): " + waits + " compile waits, " + unready + " draws skipped and counted");
         } else if (SKIP) {
