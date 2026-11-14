@@ -1,6 +1,8 @@
 package com.crystalgraphics.harness.scene.test;
 
 
+import com.crystalgraphics.world.actor.kit.CgKitAssets;
+import com.crystalgraphics.world.actor.kit.CgKitModels;
 import com.crystalgraphics.animation.CgAnimInstance;
 import com.crystalgraphics.loading.CgLoadingProcess;
 import com.crystalgraphics.loading.CgLoadingScreen;
@@ -10,7 +12,6 @@ import com.crystalgraphics.animation.CgAnimLayer;
 import com.crystalgraphics.animation.CgAnimation;
 import com.crystalgraphics.api.animation.CgAnimSection;
 import com.crystalgraphics.api.animation.CgAnimSequence;
-import com.crystalgraphics.api.animation.CgSkeletonDefinition;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
 import com.crystalgraphics.api.mesh.CgSkeletalMesh;
@@ -309,7 +310,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private final Fighters fighters = new Fighters();
     private final List<CgEntityActors.Registration> registrations = new ArrayList<>();
     /** Goku's materials and the charge montage; null without the kit. */
-    private HarnessKitSystems kit;
+    private CgKitAssets kit;
     /** The scene shown now, across a re-entry that keeps the client world's sequencer and camera system. */
     @Nullable
     private static CgSkinnedPlayScene current;
@@ -514,7 +515,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         AtomicInteger done = new AtomicInteger();
         CgJob.forEach(read.length, i -> {
             switch (i) {
-                case 0 -> read[i] = hasGoku ? withKitSockets(CgMeshLoader.skeletal(goku), kitRoot) : null;
+                case 0 -> read[i] = hasGoku ? CgKitModels.withSockets(CgMeshLoader.skeletal(goku), Paths.get(kitRoot), GOKU_SKELETON) : null;
                 case 1 -> read[i] = hasKurama ? CgMeshLoader.skeletal(kurama) : null;
                 case 2 -> read[i] = hasGoku && face.isFile() ? CgMeshLoader.sequences(face.getPath()).get(0) : null;
                 case 3 -> read[i] = hasGoku && blink.isFile() ? CgMeshLoader.sequences(blink.getPath()).get(0) : null;
@@ -551,7 +552,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         Path prefab = kit.resolve(GOKU_PREFAB), cast = kit.resolve("cast.yaml");
         Quaternionf meshToActor = new Quaternionf();
         double rootLift = prefabMesh(prefab, kit.resolve("units.yaml"), meshToActor);
-        return new KitPlan(prefabMaterials(prefab), rootLift, meshToActor, castBlock(cast, "Goku", "outline"));
+        return new KitPlan(CgKitModels.prefabMaterials(prefab), rootLift, meshToActor, castBlock(cast, "Goku", "outline"));
     }
 
     /**
@@ -564,7 +565,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         darkenMaterial = materials.size();
         materials.add(SKILL_DARKEN);
         skillAction = kitFolder.resolve(SKILL_ACTION);
-        kit = HarnessKitSystems.load(VFX.system(), KIT_NAMESPACE, kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT, CUT_CAMERA), List.of(ARENA), SHADING);
+        kit = CgKitAssets.load(VFX.system(), KIT_NAMESPACE, kitFolder, List.of(), materials, List.of(CHARGE, SHOT, CUT, CUT_CAMERA), List.of(ARENA), SHADING);
     }
 
     /**
@@ -657,39 +658,6 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         double sum = 0;
         for (int i = 0; i < 20; i++) sum += rng.nextDouble();
         return 15.0 * sum / 20;
-    }
-
-    /** {@code mesh} with Goku's skeleton asset's sockets in the kit's units, where the kit at {@code kit} has them. */
-    private static CgSkeletalMesh withKitSockets(CgSkeletalMesh mesh, String kit) {
-        Path skeleton = Paths.get(kit, GOKU_SKELETON), units = Paths.get(kit, "units.yaml");
-        if (!Files.isRegularFile(skeleton) || !Files.isRegularFile(units)) return mesh;
-        try {
-            CgUnits kitUnits = CgUnits.of(((Map<?, ?>) CgAssetYaml.read(Files.readString(units))).get("units"), CgUnits.HOST);
-            Map<?, ?> tree = (Map<?, ?>) CgAssetYaml.read(Files.readString(skeleton));
-            return mesh.withSockets(CgSkeletonDefinition.compile(GOKU_SKELETON, tree, kitUnits).socketsOn(mesh.skeleton()));
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    /**
-     * The materials a prefab's first mesh names, one a slot in slot order: Unreal's component materials as the kit
-     * exported them. Empty where it has none.
-     */
-    private static List<String> prefabMaterials(Path prefab) {
-        if (!Files.isRegularFile(prefab)) return List.of();
-        try {
-            Map<?, ?> tree = (Map<?, ?>) CgAssetYaml.read(Files.readString(prefab));
-            for (Object node : (List<?>) tree.get("nodes")) {
-                if (!(((Map<?, ?>) node).get("meshes") instanceof List<?> meshes) || meshes.isEmpty()) continue;
-                List<String> ids = new ArrayList<>();
-                for (Object id : (List<?>) ((Map<?, ?>) meshes.get(0)).get("materials")) ids.add(String.valueOf(id));
-                return ids;
-            }
-            return List.of();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     /**

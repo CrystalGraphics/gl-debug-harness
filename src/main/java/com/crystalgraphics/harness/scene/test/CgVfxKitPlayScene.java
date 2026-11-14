@@ -1,5 +1,6 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.world.actor.kit.CgKitAssets;
 import com.crystalgraphics.asset.load.CgVfxAssets;
 import com.crystalgraphics.material.CgMaterialShader;
 import com.crystalgraphics.gpu.resource.CgTextureAbstract;
@@ -51,7 +52,7 @@ public final class CgVfxKitPlayScene implements InteractiveSceneLifecycle {
     private static final float SPACING = 6f;
 
     private final CgVfxSystem vfx = new CgVfxSystem();
-    private HarnessKitSystems kit;
+    private CgKitAssets kit;
     private CgVfxSystemInstance<?>[] playing;
     private int[] framesAlive;
     private boolean running = true, started;
@@ -68,7 +69,7 @@ public final class CgVfxKitPlayScene implements InteractiveSceneLifecycle {
         else for (String id : systems.split(",")) if (!id.isBlank()) ids.add(id.trim());
         ctx.getCamera3D().moveCamera(SPACING * (ids.size() - 1) / 2f, 6f, 28f);
         ctx.getCamera3D().setPitch(-10f);
-        kit = HarnessKitSystems.load(vfx, namespace, Paths.get(folder), ids);
+        kit = CgKitAssets.load(vfx, namespace, Paths.get(folder), ids);
         playing = new CgVfxSystemInstance<?>[ids.size()];
         framesAlive = new int[ids.size()];
     }
