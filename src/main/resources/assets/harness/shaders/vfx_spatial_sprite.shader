@@ -16,5 +16,5 @@ void vertex(inout CgVertex v, out v2f o) {
 
 void surface(in v2f i, inout CgSurface s) {
     float round_ = 1.0 - smoothstep(0.3, 0.5, length(i.uv - 0.5));
-    s.baseColor = _Color.rgb * cg_Particle.color.rgb * round_;
+    s.emissive = _Color.rgb * cg_Particle.color.rgb * round_;
 }

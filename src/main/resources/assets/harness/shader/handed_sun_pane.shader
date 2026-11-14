@@ -11,6 +11,6 @@ void vertex(inout CgVertex v, out v2f o) {
 }
 
 void surface(in v2f i, inout CgSurface s) {
-    s.baseColor = vec3(CG_DIRECTIONAL_SHADOW(cg_FragmentPosition()));
+    s.emissive = vec3(CG_DIRECTIONAL_SHADOW(cg_FragmentPosition()));
     s.opacity = 1.0;
 }

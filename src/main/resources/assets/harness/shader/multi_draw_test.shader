@@ -16,5 +16,5 @@ void vertex(inout CgVertex v, out v2f o) {
 
 void surface(in v2f i, inout CgSurface s) {
     vec4 c = i.color;
-    s.baseColor = c.rgb;
+    s.emissive = c.rgb;
 }

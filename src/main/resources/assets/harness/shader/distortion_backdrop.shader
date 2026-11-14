@@ -15,9 +15,9 @@ void vertex(inout CgVertex v, out v2f o) {
 
 void surface(in v2f i, inout CgSurface s) {
 #ifdef WALL
-    s.baseColor = vec3(0.0, 0.0, 1.0);
+    s.emissive = vec3(0.0, 0.0, 1.0);
 #else
     vec2 p = floor(gl_FragCoord.xy);
-    s.baseColor = vec3(p.x / 255.0, p.y / 255.0, p.x / 255.0);
+    s.emissive = vec3(p.x / 255.0, p.y / 255.0, p.x / 255.0);
 #endif
 }

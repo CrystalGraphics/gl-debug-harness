@@ -14,6 +14,6 @@ void vertex(inout CgVertex v, out v2f o) {
 }
 
 void surface(in v2f i, inout CgSurface s) {
-    s.baseColor = i.shown;
+    s.emissive = i.shown;
     s.opacity = 1.0;
 }

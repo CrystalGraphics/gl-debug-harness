@@ -18,6 +18,6 @@ void surface(in v2f i, inout CgSurface s) {
     if (gl_FragCoord.y < CG_RESOLUTION.y * 0.5) discard;
 #endif
     vec4 color = vec4(0.2, 0.5, 1.0, 0.2);
-    s.baseColor = color.rgb;
+    s.emissive = color.rgb;
     s.opacity = color.a;
 }

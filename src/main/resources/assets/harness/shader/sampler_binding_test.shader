@@ -18,5 +18,5 @@ void vertex(inout CgVertex v, out v2f o) {
 }
 
 void surface(in v2f i, inout CgSurface s) {
-    s.baseColor = texture(_MainTex, i.uv).rgb;
+    s.emissive = texture(_MainTex, i.uv).rgb;
 }

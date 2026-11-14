@@ -10,7 +10,7 @@ void vertex(inout CgVertex v, out v2f o) {
 }
 
 void surface(in v2f i, inout CgSurface s) {
-    s.baseColor = vec3(0.3, 0.3, 0.32);
+    s.emissive = vec3(0.3, 0.3, 0.32);
     s.customData = vec4(0.2, 0.4, 0.6, 0.5);
     s.shadingModelId = uvec2(13u, 2u);
 }

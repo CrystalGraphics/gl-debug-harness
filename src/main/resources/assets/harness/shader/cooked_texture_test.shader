@@ -20,5 +20,5 @@ void vertex(inout CgVertex v, out v2f o) {
 void surface(in v2f i, inout CgSurface s) {
     vec4 t = texture(_MainTex, i.uv);
     vec4 color = CG_OBJECT_CUSTOM0.w > 0.5 ? vec4(vec3(t.a), 1.0) : vec4(t.rgb, 1.0);
-    s.baseColor = color.rgb;
+    s.emissive = color.rgb;
 }
