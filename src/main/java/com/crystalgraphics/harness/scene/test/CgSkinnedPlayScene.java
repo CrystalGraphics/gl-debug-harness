@@ -8,9 +8,14 @@ import com.crystalgraphics.loading.CgLoadingProcess;
 import com.crystalgraphics.loading.CgLoadingScreen;
 import com.crystalgraphics.loading.task.CgLoadPlan;
 import com.crystalgraphics.loading.task.CgLoadTask;
-import com.crystalgraphics.animation.CgAnimLayer;
 import com.crystalgraphics.animation.CgAnimation;
-import com.crystalgraphics.api.animation.CgAnimSection;
+import com.crystalgraphics.animation.graph.CgAnimGraph;
+import com.crystalgraphics.animation.graph.CgAnimSlot;
+import com.crystalgraphics.animation.graph.CgBlendMask;
+import com.crystalgraphics.animation.graph.CgCachedPoseNode;
+import com.crystalgraphics.animation.graph.CgLayeredBlendNode;
+import com.crystalgraphics.animation.graph.CgRefPoseNode;
+import com.crystalgraphics.animation.graph.CgSlotNode;
 import com.crystalgraphics.api.animation.CgAnimSequence;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.mesh.CgMeshLoader;
@@ -117,6 +122,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private static final float FADE = 0.25f, FRAME = 1f / 30f;
     /** Kakarot's face layer (AB_C000): FacialSlot over facialbase. */
     private static final String FACE_SLOT = "FacialSlot", FACE_BRANCH = "facialbase";
+    /** Where the viewer's clip and face play: under the move's slots, as an idle and a face montage under a move. */
+    private static final String VIEWER_SLOT = "Viewer", VIEWER_FACE_SLOT = "ViewerFace";
     /** Seconds of timeline the blinks are laid over; the face loops alone after. */
     private static final double BLINKS_FOR = 600.0;
     private static final long BLINK_SEED = 0x6B616B61L;
@@ -179,6 +186,17 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         final Quaternionf meshToActor = new Quaternionf();
         int clip;
         int rate = 3;
+        /** The viewer's clock, seconds: what R, {@code ,} and {@code .} move; its clip and face are read from it. */
+        double time;
+        /** When its clip started; the clip it fades from, when that started and when the fade began. */
+        double clipStart, fadeFromStart, fadeAt;
+        int fadeFrom = -1;
+        boolean started;
+        /** Its face's timeline: each stretch's start and clip, the face looping between blinks; null for no face. */
+        @Nullable
+        double[] faceAt;
+        @Nullable
+        CgAnimSequence[] faceClips;
 
         Actor(String name, int id, CgSkeletalMesh mesh, List<CgAnimSequence> clips, CgMaterial plain, double x, double z,
               float height, int rgb) {
@@ -210,20 +228,59 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             materials = new CgMaterialParameters(body);
         }
 
+        /**
+         * Its graph: the viewer's clip under the move's slot and, with a face, the face over facialbase under the move's
+         * face slot; fed each frame from its clock.
+         */
+        void drive() {
+            CgSlotNode viewer = CgSlotNode.of(VIEWER_SLOT, CgRefPoseNode.create());
+            CgAnimGraph.Builder graph = CgAnimGraph.builder("harness:skinned-play/" + name.toLowerCase(Locale.ROOT), mesh.skeleton());
+            if (faceAt != null) {
+                graph.save("body", CgSlotNode.of(CgAnimGraph.DEFAULT_SLOT, viewer))
+                        .output(CgLayeredBlendNode.of(CgCachedPoseNode.use("body")).layer(
+                                CgSlotNode.of(FACE_SLOT, CgSlotNode.of(VIEWER_FACE_SLOT, CgCachedPoseNode.use("body"))),
+                                CgBlendMask.branch(FACE_BRANCH, 1)));
+            } else {
+                graph.output(CgSlotNode.of(CgAnimGraph.DEFAULT_SLOT, viewer));
+            }
+            instance.graph(graph.build()).onUpdate((a, dt) -> feed(dt));
+        }
+
+        /** This frame's viewer entries, {@code dt} on: its clip, the one it fades from, and its face's stretch. */
+        private void feed(float dt) {
+            time += dt;
+            CgAnimSlot viewer = instance.slot(VIEWER_SLOT);
+            float in = fadeFrom < 0 ? 1f : (float) Math.min(1.0, (time - fadeAt) / FADE);
+            if (in < 1f) viewer.play(clips.get(fadeFrom), loopTime(clips.get(fadeFrom), time - fadeFromStart), 1f - in);
+            viewer.play(clips.get(clip), clipTime(), in);
+            if (faceAt != null) {
+                int at = Arrays.binarySearch(faceAt, time);
+                int i = Math.max(0, at >= 0 ? at : -at - 2);
+                instance.slot(VIEWER_FACE_SLOT).play(faceClips[i], loopTime(faceClips[i], time - faceAt[i]), 1f);
+            }
+        }
+
+        float clipTime() {
+            return loopTime(clips.get(clip), time - clipStart);
+        }
+
         /** Plays clip {@code index} from its start, cross-fading from whatever played. */
         void play(int index) {
-            clip = Math.floorMod(index, clips.size());
-            double now = instance.time();
-            List<CgAnimSection> old = instance.sections();
-            instance.clear();
-            for (CgAnimSection s : old) {
-                if (s.contains(now) && s.end() > now + FADE) {
-                    instance.play(CgAnimSection.of(s.sequence()).at(s.start()).until(now + FADE).easeOut(FADE)
-                            .firstLoopOffset(0f).loop().build());
-                }
+            if (started) {
+                fadeFrom = clip;
+                fadeFromStart = clipStart;
+                fadeAt = time;
             }
-            instance.play(CgAnimSection.of(clips.get(clip)).at(now).until(Double.POSITIVE_INFINITY)
-                    .easeIn(old.isEmpty() ? 0f : FADE).build());
+            started = true;
+            clip = Math.floorMod(index, clips.size());
+            clipStart = time;
+        }
+
+        /** R: its clock back to 0, its clip from its start with no fade. */
+        void restart() {
+            time = 0;
+            clipStart = 0;
+            fadeFrom = -1;
         }
 
         /** Ends the montage playing: its clips leave the slot and its systems despawn at the sequencer's next evaluation. */
@@ -242,9 +299,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                         id.substring(id.lastIndexOf('/') + 1), indent, move.seconds(), state, RATES[rate]);
             }
             CgAnimSequence s = clips.get(clip);
-            CgAnimSection playing = instance.sections().get(instance.sections().size() - 1);
             return String.format(Locale.ROOT, "%s  clip %d / %d  %s%n%s%.2f / %.2f s  %s  %.2fx", name, clip + 1,
-                    clips.size(), s.name(), indent, playing.animationTime(instance.time()), s.duration(), state, RATES[rate]);
+                    clips.size(), s.name(), indent, clipTime(), s.duration(), state, RATES[rate]);
         }
 
         @Override
@@ -461,22 +517,34 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private static void dressFace(Actor actor, Body body) {
         CgAnimSequence faceClip = body.face();
         if (faceClip == null) return;
-        CgAnimLayer layer = actor.instance.layer(FACE_SLOT, FACE_BRANCH, 1);
-        double from = 0;
+        List<Double> at = new ArrayList<>();
+        List<CgAnimSequence> clips = new ArrayList<>();
+        at.add(0.0);
+        clips.add(faceClip);
         CgAnimSequence blinkClip = body.blink();
         if (blinkClip != null) {
-            // Laid out on the timeline from a fixed seed rather than switched per frame, so a seek replays it exactly.
+            // Laid out from a fixed seed rather than switched per frame, so a seek replays it exactly.
             // The timer restarts as a blink starts, so blinks are an interval apart start to start.
             double length = blinkClip.duration();
             Random rng = new Random(BLINK_SEED);
-            for (double at = blinkInterval(rng); at + length <= BLINKS_FOR; at += Math.max(length, blinkInterval(rng))) {
-                layer.play(CgAnimSection.of(faceClip).at(from).until(at).loop().build());
-                layer.play(CgAnimSection.of(blinkClip).at(at).until(at + length).build());
-                from = at + length;
+            for (double t = blinkInterval(rng); t + length <= BLINKS_FOR; t += Math.max(length, blinkInterval(rng))) {
+                at.add(t);
+                clips.add(blinkClip);
+                at.add(t + length);
+                clips.add(faceClip);
             }
         }
-        layer.play(CgAnimSection.of(faceClip).at(from).until(Double.POSITIVE_INFINITY).loop().build());
+        actor.faceAt = at.stream().mapToDouble(Double::doubleValue).toArray();
+        actor.faceClips = clips.toArray(new CgAnimSequence[0]);
         LOGGER.info("[skinned-play] Goku's face: {} on {}{}", faceClip.name(), FACE_SLOT, blinkClip != null ? ", blinking" : "");
+    }
+
+    /** {@code seconds} into {@code clip}, looping. */
+    private static float loopTime(CgAnimSequence clip, double seconds) {
+        double length = clip.duration();
+        if (length <= 0) return 0f;
+        double t = seconds % length;
+        return (float) (t < 0 ? t + length : t);
     }
 
     /** A skinned body read from its files, and its face's clips; null clips where it has none. */
@@ -601,10 +669,11 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         }
         if (goku != null) dressFace(actors.get(0), goku);
         for (Actor actor : actors) {
+            actor.drive();
             actor.play(0);
             if (!Double.isNaN(PAUSED_AT)) {
                 actor.instance.playing(false);
-                actor.instance.seek(PAUSED_AT);
+                actor.time = PAUSED_AT;
             }
             LOGGER.info("[skinned-play] {}: {} bones, {} clips{}", actor.name, actor.mesh.skeleton().boneCount(),
                     actor.clips.size(), actor.kit ? ", K charges the kit's Kamehameha" : "");
@@ -973,10 +1042,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             case CgKeyCodes.KEY_TAB -> selected = (selected + 1) % actors.size();
             case CgKeyCodes.KEY_N -> actor.play(actor.clip + 1);
             case CgKeyCodes.KEY_B -> actor.play(actor.clip - 1);
-            case CgKeyCodes.KEY_R -> {
-                instance.clear().seek(0);
-                actor.play(actor.clip);
-            }
+            case CgKeyCodes.KEY_R -> actor.restart();
             case CgKeyCodes.KEY_P -> {
                 instance.playing(!instance.playing());
                 rate(actor, actor.rate);
@@ -1011,7 +1077,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         if (actor.move != null && !actor.move.stopped()) {
             actor.move.seek(Math.max(0, actor.move.seconds() + seconds));
         } else {
-            actor.instance.seek(actor.instance.time() + seconds);
+            actor.time = Math.max(0, actor.time + seconds);
         }
     }
 

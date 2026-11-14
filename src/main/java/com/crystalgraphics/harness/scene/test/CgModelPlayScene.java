@@ -2,7 +2,6 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.animation.CgAnimInstance;
 import com.crystalgraphics.animation.CgAnimation;
-import com.crystalgraphics.api.animation.CgAnimSection;
 import com.crystalgraphics.api.animation.CgAnimSequence;
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgMaterialDefinition;
@@ -62,8 +61,8 @@ import java.util.stream.Stream;
  *   <li>{@code .animations} (GeckoLib only) are folders or files under the kit, {@code animations} by default. Each
  *       model takes every animation in them; a bone it lacks is skipped, as GeckoLib skips it.</li>
  *   <li>N and B move every model to the same clip index, so models sharing their files play the same clip.</li>
- *   <li>A clip loops as its file says: {@code loop: true} loops, {@code hold_on_last_frame} holds, and a clip that
- *       plays once ends on the rest pose, as GeckoLib's controller leaves it. K loops all of them.</li>
+ *   <li>A clip loops as its file says: {@code loop: true} loops, and any other holds its last frame, as Unreal's
+ *       {@code PlayAnimation} does. K loops all of them.</li>
  *   <li>A GeckoLib model stands at its own size in blocks; any other is scaled to {@code .height} (1.8).
  *       {@code .spacing} (1.5) is the gap between them, {@code .distance} (4) the camera's from the row.</li>
  *   <li>Under VFX Lab's sky and floor; F9 day and night.</li>
@@ -74,13 +73,11 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
     private static final String TAG = "[model-play] ";
     private static final String P = "crystalgraphics.harness.modelPlay.";
     private static final float[] RATES = {0.1f, 0.25f, 0.5f, 1f, 2f};
-    private static final double STEP = 1.0 / 60;
-    /** The span a held clip's last frame loops over, seconds. */
-    private static final float HOLD = 0.001f;
+    private static final float STEP = 1f / 60;
     private static final float TURN = (float) Math.toRadians(15);
 
     /** One clip: its name in the HUD, its sequence, and whether its file loops it or holds its last frame. */
-    private record Clip(String name, CgAnimSequence sequence, boolean loops, boolean holds) {
+    private record Clip(String name, CgAnimSequence sequence, boolean loops) {
     }
 
     /** One model in the row: its instance, its clips, and its placement before the row's turn. */
@@ -171,8 +168,7 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
         for (String file : files) {
             String stem = file.substring(file.lastIndexOf('/') + 1).replace(".animation.json", "");
             for (CgGeckoAnimation a : model.animations(namespace + ":" + file)) {
-                clips.add(new Clip(stem + "/" + a.name(), a.sequence(), a.loop() == CgGeckoAnimation.Loop.LOOP,
-                        a.loop() == CgGeckoAnimation.Loop.HOLD_ON_LAST_FRAME));
+                clips.add(new Clip(stem + "/" + a.name(), a.sequence(), a.loop() == CgGeckoAnimation.Loop.LOOP));
             }
         }
         return new Model(id, model.mesh(), clips, new Matrix4f(), x);
@@ -182,7 +178,7 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
     private static Model other(String id, float height, double x) {
         CgSkeletalMesh mesh = CgMeshLoader.skeletal(id);
         List<Clip> clips = new ArrayList<>();
-        for (CgAnimSequence s : mesh.sequences()) clips.add(new Clip(s.name(), s, true, false));
+        for (CgAnimSequence s : mesh.sequences()) clips.add(new Clip(s.name(), s, true));
         CgAABB box = mesh.mesh().bounds(new CgAABB());
         float scale = height / (float) Math.max(box.maxY() - box.minY(), 1e-4);
         Matrix4f fit = new Matrix4f().scaling(scale).translate((float) -(box.minX() + box.maxX()) / 2f, (float) -box.minY(),
@@ -190,24 +186,11 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
         return new Model(id, mesh, clips, fit, x);
     }
 
-    /** {@code m}'s clip from now: looped or held as its file says, or by K; played once, it ends on the rest pose. */
+    /** {@code m}'s clip from its start: looped as its file says, or by K; played once, it holds its last frame. */
     private void play(Model m) {
-        CgAnimInstance instance = m.instance;
-        instance.clear();
         if (m.clips.isEmpty()) return;
         Clip clip = m.clips.get(Math.floorMod(m.clip, m.clips.size()));
-        double now = instance.time();
-        if (clip.loops() || loopAll) {
-            instance.play(CgAnimSection.of(clip.sequence()).at(now).until(Double.POSITIVE_INFINITY).loop().build());
-            return;
-        }
-        instance.play(CgAnimSection.of(clip.sequence()).at(now).build());
-        if (clip.holds()) {
-            // Its last millisecond looped from the clip's end on: the last frame, held (a section must keep some span)
-            float end = clip.sequence().duration();
-            instance.play(CgAnimSection.of(clip.sequence()).at(now + end).until(Double.POSITIVE_INFINITY)
-                    .startOffset(Math.max(0f, end - HOLD)).build());
-        }
+        m.instance.play(clip.sequence(), clip.loops() || loopAll);
     }
 
     /** Each model at its place in the row, turned by the row's yaw about its own feet. */
@@ -251,7 +234,7 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
             case CgKeyCodes.KEY_COMMA, CgKeyCodes.KEY_PERIOD -> {
                 for (Model m : models) {
                     m.instance.playing(false);
-                    m.instance.seek(Math.max(0, m.instance.time() + (key == CgKeyCodes.KEY_PERIOD ? STEP : -STEP)));
+                    m.instance.position(Math.max(0f, m.instance.position() + (key == CgKeyCodes.KEY_PERIOD ? STEP : -STEP)));
                 }
                 return true;
             }
@@ -301,13 +284,12 @@ public final class CgModelPlayScene implements InteractiveSceneLifecycle, CgSyst
             return String.format(Locale.ROOT, "%nModel [M]: %s (%d / %d) | no clips", m.name, selected + 1, models.size());
         }
         Clip clip = m.clips.get(Math.floorMod(m.clip, m.clips.size()));
-        List<CgAnimSection> sections = instance.sections();
-        float at = sections.isEmpty() ? 0f : sections.get(0).animationTime(instance.time());
+        float at = instance.position();
         return String.format(Locale.ROOT, "%nModel [M]: %s (%d / %d)%n"
                         + "Clip [N/B]: %s (%d / %d) | %s | Again [`]%n"
                         + "%.3f / %.3f s | %s [P] | Step [, .] | Rate [U/I]: x%s | Loop all [K]: %s | Turn [Left/Right]",
                 m.name, selected + 1, models.size(), clip.name(), Math.floorMod(m.clip, m.clips.size()) + 1, m.clips.size(),
-                clip.loops() ? "loops" : clip.holds() ? "holds" : "once", at, clip.sequence().duration(),
+                clip.loops() ? "loops" : "once", at, clip.sequence().duration(),
                 instance.playing() ? "playing" : "paused", RATES[rate], loopAll ? "on" : "off");
     }
 
