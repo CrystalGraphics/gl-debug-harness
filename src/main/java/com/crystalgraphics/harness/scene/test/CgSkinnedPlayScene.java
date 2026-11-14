@@ -159,11 +159,6 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         CgSkeletalMeshComponent body;
         CgAnimInstance instance;
         CgMaterialParameters materials;
-        /**
-         * The kit's contract names for the parameters its moves key ({@code rim_strength} to {@code FresnelInfluence}),
-         * from its cast entry's {@code rim} block: until the kit is re-emitted keying the parameters by their own names.
-         */
-        Map<String, String> aliases = Map.of();
         final double x, z;
         final Matrix4f transform = new Matrix4f();
         final float height, r, g, b;
@@ -287,7 +282,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         /** A material parameter by name, on every slot of its mesh declaring it. */
         @Override
         public int slot(String name) {
-            return materials == null ? -1 : materials.slot(aliases.getOrDefault(name, name));
+            return materials == null ? -1 : materials.slot(name);
         }
 
         @Override
@@ -335,9 +330,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** The engine's outline in the kit's look, once Goku is dressed. */
     @Nullable
     private CgOutline outline;
-    /** Goku's cast entry's rim block: the kit's contract names for his materials' rim parameters, or null. */
-    @Nullable
-    private Map<?, ?> kitRim;
+
     /** Under {@code -Dcrystalgraphics.harness.skinnedPlay.cut=true}: frames since Goku's cut was played unattended, or -1. */
     private int cutFrames = Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.cut") ? 0 : -1, cutRuns, cutStart;
     /** OL5's gate, under {@code -Dcrystalgraphics.harness.skinnedPlay.outlineCheck=true} ({@link SkinnedOutlineCheck}). */
@@ -496,10 +489,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
     /**
      * Goku's kit blocks: his prefab's materials, one a slot, and its Mesh node (the root's lift above it, its turn
-     * undone); his cast entry's outline (kept only with a post) and rim.
+     * undone); his cast entry's outline.
      */
-    private record KitPlan(List<String> materials, double rootLift, Quaternionf meshToActor, @Nullable Map<?, ?> outline,
-                           @Nullable Map<?, ?> rim) {
+    private record KitPlan(List<String> materials, double rootLift, Quaternionf meshToActor, @Nullable Map<?, ?> outline) {
     }
 
     /**
@@ -559,8 +551,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         Path prefab = kit.resolve(GOKU_PREFAB), cast = kit.resolve("cast.yaml");
         Quaternionf meshToActor = new Quaternionf();
         double rootLift = prefabMesh(prefab, kit.resolve("units.yaml"), meshToActor);
-        return new KitPlan(prefabMaterials(prefab), rootLift, meshToActor, castBlock(cast, "Goku", "outline"),
-                castBlock(cast, "Goku", "rim"));
+        return new KitPlan(prefabMaterials(prefab), rootLift, meshToActor, castBlock(cast, "Goku", "outline"));
     }
 
     /**
@@ -594,7 +585,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                 } else if (!plan.materials().isEmpty()) {
                     LOGGER.warn("[skinned-play] Goku's prefab names {} materials for {} slots: drawn plain", plan.materials().size(), slots);
                 }
-                kitRim = plan.rim();
+
                 actor.rootLift = plan.rootLift();
                 actor.meshToActor.set(plan.meshToActor());
             }
@@ -798,16 +789,13 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
     /**
      * {@code actor} in its kit materials (each slot's own instance made as its clips' curves and its moves set a
-     * parameter), the kit's old contract names for those parameters from its cast entry's rim block, and the stencil
+     * parameter), and the stencil
      * the outline reads it by. The outline itself is the scene's, set by the real Goku alone.
      */
     private void dress(Actor actor) {
         actor.body.materials(s -> CgMaterial.of(kit.material(s).get())).customData(0, 0f, 0f, 0f, 0f);
         actor.dressed = true;
-        if (kitRim != null && kitRim.get("strength") instanceof String strength && kitRim.get("power") instanceof String power
-                && kitRim.get("colour") instanceof String colour) {
-            actor.aliases = Map.of("rim_strength", strength, "rim_power", power, "rim", colour);
-        }
+
         Map<?, ?> block = actor.outlineBlock;
         if (block != null && block.get("custom_depth_stencil_value") instanceof Number stencil) {
             actor.body.customDepth(stencil.intValue(), 0xFF);
