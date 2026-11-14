@@ -45,6 +45,7 @@ import com.crystalgraphics.harness.scene.test.CgComputeTiersTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsCostScene;
 import com.crystalgraphics.harness.scene.test.CgGpuOpsTestScene;
 import com.crystalgraphics.harness.scene.test.CgGpuCullTestScene;
+import com.crystalgraphics.harness.scene.test.CgSceneVisibilityTestScene;
 import com.crystalgraphics.harness.scene.test.CgIndirectDrawTestScene;
 import com.crystalgraphics.harness.scene.test.CgSkinnedBenchScene;
 import com.crystalgraphics.harness.scene.test.CgSkinnedMeshTestScene;
@@ -360,6 +361,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgGpuCullTestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("scene-visibility")
+                .description("renderer R10: a scene's visibility made once a frame over both world firings, its CPU frustum's counts, and its instanced grid culled on the GPU (CgInstanceCulling) by the frustum alone as the CPU's and against a wall's depth pyramid within the wall's bounds")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(480)
+                .defaultHeight(270)
+                .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
+                .build(),
+            () -> new CgSceneVisibilityTestScene()
         );
 
         reg.register(
