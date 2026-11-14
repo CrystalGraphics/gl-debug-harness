@@ -2,8 +2,8 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.platform.rhi.resource.CgTextureView;
 import com.crystalgraphics.animation.CgAnimInstance;
-import com.crystalgraphics.api.material.CgMaterial;
-import com.crystalgraphics.api.material.CgMaterialInstance;
+
+
 import com.crystalgraphics.asset.codec.CgAssetYaml;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.asset.tree.CgAssetData;
@@ -14,7 +14,9 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.graph.CgGraphTexture;
-import com.crystalgraphics.render.post.CgPostMaterial;
+import com.crystalgraphics.render.post.CgOutline;
+import com.crystalgraphics.api.material.CgParameterCollection;
+import com.crystalgraphics.asset.kind.CgLookKinds;
 import com.crystalgraphics.render.stage.CgFrameKeys;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.world.CgWorldRenderer;
@@ -43,16 +45,18 @@ final class SkinnedOutlineCheck {
             "restored"};
     private static final int KEYED = 5, RESTORED = 6;
     /**
-     * An {@code ATAnimNotifyState_OutlineColor} section with {@code SetColor} on and {@code Restore} on, in the kit's
-     * form, keyed red on the caster for two seconds. No kit move keys one today: each of its 108 has {@code SetColor} off.
+     * An {@code ATAnimNotifyState_OutlineColor} section with {@code SetColor} on and {@code Restore} on, as the kit's
+     * importer writes it, keyed red on the caster for two seconds: the caster's materials write outline type 1, and the
+     * outline collection's Type1 is red. No kit move keys one today: each of its 108 has {@code SetColor} off.
      */
     private static final String KEYED_RED = "_v: 1\ntick_resolution: 30\ndisplay_rate: 30\nrange: [0, 60]\n"
             + "roles:\n  - { id: r1, name: caster, kind: caster, seed: true }\ntracks:\n"
             + "  - { id: t1, kind: material, binding: { role: caster }, sections: [ { id: s1, range: [0, 60],"
-            + " completion: restore_state, colours: { outline: { keys: [[0, [1.0, 0.0, 0.0, 1.0], constant]] } } } ] }\n";
+            + " completion: restore_state, scalars: { OutlineColorType: { keys: [[0, 1.0, constant]] } } } ] }\n"
+            + "  - { id: t2, kind: global, collection: crystalgraphics:outline, sections: [ { id: s2, range: [0, 60],"
+            + " completion: restore_state, colours: { Type1: { keys: [[0, [1.0, 0.0, 0.0, 1.0], constant]] } } } ] }\n";
 
-    private final CgPostMaterial outline;
-    private final CgMaterialInstance pass;
+    private final CgOutline outline;
     private final List<CgAnimInstance> held;
     private final CgRenderStage.Registration reader;
     /** Goku's CustomStencil as the outline samples it. */
@@ -72,14 +76,13 @@ final class SkinnedOutlineCheck {
     private final Function<CgSequenceDefinition, CgSequencePlayer> play;
     private CgSequencePlayer keyed;
 
-    SkinnedOutlineCheck(CgPostMaterial outline, List<CgAnimInstance> held, double x, double z, float height,
+    SkinnedOutlineCheck(CgOutline outline, List<CgAnimInstance> held, double x, double z, float height,
                         Function<CgSequenceDefinition, CgSequencePlayer> play) {
         this.play = play;
         this.eyeX = (float) x;
         this.eyeY = height * 0.7f;
         this.eyeZ = (float) z + 1.8f;
         this.outline = outline;
-        this.pass = outline.material();
         this.held = held;
         this.reader = CgRenderStage.WORLD_TRANSPARENT.register(CgWorldRenderer.ORDER + 1, stage -> {
             CgGraphTexture mask = stage.resources().get(CgFrameKeys.CUSTOM_DEPTH);
@@ -159,25 +162,16 @@ final class SkinnedOutlineCheck {
         phase = next;
         wait = SETTLE;
         outline.weight(next == 1 ? 0f : 1f);
-        tests(pass, next != 2, next != 3, next != 4);
+        outline.tests(next != 2, next != 3, next != 4);
         if (next == KEYED) keyed = play.apply(compile(KEYED_RED));
     }
 
+    /** The keyed sequence, its outline collection the engine's. */
     private static CgSequenceDefinition compile(String yaml) {
         return CgSequenceDefinition.COMPILER.compile(CgAssetData.of("harness:outline_keyed", CgSequenceKinds.SEQUENCE,
-                (Map<?, ?>) CgAssetYaml.read(yaml), null), (kind, id) -> null);
-    }
-
-    /**
-     * Turns the outline's three edge tests on or off, each at the kit's values when on. Off is a threshold it cannot
-     * reach: the decisions at 0 make 1 / D and 1 / N infinite, and the ID test's gain 0 with thresholds past any ID
-     * leaves its laplacian below them.
-     */
-    static void tests(CgMaterialInstance pass, boolean depth, boolean normal, boolean id) {
-        pass.vec4("D_Key0", depth ? 1f : 0f, 0f, 0f, 0f).vec4("D_Key1", depth ? 0.2f : 0f, 200f, 0f, 0f)
-                .vec4("D_Key2", depth ? 0.005f : 0f, 4000f, 0f, 0f);
-        pass.vec4("N_Key0", normal ? 3f : 0f, 0f, 0f, 0f).vec4("N_Key1", normal ? 2f : 0f, 200f, 0f, 0f);
-        pass.set1f("Tex_Entering", id ? 5f : 0f).vec4("Tex_Threshold", id ? 1f : 1e6f, id ? 2f : 1e6f, 0f, 1000f);
+                (Map<?, ?>) CgAssetYaml.read(yaml), null),
+                (kind, id) -> kind == CgLookKinds.PARAMETERS && id.equals("crystalgraphics:outline")
+                        ? CgParameterCollection.named(CgOutline.TYPES) : null);
     }
 
     private void report() {
