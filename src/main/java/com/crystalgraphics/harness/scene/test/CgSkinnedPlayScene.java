@@ -641,7 +641,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             out[Z] = a.z;
             out[HEIGHT] = a.height;
             out[EYE_HEIGHT] = a.height * 0.9;
-            out[YAW] = out[BODY_YAW] = out[HEAD_YAW] = 180.0;
+            // Yaw 0 faces +z, the meshes' own front: the root stays unturned
+            out[YAW] = out[BODY_YAW] = out[HEAD_YAW] = 0.0;
             return true;
         }
 
