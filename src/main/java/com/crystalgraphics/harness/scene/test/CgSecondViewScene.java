@@ -5,6 +5,7 @@ import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.gpu.resource.CgReadback;
+import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -29,7 +30,10 @@ import java.nio.ByteBuffer;
  *   <li>The main view sees the red cube, never the ball: another scene's primitives are not the client's.</li>
  *   <li>The second view sees the same cube from its side: a view of the client scene, drawn by {@code renderInto}
  *       after the main view, leaves the main view's picture as it was.</li>
- *   <li>The lab's view sees the ball and never the cube.</li>
+ *   <li>The lab's view sees the ball and never the cube, into a target of the scene's and into its own picture
+ *       ({@code renderPicture}).</li>
+ *   <li>Its pick at the centre is the ball, at a corner nothing.</li>
+ *   <li>Its time is its scene's clock, advanced by the lab and paused at will, never the game's.</li>
  * </ul>
  *
  * <p>Read back after {@link #CHECK_AT} frames, so every pipeline has built; PASS or FAIL on stdout.</p>
@@ -50,7 +54,8 @@ public class CgSecondViewScene implements InteractiveSceneLifecycle {
     private final CgView eye = CgView.create("second-view.eye");
     private final CgView labView = CgView.of(labScene);
     private final Matrix4f sideLook = new Matrix4f();
-    private byte[] mainPixel, secondPixel, labPixel, mainAfter;
+    private byte[] mainPixel, secondPixel, labPixel, mainAfter, picturePixel;
+    private String picked, clockFail;
     private int frame;
     private boolean running = true;
 
@@ -69,7 +74,8 @@ public class CgSecondViewScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo info) {
-        if (mainPixel != null && secondPixel != null && labPixel != null && mainAfter != null || frame > GIVE_UP) {
+        if (mainPixel != null && secondPixel != null && labPixel != null && mainAfter != null && picturePixel != null
+                || frame > GIVE_UP) {
             report();
             running = false;
             return;
@@ -89,9 +95,24 @@ public class CgSecondViewScene implements InteractiveSceneLifecycle {
         eye.renderInto(second.external());
         if (check) CgReadback.texture(second.getColor(), 0, W / 2, H / 2, 1, 1, d -> secondPixel = bytes(d));
 
+        // The lab runs at a quarter speed, and holds still from the check on: its views' time is its clock's
+        labScene.clock().timeScale(0.25f).paused(frame >= CHECK_AT);
+        labScene.tick(1.0 / 60.0);
         lab.clear(0.05f, 0.05f, 0.07f, 1f);
         labView.camera().set(0, 0, 0, new Matrix4f(), PROJECTION);
         labView.renderInto(lab.external());
+        if (labView.camera().time() != labScene.clock().seconds() && clockFail == null) {
+            clockFail = "the lab view's time " + labView.camera().time() + " is not its scene's " + labScene.clock().seconds();
+        }
+        CgTexture2D picture = labView.renderPicture(W, H, 0xFF0D0D12);
+        if (check) {
+            CgReadback.texture(picture, 0, W / 2, H / 2, 1, 1, d -> picturePixel = bytes(d));
+            picked = (labView.pick(W / 2f, H / 2f) == labBall ? "ball" : "not the ball")
+                    + (labView.pick(0f, 0f) == null ? "" : ", and the corner picked something");
+            double held = labScene.clock().seconds();
+            labScene.tick(1.0);
+            if (labScene.clock().seconds() != held && clockFail == null) clockFail = "a paused scene's clock moved";
+        }
         if (check) {
             CgReadback.texture(lab.getColor(), 0, W / 2, H / 2, 1, 1, d -> labPixel = bytes(d));
             // The main view's picture, read again after both others drew: theirs never land in it
@@ -106,11 +127,16 @@ public class CgSecondViewScene implements InteractiveSceneLifecycle {
         String fail = null;
         if (DeviceErrors.checkAndLog("second-view")) fail = "GL errors, logged above";
         else if (PlatformServiceHarness.validationErrors() > 0) fail = "Vulkan validation errors, logged above";
-        else if (mainPixel == null || secondPixel == null || labPixel == null || mainAfter == null) fail = "a readback never came back";
+        else if (mainPixel == null || secondPixel == null || labPixel == null || mainAfter == null || picturePixel == null) {
+            fail = "a readback never came back";
+        }
         else {
             fail = mostly("main view", mainPixel, 0, fail);
             fail = mostly("second view", secondPixel, 0, fail);
             fail = mostly("lab view", labPixel, 1, fail);
+            fail = mostly("lab view's picture", picturePixel, 1, fail);
+            if (fail == null && !"ball".equals(picked)) fail = "the lab view's pick at its centre: " + picked;
+            if (fail == null && clockFail != null) fail = clockFail;
             for (int c = 0; c < 4; c++) {
                 if (fail == null && mainPixel[c] != mainAfter[c]) fail = "the main view's picture changed after the other views drew";
             }
@@ -139,6 +165,7 @@ public class CgSecondViewScene implements InteractiveSceneLifecycle {
     @Override
     public void dispose() {
         labBall.remove();
+        labView.releasePicture();
         main.delete();
         second.delete();
         lab.delete();
