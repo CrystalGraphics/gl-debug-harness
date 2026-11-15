@@ -537,7 +537,7 @@ public final class SceneRegistry {
         reg.register(
             SceneDescriptor.builder("vfx-prefab").checksPixels()
                 .description("G0.9: a 458-node prefab drawn a ball a node, a subtree cut by opacity 0 and a chain dimmed by 0.5; evaluating it takes a few microseconds")
-                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(true)
                 .needsDepthBuffer(false)

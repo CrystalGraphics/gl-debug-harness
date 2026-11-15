@@ -7,17 +7,17 @@ import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgProceduralMesh;
 import com.crystalgraphics.harness.FrameInfo;
-import com.crystalgraphics.harness.HarnessSceneLifecycle;
+import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
+import com.crystalgraphics.vfx.scalability.CgVfxScalability;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.render.scene.prefab.CgPrefab;
 import com.crystalgraphics.render.scene.prefab.CgPrefabPose;
-import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.vfx.prefab.CgVfxPrefabEffect;
 import org.joml.Matrix4f;
 
@@ -35,19 +35,26 @@ import java.util.List;
  * B9). The rest draw whole. Also times
  * {@link CgPrefabPose#evaluate()}, which must take a few microseconds.
  *
- * <p>Prints {@code [vfx-prefab] PASS} or {@code FAIL}; run it on {@code gl}, {@code mac41} and {@code vulkan}.</p>
+ * <p>Framed until its look is warm (a play waits on its precache before it draws), then photographed. Prints
+ * {@code [vfx-prefab] PASS} or {@code FAIL}; run it on {@code gl}, {@code mac41} and {@code vulkan}.</p>
  */
-public class CgVfxPrefabScene implements HarnessSceneLifecycle {
+public class CgVfxPrefabScene implements InteractiveSceneLifecycle {
 
     private static final int CHAINS = 19, LENGTH = 24, CUT = 7, CUT_AT = 10, DIM = 3;
     private static final float EVALUATE_BUDGET_US = 50f;
+    /** Frames drawn once its look is warm, before the photograph; frames before it gives up. */
+    private static final int SETTLE = 2, GIVE_UP = 600;
     private static final CgMaterialDefinition BALL = CgMaterialDefinition.of("harness:materials/prefab-ball",
             "harness:shader/prefab_test.shader").value("_Color", 0.9f, 0.6f, 0.2f, 1f).build();
     /** Each node's ball: radius 4, the size the gate's pixels were placed for. */
     private static final CgMesh BALL_MESH = CgProceduralMesh.revolve(CgProceduralMesh.sphere(4f, -4f, 4f)).divisions(32, 16).build();
 
     private final CgVfxSystem vfx = new CgVfxSystem();
-    private float dx, dy;
+    private float dx, dy, micros;
+    private CgPrefab prefab;
+    private HarnessTarget target;
+    private int frames, warmFor;
+    private boolean running = true;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -74,29 +81,36 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
-        dx = w / (CHAINS + 4f);
-        dy = h / (LENGTH + 4f);
-        CgPrefab prefab = prefab();
-        CgVfxPrefabEffect model = new CgVfxPrefabEffect(prefab, 0, 0, 0);   // drawn for ever: never stopped
-        vfx.play(model);
-        float micros = time(model.pose());
-
-        HarnessTarget target = HarnessTarget.create(w, h, true);   // the world lights' pyramid reads its depth
+        if (frames++ == 0) {
+            dx = w / (CHAINS + 4f);
+            dy = h / (LENGTH + 4f);
+            prefab = prefab();
+            CgVfxPrefabEffect model = new CgVfxPrefabEffect(prefab, 0, 0, 0);   // drawn for ever: never stopped
+            vfx.play(model).scalability(CgVfxScalability.HERO);   // in pixels: past any scalability's distance
+            micros = time(model.pose());
+            target = HarnessTarget.create(w, h, true);   // the world lights' pyramid reads its depth
+        }
+        boolean photograph = vfx.ready() && ++warmFor > SETTLE || frames > GIVE_UP;
         target.bind();
         try {
             target.clear(0f, 0f, 0f, 1f);
-            for (int i = 1; i <= 4; i++) vfx.update(i / 60.0);
-            vfx.submit();
             Matrix4f view = new Matrix4f(), projection = CgCamera.orthographicMatrix(new Matrix4f(), 0, w, 0, h, -100, 100);
+            vfx.update(frames / 60.0);
+            vfx.submit();
             CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, w, h, target.external()).camera().set(0, 0, 0, view, projection);
             HarnessWorld.fireCallbacks();
-            target.captureToFile(ctx.getOutputDir(), "vfx-prefab.png");
+            if (photograph) target.captureToFile(ctx.getOutputDir(), "vfx-prefab.png");
         } finally {
             target.unbind();
-            target.delete();
         }
+        if (!photograph) return;
         report(ctx, DeviceErrors.checkAndLog("vfx-prefab"), prefab.nodes(), micros);
+        running = false;
     }
+
+    @Override public boolean isRunning() { return running; }
+    @Override public boolean uses3DCamera() { return false; }
+    @Override public boolean shouldShutdownOnComplete() { return true; }
 
     /** The median microseconds of one {@code evaluate()}, warm. */
     private static float time(CgPrefabPose instance) {
@@ -159,5 +173,6 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
     @Override
     public void dispose() {
         vfx.delete();
+        if (target != null) target.delete();
     }
 }

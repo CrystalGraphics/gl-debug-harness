@@ -214,7 +214,8 @@ compile. Scenes draw through the engine and `CgRHI`; a scene's verdict reads `De
   a playing system prints `[vfx-nova] <system> took a newer definition`, in place or restarted at its age.
   `--mode=vfx-prefab` is a prefab played as an effect (`CgVfxPrefabEffect`): 458 nodes a ball each, a subtree cut by an
   opacity of 0 and a chain dimmed by 0.2, every check a pixel, and `CgPrefabPose.evaluate()` timed (about 8 µs, at most
-  50); PASS on `gl`, `mac41` and `vulkan`. `--mode=scene-prefab` is a prefab spawned into a scene of its own as
+  50), played at `HERO` scalability once its look's kernels are compiled; PASS on `gl`, `mac41` and `vulkan`.
+  `--mode=scene-prefab` is a prefab spawned into a scene of its own as
   components, a node riding its parent, and the base surface material unlit, masked, translucent two-sided, lit and as a
   decal, each a pixel of its view's picture. `--mode=post-transitions` is the post stack's transitions: a `CgPostMaterial` at weights 1, 0.5 and 0, one of
   three passes through targets at half and a quarter size, a fade halfway to red in the composite's blend form (HDR scene off) and copy form (on), and a 1 s crossfade read a

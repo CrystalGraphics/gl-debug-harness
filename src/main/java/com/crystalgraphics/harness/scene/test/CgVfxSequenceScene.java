@@ -71,7 +71,7 @@ import com.crystalgraphics.vfx.system.CgVfxSystemInstance;
 public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
 
     private static final float DT = 1f / 60f, SIZE = 40f, REACH = 2f, PART = 0.3f, FORCE = 4f;
-    private static final int BURST = 3, STREAM = 8, LEAVES = 2, END = 220, DRAIN = 40;
+    private static final int BURST = 3, STREAM = 8, LEAVES = 2, END = 220, DRAIN = 40, GIVE_UP = 600;
     /** The frames photographed: the tip up (hub at 90 degrees), left (180), then faded. */
     private static final int[] SHOTS = {60, 105, 150};
     private static final String[] SHOT_NAMES = {"up", "left", "faded"};
@@ -128,8 +128,9 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
     private final Map<Integer, double[]> leafRows = new HashMap<>();
     private final int[][] shots = new int[SHOTS.length][3];
     private HarnessTarget target;
+    private CgVfxLook look;
     private double cx, cy;
-    private int frame, repeated, dropped;
+    private int frame, waited, repeated, dropped;
     private String failure;
     private boolean running = true;
 
@@ -140,16 +141,21 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo info) {
-        frame++;
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
-        if (frame == 1) {
+        if (look == null) {
             cx = Math.round(w * 0.5);
             cy = Math.round(h * 0.5);
             target = HarnessTarget.create(w, h, true);   // with depth: the GPU cull of its parts reads it
-            CgVfxLook look = CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA)
+            look = CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA)
                     .with(CgVfxKit.of("harness:sequence").emitter(root).build(), CgVfxPrefabLook.of(prefab).kit()).build();
+            vfx.precache(look);
+        }
+        if (frame == 0) {
+            // An effect holds at age 0 until its kernels are built: played once they are, its age is this clock
+            if (!vfx.ready() && ++waited < GIVE_UP) return;
             vfx.play(new CgVfxSystemInstance<>(look, cx, cy, 0.0)).scalability(CgVfxScalability.HERO);   // far from the camera, in pixels
         }
+        frame++;
         if (frame <= END) {
             target.bind();
             try {
