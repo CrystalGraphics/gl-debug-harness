@@ -81,6 +81,7 @@ import com.crystalgraphics.harness.scene.test.CgCanvasGlassTestScene;
 import com.crystalgraphics.harness.scene.test.CgLightsCastersScene;
 import com.crystalgraphics.harness.scene.test.CgLightsShadowsBenchScene;
 import com.crystalgraphics.harness.scene.test.CgLightsShadowScene;
+import com.crystalgraphics.harness.scene.test.CgLitSpheresScene;
 import com.crystalgraphics.harness.scene.test.CgLightsSunScene;
 import com.crystalgraphics.harness.scene.test.CgLightsTorchScene;
 import com.crystalgraphics.harness.scene.test.CgLightsVolumeScene;
@@ -885,6 +886,20 @@ public final class SceneRegistry {
                 .clearColor(0.08f, 0.08f, 0.1f, 1.0f)
                 .build(),
             () -> new CgVfxRangeScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("lit-spheres").checksPixels()
+                .description("DefaultLit under the scene's lights: a ball lit from every light its grid cell lists, eight adding more than four")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(false)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgLitSpheresScene()
         );
 
         reg.register(

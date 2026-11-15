@@ -19,7 +19,6 @@ import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
 import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.render.scene.renderer.feature.light.CgSceneLights;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
@@ -82,8 +81,7 @@ public class CgLightsShadowScene implements InteractiveSceneLifecycle {
         renderer.once().mesh(cube, grey).at(CX + 0.5, GROUND - 0.5, CZ + 0.5).transform(new Matrix4f().scale(40f, 1f, 40f)).add();
         renderer.once().mesh(cube, grey).at(CX + 0.5, GROUND + 1.5, CZ + 0.5).transform(new Matrix4f().scale(1f, 3f, 9f)).add();
         if (phase < 2) {
-            CgSceneLights lights = renderer.lights().add(LIGHT_X, LIGHT_Y, LIGHT_Z, 16f, 0xFFFFE0C0, 600f, 0f);
-            if (phase == 1) lights.shadowed(false);
+            renderer.onceLights().point(LIGHT_X, LIGHT_Y, LIGHT_Z, 16f, 0xFFFFE0C0, 600f).castsShadow(phase != 1);
         }
         CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, look, projection);
         HarnessWorld.fireCallbacks();

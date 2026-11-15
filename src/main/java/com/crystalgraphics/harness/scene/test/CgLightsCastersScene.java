@@ -144,7 +144,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
         renderer.once().mesh(cube, grey).at(BALL[0], GROUND + SLAB_TOP / 2, BALL[2]).transform(new Matrix4f().scale(10f, (float) SLAB_TOP, 10f))
                 .add();
         renderer.once().mesh(ball, grey).at(BALL[0], BALL[1], BALL[2]).add();
-        if (phase == 5 || phase == 6) renderer.lights().add(LAMP[0], LAMP[1], LAMP[2], 16f, 0xFFFFFFFF, 20f * (float) Math.PI * 16f, 0f);
+        if (phase == 5 || phase == 6) renderer.onceLights().point(LAMP[0], LAMP[1], LAMP[2], 16f, 0xFFFFFFFF, 20f * (float) Math.PI * 16f);
         ((CgVar.Bool) CgVars.get("crystalgraphics.world.lightsShadows")).set(phase != 6);
         CgHostFrame hostFrame = CgStageHost.frame(CgStageHost.WORLD_OPAQUE);
         hostFrame.set(0f, W, H, target.external()).camera().set(eyeX, eyeY, eyeZ, view, lens);

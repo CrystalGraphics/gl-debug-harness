@@ -144,6 +144,9 @@ compile. Scenes draw through the engine and `CgRHI`; a scene's verdict reads `De
   `--mode=lights-air-quality` measures the lit air's look rather than gating it: the lights demo's searchlight in its
   haze, its base's per-pixel deviation over 30 frames with the history on and off, the same six blocks from the live
   demo's searchlight, and its beam over the haze side-on from 10 and 40 blocks; run it with `fixedDelta`.
+  `--mode=lit-spheres` is `ShadingModel DefaultLit` under them: a translucent ball lit by its own walk of its grid
+  cell, eight point light components clustered on one side adding clearly more than four (where the four nearest
+  alone would add the same), its far side dark.
   `--mode=lights-shadow` is their shadows': a light beside a wall of blocks in a world of its own, the light it adds
   behind the wall gone and in the open the same as with `shadowed(false)`. PASS on `gl` and on `vulkan`.
   `--mode=vfx-renderers` is an emitter's renderers': a sprite, an arc, trails, a ribbon and a `#type spatial`

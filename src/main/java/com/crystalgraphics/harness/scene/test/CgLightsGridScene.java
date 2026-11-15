@@ -18,6 +18,7 @@ import com.crystalgraphics.render.graph.CgGraphBuffer;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.graph.CgRequest;
 import com.crystalgraphics.render.precache.CgPipelinePrecache;
+import com.crystalgraphics.render.scene.renderer.feature.light.CgLightCollector;
 import com.crystalgraphics.render.scene.renderer.feature.light.CgSceneLights;
 import org.joml.Matrix4f;
 
@@ -169,11 +170,12 @@ public final class CgLightsGridScene implements InteractiveSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo info) {
         frame++;
         CgSceneLights lights = CgScene.client().lights();
+        CgLightCollector once = CgScene.client().onceLights();
         for (int i = 0; i < CPU; i++) {
-            lights.add(cpuAt[i * 3], cpuAt[i * 3 + 1], cpuAt[i * 3 + 2], cpuLight[i * 5],
-                    Float.floatToRawIntBits(cpuLight[i * 5 + 1]), cpuLight[i * 5 + 2], cpuLight[i * 5 + 3]);
-            if (i % 3 == 1) lights.spot(cpuSpot[i * 5], cpuSpot[i * 5 + 1], cpuSpot[i * 5 + 2], cpuSpot[i * 5 + 3], cpuSpot[i * 5 + 4]);
-            else if (i % 3 == 2) lights.tube(cpuTube[i * 4], cpuTube[i * 4 + 1], cpuTube[i * 4 + 2], cpuTube[i * 4 + 3]);
+            CgLightCollector.Light light = once.point(cpuAt[i * 3], cpuAt[i * 3 + 1], cpuAt[i * 3 + 2], cpuLight[i * 5],
+                    Float.floatToRawIntBits(cpuLight[i * 5 + 1]), cpuLight[i * 5 + 2]).exponent(cpuLight[i * 5 + 3]);
+            if (i % 3 == 1) light.spot(cpuSpot[i * 5], cpuSpot[i * 5 + 1], cpuSpot[i * 5 + 2], cpuSpot[i * 5 + 3], cpuSpot[i * 5 + 4]);
+            else if (i % 3 == 2) light.tube(cpuTube[i * 4], cpuTube[i * 4 + 1], cpuTube[i * 4 + 2], cpuTube[i * 4 + 3]);
         }
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
         // The first firing at or past CHECK_AT that ran the kernel: until its pipeline is built the appender skips,

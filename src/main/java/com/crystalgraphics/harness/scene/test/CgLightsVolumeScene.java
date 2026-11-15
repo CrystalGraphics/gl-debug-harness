@@ -102,7 +102,7 @@ public class CgLightsVolumeScene implements InteractiveSceneLifecycle {
                     .customData(0, 0.5f, 0.5f, 0.5f, 0.9f).customData(1, 0f, 0f, pane == FACING ? -1f : 1f, 0f).add();
         }
         renderer.once().mesh(cube, handed).at(HANDED[0], HANDED[1], HANDED[2]).transform(new Matrix4f().scale(2f, 0.1f, 2f)).add();
-        if (phase < 2) renderer.lights().add(LIGHT_X, LIGHT_Y, LIGHT_Z, LIGHT_RADIUS, 0xFFFFE0C0, 600f, 0f);
+        if (phase < 2) renderer.onceLights().point(LIGHT_X, LIGHT_Y, LIGHT_Z, LIGHT_RADIUS, 0xFFFFE0C0, 600f);
         CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(EYE_X, EYE_Y, EYE_Z, look, projection);
         HarnessWorld.fireCallbacks();
         CgFrameRing.endFrame();

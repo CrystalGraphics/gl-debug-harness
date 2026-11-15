@@ -9,7 +9,7 @@ import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
-import com.crystalgraphics.render.scene.renderer.feature.light.CgSceneLights;
+import com.crystalgraphics.render.scene.renderer.feature.light.CgLightCollector;
 
 /**
  * Effect lights' cost: {@code n} point lights over a floor, a grid of them glowing on the ground, added to the
@@ -48,11 +48,11 @@ public final class CgLightsBenchScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        CgSceneLights lights = CgScene.client().lights();
+        CgLightCollector lights = CgScene.client().onceLights();
         float half = columns * SPACING * 0.5f;
         for (int i = 0; i < LIGHTS; i++) {
             float x = (i % columns) * SPACING - half, z = (i / columns) * SPACING - half;
-            lights.add(x, 0.6, z, REACH, 0xE62E73FF, INTENSITY, 0f);
+            lights.point(x, 0.6, z, REACH, 0xE62E73FF, INTENSITY);
         }
         CgScene.client().once().mesh(floor, floorMaterial).at(0.0, 0.0, 0.0).add();
         HarnessWorld.fire(ctx, ctx.getCamera3D().getViewMatrix(), ctx.getProjection());
