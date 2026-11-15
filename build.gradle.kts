@@ -223,7 +223,7 @@ tasks.register<JavaExec>("runHarness") {
     }
     // The kits are 50,000 assets the loading screen waits on: only the scenes that play one mount them. `--args` is
     // applied at execution, so the choice is made there.
-    val kitScenes = setOf("vfx-nova", "vfx-kamehameha", "vfx-kit-play", "kit-cues", "kit-shading", "model-play",
+    val kitScenes = setOf("vfx-nova", "vfx-kamehameha", "vfx-kit-play", "kit-cues", "kit-shading",
         "skinned-play", "sequence-spawn", "post-capture")
     val kitPaths = exampleRoots.map { it.absolutePath }.toSet()
     doFirst {

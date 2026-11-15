@@ -67,7 +67,7 @@ import com.crystalgraphics.harness.scene.test.CgVfxDeclaredScene;
 import com.crystalgraphics.harness.scene.test.CgVfxKitPlayScene;
 import com.crystalgraphics.harness.scene.test.CgSequenceSpawnScene;
 import com.crystalgraphics.harness.scene.test.CgKitCuesScene;
-import com.crystalgraphics.harness.scene.test.CgModelPlayScene;
+import com.crystalgraphics.harness.scene.test.CgAnimDemoScene;
 import com.crystalgraphics.harness.scene.test.CgVfxNovaScene;
 import com.crystalgraphics.harness.scene.test.CgVfxBenchArenaScene;
 import com.crystalgraphics.harness.scene.test.CgKitShadingScene;
@@ -1598,15 +1598,15 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("model-play")
-                .description("A kit's skinned models in a row playing their clips through CgAnimation in Minecraft's entity look: a GeckoLib kit's models and every animation file, or another kit's skinned meshes")
+            SceneDescriptor.builder("anim-demo")
+                .description("The animation demo: a station per feature (clips, IK, retargeting, warping...), each on its own set, Kakarot's Goku beside RPG-Core's bodies")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
                 .needsDepthBuffer(true)
                 .clearColor(0.45f, 0.62f, 0.88f, 1.0f)
                 .build(),
-            () -> new CgModelPlayScene()
+            () -> new CgAnimDemoScene()
         );
 
         reg.register(
