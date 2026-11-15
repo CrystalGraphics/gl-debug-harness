@@ -1,0 +1,2 @@
+# The scene-capture gate's monitor: a render target its capture fills and its monitor material samples
+render_target: { size: [64, 64], format: rgba16f, clear: [0, 0, 0, 1] }

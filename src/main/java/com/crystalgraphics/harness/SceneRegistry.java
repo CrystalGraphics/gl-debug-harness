@@ -98,6 +98,7 @@ import com.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import com.crystalgraphics.harness.scene.test.CgSceneColorScene;
 import com.crystalgraphics.harness.scene.test.CgScenePrefabScene;
+import com.crystalgraphics.harness.scene.test.CgSceneCaptureScene;
 import com.crystalgraphics.harness.scene.test.CgSecondViewScene;
 import com.crystalgraphics.harness.scene.test.CgMeshDrawsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
@@ -1256,6 +1257,20 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
                 .build(),
             () -> new CgScenePrefabScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("scene-capture").checksPixels()
+                .description("Render targets and scene capture: a capture on demand and every frame into a target a material samples, a camera copied from a view, a material drawn into a target with no scene")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
+                .build(),
+            () -> new CgSceneCaptureScene()
         );
 
         reg.register(

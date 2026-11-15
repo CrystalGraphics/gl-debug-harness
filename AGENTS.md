@@ -217,7 +217,11 @@ compile. Scenes draw through the engine and `CgRHI`; a scene's verdict reads `De
   50), played at `HERO` scalability once its look's kernels are compiled; PASS on `gl`, `mac41` and `vulkan`.
   `--mode=scene-prefab` is a prefab spawned into a scene of its own as
   components, a node riding its parent, and the base surface material unlit, masked, translucent two-sided, lit and as a
-  decal, each a pixel of its view's picture. `--mode=post-transitions` is the post stack's transitions: a `CgPostMaterial` at weights 1, 0.5 and 0, one of
+  decal, each a pixel of its view's picture. `--mode=scene-capture` is render targets and scene capture: a monitor
+  whose material samples the render target asset `harness:textures/capture/monitor`, which a capture fills on demand
+  (held after its subject is swapped) and then every frame; a second capture copying the view's camera, its pixels the
+  view's own (`BP_CopyCameraCapture`'s shape); a target cleared and a material drawn into it with no scene, every read
+  an async readback. `--mode=post-transitions` is the post stack's transitions: a `CgPostMaterial` at weights 1, 0.5 and 0, one of
   three passes through targets at half and a quarter size, a fade halfway to red in the composite's blend form (HDR scene off) and copy form (on), and a 1 s crossfade read a
   quarter in and after, each firing's middle pixel checked; PASS on `gl`, `mac41` and `vulkan`. `--mode=vfx-shapes` is
   the particle frame at a move's scale, a measurement rather than a gate: 30 emitters each its own shape (30 pools, few
