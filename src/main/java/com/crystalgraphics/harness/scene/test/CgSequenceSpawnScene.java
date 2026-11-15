@@ -22,7 +22,7 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.CgPost;
 import com.crystalgraphics.render.post.volume.CgPostVolumeSpawner;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencePlayer;
@@ -187,7 +187,7 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
         sequencer.spawner("system", (p, s, at) -> new Watched(s.name(), (CgSequenceSystem) systems.spawn(p, s, at)));
         CgVfxPrefabSpawner prefabs = new CgVfxPrefabSpawner(vfx, systems);
         sequencer.spawner("prefab", (p, s, at) -> counted(prefabs.spawn(p, s, at)));
-        CgPostVolumeSpawner post = new CgPostVolumeSpawner(CgPostStack.get());
+        CgPostVolumeSpawner post = new CgPostVolumeSpawner(CgScene.client(), CgPost.client());
         sequencer.spawner("post", (p, s, at) -> counted(post.spawn(p, s, at)));
         sequencer.spawner("camera", (p, s, at) -> counted(new Fixture()));
         sequencer.spawner("light", (p, s, at) -> counted(new Fixture()));

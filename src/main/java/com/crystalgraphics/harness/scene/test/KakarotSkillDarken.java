@@ -6,7 +6,7 @@ import com.crystalgraphics.api.material.CgMaterialDefinition;
 import com.crystalgraphics.asset.codec.CgAssetYaml;
 import com.crystalgraphics.render.post.CgPostMaterial;
 import com.crystalgraphics.render.post.CgPostPoint;
-import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.CgPost;
 import com.crystalgraphics.render.stage.CgRenderStage;
 
 import javax.annotation.Nullable;
@@ -41,7 +41,6 @@ final class KakarotSkillDarken implements AutoCloseable {
     private static final int ORDER = -700_000;
 
     private final CgPostMaterial post;
-    private final CgPostStack.Registration on;
     private final float fadeIn, fadeOut;
     private float weight;
     /** The weight the fade-out started from, and its age; -1 while the action runs. */
@@ -50,9 +49,8 @@ final class KakarotSkillDarken implements AutoCloseable {
     private KakarotSkillDarken(CgMaterialDefinition darken, float power, float fadeIn, float fadeOut) {
         CgMaterialInstance material = CgMaterial.of(darken).instance();
         material.set1f("DarkPower", power);
-        post = CgPostMaterial.of(material, CgPostPoint.BEFORE_TRANSLUCENCY, ORDER);
+        post = CgPost.client().material(material, CgPostPoint.SURFACES, ORDER);
         post.weight(0f);
-        on = CgPostStack.get().add(post);
         this.fadeIn = fadeIn;
         this.fadeOut = fadeOut;
     }
@@ -94,6 +92,6 @@ final class KakarotSkillDarken implements AutoCloseable {
 
     @Override
     public void close() {
-        on.close();
+        post.remove();
     }
 }

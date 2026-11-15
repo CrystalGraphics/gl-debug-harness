@@ -34,7 +34,8 @@ import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.graph.CgRecording;
-import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.CgPostRenderer;
+import com.crystalgraphics.render.post.CgPost;
 import com.crystalgraphics.render.post.volume.CgPostVolumePreparer;
 import com.crystalgraphics.render.post.volume.CgPostVolumeSpawner;
 import com.crystalgraphics.render.stage.CgRenderStage;
@@ -221,7 +222,7 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle, CgSy
         // The stage's brightness and fog are the captured frame's already.
         sequencer.environment(new CgSequenceSpawnScene.Fixture());
         CgSequenceDefinition definition = ref.get();
-        CgPostVolumeSpawner post = new CgPostVolumeSpawner(CgPostStack.get());
+        CgPostVolumeSpawner post = new CgPostVolumeSpawner(CgScene.client(), CgPost.client());
         for (CgSequenceDefinition.Spawnable s : definition.spawnables()) {
             if (!s.kind().equals("post")) sequencer.spawner(s.kind(), (p, sp, at) -> new StandIn());
         }
@@ -234,7 +235,7 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle, CgSy
     /** The scene into the target, then the world's stages over it. */
     private void draw() {
         int w = scene.getWidth(), h = scene.getHeight();
-        CgPostStack.get().install();
+        CgPostRenderer.install();
         target.bind();
         target.clear(0f, 0f, 0f, 1f);
         target.getColor().uploadRegion(0, 0, 0, w, h, pixels);

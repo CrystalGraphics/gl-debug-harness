@@ -13,9 +13,10 @@ import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.render.post.CgPostMaterial;
 import com.crystalgraphics.render.post.CgPostPoint;
-import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.CgPost;
+import com.crystalgraphics.render.post.CgPostRenderer;
 import com.crystalgraphics.render.post.volume.CgPostSettings;
-import com.crystalgraphics.render.post.volume.CgPostVolume;
+import com.crystalgraphics.render.scene.component.CgPostVolume;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import org.joml.Matrix4f;
 
@@ -26,13 +27,13 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * G0.10's gate, the post stack's transitions, each firing a cleared target checked at its middle:
+ * G0.10's gate, the post chain's transitions, each firing a cleared target checked at its middle:
  * <ul>
  *   <li>a post material ({@link CgPostMaterial}) inverting the picture at weights 1, 0.5 and 0;</li>
  *   <li>a post material of three passes, two into targets at half and a quarter size, each reading the one before at
  *       its size;</li>
  *   <li>a fade ({@link CgPostSettings#fade}) halfway to red, in the composite's copy form;</li>
- *   <li>a crossfade ({@link CgPostStack#crossfade}) of 1 s from one colour into another: three quarters the old a
+ *   <li>a crossfade ({@link CgPost#crossfade}) of 1 s from one colour into another: three quarters the old a
  *       quarter of the way in, the new alone after.</li>
  * </ul>
  *
@@ -56,29 +57,27 @@ public class CgPostTransitionsScene implements HarnessSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo frame) {
         this.ctx = ctx;
         CgScene scene = CgScene.client();
-        CgPostStack.get().install();
+        CgPostRenderer.install();
         target = HarnessTarget.create(SIZE, SIZE, false);
         try {
-            CgPostMaterial invert = CgPostMaterial.of("harness:shader/post_invert.shader", CgPostPoint.AFTER_COMPOSITE);
-            CgPostStack.Registration on = CgPostStack.get().add(invert);
+            CgPostMaterial invert = CgPost.client().material("harness:shader/post_invert.shader", CgPostPoint.DISPLAY);
             check("a post material at weight 1", fire(A, 0f), 1f - A[0], 1f - A[1], 1f - A[2]);
             invert.weight(0.5f);
             check("a post material at weight 0.5", fire(A, 0f), 0.5f, 0.5f, 0.5f);
             invert.weight(0f);
             check("a post material at weight 0", fire(A, 0f), A[0], A[1], A[2]);
-            on.close();
+            invert.remove();
 
-            CgPostMaterial chain = CgPostMaterial.of("harness:shader/post_chain.shader", CgPostPoint.AFTER_COMPOSITE);
-            on = CgPostStack.get().add(chain);
+            CgPostMaterial chain = CgPost.client().material("harness:shader/post_chain.shader", CgPostPoint.DISPLAY);
             check("a post material of three passes", fire(A, 0f), A[0] * 0.5f + 0.25f, A[1] * 0.5f + 0.25f,
                     A[2] * 0.5f + 0.25f);
-            on.close();
+            chain.remove();
 
-            CgPostVolume red = CgPostStack.get().volume(100, new CgPostSettings().fade(0xFFFF0000, 0.5f));
+            CgPostVolume red = scene.postVolume(new CgPostSettings().fade(0xFFFF0000, 0.5f)).priority(100).spawn();
             check("a fade, copy form", fire(A, 0f), mix(A[0], 1f), mix(A[1], 0f), mix(A[2], 0f));
-            red.close();
+            red.remove();
 
-            CgPostStack.get().crossfade(1f);
+            CgPost.client().crossfade(1f);
             fire(A, 10f);
             float[] at = fire(B, 10.25f);
             check("a crossfade a quarter in", at, B[0] + (A[0] - B[0]) * 0.75f, B[1] + (A[1] - B[1]) * 0.75f,

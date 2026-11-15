@@ -15,15 +15,16 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.draw.CgChunkBuilder;
-import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
+import com.crystalgraphics.render.graph.CgScreenTexture;
+import com.crystalgraphics.render.post.CgPost;
 import com.crystalgraphics.render.post.CgPostContext;
 import com.crystalgraphics.render.post.CgPostEffect;
 import com.crystalgraphics.render.post.CgPostPoint;
-import com.crystalgraphics.render.post.CgPostStack;
-import com.crystalgraphics.render.stage.CgRenderStage;
+import com.crystalgraphics.render.post.CgPostRenderer;
+import com.crystalgraphics.render.post.volume.CgPostSettings;
+import com.crystalgraphics.render.scene.component.CgPostVolume;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -34,12 +35,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The post stack's mod SPI, used as a mod would (render-post-process P8): an effect at each {@link CgPostPoint}.
- * {@code AFTER_WORLD} draws a red rectangle into the top left corner; {@code BEFORE_COMPOSITE} feeds the composite a full
- * vignette; {@code AFTER_COMPOSITE} draws a green rectangle into the top right corner and, at a higher order, a blue one
- * over half of it. From the pixels: the red is darkened (the composite ran after it), the green and blue are exact (they
- * ran after the composite), blue covers green where they overlap (order), and closing the registrations restores the
- * plain picture.
+ * The post chain's effects, used as a mod would: an effect at each {@link CgPostPoint} and a full vignette from a volume.
+ * {@code SCENE} draws a red rectangle into the top left corner, in place; {@code HDR} copies the picture into a texture
+ * of its own, draws a yellow rectangle into its bottom left corner and answers that texture; {@code DISPLAY} draws a
+ * green rectangle into the top right corner and, at a higher order, a blue one over half of it. From the pixels: the
+ * red and the yellow are darkened (the composite's vignette ran after them, and the yellow's texture was carried on),
+ * the green and blue are exact (they ran after the composite), blue covers green where they overlap (order), and
+ * removing them restores the plain picture.
  *
  * <p>Prints {@code [post-effects] PASS} or {@code FAIL}; on Vulkan a validation error fails it.</p>
  */
@@ -49,56 +51,33 @@ public class CgPostEffectsTestScene implements HarnessSceneLifecycle {
 
     private CgMaterial wall;
 
-    /** A mod's effect: a solid rectangle drawn over the target at its point and order. */
+    /** A mod's effect: a solid rectangle drawn over the picture, through a raster pass of its own. */
     private static final class Rect implements CgPostEffect {
-        private final CgPostPoint point;
-        private final int order;
         private final CgMaterialInstance material = CgMaterial.load("assets/harness/shader/post_rect.shader").instance();
 
-        Rect(CgPostPoint point, int order, float x0, float y0, float x1, float y1, float r, float g, float b) {
-            this.point = point;
-            this.order = order;
+        Rect(float x0, float y0, float x1, float y1, float r, float g, float b) {
             material.vec4("_Rect", x0, y0, x1, y1).vec4("_Color", r, g, b, 1f);
         }
 
         @Override
-        public CgPostPoint point() {
-            return point;
-        }
-
-        @Override
-        public int order() {
-            return order;
-        }
-
-        @Override
-        public boolean active(CgPostContext post) {
-            return true;
-        }
-
-        @Override
-        public void record(CgPostContext post) {
-            CgRasterPass pass = post.recording().raster("postEffectsTestScene.target").color(post.target(), CgLoad.load()).constants(post.constants());
+        public CgScreenTexture apply(CgPostContext ctx, CgScreenTexture input) {
+            CgRasterPass pass = ctx.recording().raster("postEffectsTestScene.rect").color(input.texture(), CgLoad.load())
+                    .constants(ctx.constants());
             pass.draw(CgMesh.quads(1), material);
             pass.end();
+            return input;
         }
     }
 
-    /** A mod's effect feeding the composite: a full vignette. */
-    private static final class Vignette implements CgPostEffect {
-        @Override
-        public CgPostPoint point() {
-            return CgPostPoint.BEFORE_COMPOSITE;
-        }
+    /** A mod's effect answering a texture of its own: the picture copied, a rectangle drawn into the copy. */
+    private static final class Elsewhere implements CgPostEffect {
+        private final CgMaterialInstance copy = CgMaterial.load("crystalgraphics:shaders/post/hold.shader").instance();
+        private final Rect rect = new Rect(0f, 0f, 0.3f, 0.3f, 1f, 1f, 0f);
 
         @Override
-        public boolean active(CgPostContext post) {
-            return true;
-        }
-
-        @Override
-        public void record(CgPostContext post) {
-            post.composite().vignette(1f);
+        public CgScreenTexture apply(CgPostContext ctx, CgScreenTexture input) {
+            CgScreenTexture mine = ctx.screen(copy).into(ctx.texture("postEffectsTestScene.mine", input));
+            return rect.apply(ctx, mine);
         }
     }
 
@@ -110,33 +89,40 @@ public class CgPostEffectsTestScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgScene scene = CgScene.client();
-        CgPostStack post = CgPostStack.get();
-        post.install();
+        CgPost post = CgPost.client();
+        CgPostRenderer.install();
         List<String> failures = new ArrayList<>();
 
         BufferedImage plain = draw(ctx, scene, "plain");
-        List<CgPostStack.Registration> effects = new ArrayList<>();
-        effects.add(post.add(new Rect(CgPostPoint.AFTER_COMPOSITE, 1, 0.85f, 0.85f, 1f, 1f, 0f, 0f, 1f)));   // blue, later
-        effects.add(post.add(new Rect(CgPostPoint.AFTER_WORLD, 0, 0f, 0.7f, 0.3f, 1f, 1f, 0f, 0f)));         // red
-        effects.add(post.add(new Vignette()));
-        effects.add(post.add(new Rect(CgPostPoint.AFTER_COMPOSITE, 0, 0.7f, 0.7f, 1f, 1f, 0f, 1f, 0f)));     // green
+        List<CgPost.Registration> effects = new ArrayList<>();
+        effects.add(post.add(CgPostPoint.DISPLAY, 1, new Rect(0.85f, 0.85f, 1f, 1f, 0f, 0f, 1f)));   // blue, later
+        effects.add(post.add(CgPostPoint.SCENE, new Rect(0f, 0.7f, 0.3f, 1f, 1f, 0f, 0f)));          // red
+        effects.add(post.add(CgPostPoint.HDR, new Elsewhere()));                                     // yellow, its own
+        effects.add(post.add(CgPostPoint.DISPLAY, new Rect(0.7f, 0.7f, 1f, 1f, 0f, 1f, 0f)));        // green
+        CgPostVolume vignette = scene.postVolume(new CgPostSettings().vignette(1f)).spawn();
         BufferedImage with = draw(ctx, scene, "effects");
-        for (CgPostStack.Registration r : effects) r.close();
+        for (CgPost.Registration r : effects) r.close();
+        vignette.remove();
         BufferedImage after = draw(ctx, scene, "closed");
 
-        int red = with.getRGB(1, 1), green = with.getRGB(W * 3 / 4, H / 4 - 4), blue = with.getRGB(W - 2, 1);
+        int red = with.getRGB(1, 1), yellow = with.getRGB(1, H - 2);
+        int green = with.getRGB(W * 3 / 4, H / 4 - 4), blue = with.getRGB(W - 2, 1);
         if (((red >> 16) & 0xFF) > 200 || (red & 0xFFFF) != 0) {
-            failures.add("AFTER_WORLD's red corner is 0x" + Integer.toHexString(red) + ": not darkened by the composite's vignette");
+            failures.add("SCENE's red corner is 0x" + Integer.toHexString(red) + ": not darkened by the composite's vignette");
+        }
+        if (((yellow >> 16) & 0xFF) > 200 || ((yellow >> 8) & 0xFF) > 200 || ((yellow >> 16) & 0xFF) < 8 || (yellow & 0xFF) != 0) {
+            failures.add("HDR's yellow corner, in a texture of its own, is 0x" + Integer.toHexString(yellow)
+                    + ": not carried on into the composite and darkened by its vignette");
         }
         if ((green & 0xFFFFFF) != 0x00FF00) {
-            failures.add("AFTER_COMPOSITE's green is 0x" + Integer.toHexString(green) + ", not exact: the composite ran after it");
+            failures.add("DISPLAY's green is 0x" + Integer.toHexString(green) + ", not exact: the composite ran after it");
         }
         if ((blue & 0xFFFFFF) != 0x0000FF) {
             failures.add("order 1's blue is 0x" + Integer.toHexString(blue) + " where it overlaps order 0's green");
         }
         int changed = 0;
         for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (plain.getRGB(x, y) != after.getRGB(x, y)) changed++;
-        if (changed > 0) failures.add("closing the registrations left " + changed + " pixels changed");
+        if (changed > 0) failures.add("removing the effects and the volume left " + changed + " pixels changed");
         report(failures, DeviceErrors.checkAndLog("post-effects"));
     }
 
@@ -173,7 +159,8 @@ public class CgPostEffectsTestScene implements HarnessSceneLifecycle {
             for (String f : failures) System.out.println("[post-effects] FAIL on " + on + ": " + f);
         } else {
             System.out.println("[post-effects] PASS on " + on + ": an effect at each point runs in order around the "
-                    + "composite, orders hold within a point, and closing them restores the picture");
+                    + "composite, one answering a texture of its own is carried on, orders hold within a point, and "
+                    + "removing them restores the picture");
         }
     }
 

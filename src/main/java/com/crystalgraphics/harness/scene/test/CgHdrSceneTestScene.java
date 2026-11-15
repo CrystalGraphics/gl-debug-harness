@@ -36,7 +36,8 @@ import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.graph.CgRecording;
-import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.CgPost;
+import com.crystalgraphics.render.post.CgPostRenderer;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.trace.CgGpuTrace;
 import com.crystalgraphics.trace.CgTrace;
@@ -250,7 +251,7 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         owned.add(host);
         upload(host, pattern(w, h), w, h);
         CgScene scene = CgScene.client();
-        CgPostStack.get().install();
+        CgPostRenderer.install();
         // A host draws its world into its own target: the stages take it as the current one.
         try (CgExecutor.Into ignored = CgExecutor.into(host.target())) {
             Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) w / h, 0.05f, 100f);
@@ -261,20 +262,20 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         int changed = changed(host, true);
         if (changed != 0) return changed + " channel values changed";
         // Bloom off for the exact checks: the cube's excess blooms past it, which the last check asks for
-        float bloom = CgPostStack.get().bloom().intensity();
-        CgPostStack.get().bloom().intensity(0f);
+        float bloom = CgPost.client().bloom().intensity();
+        CgPost.client().bloom().intensity(0f);
         try {
             String opaque = opaqueRoundTrip(host, w, h, false, false);
             if (opaque == null) opaque = opaqueRoundTrip(host, w, h, true, false);
             if (opaque != null) return opaque;
         } finally {
-            CgPostStack.get().bloom().intensity(bloom);
+            CgPost.client().bloom().intensity(bloom);
         }
-        CgPostStack.get().bloom().intensity(1f);
+        CgPost.client().bloom().intensity(1f);
         try {
             return opaqueRoundTrip(host, w, h, false, true);
         } finally {
-            CgPostStack.get().bloom().intensity(bloom);
+            CgPost.client().bloom().intensity(bloom);
         }
     }
 

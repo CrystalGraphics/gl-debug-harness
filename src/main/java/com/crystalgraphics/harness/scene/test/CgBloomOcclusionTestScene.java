@@ -16,7 +16,8 @@ import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.CgPost;
+import com.crystalgraphics.render.post.CgPostRenderer;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.settings.CgGraphicsSettings;
 import com.crystalgraphics.settings.CgQuality;
@@ -31,7 +32,7 @@ import java.util.List;
 
 /**
  * The world bloom's gate: an opaque ball with an Emissive pass, drawn through the scene renderer and bloomed by
- * {@code CgPostStack}, once with bloom off and once on. Behind a wall, bloom must change no pixel; in front of it, it
+ * {@code CgPost}, once with bloom off and once on. Behind a wall, bloom must change no pixel; in front of it, it
  * must. Each at every quality tier (each its own chain) and three target sizes, one odd and one tall.
  *
  * <p>A glow is light in the HDR scene and bloom takes what passes white, so it checks too that a pane in front covers
@@ -65,7 +66,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgScene scene = CgScene.client();
-        CgPostStack.get().install();
+        CgPostRenderer.install();
         List<String> failures = new ArrayList<>();
         CgQuality original = CgGraphicsSettings.QUALITY.get();
         for (CgQuality tier : CgQuality.values()) {
@@ -96,7 +97,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         failure = compare(ctx, "emission-only", false);
         if (failure != null) failures.add("emission-only: " + failure);
         covered(ctx, scene, failures);
-        CgPostStack.get().bloom().intensity(1f);
+        CgPost.client().bloom().intensity(1f);
         report(failures, DeviceErrors.checkAndLog("bloom-occlusion"));
     }
 
@@ -123,7 +124,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
                           boolean hidden, float emission, float bloom, CgMaterialInterface cover, String file) {
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
-        CgPostStack.get().bloom().intensity(bloom);
+        CgPost.client().bloom().intensity(bloom);
         CgMesh cube = CgMeshShapes.cube(), sphere = CgMeshShapes.sphere(24, 32);
         scene.once().mesh(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).add();
         if (ball != null) {

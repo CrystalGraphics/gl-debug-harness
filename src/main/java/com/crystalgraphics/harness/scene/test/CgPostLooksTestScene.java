@@ -17,7 +17,8 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.CgWarmBudget;
 import com.crystalgraphics.render.graph.CgGraphTexture;
-import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.CgPost;
+import com.crystalgraphics.render.post.CgPostRenderer;
 import com.crystalgraphics.render.post.look.CgColorGrade;
 import com.crystalgraphics.render.post.look.CgFilmLut;
 import com.crystalgraphics.render.post.volume.CgImpact;
@@ -25,7 +26,7 @@ import com.crystalgraphics.render.post.volume.CgColourRegion;
 import com.crystalgraphics.render.post.volume.CgPostSettings;
 import com.crystalgraphics.render.post.volume.CgPostSettings.Control;
 import com.crystalgraphics.render.post.volume.CgPostSettings.Region;
-import com.crystalgraphics.render.post.volume.CgPostVolume;
+import com.crystalgraphics.render.scene.component.CgPostVolume;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.precache.CgPipelinePrecache;
 import com.crystalgraphics.settings.CgGraphicsSettings;
@@ -42,7 +43,7 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
 /**
- * The gate for the post stack's volumes and looks (render-post-process P7): bloom-occlusion's wall and glowing ball,
+ * The gate for the post chain's volumes and looks (render-post-process P7): bloom-occlusion's wall and glowing ball,
  * drawn once plain and once per look, each look set by a {@link CgPostVolume}. Checked from the pixels: a volume at
  * weight 0, one out of reach and a flash with the player's flashes at 0 change nothing; a flash brightens, a vignette
  * darkens the corners, an inverted impact frame is the negative, chromatic aberration moves edges, focus lines darken,
@@ -78,8 +79,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgScene scene = CgScene.client();
-        CgPostStack post = CgPostStack.get();
-        post.install();
+        CgPostRenderer.install();
         // Every program built first, as a loading screen leaves them: a cold one draws its fallback for a frame, and each
         // case here is one frame. Each wait stands for a loading frame, with its own warm budget.
         CgPipelinePrecache.Request warm = CgPipelinePrecache.request(p -> {
@@ -91,44 +91,44 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
             CgWarmBudget.nextFrame();
         }
         if (!warm.ready()) System.out.println("[post-looks] its programs were not built in " + WARM_NANOS / 1_000_000_000L + " s");
-        post.bloom().intensity(1f);
+        CgPost.client().bloom().intensity(1f);
         List<String> failures = new ArrayList<>();
         float flashes = CgGraphicsSettings.FLASHES.get();
         CgGraphicsSettings.FLASHES.set(1f);
 
         BufferedImage base = draw(ctx, scene, "base", v -> { });
         same(failures, "a volume at weight 0", base,
-                draw(ctx, scene, "weight0", v -> v.add(post.volume(0, new CgPostSettings().flash(1f)).weight(0f))));
+                draw(ctx, scene, "weight0", v -> v.add(volume(scene, 0, new CgPostSettings().flash(1f)).weight(0f))));
         same(failures, "a volume out of reach", base, draw(ctx, scene, "far",
-                v -> v.add(post.volume(0, new CgPostSettings().flash(1f)).at(0, 0, 100).radius(5f).blend(5f))));
+                v -> v.add(volume(scene, 0, new CgPostSettings().flash(1f)).at(0, 0, 100).radius(5f).blend(5f))));
         CgGraphicsSettings.FLASHES.set(0f);
         same(failures, "a flash with flashes at 0", base,
-                draw(ctx, scene, "flashes0", v -> v.add(post.volume(0, new CgPostSettings().flash(1f)))));
+                draw(ctx, scene, "flashes0", v -> v.add(volume(scene, 0, new CgPostSettings().flash(1f)))));
         CgGraphicsSettings.FLASHES.set(1f);
 
-        BufferedImage flash = draw(ctx, scene, "flash", v -> v.add(post.volume(0, new CgPostSettings().flash(1f))));
+        BufferedImage flash = draw(ctx, scene, "flash", v -> v.add(volume(scene, 0, new CgPostSettings().flash(1f))));
         if (!(mean(flash, 0, 0, W, H) > mean(base, 0, 0, W, H) * 1.25f)) {
             failures.add("a one-stop flash: mean " + mean(flash, 0, 0, W, H) + " against " + mean(base, 0, 0, W, H));
         }
-        BufferedImage vignette = draw(ctx, scene, "vignette", v -> v.add(post.volume(0, new CgPostSettings().vignette(1f))));
+        BufferedImage vignette = draw(ctx, scene, "vignette", v -> v.add(volume(scene, 0, new CgPostSettings().vignette(1f))));
         if (!(mean(vignette, 0, 0, 24, 24) < mean(base, 0, 0, 24, 24) * 0.7f)) {
             failures.add("a full vignette: corner mean " + mean(vignette, 0, 0, 24, 24) + " against " + mean(base, 0, 0, 24, 24));
         }
         same(failures, "a higher-priority vignette over a lower", vignette, draw(ctx, scene, "priority", v -> {
-            v.add(post.volume(0, new CgPostSettings().vignette(0.2f)));
-            v.add(post.volume(5, new CgPostSettings().vignette(1f)));
+            v.add(volume(scene, 0, new CgPostSettings().vignette(0.2f)));
+            v.add(volume(scene, 5, new CgPostSettings().vignette(1f)));
         }));
-        BufferedImage invert = draw(ctx, scene, "invert", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.INVERT, 1f))));
+        BufferedImage invert = draw(ctx, scene, "invert", v -> v.add(volume(scene, 0, new CgPostSettings().impact(CgImpact.INVERT, 1f))));
         float negative = 255f - mean(base, 0, 0, W, H);
         if (Math.abs(mean(invert, 0, 0, W, H) - negative) > 8f) {
             failures.add("an inverted impact frame: mean " + mean(invert, 0, 0, W, H) + " against " + negative);
         }
-        BufferedImage chromatic = draw(ctx, scene, "chromatic", v -> v.add(post.volume(0, new CgPostSettings().chromatic(5f))));   // Unreal's percent, its usual most
-        BufferedImage linear = draw(ctx, scene, "copy-form", v -> v.add(post.volume(0, new CgPostSettings().vignette(0.0001f))));
+        BufferedImage chromatic = draw(ctx, scene, "chromatic", v -> v.add(volume(scene, 0, new CgPostSettings().chromatic(5f))));   // Unreal's percent, its usual most
+        BufferedImage linear = draw(ctx, scene, "copy-form", v -> v.add(volume(scene, 0, new CgPostSettings().vignette(0.0001f))));
         if (changed(chromatic, linear) < 50) failures.add("chromatic aberration moved " + changed(chromatic, linear) + " pixels");
         // Unreal's Gaussian layers at its defaults: the glow spread round the ball, its widest layer reaching the corners
-        BufferedImage unbloomed = draw(ctx, scene, "no-bloom", v -> v.add(post.volume(0, new CgPostSettings().bloom(0f))));
-        BufferedImage gaussian = draw(ctx, scene, "gaussian", v -> v.add(post.volume(0, new CgPostSettings().gaussianBloom())));
+        BufferedImage unbloomed = draw(ctx, scene, "no-bloom", v -> v.add(volume(scene, 0, new CgPostSettings().bloom(0f))));
+        BufferedImage gaussian = draw(ctx, scene, "gaussian", v -> v.add(volume(scene, 0, new CgPostSettings().gaussianBloom())));
         float near = mean(gaussian, W / 2 + 44, H / 2 - 4, 8, 8) - mean(unbloomed, W / 2 + 44, H / 2 - 4, 8, 8);
         float far = mean(gaussian, 0, 0, 24, 24) - mean(unbloomed, 0, 0, 24, 24);
         if (!(near > 2f && far > 0.05f && near > far)) {
@@ -136,7 +136,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         }
         // Unreal 4.21's tonemapper: each pixel as the CPU's bake of the same table reads it from the untoned picture.
         CgPostSettings stage = new CgPostSettings().tonemap().filmHeal(0.18f);
-        BufferedImage toned = draw(ctx, scene, "tonemap", v -> v.add(post.volume(0, stage)));
+        BufferedImage toned = draw(ctx, scene, "tonemap", v -> v.add(volume(scene, 0, stage)));
         float[] table = new float[CgFilmLut.CELLS * 3];
         CgFilmLut.bake(stage, table);
         toneWorst = toneError(linear, toned, table);
@@ -155,23 +155,23 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         CgPostSettings cold = new CgPostSettings().grade(Region.SHADOWS, Control.GAIN, 0.8f, 0.9f, 1.2f, 1f)
                 .grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0.7f).grade(Region.HIGHLIGHTS, Control.GAIN, 1f, 1f, 1f, 0.9f)
                 .grade(Region.MIDTONES, Control.GAMMA, 1.1f, 1f, 0.9f, 1f).whiteBalance(5500f, 0f).tint(1f, 0.95f, 0.9f);
-        BufferedImage graded = draw(ctx, scene, "grade", v -> v.add(post.volume(0, cold)));
+        BufferedImage graded = draw(ctx, scene, "grade", v -> v.add(volume(scene, 0, cold)));
         double[] grade = new double[CgColorGrade.PACKED];
         CgColorGrade.pack(cold, grade);
         gradeWorst = gradeError(linear, graded, grade, new double[] {cold.tintR(), cold.tintG(), cold.tintB()});
         if (gradeWorst > 3) failures.add("the grade: a pixel " + gradeWorst + " codes from the CPU's");
-        same(failures, "a neutral grade", base, draw(ctx, scene, "grade-neutral", v -> v.add(post.volume(0,
+        same(failures, "a neutral grade", base, draw(ctx, scene, "grade-neutral", v -> v.add(volume(scene, 0,
                 new CgPostSettings().grade(Region.SHADOWS, Control.GAIN, 1f, 1f, 1f, 1f).whiteBalance(6500f, 0f).tint(1f, 1f, 1f)))));
-        BufferedImage lines = draw(ctx, scene, "lines", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.LINES, 1f))));
+        BufferedImage lines = draw(ctx, scene, "lines", v -> v.add(volume(scene, 0, new CgPostSettings().impact(CgImpact.LINES, 1f))));
         if (!(mean(lines, 0, 0, W, H) < mean(base, 0, 0, W, H) * 0.95f)) {
             failures.add("focus lines: mean " + mean(lines, 0, 0, W, H) + " against " + mean(base, 0, 0, W, H));
         }
         // Drawn frames: the subject is what glows (the ball's Emissive pass), not the lit wall.
-        BufferedImage subject = draw(ctx, scene, "subject", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.SUBJECT, 1f))));
+        BufferedImage subject = draw(ctx, scene, "subject", v -> v.add(volume(scene, 0, new CgPostSettings().impact(CgImpact.SUBJECT, 1f))));
         if (!(mean(subject, W / 2 - 4, H / 2 - 4, 8, 8) > 200f && mean(subject, 0, 0, 24, 24) < 30f)) {
             failures.add("a subject frame: ball " + mean(subject, W / 2 - 4, H / 2 - 4, 8, 8) + ", corner " + mean(subject, 0, 0, 24, 24));
         }
-        BufferedImage focus = draw(ctx, scene, "focus-lines", v -> v.add(post.volume(0, new CgPostSettings().impact(CgImpact.FOCUS_LINES, 1f))));
+        BufferedImage focus = draw(ctx, scene, "focus-lines", v -> v.add(volume(scene, 0, new CgPostSettings().impact(CgImpact.FOCUS_LINES, 1f))));
         float rim = mean(focus, 0, 0, W, 24);
         if (!(mean(focus, W / 2 - 4, H / 2 - 4, 8, 8) > 200f && rim > 60f && rim < 245f)) {
             failures.add("focus lines on white: ball " + mean(focus, W / 2 - 4, H / 2 - 4, 8, 8) + ", top rows " + rim);
@@ -203,7 +203,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
                 .place(1.6, 0, -4.9, new Quaternionf(), 1.4f, 1.4f, 1.4f);
         float[] regionBeside = new float[2];
         for (int r = 0; r < 2; r++) {
-            CgPostStack.Registration region = r == 1 ? box.show() : null;
+            CgPost.Registration region = r == 1 ? box.show() : null;
             glassGrade = dark;
             BufferedImage regionDark = draw(ctx, scene, "graded-region-" + r + "-dark", v -> { });
             glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).gaussianBloom();
@@ -304,7 +304,12 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         CgFrameRing.endFrame();
     }
 
-    /** The wall and the ball in front of it under the volumes {@code setup} opens, captured; then the volumes closed. */
+    /** A volume spawned in {@code scene} at {@code priority}: everywhere until placed and sized. */
+    private static CgPostVolume volume(CgScene scene, int priority, CgPostSettings settings) {
+        return scene.postVolume(settings).priority(priority).spawn();
+    }
+
+    /** The wall and the ball in front of it under the volumes {@code setup} opens, captured; then the volumes removed. */
     private BufferedImage draw(HarnessContext ctx, CgScene scene, String name, Consumer<List<CgPostVolume>> setup) {
         List<CgPostVolume> open = new ArrayList<>();
         setup.accept(open);
@@ -315,7 +320,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         target.captureToFile(ctx.getOutputDir(), name + ".png");
         target.unbind();
         target.delete();
-        for (CgPostVolume v : open) v.close();
+        for (CgPostVolume v : open) v.remove();
         try {
             return ImageIO.read(new File(ctx.getOutputDir(), name + ".png"));
         } catch (IOException e) {

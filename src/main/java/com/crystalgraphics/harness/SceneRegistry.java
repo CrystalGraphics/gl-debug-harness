@@ -647,7 +647,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("post-looks").checksPixels()
-                .description("The post stack's volumes and looks: flash, vignette, impact frames, aberration, each through a volume; weight 0, out of reach and flashes 0 change nothing, priority overrides")
+                .description("The post chain's volumes and looks: flash, vignette, impact frames, aberration, each through a volume; weight 0, out of reach and flashes 0 change nothing, priority overrides")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)
@@ -673,7 +673,7 @@ public final class SceneRegistry {
 
         reg.register(
             SceneDescriptor.builder("post-effects").checksPixels()
-                .description("The post stack's mod SPI: an effect at each point, checked to run in order round the composite, by order within a point, and to leave nothing once closed")
+                .description("The post chain's mod SPI: an effect at each point, checked to run in order round the composite, by order within a point, and to leave nothing once closed")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
                 .category(SceneDescriptor.Category.SCENE)
                 .needsFbo(false)

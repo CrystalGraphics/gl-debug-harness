@@ -228,7 +228,7 @@ compile. Scenes draw through the engine and `CgRHI`; a scene's verdict reads `De
   whose material samples the render target asset `harness:textures/capture/monitor`, which a capture fills on demand
   (held after its subject is swapped) and then every frame; a second capture copying the view's camera, its pixels the
   view's own (`BP_CopyCameraCapture`'s shape); a target cleared and a material drawn into it with no scene, every read
-  an async readback. `--mode=post-transitions` is the post stack's transitions: a `CgPostMaterial` at weights 1, 0.5 and 0, one of
+  an async readback. `--mode=post-transitions` is the post chain's transitions: a `CgPostMaterial` at weights 1, 0.5 and 0, one of
   three passes through targets at half and a quarter size, a fade halfway to red in the composite's blend form (HDR scene off) and copy form (on), and a 1 s crossfade read a
   quarter in and after, each firing's middle pixel checked; PASS on `gl`, `mac41` and `vulkan`. `--mode=vfx-shapes` is
   the particle frame at a move's scale, a measurement rather than a gate: 30 emitters each its own shape (30 pools, few
@@ -429,7 +429,7 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 # The world's bloom: a glowing ball behind a wall changes no pixel, one in front does; PASS/FAIL, run on gl and vulkan
 ./gradlew :gl-debug-harness:runHarness --args="--mode=bloom-occlusion --seconds=20"
 
-# The post stack: each look through a volume; a mod effect at each point
+# The post chain: each look through a volume; a mod effect at each point
 ./gradlew :gl-debug-harness:runHarness --args="--mode=post-looks --seconds=30"
 ./gradlew :gl-debug-harness:runHarness --args="--mode=post-effects --seconds=30"
 

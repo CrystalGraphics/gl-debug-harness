@@ -19,7 +19,8 @@ import com.crystalgraphics.render.canvas.CgCanvasBackdrop;
 import com.crystalgraphics.render.canvas.CgCanvasGlass;
 import com.crystalgraphics.render.canvas.CgCanvasMaterials;
 import com.crystalgraphics.render.canvas.CgQuadBatch;
-import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.CgPost;
+import com.crystalgraphics.render.post.CgPostRenderer;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import org.joml.Matrix4f;
 
@@ -66,8 +67,8 @@ public class CgCanvasGlassTestScene implements HarnessSceneLifecycle {
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgScene scene = CgScene.client();
-        CgPostStack.get().install();
-        CgPostStack.get().bloom().intensity(0f);
+        CgPostRenderer.install();
+        CgPost.client().bloom().intensity(0f);
         List<String> failures = new ArrayList<>();
 
         draw(ctx, scene, null, false, "wall.png");
@@ -106,7 +107,7 @@ public class CgCanvasGlassTestScene implements HarnessSceneLifecycle {
             }
             if (seen > 0) failures.add("a pane behind the slab shows through it at " + seen + " pixels");
         }
-        CgPostStack.get().bloom().intensity(1f);
+        CgPost.client().bloom().intensity(1f);
         report(failures, DeviceErrors.checkAndLog("canvas-glass"));
     }
 

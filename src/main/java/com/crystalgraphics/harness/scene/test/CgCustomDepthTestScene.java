@@ -20,7 +20,7 @@ import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.graph.CgGraphTexture;
 import com.crystalgraphics.render.post.CgPostMaterial;
 import com.crystalgraphics.render.post.CgPostPoint;
-import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.CgPost;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -71,7 +71,6 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
     private static final int BX = 14, BY = 223;
 
     private CgRenderStage.Registration asking, reader;
-    private CgPostStack.Registration probing;
     private CgPostMaterial probe;
     /** CustomStencil as a reader samples it: the bytes compared at the five pixels. */
     private StencilProbe stencilProbe;
@@ -109,8 +108,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
                 .customDepth(0x80, 0xFF).spawn());
         asking = CgRenderStage.PREPARE.register(0, stage -> stage.view().textures().requestNormals());
         // After the composite, onto the host's RGBA8, read back as it stands: in the scene its values would be encoded
-        probe = CgPostMaterial.of("assets/harness/shader/scene_textures_probe.shader", CgPostPoint.AFTER_COMPOSITE);
-        probing = CgPostStack.get().add(probe);
+        probe = CgPost.client().material("assets/harness/shader/scene_textures_probe.shader", CgPostPoint.DISPLAY);
         stencilProbe = new StencilProbe();
         reader = CgRenderStage.TRANSLUCENT.register(1, stage -> {
             CgGraphTexture mask = stage.view().textures().customDepth();
@@ -161,7 +159,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
         CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, new Matrix4f(), PROJECTION);
         HarnessWorld.fireCallbacks();
         if (armed) {
-            // The host's target after the post stack: what the probe drew there.
+            // The host's target after the post chain: what the probe drew there.
             CgReadback.texture(target.getColor(), 0, NX, NY, 1, 1, d -> near = bytes(d));
             CgReadback.texture(target.getColor(), 0, BX, BY, 1, 1, d -> background = bytes(d));
             armed = false;
@@ -235,7 +233,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
         marked.clear();
         asking.close();
         reader.close();
-        probing.close();
+        probe.remove();
         quad.release();
         target.delete();
     }

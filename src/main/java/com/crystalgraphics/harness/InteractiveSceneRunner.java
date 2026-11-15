@@ -28,7 +28,7 @@ import com.crystalgraphics.harness.camera.Camera3D;
 import com.crystalgraphics.harness.camera.FloorRenderer;
 import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.camera.HarnessCameraShake;
-import com.crystalgraphics.render.post.CgPostStack;
+import com.crystalgraphics.render.post.CgPost;
 import com.crystalgraphics.render.post.bloom.CgBloom;
 import com.crystalgraphics.harness.capture.ArtifactService;
 import com.crystalgraphics.harness.capture.CaptureCallback;
@@ -693,7 +693,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // [ ]: emission, the HDR scene's glow gain, down or up; - =: bloom's intensity, while it is on. Held, they repeat.
             if (event.pressed() && !isCtrlDown() && letters) {
                 CgScene scene = CgScene.client();
-                CgBloom bloom = CgPostStack.get().bloom();
+                CgBloom bloom = CgPost.client().bloom();
                 if (event.key() == CgKeyCodes.KEY_LBRACKET) CgView.main().override(CgSceneRenderer.SCENE_EMISSION, CgView.main().flag(CgSceneRenderer.SCENE_EMISSION) / 1.25f);
                 if (event.key() == CgKeyCodes.KEY_RBRACKET) CgView.main().override(CgSceneRenderer.SCENE_EMISSION, CgView.main().flag(CgSceneRenderer.SCENE_EMISSION) * 1.25f);
                 if (event.key() == CgKeyCodes.KEY_MINUS && bloom.intensity() > 0f) bloom.intensity(bloom.intensity() / 1.25f);
@@ -793,7 +793,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     /** Off (intensity 0, its value kept), or back on at that value. */
     private static void toggleBloom() {
-        CgBloom bloom = CgPostStack.get().bloom();
+        CgBloom bloom = CgPost.client().bloom();
         if (bloom.intensity() == 0f) {
             bloom.intensity(bloomIntensity);
         } else {
