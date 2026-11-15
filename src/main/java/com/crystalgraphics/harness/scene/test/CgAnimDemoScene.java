@@ -19,6 +19,7 @@ import com.crystalgraphics.platform.input.CgSystemInput;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=anim-demo"
  * // 1-9: the camera to a station; the station nearest the camera takes the arrow keys, ` and \ (the HUD lists them)
+ * // P pauses, , . step a frame back and on, U/I the rate: the demo's time, every station's
  * }</pre>
  */
 public final class CgAnimDemoScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard {
@@ -48,7 +49,7 @@ public final class CgAnimDemoScene implements InteractiveSceneLifecycle, CgSyste
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
-        seconds += frame.getDeltaTime();
+        seconds += demo.advance((float) frame.getDeltaTime());
         view.position(camera.getPosX(), camera.getPosY(), camera.getPosZ());
         demo.submit(view, 0, 0, 0, seconds);
         placed = demo.ready();
@@ -69,7 +70,16 @@ public final class CgAnimDemoScene implements InteractiveSceneLifecycle, CgSyste
             }
             return true;
         }
-        for (int k : CgAnimDemo.KEYS) if (k == key) demo.press(key, false);
+        switch (key) {
+            case CgKeyCodes.KEY_P -> demo.togglePause();
+            case CgKeyCodes.KEY_COMMA -> demo.step(-1);
+            case CgKeyCodes.KEY_PERIOD -> demo.step(1);
+            case CgKeyCodes.KEY_U -> demo.faster(-1);
+            case CgKeyCodes.KEY_I -> demo.faster(1);
+            default -> {
+                for (int k : CgAnimDemo.KEYS) if (k == key) demo.press(key, false);
+            }
+        }
         return true;
     }
 

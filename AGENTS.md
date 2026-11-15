@@ -166,7 +166,8 @@ compile. Scenes draw through the engine and `CgRHI`; a scene's verdict reads `De
   harness's floor, to play with: a station per feature of the engine's animation, each on its own set, the engine's
   humanoids beside every mounted kit character: CrystalGraphics' own `kk` namespace (Goku), which a dev run mounts from
   its source tree. No flags: 1-9 move the camera to a station, and the station nearest the camera
-  takes the arrow keys, `` ` `` and `\` (the HUD lists them).
+  takes the arrow keys, `` ` `` and `\` (the HUD lists them); P pauses, `,` `.` step a frame back and on, U/I the
+  rate, for every station.
   `--mode=kit-shading` is a kit's shading models drawing: its `shading.yaml` registered under
   `-Dcrystalgraphics.harness.kit.namespace`, the material `.kit.material` compiled from the kit folder `.kit` through its
   parent chain and drawn, its model's keyword on, no GL error; the kit's files reached with `-Pharness.assetRoots` (a root

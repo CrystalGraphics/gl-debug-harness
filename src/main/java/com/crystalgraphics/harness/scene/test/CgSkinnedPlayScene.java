@@ -1088,9 +1088,10 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private void rate(Actor actor, int index) {
         actor.rate = Math.max(0, Math.min(RATES.length - 1, index));
         float r = RATES[actor.rate];
-        actor.instance.rate(r);
         float moving = actor.instance.playing() ? r : 0f;
         if (actor.move != null) actor.move.rate(moving);
+        // a kit actor's rate is the world's dilation, which its clips already run under
+        actor.instance.rate(actor.kit ? 1f : r);
         if (actor.kit) CgWorld.client().timeDilation(moving);
     }
 
