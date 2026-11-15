@@ -24,9 +24,10 @@ import java.nio.ByteOrder;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
 
 /**
- * VFX Lab's sky and floor (CrystalGUI's {@code VfxLab}) as a harness scene's world: {@code materials/sky.shader} on a
- * sphere round the eye and {@code materials/grid.shader} on a plane at y 0 under it, in place of the harness's own floor
- * and clear colour: an opaque ground, as a game's is, hiding what is under the floor. F9 eases between day and night,
+ * VFX Lab's sky (CrystalGUI's {@code VfxLab}) over a white ground as a harness scene's world: {@code materials/sky.shader}
+ * on a sphere round the eye and the harness's {@code ground.shader} on a plane at y 0 under it, in place of the harness's
+ * own floor and clear colour: an opaque ground under open sky, as a game's is, hiding what is under the floor and
+ * showing what the world lights add to white. F9 eases between day and night,
  * the world stages' daylight and lightmap with it, so what adapts to the light (world lights, a colour region's gain)
  * follows.
  *
@@ -52,10 +53,10 @@ public final class HarnessEnvironment {
     public static final boolean FORCED = "editor".equals(System.getProperty("crystalgraphics.harness.environment"));
 
     private static final String SKY_SHADER = "crystalgraphics:shaders/materials/sky.shader";
-    private static final String FLOOR_SHADER = "crystalgraphics:shaders/materials/grid.shader";
+    private static final String FLOOR_SHADER = "assets/harness/shader/ground.shader";
     private static final Matrix4fc SKY_SCALE = new Matrix4f().scale(600f);
-    /** Metres the grid fades out by, from a quarter of it; the plane spans past it, so its edge never shows. */
-    private static final float FLOOR_FADE = 100f;
+    /** Metres across the floor's plane, centred under the eye: far enough that its edge never shows. */
+    private static final float FLOOR_SIZE = 250f;
     /** Day to night in about 0.4 s, as VFX Lab eases it. */
     private static final float NIGHT_RATE = 2.5f;
 
@@ -84,9 +85,9 @@ public final class HarnessEnvironment {
 
     private void prepare() {
         sky = CgMeshShapes.sphere(24, 32);
-        floor = CgMesh.build(CgVertexFormat.SPATIAL, m -> CgMeshShapes.plane(m, 1, 1, FLOOR_FADE * 2.5f, FLOOR_FADE * 2.5f));
+        floor = CgMesh.build(CgVertexFormat.SPATIAL, m -> CgMeshShapes.plane(m, 1, 1, FLOOR_SIZE, FLOOR_SIZE));
         skyMaterial = CgMaterial.load(SKY_SHADER).instance();
-        floorMaterial = CgMaterial.load(FLOOR_SHADER).instance().set1f("_Fade", FLOOR_FADE);
+        floorMaterial = CgMaterial.load(FLOOR_SHADER).instance();
         programs = CgPipelinePrecache.request(pipelines -> {
             pipelines.add(skyMaterial, false);
             pipelines.add(floorMaterial, false);
@@ -114,7 +115,6 @@ public final class HarnessEnvironment {
         nightMix = Math.abs(to - nightMix) <= step ? to : nightMix + Math.signum(to - nightMix) * step;
         float mix = nightMix;
         skyMaterial.set1f("_Night", mix);
-        floorMaterial.set1f("_Night", mix);
         daylight();
     }
 
@@ -149,8 +149,8 @@ public final class HarnessEnvironment {
         CgScene scene = CgScene.client();
         double x = camera.getPosX(), y = camera.getPosY(), z = camera.getPosZ();
         scene.once().mesh(sky, skyMaterial).at(x, y, z).transform(SKY_SCALE).layer(CgSortLayer.BACKGROUND).add();
-        // Under the eye, so flying never reaches its edge; the grid's lines are absolute and hold still.
-        scene.once().mesh(floor, floorMaterial).at(x, 0.0, z).layer(CgSortLayer.BACKGROUND).add();
+        // Under the eye, so flying never reaches its edge; open ground's light, the sky's alone.
+        scene.once().mesh(floor, floorMaterial).at(x, 0.0, z).light(0f, 15f).layer(CgSortLayer.BACKGROUND).add();
     }
 
     private CgPipelinePrecache.Request programs;

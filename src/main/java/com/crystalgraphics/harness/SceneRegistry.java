@@ -88,6 +88,7 @@ import com.crystalgraphics.harness.scene.test.CgLightsVolumeScene;
 import com.crystalgraphics.harness.scene.test.CgLightsAirScene;
 import com.crystalgraphics.harness.scene.test.CgLightsAirQualityScene;
 import com.crystalgraphics.harness.scene.test.CgLightsDemoBisectScene;
+import com.crystalgraphics.harness.scene.test.CgLightsDemoScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
@@ -971,7 +972,7 @@ public final class SceneRegistry {
         );
 
         reg.register(
-            SceneDescriptor.builder("lights-demo")
+            SceneDescriptor.builder("lights-demo-steady")
                 .description("The lights demo at midnight, every pass on, held at one moment until closed: to profile")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
                 .category(SceneDescriptor.Category.SCENE)
@@ -980,6 +981,18 @@ public final class SceneRegistry {
                 .clearColor(0.01f, 0.01f, 0.03f, 1.0f)
                 .build(),
             () -> new CgLightsDemoBisectScene(true)
+        );
+
+        reg.register(
+            SceneDescriptor.builder("lights-demo")
+                .description("The lights demo (CgRenderDemo's lights) playing live on the harness world's white ground at night, to fly round")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.01f, 0.01f, 0.03f, 1.0f)
+                .build(),
+            () -> new CgLightsDemoScene()
         );
 
         reg.register(

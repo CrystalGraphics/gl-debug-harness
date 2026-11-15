@@ -134,7 +134,10 @@ compile. Scenes draw through the engine and `CgRHI`; a scene's verdict reads `De
   bobbing as Minecraft's walking camera, under a lamp of ours at night, and from eye height across our slab), and the
   side sun's edge across the ball steady as the camera turns half a degree. PASS on
   `gl` and `vulkan`.
-  `--mode=lights-demo` is the lights demo to profile: every pass on, the show held at one moment, running until
+  `--mode=lights-demo` is the lights demo (`CgLightsDemo`, `CgRenderDemo`'s `lights` in Minecraft) playing live on the
+  harness world's white ground at night, to fly round: O shadows, R MegaLights' resolution, Z quality, F9 day and night,
+  Y / Shift+Y time faster / slower (the world's time dilation, 0 to 1), Tab pause or play.
+  `--mode=lights-demo-steady` is the same demo to profile: every pass on, the show held at one moment, running until
   closed; with `-Dcrystalgraphics.demo.lightsSweep=<n>` and `.lightsSweepKind=exact|shadowed|scatter` the demo adds n
   lights of that kind over its arena, to measure what a light costs each pass
   (`plan/crystalgraphics/lights-300fps-notes.md`). `-Dcrystalgraphics.harness.lightsDemo.look=down` stands at eye height
@@ -442,7 +445,7 @@ per event, `GetPipelineState()` for what an event drew into). End it with `os._e
 # .labels.changing=true has some change, come and go
 ./gradlew :gl-debug-harness:runHarness --args="--mode=world-labels" -Dcrystalgraphics.harness.labels=10000
 
-# CgTextDemo's text styles under VFX Lab's sky and floor (F9 day and night): the demo's `text` scene, to tune a style
+# CgTextDemo's text styles under VFX Lab's sky over the white ground (F9 day and night): the demo's `text` scene, to tune a style
 ./gradlew :gl-debug-harness:runHarness --args="--mode=text-demo"
 
 # Run a 3D scene with custom output name
@@ -725,7 +728,7 @@ The interactive runner sequences these steps every frame:
 | - = | Bloom's intensity down or up by a quarter while it is on (`CgBloom.intensity`); the HUD shows it |
 | H | Half-resolution draws on or off (the main view's `CgSceneRenderer.HALF_RESOLUTION`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
 | J | The distortion target at half size or full size (the main view's `CgSceneRenderer.DISTORTION_SCALE`): the hazes' bend at a quarter of the pixels, or a pixel per texel to compare |
-| F9 | Day or night, under VFX Lab's sky and floor (`HarnessEnvironment`): a scene opts in with `editorEnvironment()`, any scene with `-Dcrystalgraphics.harness.environment=editor`. Off by default, since gates check pixels against the plain clear colour and floor |
+| F9 | Day or night, under VFX Lab's sky over the harness world's white ground (`HarnessEnvironment`): a scene opts in with `editorEnvironment()`, any scene with `-Dcrystalgraphics.harness.environment=editor`. Off by default, since gates check pixels against the plain clear colour and floor |
 
 ### HUD Display
 

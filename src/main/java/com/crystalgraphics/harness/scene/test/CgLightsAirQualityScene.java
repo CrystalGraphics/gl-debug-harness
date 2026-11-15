@@ -13,9 +13,7 @@ import com.crystalgraphics.harness.InteractiveSceneLifecycle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.CgPlatform;
-import com.crystalgraphics.platform.world.CgEntityQuery;
 import com.crystalgraphics.platform.world.CgLevels;
-import com.crystalgraphics.platform.world.CgWorldQuery;
 import com.crystalgraphics.render.scene.component.CgHazeComponent;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.variable.CgVar;
@@ -86,7 +84,7 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        CgPlatform.provide(CgLevels.HOST, CgLevels.single(new Flat(), CgEntityQuery.NONE));
+        HarnessFlatWorld.provide(GROUND, 0);
         grey = CgMaterial.load("assets/harness/shader/bloom_wall.shader");
         haze = CgScene.client().haze().box(-30, GROUND - 1, -30, 30, GROUND + 18, 30).density(0.003f, 4f).spawn();
         target = HarnessTarget.create(W, H, true);
@@ -245,40 +243,4 @@ public class CgLightsAirQualityScene implements InteractiveSceneLifecycle {
     @Override public boolean uses3DCamera() { return false; }
 
     @Override public boolean shouldShutdownOnComplete() { return true; }
-
-    /** Solid below {@link #GROUND}, open night sky above it. */
-    private static final class Flat implements CgWorldQuery {
-
-        private static boolean solid(int y) {
-            return y < GROUND;
-        }
-
-        @Override
-        public int collisionBoxes(int x, int y, int z, float[] out) {
-            if (!solid(y) || out.length < 6) return solid(y) ? 1 : 0;
-            out[0] = out[1] = out[2] = 0f;
-            out[3] = out[4] = out[5] = 1f;
-            return 1;
-        }
-
-        @Override public float collisionTop(int x, int y, int z) { return solid(y) ? 1f : Float.NaN; }
-        @Override public float collisionBottom(int x, int y, int z) { return solid(y) ? 0f : Float.NaN; }
-        @Override public int light(int x, int y, int z) { return 0; }
-        @Override public int surface(int x, int y, int z) { return solid(y) ? SURFACE_STONE : SURFACE_NONE; }
-        @Override public float hardness(int x, int y, int z) { return solid(y) ? 1.5f : Float.NaN; }
-        @Override public int lightEmission(int x, int y, int z) { return 0; }
-        @Override public int tint(int x, int y, int z) { return 0; }
-        @Override public int biomeColor(int x, int y, int z, int kind) { return 0xFF808080; }
-        @Override public int precipitation(int x, int y, int z) { return PRECIPITATION_NONE; }
-        @Override public int surfaceY(int x, int z, int kind) { return GROUND; }
-        @Override public boolean spriteRect(int x, int y, int z, float[] out) { return false; }
-        @Override public float fluidHeight(int x, int y, int z) { return Float.NaN; }
-        @Override public int fluidKind(int x, int y, int z) { return FLUID_NONE; }
-        @Override public int mapColor(int x, int y, int z) { return solid(y) ? 0xFF707070 : 0; }
-        @Override public boolean loaded(int x, int z) { return true; }
-        @Override public int minY() { return 0; }
-        @Override public int maxY() { return 256; }
-        @Override public int seaLevel() { return 63; }
-        @Override public int levelEpoch() { return 1; }
-    }
 }
