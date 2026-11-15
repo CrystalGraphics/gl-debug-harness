@@ -14,13 +14,11 @@ import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.stage.CgRenderStage;
-import com.crystalgraphics.vfx.CgVfxEffect;
-import com.crystalgraphics.vfx.CgVfxFrame;
 import com.crystalgraphics.vfx.CgVfxSystem;
-import com.crystalgraphics.vfx.look.CgVfxLook;
-import com.crystalgraphics.vfx.look.CgVfxSchema;
-import com.crystalgraphics.vfx.prefab.CgVfxPrefab;
-import com.crystalgraphics.vfx.prefab.CgVfxPrefabInstance;
+import com.crystalgraphics.render.scene.prefab.CgPrefab;
+import com.crystalgraphics.render.scene.prefab.CgPrefabPose;
+import com.crystalgraphics.render.view.CgView;
+import com.crystalgraphics.vfx.prefab.CgVfxPrefabEffect;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
@@ -35,7 +33,7 @@ import java.util.List;
  * ball a node. Chain {@value #CUT}'s node {@value #CUT_AT} is at an opacity of 0, so it draws nothing and every node
  * under it whole; chain {@value #DIM}'s head is at 0.2, so it alone dims: a node's opacity is its own (aaa-design C5,
  * B9). The rest draw whole. Also times
- * {@link CgVfxPrefabInstance#evaluate()}, which must take a few microseconds.
+ * {@link CgPrefabPose#evaluate()}, which must take a few microseconds.
  *
  * <p>Prints {@code [vfx-prefab] PASS} or {@code FAIL}; run it on {@code gl}, {@code mac41} and {@code vulkan}.</p>
  */
@@ -43,7 +41,6 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
 
     private static final int CHAINS = 19, LENGTH = 24, CUT = 7, CUT_AT = 10, DIM = 3;
     private static final float EVALUATE_BUDGET_US = 50f;
-    private static final CgVfxSchema SCHEMA = CgVfxSchema.of("harness:prefab");
     private static final CgMaterialDefinition BALL = CgMaterialDefinition.of("harness:materials/prefab-ball",
             "harness:shader/prefab_test.shader").value("_Color", 0.9f, 0.6f, 0.2f, 1f).build();
     /** Each node's ball: radius 4, the size the gate's pixels were placed for. */
@@ -52,31 +49,12 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
     private final CgVfxSystem vfx = new CgVfxSystem();
     private float dx, dy;
 
-    /** One prefab drawn for ever. */
-    private static final class Model extends CgVfxEffect<Model> {
-        final CgVfxPrefabInstance instance;
-
-        Model(CgVfxLook look, CgVfxPrefabInstance instance) {
-            super(look, 0, 0, 0);
-            this.instance = instance;
-        }
-
-        @Override
-        protected void tick(float dt) {
-        }
-
-        @Override
-        protected void submit(CgVfxFrame frame) {
-            instance.submit(this, frame);
-        }
-    }
-
     @Override
     public void init(HarnessContext ctx) {
     }
 
-    private CgVfxPrefab prefab() {
-        CgVfxPrefab.Builder b = CgVfxPrefab.builder("harness:prefab_gate").node("root").at(2f * dx, 2f * dy, 0f)
+    private CgPrefab prefab() {
+        CgPrefab.Builder b = CgPrefab.builder("harness:prefab_gate").node("root").at(2f * dx, 2f * dy, 0f)
                 .node("pivot").parent("root");
         for (int c = 0; c < CHAINS; c++) {
             for (int k = 0; k < LENGTH; k++) {
@@ -98,10 +76,10 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
         dx = w / (CHAINS + 4f);
         dy = h / (LENGTH + 4f);
-        CgVfxPrefab prefab = prefab();
-        CgVfxPrefabInstance instance = new CgVfxPrefabInstance(prefab);
-        vfx.play(new Model(CgVfxLook.builder(SCHEMA).with(prefab.kit()).build(), instance));
-        float micros = time(instance);
+        CgPrefab prefab = prefab();
+        CgVfxPrefabEffect model = new CgVfxPrefabEffect(prefab, 0, 0, 0);   // drawn for ever: never stopped
+        vfx.play(model);
+        float micros = time(model.pose());
 
         HarnessTarget target = HarnessTarget.create(w, h, true);   // the world lights' pyramid reads its depth
         target.bind();
@@ -121,7 +99,7 @@ public class CgVfxPrefabScene implements HarnessSceneLifecycle {
     }
 
     /** The median microseconds of one {@code evaluate()}, warm. */
-    private static float time(CgVfxPrefabInstance instance) {
+    private static float time(CgPrefabPose instance) {
         for (int i = 0; i < 20_000; i++) instance.evaluate();
         long[] runs = new long[31];
         for (int r = 0; r < runs.length; r++) {

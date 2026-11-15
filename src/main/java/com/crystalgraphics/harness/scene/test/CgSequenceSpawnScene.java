@@ -33,7 +33,7 @@ import com.crystalgraphics.sequence.spawn.CgSequenceSystem;
 import com.crystalgraphics.sequence.CgSequencer;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxSystem;
-import com.crystalgraphics.vfx.prefab.CgVfxPrefabAssets;
+import com.crystalgraphics.render.scene.prefab.CgPrefabAssets;
 import com.crystalgraphics.vfx.prefab.CgVfxPrefabSpawner;
 import com.crystalgraphics.vfx.system.CgVfxSystemAssets;
 import com.crystalgraphics.vfx.system.CgVfxSystemSpawner;
@@ -106,7 +106,7 @@ public final class CgSequenceSpawnScene implements InteractiveSceneLifecycle {
         ctx.getCamera3D().setPitch(-10f);
         sequenceId = System.getProperty("crystalgraphics.harness.sequence.id", NOVA);
         CgVfxSystemAssets.register();
-        CgVfxPrefabAssets.register();
+        CgPrefabAssets.register();
         // The kits the harness mounted, scanned once at startup; a kit folder named here is scanned on its own
         CgAssetRegistry registry = CgVfxAssets.instance().registry();
         String folder = System.getProperty("crystalgraphics.harness.sequence.kit");

@@ -26,7 +26,8 @@ import com.crystalgraphics.vfx.particle.gpu.CgVfxEventListener;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxEventRows;
 import com.crystalgraphics.vfx.particle.gpu.CgVfxGpuEmitter;
 import com.crystalgraphics.vfx.particle.spawn.CgVfxEmitterState;
-import com.crystalgraphics.vfx.prefab.CgVfxPrefab;
+import com.crystalgraphics.render.scene.prefab.CgPrefab;
+import com.crystalgraphics.vfx.prefab.CgVfxPrefabLook;
 import com.crystalgraphics.asset.codec.CgAssetYaml;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.asset.load.CgAssetCompiler;
@@ -78,7 +79,7 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
 
     private final CgMaterialDefinition white = CgMaterialDefinition.of("harness:materials/sequence-part",
             "crystalgraphics:shaders/vfx/sequence/part.shader").usage(CgMaterialUsage.MESH_PARTICLES, CgMaterialUsage.STATIC_MESH).build();
-    private final CgVfxPrefab prefab = CgVfxPrefab.builder("harness:sequence_gate").node("hub")
+    private final CgPrefab prefab = CgPrefab.builder("harness:sequence_gate").node("hub")
             .node("tip").parent("hub").at(REACH, 0f, 0f).scale(PART).part(white).build();
     private final int tip = prefab.node("tip");
     private final CgVfxEmitter leaf = CgVfxEmitter.builder("sequence-leaf").capacity(128).life(0.25f, 0.25f)
@@ -146,7 +147,7 @@ public class CgVfxSequenceScene implements InteractiveSceneLifecycle {
             cy = Math.round(h * 0.5);
             target = HarnessTarget.create(w, h, true);   // with depth: the GPU cull of its parts reads it
             CgVfxLook look = CgVfxLook.builder(CgVfxSystemDefinition.SCHEMA)
-                    .with(CgVfxKit.of("harness:sequence").emitter(root).build(), prefab.kit()).build();
+                    .with(CgVfxKit.of("harness:sequence").emitter(root).build(), CgVfxPrefabLook.of(prefab).kit()).build();
             vfx.play(new CgVfxSystemInstance<>(look, cx, cy, 0.0)).scalability(CgVfxScalability.HERO);   // far from the camera, in pixels
         }
         if (frame <= END) {

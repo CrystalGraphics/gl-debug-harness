@@ -97,6 +97,7 @@ import com.crystalgraphics.harness.scene.test.CgGraphExecutorTestScene;
 import com.crystalgraphics.harness.scene.test.CgQuadRendererTestScene;
 import com.crystalgraphics.harness.scene.test.CgForwardRendererScene;
 import com.crystalgraphics.harness.scene.test.CgSceneColorScene;
+import com.crystalgraphics.harness.scene.test.CgScenePrefabScene;
 import com.crystalgraphics.harness.scene.test.CgSecondViewScene;
 import com.crystalgraphics.harness.scene.test.CgMeshDrawsScene;
 import com.crystalgraphics.harness.scene.test.CgMeshLodsScene;
@@ -1241,6 +1242,20 @@ public final class SceneRegistry {
                 .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
                 .build(),
             () -> new CgSecondViewScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("scene-prefab").checksPixels()
+                .description("A prefab spawned into a scene as components, a node riding its parent, and the engine's base surface material: unlit, masked, translucent two-sided, lit, and a decal")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .defaultWidth(320)
+                .defaultHeight(240)
+                .clearColor(0.05f, 0.05f, 0.07f, 1.0f)
+                .build(),
+            () -> new CgScenePrefabScene()
         );
 
         reg.register(
