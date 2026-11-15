@@ -3,6 +3,7 @@ package com.crystalgraphics.harness.scene.test;
 import com.crystalgraphics.render.host.CgStageHost;
 import com.crystalgraphics.render.host.CgHostFrame;
 import com.crystalgraphics.render.scene.CgScene;
+import com.crystalgraphics.render.scene.renderer.feature.light.CgLightSettings;
 import com.crystalgraphics.gpu.resource.CgTextureDesc;
 import com.crystalgraphics.api.texture.CgTextures;
 import com.crystalgraphics.api.material.CgMaterial;
@@ -71,6 +72,8 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
      * pixels (crystalgraphics.world.lightsDownsample's default).
      */
     private static final float SPILL = 5f;
+    /** The first few pixels each check found past the exact shadow, named in the verdict. */
+    private final StringBuilder strays = new StringBuilder();
     private static final double HEIGHT = 3, SLAB_TOP = 0.25;
     private static final double[] BOX = {CX + 0.5, GROUND + HEIGHT, CZ + 0.5}, BALL = {CX + 10.5, GROUND + HEIGHT, CZ + 0.5};
     private static final double EYE_X = CX + 5, EYE_Y = GROUND + 14, EYE_Z = CZ + 9;
@@ -202,8 +205,9 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
             failure = "the captures did not read back: " + e.getMessage();
         }
         String readings = String.format("box's shadow %.1f vs %.1f, ball's on our slab %.1f vs %.1f, beside the box %.1f vs %.1f,"
-                + " the ball shaded %.1f%% then %.1f%% turned, shadow pixels past the exact one %d and %d, %d moving, %d under the lamp, %d from eye height", at[0][0], at[1][0],
-                at[0][1], at[1][1], at[0][2], at[1][2], shadedNow * 100f, shadedTurned * 100f, spilt[0], spilt[1], spilt[2], spilt[3], spilt[4]);
+                + " the ball shaded %.1f%% then %.1f%% turned, shadow pixels past the exact one %d and %d, %d moving, %d under the lamp, %d from eye height%s", at[0][0], at[1][0],
+                at[0][1], at[1][1], at[0][2], at[1][2], shadedNow * 100f, shadedTurned * 100f, spilt[0], spilt[1], spilt[2], spilt[3], spilt[4],
+                strays.length() == 0 ? "" : "; strays (x, y) grey lit of unlit:" + strays);
         if (failure == null && at[0][0] > 0.8f * at[1][0]) failure = "the box's shadow is not dark through its middle: " + readings;
         else if (failure == null && at[0][1] > 0.8f * at[1][1]) failure = "the ball's shadow on our slab is not dark: " + readings;
         else if (failure == null && Math.abs(at[0][2] - at[1][2]) > 2f) failure = "the ground beside the box changed: " + readings;
@@ -259,6 +263,7 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
 
     /**
      * The ground pixels round the box shadowed in {@code lit} (below 90% of {@code unlit}) more than {@link #SPILL} pixels
+     * (for the lamp, two shade texels more: {@code CgLightSettings.SHADE_SCALE})
      * from any pixel the box or the ball shadows exactly from {@code sun}, a direction, or else {@code lamp}, a point, as
      * {@code lens} saw it from {@code eye} along {@code view}: the host's ground round the box, and the top of our slab under the ball, the
      * pixels our screen trace reads; the casters themselves and the slab's edge left out. The unlit capture is unbobbed:
@@ -301,7 +306,9 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
                 seen[i] = grey(lit.getRGB(x, y)) < 0.9f * grey(unlit.getRGB(x, y));
             }
         }
-        int spilt = 0, reach = (int) Math.ceil(SPILL);
+        // The lamp is shaded at the lights' shade scale: its edge moves a shade texel at the sample and at the upsample
+        float spill = lamp == null ? SPILL : SPILL + 2 * (CgLightSettings.SHADE_SCALE.get() - 1);
+        int spilt = 0, reach = (int) Math.ceil(spill);
         for (int y = 0; y < H; y++) {
             for (int x = 0; x < W; x++) {
                 if (!seen[y * W + x] || exact[y * W + x]) continue;
@@ -309,10 +316,14 @@ public class CgLightsCastersScene implements InteractiveSceneLifecycle {
                 for (int v = -reach; v <= reach && !close; v++) {
                     for (int u = -reach; u <= reach && !close; u++) {
                         int xx = x + u, yy = y + v;
-                        close = xx >= 0 && yy >= 0 && xx < W && yy < H && u * u + v * v <= SPILL * SPILL && exact[yy * W + xx];
+                        close = xx >= 0 && yy >= 0 && xx < W && yy < H && u * u + v * v <= spill * spill && exact[yy * W + xx];
                     }
                 }
-                if (!close) spilt++;
+                if (close) continue;
+                if (spilt++ < 4) {
+                    strays.append(String.format(" (%d, %d) %.0f of %.0f", x, y, grey(lit.getRGB(x, y)),
+                            grey(unlit.getRGB(x, y))));
+                }
             }
         }
         return spilt;
