@@ -50,9 +50,10 @@ import com.crystalgraphics.render.draw.CgMaterialBindings;
  * gpu-compute C3's gate: a chain of compute and raster passes in one frame graph, recorded and built on a worker
  * thread, every barrier derived by the executor. Kernels seed a history and step it twice, write an indirect
  * dispatch's group counts, and paint an image from the history's newest two versions through that dispatch; a raster
- * pass samples the image. {@code compute-graph.png} must match {@code compute-graph-ref.png}, the same raster pass
- * over the expected pixels written on the CPU, and so must {@code compute-graph-again.png}, the frame executed again:
- * the steps skipped, the arguments and the image made again.
+ * pass samples the image. Beside it, a texture history two dispatches write as an image, each adding 64 to the version
+ * before: 128 only if each dispatch made the next version. {@code compute-graph.png} must match
+ * {@code compute-graph-ref.png}, the same raster passes over the expected pixels written on the CPU, and so must
+ * {@code compute-graph-again.png}, the frame executed again: the steps skipped, the arguments and the image made again.
  *
  * <p>Prints {@code [compute-graph] PASS} or {@code FAIL}; on Vulkan a validation error fails it. With
  * {@code -Dcrystalgraphics.graph.barriers=false} and {@code -Dcrystalgraphics.vulkan.syncValidation=true} the
@@ -60,7 +61,7 @@ import com.crystalgraphics.render.draw.CgMaterialBindings;
  */
 public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
 
-    private static final int SIZE = 64, ORIGIN = 32;
+    private static final int SIZE = 64, ORIGIN = 32, BESIDE = ORIGIN + SIZE + 16;
 
     private CgMaterialInstance material;
     private CgCompute kernels;
@@ -70,18 +71,19 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
         material = CgMaterial.load("assets/harness/shader/quad_renderer_test.shader").instance();
         material.sampler("_MainTex", 0, CgFallbackTextures.WHITE_1x1);
         kernels = CgCompute.load("harness:shaders/compute_graph.compute");
-        for (String kernel : new String[]{"Args", "Seed", "Step", "Paint"}) kernels.kernel(kernel).precache();
+        for (String kernel : new String[]{"Args", "Seed", "Step", "Paint", "Accumulate"}) kernels.kernel(kernel).precache();
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo frame) {
         int w = ctx.getScreenWidth(), h = ctx.getScreenHeight();
         CgGraphBuffer state = CgGraphBuffer.history("state", CgBufferDesc.elements(SIZE * SIZE, 16, CgBufferUsage.STORAGE));
+        CgGraphTexture accum = CgGraphTexture.history("accum", CgTextureDesc.of(SIZE, SIZE, CgFormat.RGBA8_UNORM));
         CgFrameBuilder builder = new CgFrameBuilder();
         CgFrame built;
         ExecutorService worker = Executors.newSingleThreadExecutor();
         try {
-            built = worker.submit(() -> builder.build(new CgFrameGraph().add(record(state, w, h).seal()))).get();
+            built = worker.submit(() -> builder.build(new CgFrameGraph().add(record(state, accum, w, h).seal()))).get();
         } catch (Exception e) {
             throw new IllegalStateException("recording or building on the worker failed", e);
         } finally {
@@ -100,23 +102,29 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
 
         CgRecording release = new CgRecording();
         release.release(state);
+        release.release(accum);
         CgRenderer.executeNow(release);
 
         target.clear(0.08f, 0.08f, 0.1f, 1f);
-        CgTexture2D reference = reference();
+        CgTexture2D reference = reference(), accumulated = accumulated();
         CgRecording rec = new CgRecording();
-        show(rec, reference, w, h);
+        show(rec, reference, ORIGIN, w, h);
+        show(rec, accumulated, BESIDE, w, h);
         CgRenderer.executeNow(rec);
         target.captureToFile(ctx.getOutputDir(), "compute-graph-ref.png");
         reference.delete();
+        accumulated.delete();
         target.unbind();
         target.delete();
 
         compare(ctx, DeviceErrors.checkAndLog("compute-graph"));
     }
 
-    /** The frame: arguments, a seeded history stepped twice, an image painted from it, the image drawn. */
-    private CgRecording record(CgGraphBuffer state, int w, int h) {
+    /**
+     * The frame: arguments, a seeded history stepped twice, an image painted from it, a texture history accumulated
+     * twice by kernels, both drawn.
+     */
+    private CgRecording record(CgGraphBuffer state, CgGraphTexture accum, int w, int h) {
         CgGraphBuffer args = CgGraphBuffer.transientBuffer("args",
                 CgBufferDesc.of(16, CgBufferUsage.STORAGE, CgBufferUsage.INDIRECT));
         CgGraphTexture picture = CgGraphTexture.transientTexture("picture", CgTextureDesc.of(SIZE, SIZE, CgFormat.RGBA8_UNORM));
@@ -143,12 +151,20 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
                 .image("PICTURE", picture);
         paint.end();
 
-        show(rec, picture, w, h);
+        for (int i = 0; i < 2; i++) {
+            CgComputePass accumulate = rec.compute("accumulate");
+            accumulate.dispatch(kernels.kernel("Accumulate"), SIZE, SIZE, 1).image("ACCUM", accum).values()
+                    .sampler("_Last", 0, accum.previous());
+            accumulate.end();
+        }
+
+        show(rec, picture, ORIGIN, w, h);
+        show(rec, accum, BESIDE, w, h);
         return rec;
     }
 
-    /** One quad sampling {@code texture} texel for pixel, into whatever is bound. */
-    private void show(CgRecording rec, CgTexture texture, int w, int h) {
+    /** One quad sampling {@code texture} texel for pixel at ({@code x}, ORIGIN), into whatever is bound. */
+    private void show(CgRecording rec, CgTexture texture, int x, int w, int h) {
         CgCamera constants = new CgCamera().resolution(w, h);
         CgCamera.orthographicMatrix(constants.projection(), 0, w, h, 0, -1, 1);
         CgRasterPass pass = rec.raster("computeGraphTestScene.current").color(CgGraphTexture.current(), CgLoad.load()).camera(constants).order(CgOrder.LOOKBACK);
@@ -157,14 +173,14 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
         c.draw(CgMaterialProxy.of(material).pipeline(CgInstanceKind.QUAD), bindings);
         int at = c.instance();
         float[] r = c.data();
-        r[at] = ORIGIN;
+        r[at] = x;
         r[at + 1] = ORIGIN;
         r[at + 4] = SIZE;
         r[at + 9] = SIZE;
         r[at + 14] = 1f;
         r[at + 15] = 1f;
         r[at + 16] = r[at + 17] = r[at + 18] = r[at + 19] = 1f;
-        c.bounds(ORIGIN, ORIGIN, ORIGIN + SIZE, ORIGIN + SIZE);
+        c.bounds(x, ORIGIN, x + SIZE, ORIGIN + SIZE);
         pass.add(c.end());
         pass.end();
     }
@@ -177,6 +193,17 @@ public class CgComputeGraphTestScene implements HarnessSceneLifecycle {
         }
         pixels.flip();
         CgTexture2D texture = CgTextures.of("harness.computeGraph.picture", CgTextureDesc.of(SIZE, SIZE, CgFormat.RGBA8_UNORM))
+                .sampler(CgSampler.NEAREST_CLAMP);
+        texture.write(0, 0, 0, SIZE, SIZE, CgFormat.RGBA8_UNORM, pixels);
+        return texture;
+    }
+
+    /** What the texture history must hold after its two dispatches: 64 twice. */
+    private static CgTexture2D accumulated() {
+        ByteBuffer pixels = ByteBuffer.allocateDirect(SIZE * SIZE * 4);
+        for (int i = 0; i < SIZE * SIZE; i++) pixels.put((byte) 128).put((byte) 128).put((byte) 128).put((byte) 255);
+        pixels.flip();
+        CgTexture2D texture = CgTextures.of("harness.computeGraph.accum", CgTextureDesc.of(SIZE, SIZE, CgFormat.RGBA8_UNORM))
                 .sampler(CgSampler.NEAREST_CLAMP);
         texture.write(0, 0, 0, SIZE, SIZE, CgFormat.RGBA8_UNORM, pixels);
         return texture;

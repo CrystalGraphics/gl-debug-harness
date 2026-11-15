@@ -1,9 +1,15 @@
 // compute-graph's kernels (CgComputeGraphTestScene): a history seeded and stepped twice, an image painted from its
-// newest two versions by a dispatch sized on the GPU, all in one frame graph whose barriers the executor derives.
+// newest two versions by a dispatch sized on the GPU, and a texture history a kernel writes as an image, all in one
+// frame graph whose barriers the executor derives.
 #pragma kernel Args map
 #pragma kernel Seed 8 8 map
 #pragma kernel Step 8 8 map
 #pragma kernel Paint 8 8 image
+#pragma kernel Accumulate 8 8 image
+
+Properties {
+    _Last ("The texture history's previous version", sampler2D) = "black"
+}
 
 Buffers {
     ARGS   ("Dispatch arguments", uvec4, writeonly)
@@ -14,6 +20,7 @@ Buffers {
 
 Images {
     PICTURE ("Picture", rgba8, writeonly)
+    ACCUM   ("The texture history's next version", rgba8, writeonly)
 }
 
 // Paint's work groups: 8 by 8 of them, 8 by 8 texels each.
@@ -35,4 +42,9 @@ void Paint() {
     int i = CG_TEXEL.x + 64 * CG_TEXEL.y;
     vec4 now = IN(i);
     PICTURE_WRITE(vec4(now.r, now.g, now.b + BEFORE(i).b, now.a) / 255.0);
+}
+
+// The previous version plus 64: 128 after two dispatches only if each wrote the next version.
+void Accumulate() {
+    ACCUM_WRITE(vec4(texelFetch(_Last, CG_TEXEL.xy, 0).rgb + 64.0 / 255.0, 1.0));
 }
