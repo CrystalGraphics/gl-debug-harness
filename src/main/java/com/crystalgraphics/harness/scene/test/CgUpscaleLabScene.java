@@ -18,19 +18,20 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.post.aa.CgTemporalAA;
+import com.crystalgraphics.render.post.upscale.CgAntiAliasing;
 import com.crystalgraphics.render.post.upscale.CgUpscaleFilter;
 import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.render.scene.component.CgMeshComponent;
 import com.crystalgraphics.render.view.CgView;
 
 /**
- * Screen percentage to play with (R14d): taa-lab's wires, far fence, spinner and dithered panes over a fine checker floor,
+ * Screen percentage and TSR to play with (R14d, R14e): taa-lab's wires, far fence, spinner and dithered panes over a fine checker floor,
  * drawn at 50 to 100% and upscaled to the window. Scene id {@code upscale-lab}.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=upscale-lab --rhi=vulkan"
- * // , / .: screen percentage down / up (50, 58, 67, 77, 100); the harness keeps [ ] for emission    U: the upscale filter    A: the display-based percentage
- * // N: the jitter on or off    P: the spinner paused or not    F7 / F8: temporal AA, its sharpening
+ * // , / .: screen percentage down / up (50, 58, 67, 77, 100); the harness keeps [ ] for emission    U: the upscale filter    G: the display-based percentage
+ * // T: temporal AA or TSR    N: the jitter on or off    P: the spinner paused or not    F7 / F8: temporal AA, its sharpening
  * }</pre>
  */
 public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard {
@@ -93,7 +94,8 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
             case CgKeyCodes.KEY_COMMA -> view.screenPercentage(PERCENTAGES[step = Math.max(0, step - 1)]);
             case CgKeyCodes.KEY_PERIOD -> view.screenPercentage(PERCENTAGES[step = Math.min(PERCENTAGES.length - 1, step + 1)]);
             case CgKeyCodes.KEY_U -> view.upscaleFilter(CgUpscaleFilter.values()[(view.upscaleFilter().ordinal() + 1) % CgUpscaleFilter.values().length]);
-            case CgKeyCodes.KEY_A -> view.screenPercentageAuto(!view.screenPercentageAuto());
+            case CgKeyCodes.KEY_G -> view.screenPercentageAuto(!view.screenPercentageAuto());
+            case CgKeyCodes.KEY_T -> view.antiAliasing(view.antiAliasing() == CgAntiAliasing.TSR ? CgAntiAliasing.TAA : CgAntiAliasing.TSR);
             case CgKeyCodes.KEY_N -> view.jitter(!view.jitters());
             case CgKeyCodes.KEY_P -> paused = !paused;
             default -> {
@@ -106,18 +108,19 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
     @Override
     public String hudLine() {
         CgView view = CgView.main();
-        return String.format(Locale.ROOT, "Screen %% [, .]: %s -> %dx%d of %dx%d | Filter [U]: %s | Jitter [N]: %s",
+        return String.format(Locale.ROOT, "Screen %% [, .] auto [G]: %s -> %dx%d of %dx%d | Filter [U]: %s | Jitter [N]: %s | Temporal [T]: %s",
                 view.screenPercentageAuto() ? String.format(Locale.ROOT, "auto %.0f%%", view.resolutionFraction() * 100f)
                         : String.format(Locale.ROOT, "%.0f%%", view.screenPercentage()),
                 view.width(), view.height(), view.outputWidth(), view.outputHeight(), view.upscaleFilter(),
-                view.jitters() ? "on" : "off") + "\nSpinner [P]: " + (paused ? "paused" : "spinning");
+                view.jitters() ? "on" : "off", view.antiAliasing()) + "\nSpinner [P]: " + (paused ? "paused" : "spinning");
     }
 
     @Override
     public void dispose() {
         for (CgMeshComponent c : spawned) c.remove();
         spawned.clear();
-        CgView.main().screenPercentage(100f).screenPercentageAuto(false).upscaleFilter(CgUpscaleFilter.CATMULL_ROM);
+        CgView.main().screenPercentage(100f).screenPercentageAuto(false).upscaleFilter(CgUpscaleFilter.CATMULL_ROM)
+                .antiAliasing(CgAntiAliasing.TAA);
     }
 
     @Override public boolean isRunning() { return true; }
