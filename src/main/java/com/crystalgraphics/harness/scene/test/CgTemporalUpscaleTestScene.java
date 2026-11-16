@@ -78,11 +78,14 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
      */
     private static final float BLINK_X = -2.4f, BLINK_Y = 2.6f, BLINK_Z = -8f, BLINK_LOW = 0.5f, BLINK_HIGH = 1f;
 
-    /** The turned bar sliding: from where, how far a frame. Its trail is what the reprojection field (High and up) keeps clean. */
-    private static final float SLIDE_FROM = -2.6f, SLIDE_STEP = 0.02f;
+    /**
+     * The turned bar sliding: from where, how far a frame. Its trail is what the reprojection field (High and up) keeps
+     * clean, so its silhouette matches the bar standing still where it stops ({@link Bar#SLID}).
+     */
+    private static final float SLIDE_FROM = -3.1f, SLIDE_STEP = 0.02f;
 
     /** What a run draws besides the still bars: the turned bar (jumping, appearing, sliding), the burst, or the blinking patch. */
-    private enum Bar { NONE, JUMPS, APPEARS, SLIDES, BURST, BURST_APART, BLINK }
+    private enum Bar { NONE, JUMPS, APPEARS, SLIDES, SLID, BURST, BURST_APART, BLINK }
 
     private CgMaterialInstance line, glass, spark;
     /** Every capture read, decoded once. */
@@ -123,10 +126,12 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-apart.png", Bar.BURST_APART);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-blink.png", Bar.BLINK);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-slide.png", Bar.SLIDES);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-slid.png", Bar.SLID);
             CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.MEDIUM);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium.png", Bar.NONE);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium-blink.png", Bar.BLINK);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium-slide.png", Bar.SLIDES);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium-slid.png", Bar.SLID);
             CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.LOW);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low.png", Bar.NONE);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low-jump.png", Bar.JUMPS);
@@ -189,15 +194,15 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
                 if (tsrHere < 1.0) failures.add("TSR lost the " + drawn + " burst: " + String.format(Locale.ROOT, "%.2f", tsrHere));
             }
 
-            // Behind the sliding bar on the last frame, against the same quality's still picture
+            // The sliding bar's silhouette on its last frame, against the bar standing still there: what the dilated
+            // motion drags of the wall round it, less a still frame's own wobble
             float slidAt = SLIDE_FROM + (FRAMES - 1) * SLIDE_STEP;
-            int[] behind = box(slidAt - 0.6f, slidAt - 0.25f, BAR_Y - 0.25f, BAR_Y + 0.25f, BAR_Z);
-            double ultraTrail = trail(ctx, "tsr-half-slide.png", read(ctx, "tsr-half.png"), behind);
-            double mediumTrail = trail(ctx, "tsr-half-medium-slide.png", read(ctx, "tsr-half-medium.png"), behind);
-            System.out.printf(Locale.ROOT, "[temporal-upscale] behind the sliding bar: Ultra (reprojection field) %.2f, Medium %.2f%n",
-                    ultraTrail, mediumTrail);
-            if (ultraTrail > mediumTrail + 1.0) {
-                failures.add(String.format(Locale.ROOT, "the sliding bar trails more from High: %.2f against Medium's %.2f", ultraTrail, mediumTrail));
+            int[] silhouette = box(slidAt - 0.35f, slidAt + 0.35f, BAR_Y - 0.4f, BAR_Y + 0.4f, BAR_Z);
+            double ultraDrag = drag(ctx, "tsr-half", silhouette), mediumDrag = drag(ctx, "tsr-half-medium", silhouette);
+            System.out.printf(Locale.ROOT, "[temporal-upscale] the sliding bar's silhouette against it still: Ultra (reprojection field) %.2f, Medium %.2f%n",
+                    ultraDrag, mediumDrag);
+            if (ultraDrag > mediumDrag) {
+                failures.add(String.format(Locale.ROOT, "the sliding bar's silhouette drags more from High: %.2f against Medium's %.2f", ultraDrag, mediumDrag));
             }
 
             // The blinking patch from frame to frame: from High the flicker heuristic keeps its history through the blink
@@ -310,8 +315,10 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             target.bind();
             target.clear(0.02f, 0.02f, 0.03f, 1f);
             draw(scene, cube);
-            if (bar == null && (what == Bar.JUMPS || what == Bar.SLIDES || what == Bar.APPEARS && f == FRAMES - LAST)) {
-                bar = scene.mesh(cube, line).at(what == Bar.JUMPS ? BAR_FROM : what == Bar.SLIDES ? SLIDE_FROM : BAR_TO, BAR_Y, BAR_Z)
+            if (bar == null && (what == Bar.JUMPS || what == Bar.SLIDES || what == Bar.SLID || what == Bar.APPEARS && f == FRAMES - LAST)) {
+                float at = what == Bar.JUMPS ? BAR_FROM : what == Bar.SLIDES ? SLIDE_FROM
+                        : what == Bar.SLID ? SLIDE_FROM + (FRAMES - 1) * SLIDE_STEP : BAR_TO;
+                bar = scene.mesh(cube, line).at(at, BAR_Y, BAR_Z)
                         .transform(new Matrix4f().rotateZ(BAR_TURN).scale(0.2f, 0.4f, 0.02f)).customData(0, 1f, 0.3f, 0.3f, 1f).spawn();
             }
             if (what == Bar.JUMPS) bar.at(f < FRAMES - LAST ? BAR_FROM : BAR_TO, BAR_Y, BAR_Z);
@@ -348,6 +355,28 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
     }
 
     /** How much brighter than {@code still} the box is on a run's last frame, 0 to 765. */
+    /**
+     * The mean absolute luma by which {@code run}'s sliding bar's last frame differs from it standing still there, less
+     * that by which a still frame differs from the still run's mean.
+     */
+    private double drag(HarnessContext ctx, String run, int[] box) throws IOException {
+        BufferedImage still = read(ctx, run + "-slid.png");
+        return Math.max(0, difference(capture(ctx, frameFile(run + "-slide.png", LAST - 1)), still, box)
+                - difference(capture(ctx, frameFile(run + "-slid.png", LAST - 1)), still, box));
+    }
+
+    private static double difference(BufferedImage a, BufferedImage b, int[] box) {
+        double s = 0;
+        int n = 0;
+        for (int y = box[1]; y < box[3]; y++) {
+            for (int x = box[0]; x < box[2]; x++) {
+                s += Math.abs(luma(a.getRGB(x, y)) - luma(b.getRGB(x, y)));
+                n++;
+            }
+        }
+        return s / Math.max(1, n);
+    }
+
     private double trail(HarnessContext ctx, String file, BufferedImage still, int[] box) throws IOException {
         return Math.max(0, mean(capture(ctx, frameFile(file, LAST - 1)), box) - mean(still, box));
     }
