@@ -33,8 +33,8 @@ import com.crystalgraphics.settings.CgQuality;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=upscale-lab --rhi=vulkan"
  * // , / .: screen percentage down / up (50, 58, 67, 77, 100); the harness keeps [ ] for emission    U: the upscale filter    G: the display-based percentage
- * // F5: temporal AA or TSR    F6: the anti-aliasing quality    N: the jitter on or off    P: the spinner paused or not
- * // F7 / F8: temporal AA, its sharpening
+ * // F5: temporal AA or TSR    F10: the anti-aliasing quality (the harness keeps F6 for kit looks)    N: the jitter on or off    P: the spinner paused or not
+ * // F7 / F8: temporal AA, its sharpening    K: the floor filtered (as a mipmapped texture is) or raw
  * }</pre>
  */
 public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard {
@@ -44,7 +44,7 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
     private static final float[] PERCENTAGES = {50f, 58f, 67f, 77f, 100f};
 
     private final List<CgMeshComponent> spawned = new ArrayList<>();
-    private CgMeshComponent spinner;
+    private CgMeshComponent spinner, floor;
     private Camera3D camera;
     private boolean paused;
     private int step = 2;
@@ -61,8 +61,10 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
         CgMesh cube = CgMeshShapes.cube(), quad = CgMeshShapes.quad(CgVertexFormat.SPATIAL, 1f, 1f);
         CgMaterialInstance line = CgMaterial.load(DIR + "taa_lab_line.shader").instance();
         CgMaterialInstance pane = CgMaterial.load(DIR + "taa_lab_pane.shader").instance();
-        CgMaterialInstance floor = CgMaterial.load(DIR + "upscale_lab_floor.shader").instance();
-        spawned.add(scene.mesh(cube, floor).at(0, -0.05, -20).scale(40f, 0.1f, 50f).spawn());
+        CgMaterialInstance floorMaterial = CgMaterial.load(DIR + "upscale_lab_floor.shader").instance();
+        // Its sides mid-cell: on a cell's edge a side's checker flips pixel to pixel on rounding
+        floor = scene.mesh(cube, floorMaterial).at(0.25, -0.05, -20.25).scale(40f, 0.1f, 50f).customData(0, 1f, 0f, 0f, 0f).spawn();
+        spawned.add(floor);
         for (int i = 0; i < 24; i++) {
             float turn = (float) Math.toRadians(2 + i * 3.6);
             spawned.add(scene.mesh(cube, line).at(-3.2, 1.6, -2).transform(new Matrix4f().rotateZ(turn).translate(1.6f, 0f, 0f)
@@ -99,10 +101,11 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
             case CgKeyCodes.KEY_U -> view.upscaleFilter(CgUpscaleFilter.values()[(view.upscaleFilter().ordinal() + 1) % CgUpscaleFilter.values().length]);
             case CgKeyCodes.KEY_G -> view.screenPercentageAuto(!view.screenPercentageAuto());
             case CgKeyCodes.KEY_F5 -> view.antiAliasing(view.antiAliasing() == CgAntiAliasing.TSR ? CgAntiAliasing.TAA : CgAntiAliasing.TSR);
-            case CgKeyCodes.KEY_F6 -> CgGraphicsSettings.ANTI_ALIASING.set(
+            case CgKeyCodes.KEY_F10 -> CgGraphicsSettings.ANTI_ALIASING.set(
                     CgQuality.values()[(CgGraphicsSettings.ANTI_ALIASING.get().ordinal() + 1) % CgQuality.values().length]);
             case CgKeyCodes.KEY_N -> view.jitter(!view.jitters());
             case CgKeyCodes.KEY_P -> paused = !paused;
+            case CgKeyCodes.KEY_K -> floor.customData(0, floorFiltered() ? 0f : 1f, 0f, 0f, 0f);
             default -> {
                 return true;
             }
@@ -117,8 +120,12 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
                 view.screenPercentageAuto() ? String.format(Locale.ROOT, "auto %.0f%%", view.resolutionFraction() * 100f)
                         : String.format(Locale.ROOT, "%.0f%%", view.screenPercentage()),
                 view.width(), view.height(), view.outputWidth(), view.outputHeight(), view.upscaleFilter(),
-                view.jitters() ? "on" : "off", view.antiAliasing()) + " | Quality [F6]: " + CgGraphicsSettings.ANTI_ALIASING.get()
-                + "\nSpinner [P]: " + (paused ? "paused" : "spinning");
+                view.jitters() ? "on" : "off", view.antiAliasing()) + " | Quality [F10]: " + CgGraphicsSettings.ANTI_ALIASING.get()
+                + "\nSpinner [P]: " + (paused ? "paused" : "spinning") + " | Floor [K]: " + (floorFiltered() ? "filtered" : "raw");
+    }
+
+    private boolean floorFiltered() {
+        return floor.customData(0, 0) > 0.5f;
     }
 
     @Override
