@@ -58,6 +58,7 @@ import com.crystalgraphics.platform.world.CgWorldQuery;
 import java.util.function.IntConsumer;
 import com.crystalgraphics.world.actor.CgEntity;
 import com.crystalgraphics.world.actor.CgEntityActor;
+import com.crystalgraphics.net.object.CgNetEntities;
 import com.crystalgraphics.world.actor.CgEntityActors;
 import com.crystalgraphics.sequence.binding.CgSequenceRole;
 import com.crystalgraphics.sequence.animation.CgSequenceSkeletal;
@@ -670,7 +671,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         fighters.set(actors);
         for (Actor actor : actors) {
             registrations.add(CgEntityActors.register(actor.type, () -> actor));
-            CgEntityActors.entered(actor.id, actor.type);
+            CgNetEntities.entered(actor.id, actor.type);
         }
         if (goku != null) dressFace(actors.get(0), goku);
         for (Actor actor : actors) {
@@ -1197,7 +1198,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         CgWorld.client().timeDilation(1f);   // the client world outlives the scene
         for (Actor actor : actors) {
             actor.release();
-            CgEntityActors.left(actor.id);
+            CgNetEntities.left(actor.id);
         }
         for (CgEntityActors.Registration r : registrations) r.close();
         CgPlatform.provide(CgLevels.HOST, null);
