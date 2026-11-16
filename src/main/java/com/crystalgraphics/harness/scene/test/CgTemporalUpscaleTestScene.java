@@ -23,6 +23,7 @@ import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.gpu.resource.CgFrameRing;
 import com.crystalgraphics.harness.FrameInfo;
 import com.crystalgraphics.harness.HarnessSceneLifecycle;
+import com.crystalgraphics.harness.capture.HarnessCapture;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.harness.util.HarnessTarget;
@@ -77,8 +78,11 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
      */
     private static final float BLINK_X = -2.4f, BLINK_Y = 2.6f, BLINK_Z = -8f, BLINK_LOW = 0.5f, BLINK_HIGH = 1f;
 
-    /** What a run draws besides the still bars: the turned bar, the burst (in the scene or apart), or the blinking patch. */
-    private enum Bar { NONE, JUMPS, APPEARS, BURST, BURST_APART, BLINK }
+    /** The turned bar sliding: from where, how far a frame. Its trail is what the reprojection field (High and up) keeps clean. */
+    private static final float SLIDE_FROM = -2.6f, SLIDE_STEP = 0.02f;
+
+    /** What a run draws besides the still bars: the turned bar (jumping, appearing, sliding), the burst, or the blinking patch. */
+    private enum Bar { NONE, JUMPS, APPEARS, SLIDES, BURST, BURST_APART, BLINK }
 
     private CgMaterialInstance line, glass, spark;
     /** Every capture read, decoded once. */
@@ -118,9 +122,11 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             run(ctx, CgAntiAliasing.TAA, 100f, "taa-full-apart.png", Bar.BURST_APART);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-apart.png", Bar.BURST_APART);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-blink.png", Bar.BLINK);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-slide.png", Bar.SLIDES);
             CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.MEDIUM);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium.png", Bar.NONE);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium-blink.png", Bar.BLINK);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium-slide.png", Bar.SLIDES);
             CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.LOW);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low.png", Bar.NONE);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low-jump.png", Bar.JUMPS);
@@ -181,6 +187,17 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
                     failures.add(String.format(Locale.ROOT, "TSR smears the %s burst more than TAA: %.2f against %.2f", drawn, tsrTrail, taaTrail));
                 }
                 if (tsrHere < 1.0) failures.add("TSR lost the " + drawn + " burst: " + String.format(Locale.ROOT, "%.2f", tsrHere));
+            }
+
+            // Behind the sliding bar on the last frame, against the same quality's still picture
+            float slidAt = SLIDE_FROM + (FRAMES - 1) * SLIDE_STEP;
+            int[] behind = box(slidAt - 0.6f, slidAt - 0.25f, BAR_Y - 0.25f, BAR_Y + 0.25f, BAR_Z);
+            double ultraTrail = trail(ctx, "tsr-half-slide.png", read(ctx, "tsr-half.png"), behind);
+            double mediumTrail = trail(ctx, "tsr-half-medium-slide.png", read(ctx, "tsr-half-medium.png"), behind);
+            System.out.printf(Locale.ROOT, "[temporal-upscale] behind the sliding bar: Ultra (reprojection field) %.2f, Medium %.2f%n",
+                    ultraTrail, mediumTrail);
+            if (ultraTrail > mediumTrail + 1.0) {
+                failures.add(String.format(Locale.ROOT, "the sliding bar trails more from High: %.2f against Medium's %.2f", ultraTrail, mediumTrail));
             }
 
             // The blinking patch from frame to frame: from High the flicker heuristic keeps its history through the blink
@@ -293,11 +310,12 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             target.bind();
             target.clear(0.02f, 0.02f, 0.03f, 1f);
             draw(scene, cube);
-            if (bar == null && (what == Bar.JUMPS || what == Bar.APPEARS && f == FRAMES - LAST)) {
-                bar = scene.mesh(cube, line).at(what == Bar.JUMPS ? BAR_FROM : BAR_TO, BAR_Y, BAR_Z)
+            if (bar == null && (what == Bar.JUMPS || what == Bar.SLIDES || what == Bar.APPEARS && f == FRAMES - LAST)) {
+                bar = scene.mesh(cube, line).at(what == Bar.JUMPS ? BAR_FROM : what == Bar.SLIDES ? SLIDE_FROM : BAR_TO, BAR_Y, BAR_Z)
                         .transform(new Matrix4f().rotateZ(BAR_TURN).scale(0.2f, 0.4f, 0.02f)).customData(0, 1f, 0.3f, 0.3f, 1f).spawn();
             }
             if (what == Bar.JUMPS) bar.at(f < FRAMES - LAST ? BAR_FROM : BAR_TO, BAR_Y, BAR_Z);
+            if (what == Bar.SLIDES) bar.at(SLIDE_FROM + f * SLIDE_STEP, BAR_Y, BAR_Z);
             if (what == Bar.BLINK) {
                 float b = f % 2 == 0 ? BLINK_LOW : BLINK_HIGH;
                 scene.once().mesh(cube, line).at(BLINK_X, BLINK_Y, BLINK_Z).scale(0.6f, 0.6f, 0.02f).customData(0, b, b, b, 1f).add();
@@ -312,7 +330,8 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, view, projection);
             HarnessWorld.fireCallbacks();
             CgFrameRing.endFrame();
-            if (f >= FRAMES - LAST) target.captureToFile(ctx.getOutputDir(), frameFile(file, f - (FRAMES - LAST)));
+            // Kept in memory: a PNG a frame would outlast the harness's stall watchdog; each run's mean is written
+            if (f >= FRAMES - LAST) captures.put(frameFile(file, f - (FRAMES - LAST)), HarnessCapture.image(target.external()));
             target.unbind();
         }
         if (bar != null) bar.remove();
