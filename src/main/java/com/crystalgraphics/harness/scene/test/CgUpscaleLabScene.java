@@ -29,7 +29,7 @@ import com.crystalgraphics.render.view.CgView;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=upscale-lab --rhi=vulkan"
- * // [ / ]: screen percentage down / up (50, 58, 67, 77, 100)    U: the upscale filter    A: the display-based percentage
+ * // , / .: screen percentage down / up (50, 58, 67, 77, 100); the harness keeps [ ] for emission    U: the upscale filter    A: the display-based percentage
  * // N: the jitter on or off    P: the spinner paused or not    F7 / F8: temporal AA, its sharpening
  * }</pre>
  */
@@ -90,8 +90,8 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
         if (!event.pressed() || event.repeat()) return true;
         CgView view = CgView.main();
         switch (event.key()) {
-            case CgKeyCodes.KEY_LBRACKET -> view.screenPercentage(PERCENTAGES[step = Math.max(0, step - 1)]);
-            case CgKeyCodes.KEY_RBRACKET -> view.screenPercentage(PERCENTAGES[step = Math.min(PERCENTAGES.length - 1, step + 1)]);
+            case CgKeyCodes.KEY_COMMA -> view.screenPercentage(PERCENTAGES[step = Math.max(0, step - 1)]);
+            case CgKeyCodes.KEY_PERIOD -> view.screenPercentage(PERCENTAGES[step = Math.min(PERCENTAGES.length - 1, step + 1)]);
             case CgKeyCodes.KEY_U -> view.upscaleFilter(CgUpscaleFilter.values()[(view.upscaleFilter().ordinal() + 1) % CgUpscaleFilter.values().length]);
             case CgKeyCodes.KEY_A -> view.screenPercentageAuto(!view.screenPercentageAuto());
             case CgKeyCodes.KEY_N -> view.jitter(!view.jitters());
@@ -106,7 +106,7 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
     @Override
     public String hudLine() {
         CgView view = CgView.main();
-        return String.format(Locale.ROOT, "Screen %% [ / ]: %s -> %dx%d of %dx%d | Filter [U]: %s | Jitter [N]: %s",
+        return String.format(Locale.ROOT, "Screen %% [, .]: %s -> %dx%d of %dx%d | Filter [U]: %s | Jitter [N]: %s",
                 view.screenPercentageAuto() ? String.format(Locale.ROOT, "auto %.0f%%", view.resolutionFraction() * 100f)
                         : String.format(Locale.ROOT, "%.0f%%", view.screenPercentage()),
                 view.width(), view.height(), view.outputWidth(), view.outputHeight(), view.upscaleFilter(),
