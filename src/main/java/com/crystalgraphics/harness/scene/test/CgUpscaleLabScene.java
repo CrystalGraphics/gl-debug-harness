@@ -23,6 +23,8 @@ import com.crystalgraphics.render.post.upscale.CgUpscaleFilter;
 import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.render.scene.component.CgMeshComponent;
 import com.crystalgraphics.render.view.CgView;
+import com.crystalgraphics.settings.CgGraphicsSettings;
+import com.crystalgraphics.settings.CgQuality;
 
 /**
  * Screen percentage and TSR to play with (R14d, R14e): taa-lab's wires, far fence, spinner and dithered panes over a fine checker floor,
@@ -31,7 +33,8 @@ import com.crystalgraphics.render.view.CgView;
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=upscale-lab --rhi=vulkan"
  * // , / .: screen percentage down / up (50, 58, 67, 77, 100); the harness keeps [ ] for emission    U: the upscale filter    G: the display-based percentage
- * // T: temporal AA or TSR    N: the jitter on or off    P: the spinner paused or not    F7 / F8: temporal AA, its sharpening
+ * // F5: temporal AA or TSR    F6: the anti-aliasing quality    N: the jitter on or off    P: the spinner paused or not
+ * // F7 / F8: temporal AA, its sharpening
  * }</pre>
  */
 public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard {
@@ -95,7 +98,9 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
             case CgKeyCodes.KEY_PERIOD -> view.screenPercentage(PERCENTAGES[step = Math.min(PERCENTAGES.length - 1, step + 1)]);
             case CgKeyCodes.KEY_U -> view.upscaleFilter(CgUpscaleFilter.values()[(view.upscaleFilter().ordinal() + 1) % CgUpscaleFilter.values().length]);
             case CgKeyCodes.KEY_G -> view.screenPercentageAuto(!view.screenPercentageAuto());
-            case CgKeyCodes.KEY_T -> view.antiAliasing(view.antiAliasing() == CgAntiAliasing.TSR ? CgAntiAliasing.TAA : CgAntiAliasing.TSR);
+            case CgKeyCodes.KEY_F5 -> view.antiAliasing(view.antiAliasing() == CgAntiAliasing.TSR ? CgAntiAliasing.TAA : CgAntiAliasing.TSR);
+            case CgKeyCodes.KEY_F6 -> CgGraphicsSettings.ANTI_ALIASING.set(
+                    CgQuality.values()[(CgGraphicsSettings.ANTI_ALIASING.get().ordinal() + 1) % CgQuality.values().length]);
             case CgKeyCodes.KEY_N -> view.jitter(!view.jitters());
             case CgKeyCodes.KEY_P -> paused = !paused;
             default -> {
@@ -108,11 +113,12 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
     @Override
     public String hudLine() {
         CgView view = CgView.main();
-        return String.format(Locale.ROOT, "Screen %% [, .] auto [G]: %s -> %dx%d of %dx%d | Filter [U]: %s | Jitter [N]: %s | Temporal [T]: %s",
+        return String.format(Locale.ROOT, "Screen %% [, .] auto [G]: %s -> %dx%d of %dx%d | Filter [U]: %s | Jitter [N]: %s | Temporal [F5]: %s",
                 view.screenPercentageAuto() ? String.format(Locale.ROOT, "auto %.0f%%", view.resolutionFraction() * 100f)
                         : String.format(Locale.ROOT, "%.0f%%", view.screenPercentage()),
                 view.width(), view.height(), view.outputWidth(), view.outputHeight(), view.upscaleFilter(),
-                view.jitters() ? "on" : "off", view.antiAliasing()) + "\nSpinner [P]: " + (paused ? "paused" : "spinning");
+                view.jitters() ? "on" : "off", view.antiAliasing()) + " | Quality [F6]: " + CgGraphicsSettings.ANTI_ALIASING.get()
+                + "\nSpinner [P]: " + (paused ? "paused" : "spinning");
     }
 
     @Override

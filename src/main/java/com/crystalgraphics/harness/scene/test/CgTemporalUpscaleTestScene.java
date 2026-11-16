@@ -6,10 +6,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import javax.imageio.ImageIO;
 
 import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
 import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgMaterialInstance;
@@ -29,14 +31,21 @@ import com.crystalgraphics.render.post.CgPostRenderer;
 import com.crystalgraphics.render.post.aa.CgTemporalAA;
 import com.crystalgraphics.render.post.upscale.CgAntiAliasing;
 import com.crystalgraphics.render.scene.CgScene;
+import com.crystalgraphics.render.scene.component.CgMeshComponent;
 import com.crystalgraphics.render.view.CgView;
+import com.crystalgraphics.settings.CgGraphicsSettings;
+import com.crystalgraphics.settings.CgQuality;
+import com.crystalgraphics.trace.CgGpuTrace;
+import com.crystalgraphics.trace.CgTrace;
 
 /**
  * TSR's gate (R14e): a still frame of bars and posts settled through temporal AA at 100%, the reference, then through TSR
- * at 50, 67 and 100%, and through temporal AA at 50% upscaled spatially, each into one 640x360 target. TSR at 50% must
- * keep more of the reference's edges than temporal AA at 50%, and every TSR picture stay near the reference. Bloom is
- * off: each step keeps a thin light's energy for bloom its own way, and the gate measures the upscale. Scene id
- * {@code temporal-upscale}.
+ * at 50, 67 and 100% and at each anti-aliasing quality, and through temporal AA at 50% upscaled spatially, each into one
+ * 640x360 target. TSR at 50% must keep more of the reference's edges than temporal AA at 50%, and every TSR picture stay
+ * near the reference. A bar that jumps away must leave TSR no more ghost than temporal AA, over the frames after, and a
+ * turned bar appearing with no history behind it must land smoother from Medium than at Low (spatial anti-aliasing). Bloom
+ * is off: each step keeps a thin light's energy for bloom its own way, and the gate measures the upscale. Then each TSR
+ * pass's GPU time at a 1440p output, reported. Scene id {@code temporal-upscale}.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=temporal-upscale --rhi=vulkan"
@@ -47,6 +56,15 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
     private static final int W = 640, H = 360, FRAMES = 96;
     /** The last frames each run keeps: the picture is their mean, its wobble their spread. */
     private static final int LAST = 8;
+    /** The timing run: its output, frames, and those before the timing starts. */
+    private static final int TIMED_W = 2560, TIMED_H = 1440, TIMED_FRAMES = 48, TIMED_WARMUP = 16;
+    /** Where the jumping bar stands until the last frames, and where it jumps to (world x; y 1.2 is the screen's middle). */
+    private static final float BAR_FROM = -2.2f, BAR_TO = -1.6f, BAR_Y = 1.2f, BAR_Z = -4f;
+    /** The bar's turn: its edges appear as stairs, which the spatial anti-aliasing smooths the frame they are seen. */
+    private static final float BAR_TURN = (float) Math.toRadians(30);
+
+    /** What the turned bar does in a run. */
+    private enum Bar { NONE, JUMPS, APPEARS }
 
     private CgMaterialInstance line;
     private final Matrix4f projection = new Matrix4f(), view = new Matrix4f();
@@ -66,19 +84,31 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
         CgTemporalAA.enable(main, true);
         float bloom = main.post().settings().bloomIntensity();
         main.post().settings().bloomIntensity(0f);
+        CgQuality quality = CgGraphicsSettings.ANTI_ALIASING.get();
         try {
-            run(ctx, CgAntiAliasing.TAA, 100f, "taa-full.png");
-            run(ctx, CgAntiAliasing.TAA, 50f, "taa-half.png");
-            run(ctx, CgAntiAliasing.TSR, 100f, "tsr-full.png");
-            run(ctx, CgAntiAliasing.TSR, 67f, "tsr-67.png");
-            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half.png");
+            CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.ULTRA);
+            run(ctx, CgAntiAliasing.TAA, 100f, "taa-full.png", Bar.NONE);
+            run(ctx, CgAntiAliasing.TAA, 50f, "taa-half.png", Bar.NONE);
+            run(ctx, CgAntiAliasing.TSR, 100f, "tsr-full.png", Bar.NONE);
+            run(ctx, CgAntiAliasing.TSR, 67f, "tsr-67.png", Bar.NONE);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half.png", Bar.NONE);
+            run(ctx, CgAntiAliasing.TAA, 100f, "taa-full-jump.png", Bar.JUMPS);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-jump.png", Bar.JUMPS);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-appear.png", Bar.APPEARS);
+            CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.MEDIUM);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium.png", Bar.NONE);
+            CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.LOW);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low.png", Bar.NONE);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low-jump.png", Bar.JUMPS);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low-appear.png", Bar.APPEARS);
+
             BufferedImage reference = read(ctx, "taa-full.png"), taaHalf = read(ctx, "taa-half.png");
             double referenceEdges = edges(reference), taaHalfEdges = edges(taaHalf);
             System.out.printf(Locale.ROOT, "[temporal-upscale] TAA 100%%: edge energy %.0f, wobble %.2f; TAA 50%% spatial: %.0f,"
                     + " %.2f from it, wobble %.2f%n", referenceEdges, wobble(ctx, "taa-full.png", reference), taaHalfEdges,
                     change(reference, taaHalf), wobble(ctx, "taa-half.png", taaHalf));
             double tsrHalfEdges = 0;
-            for (String file : new String[]{"tsr-full.png", "tsr-67.png", "tsr-half.png"}) {
+            for (String file : new String[]{"tsr-full.png", "tsr-67.png", "tsr-half.png", "tsr-half-medium.png", "tsr-half-low.png"}) {
                 BufferedImage img = read(ctx, file);
                 double off = change(reference, img), e = edges(img);
                 if (file.equals("tsr-half.png")) tsrHalfEdges = e;
@@ -91,12 +121,36 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
                 failures.add(String.format(Locale.ROOT, "TSR at 50%% keeps no more edges than TAA at 50%% upscaled: %.0f against %.0f",
                         tsrHalfEdges, taaHalfEdges));
             }
+
+            // Where the bar stood, against the same method's still picture, over the frames after it jumped
+            int[] box = barBox(BAR_FROM);
+            double taaGhost = ghost(ctx, "taa-full-jump.png", reference, box);
+            double tsrGhost = ghost(ctx, "tsr-half-jump.png", read(ctx, "tsr-half.png"), box);
+            double lowGhost = ghost(ctx, "tsr-half-low-jump.png", read(ctx, "tsr-half-low.png"), box);
+            System.out.printf(Locale.ROOT, "[temporal-upscale] behind the jumped bar, over the %d frames after: TAA 100%% %.2f,"
+                    + " TSR 50%% %.2f, TSR 50%% Low %.2f%n", LAST, taaGhost, tsrGhost, lowGhost);
+            if (tsrGhost > taaGhost + 1.0) {
+                failures.add(String.format(Locale.ROOT, "TSR's jumped bar leaves more ghost than TAA's: %.2f against %.2f", tsrGhost, taaGhost));
+            }
+            // The bar the frame it appears, no history behind it: smoothed at once from Medium, at Low only by the kernel
+            int[] appeared = barBox(BAR_TO);
+            int spatial = between(ImageIO.read(new File(ctx.getOutputDir(), frameFile("tsr-half-appear.png", 0))), appeared);
+            int low = between(ImageIO.read(new File(ctx.getOutputDir(), frameFile("tsr-half-low-appear.png", 0))), appeared);
+            System.out.printf(Locale.ROOT, "[temporal-upscale] the appeared bar's in-between texels the frame it appears: TSR 50%% %d,"
+                    + " Low %d%n", spatial, low);
+            if (spatial <= low) {
+                failures.add("the spatial anti-aliasing smoothed nothing: the appeared bar has " + spatial + " in-between texels, Low " + low);
+            }
+
+            CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.ULTRA);
+            timing();
         } catch (IOException e) {
             failures.add("the captures could not be read: " + e);
         } finally {
             CgTemporalAA.enable(main, false);
             main.post().settings().bloomIntensity(bloom);
             main.screenPercentage(100f).antiAliasing(CgAntiAliasing.TAA);
+            CgGraphicsSettings.ANTI_ALIASING.set(quality);
         }
         report(failures, DeviceErrors.checkAndLog("temporal-upscale"));
     }
@@ -134,31 +188,135 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
         return sum / LAST;
     }
 
+    /** How much brighter than {@code still} the box is over a jump run's last frames, on average, 0 to 765. */
+    private static double ghost(HarnessContext ctx, String file, BufferedImage still, int[] box) throws IOException {
+        double sum = 0;
+        for (int k = 0; k < LAST; k++) {
+            sum += Math.max(0, mean(ImageIO.read(new File(ctx.getOutputDir(), frameFile(file, k))), box) - mean(still, box));
+        }
+        return sum / LAST;
+    }
+
     private static String frameFile(String file, int k) {
         return file.replace(".png", "-" + k + ".png");
     }
 
-    /** FRAMES still frames through {@code method} at {@code percent} into one target, the last captured. */
-    private void run(HarnessContext ctx, CgAntiAliasing method, float percent, String file) {
+    /**
+     * FRAMES still frames through {@code method} at {@code percent} into one target, the last LAST captured. A turned bar
+     * that {@link Bar#JUMPS} stands at {@link #BAR_FROM} until those frames and jumps to {@link #BAR_TO} as they begin, its
+     * velocity written (a component, as what moves is); one that {@link Bar#APPEARS} is spawned at {@link #BAR_TO} then.
+     */
+    private void run(HarnessContext ctx, CgAntiAliasing method, float percent, String file, Bar what) {
         CgView.main().screenPercentage(percent).antiAliasing(method);
         HarnessTarget target = HarnessTarget.create(W, H, true);
         CgScene scene = CgScene.client();
         CgMesh cube = CgMeshShapes.cube();
+        CgMeshComponent bar = null;
         for (int f = 0; f < FRAMES; f++) {
             target.bind();
             target.clear(0.02f, 0.02f, 0.03f, 1f);
-            scene.once().mesh(cube, line).at(0.6, 0.4, -5).transform(new Matrix4f().rotateZ((float) Math.toRadians(4)).scale(3f, 0.15f, 0.02f))
-                    .customData(0, 1f, 0.9f, 0.6f, 1f).add();
-            for (int i = 0; i < 12; i++) {
-                scene.once().mesh(cube, line).at(-3 + i * 0.5, 1.2, -9).scale(0.04f, 1.6f, 0.04f).customData(0, 0.6f, 0.85f, 1f, 2f).add();
+            draw(scene, cube);
+            if (bar == null && (what == Bar.JUMPS || what == Bar.APPEARS && f == FRAMES - LAST)) {
+                bar = scene.mesh(cube, line).at(what == Bar.JUMPS ? BAR_FROM : BAR_TO, BAR_Y, BAR_Z)
+                        .transform(new Matrix4f().rotateZ(BAR_TURN).scale(0.2f, 0.4f, 0.02f)).customData(0, 1f, 0.3f, 0.3f, 1f).spawn();
             }
+            if (what == Bar.JUMPS) bar.at(f < FRAMES - LAST ? BAR_FROM : BAR_TO, BAR_Y, BAR_Z);
             CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, view, projection);
             HarnessWorld.fireCallbacks();
             CgFrameRing.endFrame();
             if (f >= FRAMES - LAST) target.captureToFile(ctx.getOutputDir(), frameFile(file, f - (FRAMES - LAST)));
             target.unbind();
         }
+        if (bar != null) bar.remove();
         target.delete();
+    }
+
+    /** The still bars and posts, for one frame. */
+    private void draw(CgScene scene, CgMesh cube) {
+        scene.once().mesh(cube, line).at(0.6, 0.4, -5).transform(new Matrix4f().rotateZ((float) Math.toRadians(4)).scale(3f, 0.15f, 0.02f))
+                .customData(0, 1f, 0.9f, 0.6f, 1f).add();
+        for (int i = 0; i < 12; i++) {
+            scene.once().mesh(cube, line).at(-3 + i * 0.5, 1.2, -9).scale(0.04f, 1.6f, 0.04f).customData(0, 0.6f, 0.85f, 1f, 2f).add();
+        }
+    }
+
+    /** TSR at 50% to a 1440p output, the default quality: each of its passes' mean GPU time, printed. */
+    private void timing() {
+        CgView.main().screenPercentage(50f).antiAliasing(CgAntiAliasing.TSR);
+        CgCamera.perspectiveMatrix(projection, 40f, (float) TIMED_W / TIMED_H, 0.05f, 100f);
+        boolean tracing = CgTrace.isEnabled(CgGpuTrace.GPU);
+        CgTrace.setEnabled(CgGpuTrace.GPU, true);
+        HarnessTarget target = HarnessTarget.create(TIMED_W, TIMED_H, true);
+        CgScene scene = CgScene.client();
+        CgMesh cube = CgMeshShapes.cube();
+        try {
+            for (int f = 0; f < TIMED_FRAMES; f++) {
+                if (f == TIMED_WARMUP) CgGpuTrace.resetTotals();
+                target.bind();
+                target.clear(0.02f, 0.02f, 0.03f, 1f);
+                draw(scene, cube);
+                CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, TIMED_W, TIMED_H, target.external()).camera()
+                        .set(0, 0, 0, view, projection);
+                HarnessWorld.fireCallbacks();
+                CgFrameRing.endFrame();
+                CgGpuTrace.collect();
+                target.unbind();
+            }
+            if (!CgGpuTrace.isMeasuring()) {
+                System.out.println("[temporal-upscale] GPU timing is not measured on this device");
+                return;
+            }
+            StringBuilder passes = new StringBuilder();
+            double total = 0;
+            for (Map.Entry<String, long[]> e : CgGpuTrace.totals().entrySet()) {
+                if (!e.getKey().startsWith("post.tsr.") || e.getValue()[1] == 0) continue;
+                double ms = e.getValue()[0] / 1e6 / e.getValue()[1];
+                total += ms;
+                passes.append(String.format(Locale.ROOT, " %s %.3f", e.getKey().substring("post.tsr.".length()), ms));
+            }
+            System.out.printf(Locale.ROOT, "[temporal-upscale] TSR 50%% to %dx%d, GPU ms a frame:%s; total %.3f%n", TIMED_W, TIMED_H,
+                    passes, total);
+        } finally {
+            target.delete();
+            CgTrace.setEnabled(CgGpuTrace.GPU, tracing);
+            CgCamera.perspectiveMatrix(projection, 40f, (float) W / H, 0.05f, 100f);
+        }
+    }
+
+    /** The turned bar's bounds at {@code x}, on screen: centred on the middle row, so the row order does not matter. */
+    private int[] barBox(float x) {
+        Matrix4f clip = new Matrix4f(projection).mul(view);
+        Vector4f a = clip.transform(new Vector4f(x - 0.2f, BAR_Y - 0.25f, BAR_Z, 1f));
+        Vector4f b = clip.transform(new Vector4f(x + 0.2f, BAR_Y + 0.25f, BAR_Z, 1f));
+        int x0 = (int) Math.floor((a.x / a.w * 0.5 + 0.5) * W), x1 = (int) Math.ceil((b.x / b.w * 0.5 + 0.5) * W);
+        int ya = (int) Math.round((0.5 - a.y / a.w * 0.5) * H), yb = (int) Math.round((0.5 - b.y / b.w * 0.5) * H);
+        return new int[]{Math.max(0, x0), Math.max(0, Math.min(ya, yb)), Math.min(W - 1, x1), Math.min(H - 1, Math.max(ya, yb))};
+    }
+
+    /** Texels in the box between a fifth and four fifths of its brightest: an edge's in-between coverage. */
+    private static int between(BufferedImage img, int[] box) {
+        int most = 0;
+        for (int y = box[1]; y < box[3]; y++) for (int x = box[0]; x < box[2]; x++) most = Math.max(most, luma(img.getRGB(x, y)));
+        int count = 0;
+        for (int y = box[1]; y < box[3]; y++) {
+            for (int x = box[0]; x < box[2]; x++) {
+                int l = luma(img.getRGB(x, y));
+                if (l > most / 5 && l < most * 4 / 5) count++;
+            }
+        }
+        return count;
+    }
+
+    private static double mean(BufferedImage img, int[] box) {
+        double sum = 0;
+        int n = 0;
+        for (int y = box[1]; y < box[3]; y++) {
+            for (int x = box[0]; x < box[2]; x++) {
+                sum += luma(img.getRGB(x, y));
+                n++;
+            }
+        }
+        return sum / Math.max(1, n);
     }
 
     /** The mean absolute luma change between two captures, 0 to 765. */
@@ -196,7 +354,7 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             for (String failure : failures) System.out.println("[temporal-upscale] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[temporal-upscale] PASS on " + on + ": TSR rebuilds 50% and 67% near the 100% reference,"
-                    + " keeping more edges than temporal AA upscaled spatially");
+                    + " keeping more edges than temporal AA upscaled spatially; a jumped bar leaves no more ghost, an appeared one lands smoothed");
         }
     }
 
