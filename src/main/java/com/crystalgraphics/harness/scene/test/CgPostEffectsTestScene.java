@@ -23,7 +23,7 @@ import com.crystalgraphics.render.post.CgPostContext;
 import com.crystalgraphics.render.post.CgPostEffect;
 import com.crystalgraphics.render.post.CgPostPoint;
 import com.crystalgraphics.render.post.CgPostRenderer;
-import com.crystalgraphics.render.post.volume.CgPostSettings;
+import com.crystalgraphics.render.post.settings.CgPostSettings;
 import com.crystalgraphics.render.scene.component.CgPostVolume;
 import org.joml.Matrix4f;
 

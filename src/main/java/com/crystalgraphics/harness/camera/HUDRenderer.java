@@ -9,7 +9,7 @@ import com.crystalgraphics.text.style.CgTextLayer;
 import com.crystalgraphics.text.style.CgTextStyle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.post.CgPost;
-import com.crystalgraphics.render.post.bloom.CgBloom;
+import com.crystalgraphics.render.post.settings.CgPostSettings;
 import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.vfx.CgVfxSystem;
 import com.crystalgraphics.vfx.camera.CgCameraShake;
@@ -94,7 +94,7 @@ public final class HUDRenderer {
 
     private String text(HarnessContext ctx) {
         Camera3D camera = ctx.getCamera3D();
-        CgBloom bloom = CgPost.client().bloom();
+        CgPostSettings bloom = CgPost.client().settings();
         StringBuilder text = new StringBuilder()
                 .append(String.format("FPS: %.0f | 1%% low %.0f | worst %.2f ms", fps, lowFps, worstMs))
                 .append(String.format("\nPos: %.2f %.2f %.2f \\ %.2f° %.2f°",
@@ -104,7 +104,7 @@ public final class HUDRenderer {
             text.append(HarnessCameraShake.INSTANCE.on()
                     ? String.format("\nShake [C]: on, trauma %.2f", CgCameraShake.trauma()) : "\nShake [C]: off");
         }
-        text.append(bloom.intensity() == 0f ? "\nBloom [L]: off" : String.format("\nBloom [L]: on, %.2f [- =]", bloom.intensity()));
+        text.append(bloom.bloomIntensity() == 0f ? "\nBloom [L]: off" : String.format("\nBloom [L]: on, %.2f [- =]", bloom.bloomIntensity()));
         if (shakeAndGlow) text.append(String.format(" | Emission [ ]: %.2f", CgView.main().flag(CgSceneRenderer.SCENE_EMISSION)));
         String own = sceneLines.get();
         if (own != null) text.append('\n').append(own);

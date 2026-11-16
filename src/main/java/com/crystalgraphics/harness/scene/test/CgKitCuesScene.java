@@ -27,7 +27,7 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgui.app.cues.CueSelection;
 import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
-import com.crystalgraphics.render.post.volume.CgColourRegion;
+import com.crystalgraphics.render.scene.component.CgColourRegion;
 import com.crystalgraphics.asset.kind.CgSequenceKinds;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencer;

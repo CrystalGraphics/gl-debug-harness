@@ -1,6 +1,9 @@
 package com.crystalgraphics.harness.scene.test;
 
 
+import com.crystalgraphics.render.scene.component.CgPostVolume;
+import com.crystalgraphics.api.material.CgMaterialInstance;
+import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.world.actor.kit.CgKitAssets;
 import com.crystalgraphics.world.actor.kit.CgKitModels;
 import com.crystalgraphics.animation.CgAnimInstance;
@@ -43,7 +46,7 @@ import com.crystalgraphics.render.stage.CgDirectionalLights;
 
 
 import com.crystalgraphics.render.scene.component.CgSkeletalMeshComponent;
-import com.crystalgraphics.render.post.stage.CgStage;
+import com.crystalgraphics.render.scene.prefab.CgPrefabInstance;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
 import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.binding.CgMaterialParameters;
@@ -384,9 +387,11 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private int selected;
     private CgMaterial material;
     private CgTickFunction submit;
-    /** The engine's outline in the kit's look, once Goku is dressed. */
+    /** The engine's outline in the kit's look, once Goku is dressed: its volume, and its material for the tests. */
     @Nullable
-    private CgOutline outline;
+    private CgPostVolume outline;
+    @Nullable
+    private CgMaterialInstance outlineMaterial;
 
     /** Under {@code -Dcrystalgraphics.harness.skinnedPlay.cut=true}: frames since Goku's cut was played unattended, or -1. */
     private int cutFrames = Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.cut") ? 0 : -1, cutRuns, cutStart;
@@ -399,7 +404,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private boolean kitFailureLogged;
     /** E: the ocean arena, once the kit is ready; where the darkening's material sits in the kit's list. */
     @Nullable
-    private CgStage stage;
+    private CgPrefabInstance stage;
     private int darkenMaterial = -1;
     /** Whether the bodies' files have been read and their actors made, or their reading failed. */
     private boolean bodiesLoaded;
@@ -796,15 +801,16 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
                     if (outline == null && actor.outlineBlock != null) {
                         // The engine's outline in the kit's look: before every post material, as the game's outline
                         // draws after lighting (cut capture 4376), so the stage's colouring and a skill's grade darken it
-                        outline = CgOutline.add(CgMaterial.of(kit.material(actor.kitMaterials.size()).get()));
+                        outlineMaterial = CgOutline.material(CgMaterial.of(kit.material(actor.kitMaterials.size()).get()));
+                        outline = CgScene.client().postVolume(CgOutline.settings(outlineMaterial)).spawn();
                         if (Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.outlineYellow")) {
                             // A debug view: every pixel the outline draws in full yellow, not the capture's 0.35 black
-                            outline.material().vec4("OutlineColor", 1f, 1f, 0f, 1f).set1f("Intensity", 1f)
+                            outlineMaterial.vec4("OutlineColor", 1f, 1f, 0f, 1f).set1f("Intensity", 1f)
                                     .set1f("UseOutlineColor", 1f);
                         }
                         LOGGER.info("[skinned-play] {}: outlined by {}", actor.name, BATTLE_OUTLINE);
                         if (Boolean.getBoolean("crystalgraphics.harness.skinnedPlay.outlineCheck")) {
-                            outlineCheck = new SkinnedOutlineCheck(outline, List.of(actor.instance), actor.x, actor.z, actor.height,
+                            outlineCheck = new SkinnedOutlineCheck(outline, outlineMaterial, List.of(actor.instance), actor.x, actor.z, actor.height,
                                     keyed -> sequencer.play(keyed, Map.of("caster", actor)));
                         }
                     }
@@ -1058,7 +1064,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             case CgKeyCodes.KEY_O -> {
                 if (outline == null) break;
                 outlineTests = (outlineTests + 1) % OUTLINE_TESTS.length;
-                outline.tests(outlineTests < 2, outlineTests == 0 || outlineTests == 2,
+                CgOutline.tests(outlineMaterial, outlineTests < 2, outlineTests == 0 || outlineTests == 2,
                         outlineTests == 0 || outlineTests == 3);
             }
             default -> {
@@ -1139,9 +1145,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     private void stage(boolean on) {
         if (kit == null || !kit.ready() || on == (stage != null)) return;
         if (on) {
-            stage = CgStage.place(kit.stage(0).get(), 0, 0, 0);
+            stage = CgScene.client().spawn(kit.stage(0).get()).spawn();
         } else {
-            stage.close();
+            stage.remove();
             stage = null;
         }
         LOGGER.info("[skinned-play] the ocean arena's post chain {}", on ? "on" : "off");
@@ -1184,8 +1190,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
         CgLoadingScreen.remove(arena);
         if (submit != null) submit.close();
         if (beams != null) beams.close();
-        if (outline != null) outline.close();
-        if (stage != null) stage.close();
+        if (outline != null) outline.remove();
+        if (stage != null) stage.remove();
         if (darken != null) darken.close();
         if (stageLight != null) stageLight.close();
         CgWorld.client().timeDilation(1f);   // the client world outlives the scene

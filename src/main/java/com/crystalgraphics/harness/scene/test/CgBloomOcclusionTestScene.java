@@ -18,7 +18,6 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.post.CgPost;
 import com.crystalgraphics.render.post.CgPostRenderer;
-import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.settings.CgGraphicsSettings;
 import com.crystalgraphics.settings.CgQuality;
 import org.joml.Matrix4f;
@@ -97,7 +96,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
         failure = compare(ctx, "emission-only", false);
         if (failure != null) failures.add("emission-only: " + failure);
         covered(ctx, scene, failures);
-        CgPost.client().bloom().intensity(1f);
+        CgPost.client().settings().bloomIntensity(1f);
         report(failures, DeviceErrors.checkAndLog("bloom-occlusion"));
     }
 
@@ -124,7 +123,7 @@ public class CgBloomOcclusionTestScene implements HarnessSceneLifecycle {
                           boolean hidden, float emission, float bloom, CgMaterialInterface cover, String file) {
         target.bind();
         target.clear(0.05f, 0.05f, 0.07f, 1f);
-        CgPost.client().bloom().intensity(bloom);
+        CgPost.client().settings().bloomIntensity(bloom);
         CgMesh cube = CgMeshShapes.cube(), sphere = CgMeshShapes.sphere(24, 32);
         scene.once().mesh(cube, wall).at(0, 0, -5).transform(new Matrix4f().scale(6f, 6f, 0.2f)).add();
         if (ball != null) {

@@ -21,17 +21,16 @@ import com.crystalgraphics.render.post.CgPost;
 import com.crystalgraphics.render.post.CgPostRenderer;
 import com.crystalgraphics.render.post.look.CgColorGrade;
 import com.crystalgraphics.render.post.look.CgFilmLut;
-import com.crystalgraphics.render.post.volume.CgImpact;
-import com.crystalgraphics.render.post.volume.CgColourRegion;
-import com.crystalgraphics.render.post.volume.CgPostSettings;
-import com.crystalgraphics.render.post.volume.CgPostSettings.Control;
-import com.crystalgraphics.render.post.volume.CgPostSettings.Region;
+import com.crystalgraphics.render.post.settings.CgImpact;
+import com.crystalgraphics.render.scene.component.CgColourRegion;
+import com.crystalgraphics.render.post.settings.CgPostSettings;
+import com.crystalgraphics.render.post.settings.CgPostSettings.Control;
+import com.crystalgraphics.render.post.settings.CgPostSettings.Region;
 import com.crystalgraphics.render.scene.component.CgPostVolume;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import com.crystalgraphics.render.precache.CgPipelinePrecache;
 import com.crystalgraphics.settings.CgGraphicsSettings;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -91,7 +90,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
             CgWarmBudget.nextFrame();
         }
         if (!warm.ready()) System.out.println("[post-looks] its programs were not built in " + WARM_NANOS / 1_000_000_000L + " s");
-        CgPost.client().bloom().intensity(1f);
+        CgPost.client().settings().bloomIntensity(1f);
         List<String> failures = new ArrayList<>();
         float flashes = CgGraphicsSettings.FLASHES.get();
         CgGraphicsSettings.FLASHES.set(1f);
@@ -198,18 +197,17 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         // A colour region over the graded ball grades its layer's light too: at gain 0 its own bloom beside it is gone.
         // The ball writes no depth, so its pixels are where the wall behind it is: the region holds that.
         CgPostSettings dark = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).bloom(0f);
-        CgColourRegion box = new CgColourRegion().shape(CgColourRegion.Shape.BOX).fade(0.9f, 1f)
-                .grade(CgColourRegion.Range.GLOBAL, CgColourRegion.Control.GAIN, 1f, 1f, 1f, 0f)
-                .place(1.6, 0, -4.9, new Quaternionf(), 1.4f, 1.4f, 1.4f);
         float[] regionBeside = new float[2];
         for (int r = 0; r < 2; r++) {
-            CgPost.Registration region = r == 1 ? box.show() : null;
+            CgColourRegion region = r == 1 ? scene.colourRegion().shape(CgColourRegion.Shape.BOX).fade(0.9f, 1f)
+                    .grade(CgColourRegion.Range.GLOBAL, CgColourRegion.Control.GAIN, 1f, 1f, 1f, 0f)
+                    .at(1.6, 0, -4.9).scale(1.4f).spawn() : null;
             glassGrade = dark;
             BufferedImage regionDark = draw(ctx, scene, "graded-region-" + r + "-dark", v -> { });
             glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).gaussianBloom();
             BufferedImage bloomedHere = draw(ctx, scene, "graded-region-" + r, v -> { });
             regionBeside[r] = mean(bloomedHere, 204, 116, 12, 8) - mean(regionDark, 204, 116, 12, 8);
-            if (region != null) region.close();
+            if (region != null) region.remove();
         }
         gradedSaturation[6] = regionBeside[1] / regionBeside[0];
         if (!(regionBeside[0] > 1f && regionBeside[1] < regionBeside[0] * 0.1f)) {

@@ -15,16 +15,14 @@ import com.crystalgraphics.render.post.CgPostMaterial;
 import com.crystalgraphics.render.post.CgPostPoint;
 import com.crystalgraphics.render.post.CgPost;
 import com.crystalgraphics.render.post.CgPostRenderer;
-import com.crystalgraphics.render.post.volume.CgPostSettings;
+import com.crystalgraphics.render.post.settings.CgPostSettings;
 import com.crystalgraphics.render.scene.component.CgPostVolume;
-import com.crystalgraphics.render.stage.CgRenderStage;
 import org.joml.Matrix4f;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 
 /**
  * G0.10's gate, the post chain's transitions, each firing a cleared target checked at its middle:

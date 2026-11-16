@@ -29,7 +29,7 @@ import com.crystalgraphics.harness.camera.FloorRenderer;
 import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.camera.HarnessCameraShake;
 import com.crystalgraphics.render.post.CgPost;
-import com.crystalgraphics.render.post.bloom.CgBloom;
+import com.crystalgraphics.render.post.settings.CgPostSettings;
 import com.crystalgraphics.harness.capture.ArtifactService;
 import com.crystalgraphics.harness.capture.CaptureCallback;
 import com.crystalgraphics.harness.config.HarnessContext;
@@ -693,11 +693,11 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // [ ]: emission, the HDR scene's glow gain, down or up; - =: bloom's intensity, while it is on. Held, they repeat.
             if (event.pressed() && !isCtrlDown() && letters) {
                 CgScene scene = CgScene.client();
-                CgBloom bloom = CgPost.client().bloom();
+                CgPostSettings bloom = CgPost.client().settings();
                 if (event.key() == CgKeyCodes.KEY_LBRACKET) CgView.main().override(CgSceneRenderer.SCENE_EMISSION, CgView.main().flag(CgSceneRenderer.SCENE_EMISSION) / 1.25f);
                 if (event.key() == CgKeyCodes.KEY_RBRACKET) CgView.main().override(CgSceneRenderer.SCENE_EMISSION, CgView.main().flag(CgSceneRenderer.SCENE_EMISSION) * 1.25f);
-                if (event.key() == CgKeyCodes.KEY_MINUS && bloom.intensity() > 0f) bloom.intensity(bloom.intensity() / 1.25f);
-                if (event.key() == CgKeyCodes.KEY_EQUALS && bloom.intensity() > 0f) bloom.intensity(bloom.intensity() * 1.25f);
+                if (event.key() == CgKeyCodes.KEY_MINUS && bloom.bloomIntensity() > 0f) bloom.bloomIntensity(bloom.bloomIntensity() / 1.25f);
+                if (event.key() == CgKeyCodes.KEY_EQUALS && bloom.bloomIntensity() > 0f) bloom.bloomIntensity(bloom.bloomIntensity() * 1.25f);
             }
             // H: half-resolution draws (the beams' glow and light volumes) at half size, or at full size to compare.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_H && !isCtrlDown()
@@ -793,12 +793,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     /** Off (intensity 0, its value kept), or back on at that value. */
     private static void toggleBloom() {
-        CgBloom bloom = CgPost.client().bloom();
-        if (bloom.intensity() == 0f) {
-            bloom.intensity(bloomIntensity);
+        CgPostSettings bloom = CgPost.client().settings();
+        if (bloom.bloomIntensity() == 0f) {
+            bloom.bloomIntensity(bloomIntensity);
         } else {
-            bloomIntensity = bloom.intensity();
-            bloom.intensity(0f);
+            bloomIntensity = bloom.bloomIntensity();
+            bloom.bloomIntensity(0f);
         }
     }
 

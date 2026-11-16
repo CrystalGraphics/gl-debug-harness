@@ -1,5 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
+import com.crystalgraphics.render.scene.component.CgPostVolume;
+import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.platform.rhi.resource.CgTextureView;
 import com.crystalgraphics.animation.CgAnimInstance;
 
@@ -54,7 +56,8 @@ final class SkinnedOutlineCheck {
             + "  - { id: t2, kind: global, collection: crystalgraphics:outline, sections: [ { id: s2, range: [0, 60],"
             + " completion: restore_state, colours: { Type1: { keys: [[0, [1.0, 0.0, 0.0, 1.0], constant]] } } } ] }\n";
 
-    private final CgOutline outline;
+    private final CgPostVolume outline;
+    private final CgMaterialInstance outlineMaterial;
     private final List<CgAnimInstance> held;
     private final CgRenderStage.Registration reader;
     /** Goku's CustomStencil as the outline samples it. */
@@ -74,13 +77,14 @@ final class SkinnedOutlineCheck {
     private final Function<CgSequenceDefinition, CgSequencePlayer> play;
     private CgSequencePlayer keyed;
 
-    SkinnedOutlineCheck(CgOutline outline, List<CgAnimInstance> held, double x, double z, float height,
+    SkinnedOutlineCheck(CgPostVolume outline, CgMaterialInstance outlineMaterial, List<CgAnimInstance> held, double x, double z, float height,
                         Function<CgSequenceDefinition, CgSequencePlayer> play) {
         this.play = play;
         this.eyeX = (float) x;
         this.eyeY = height * 0.7f;
         this.eyeZ = (float) z + 1.8f;
         this.outline = outline;
+        this.outlineMaterial = outlineMaterial;
         this.held = held;
         this.reader = CgRenderStage.TRANSLUCENT.register(1, stage -> {
             CgGraphTexture mask = stage.view().textures().customDepth();
@@ -160,7 +164,7 @@ final class SkinnedOutlineCheck {
         phase = next;
         wait = SETTLE;
         outline.weight(next == 1 ? 0f : 1f);
-        outline.tests(next != 2, next != 3, next != 4);
+        CgOutline.tests(outlineMaterial, next != 2, next != 3, next != 4);
         if (next == KEYED) keyed = play.apply(compile(KEYED_RED));
     }
 

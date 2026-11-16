@@ -24,8 +24,6 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.tool.DeviceErrors;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
-import com.crystalgraphics.render.draw.CgChunkBuilder;
-import com.crystalgraphics.render.draw.CgInstanceKind;
 import com.crystalgraphics.render.draw.CgOrder;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.graph.CgExecutor;
@@ -262,20 +260,20 @@ public class CgHdrSceneTestScene implements InteractiveSceneLifecycle {
         int changed = changed(host, true);
         if (changed != 0) return changed + " channel values changed";
         // Bloom off for the exact checks: the cube's excess blooms past it, which the last check asks for
-        float bloom = CgPost.client().bloom().intensity();
-        CgPost.client().bloom().intensity(0f);
+        float bloom = CgPost.client().settings().bloomIntensity();
+        CgPost.client().settings().bloomIntensity(0f);
         try {
             String opaque = opaqueRoundTrip(host, w, h, false, false);
             if (opaque == null) opaque = opaqueRoundTrip(host, w, h, true, false);
             if (opaque != null) return opaque;
         } finally {
-            CgPost.client().bloom().intensity(bloom);
+            CgPost.client().settings().bloomIntensity(bloom);
         }
-        CgPost.client().bloom().intensity(1f);
+        CgPost.client().settings().bloomIntensity(1f);
         try {
             return opaqueRoundTrip(host, w, h, false, true);
         } finally {
-            CgPost.client().bloom().intensity(bloom);
+            CgPost.client().settings().bloomIntensity(bloom);
         }
     }
 

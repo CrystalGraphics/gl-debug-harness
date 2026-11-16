@@ -68,7 +68,7 @@ public class CgCanvasGlassTestScene implements HarnessSceneLifecycle {
     public void render(HarnessContext ctx, FrameInfo frame) {
         CgScene scene = CgScene.client();
         CgPostRenderer.install();
-        CgPost.client().bloom().intensity(0f);
+        CgPost.client().settings().bloomIntensity(0f);
         List<String> failures = new ArrayList<>();
 
         draw(ctx, scene, null, false, "wall.png");
@@ -107,7 +107,7 @@ public class CgCanvasGlassTestScene implements HarnessSceneLifecycle {
             }
             if (seen > 0) failures.add("a pane behind the slab shows through it at " + seen + " pixels");
         }
-        CgPost.client().bloom().intensity(1f);
+        CgPost.client().settings().bloomIntensity(1f);
         report(failures, DeviceErrors.checkAndLog("canvas-glass"));
     }
 

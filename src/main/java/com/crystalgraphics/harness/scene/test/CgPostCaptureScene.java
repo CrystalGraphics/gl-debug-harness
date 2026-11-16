@@ -35,10 +35,8 @@ import com.crystalgraphics.render.graph.CgLoad;
 import com.crystalgraphics.render.graph.CgRasterPass;
 import com.crystalgraphics.render.graph.CgRecording;
 import com.crystalgraphics.render.post.CgPostRenderer;
-import com.crystalgraphics.render.post.CgPost;
-import com.crystalgraphics.render.post.volume.CgPostVolumePreparer;
-import com.crystalgraphics.render.post.volume.CgPostVolumeSpawner;
-import com.crystalgraphics.render.stage.CgRenderStage;
+import com.crystalgraphics.presentation.post.CgPostVolumePreparer;
+import com.crystalgraphics.presentation.post.CgPostVolumeSpawner;
 import com.crystalgraphics.sequence.CgSequencePlayer;
 import com.crystalgraphics.sequence.CgSequencer;
 import com.crystalgraphics.sequence.definition.CgSequenceDefinition;
@@ -222,7 +220,7 @@ public final class CgPostCaptureScene implements InteractiveSceneLifecycle, CgSy
         // The stage's brightness and fog are the captured frame's already.
         sequencer.environment(new CgSequenceSpawnScene.Fixture());
         CgSequenceDefinition definition = ref.get();
-        CgPostVolumeSpawner post = new CgPostVolumeSpawner(CgScene.client(), CgPost.client());
+        CgPostVolumeSpawner post = new CgPostVolumeSpawner(CgScene.client());
         for (CgSequenceDefinition.Spawnable s : definition.spawnables()) {
             if (!s.kind().equals("post")) sequencer.spawner(s.kind(), (p, sp, at) -> new StandIn());
         }
