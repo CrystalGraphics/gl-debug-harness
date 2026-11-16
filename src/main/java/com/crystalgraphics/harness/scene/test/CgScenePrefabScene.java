@@ -2,6 +2,7 @@ package com.crystalgraphics.harness.scene.test;
 
 import com.crystalgraphics.api.material.CgBlendMode;
 import com.crystalgraphics.api.material.CgShadingModels;
+import com.crystalgraphics.api.material.CgMaterialInterface;
 import com.crystalgraphics.api.material.CgSurfaceMaterial;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
@@ -16,6 +17,7 @@ import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.precache.CgPipelinePrecache;
 import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.render.scene.component.CgDecalComponent;
 import com.crystalgraphics.render.scene.component.CgMeshComponent;
@@ -38,12 +40,18 @@ import org.joml.Quaternionf;
  *   <li>An unlit yellow decal on the grey cube's face: yellow at its centre, grey around it.</li>
  * </ul>
  *
- * <p>Read back after {@link #CHECK_AT} frames, so every pipeline has built; PASS or FAIL on stdout.</p>
+ * <p>Read back {@link #SETTLE} frames after the precache has nothing left and at least {@link #CHECK_AT} have drawn, so
+ * every pipeline has built, its lit and decal materials' too (a fixed frame raced the precache once the post chain's
+ * grew); PASS or FAIL on stdout.</p>
  */
 public class CgScenePrefabScene implements InteractiveSceneLifecycle {
 
     private static final int W = 160, H = 120;
-    private static final int CHECK_AT = 90, GIVE_UP = 600;
+    private static final int CHECK_AT = 90, SETTLE = 30, GIVE_UP = 600;
+    /** The frame read back at, once the precache has emptied; -1 until then. */
+    private int readAt = -1;
+    /** The two drawn through passes built at first use, which the precache does not count. */
+    private CgMaterialInterface litMaterial, decalMaterial;
     private static final Matrix4f PROJECTION = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) W / H, 0.05f, 100f);
     private static final double Z = -6.0, FACE_Z = Z + 0.45;
     /** Where each stands along the row, 6 blocks ahead; their faces toward the eye half a cube nearer. */
@@ -73,17 +81,19 @@ public class CgScenePrefabScene implements InteractiveSceneLifecycle {
         prefab = scene.spawn(model).at(BASE_X, 0, Z).spawn();
         glass = scene.mesh(cube, CgSurfaceMaterial.of("harness:glass").blend(CgBlendMode.ALPHA).twoSided()
                 .shading(CgShadingModels.UNLIT).tint(0x800000FF).build()).at(GLASS_X, 0, Z).scale(0.9f).spawn();
-        lit = scene.mesh(cube, CgSurfaceMaterial.of("harness:lit").tint(0xFFC0C0C0).build()).at(LIT_X, 0, Z).scale(0.9f)
+        litMaterial = CgSurfaceMaterial.of("harness:lit").tint(0xFFC0C0C0).build();
+        lit = scene.mesh(cube, litMaterial).at(LIT_X, 0, Z).scale(0.9f)
                 .fullBright().spawn();
         // Its X looks down onto what it lands on: turned to look along -z, onto the base's front face
-        decal = scene.decal(CgSurfaceMaterial.decal("harness:yellow_decal").shading(CgShadingModels.UNLIT).tint(0xFFFFFF00).build())
+        decalMaterial = CgSurfaceMaterial.decal("harness:yellow_decal").shading(CgShadingModels.UNLIT).tint(0xFFFFFF00).build();
+        decal = scene.decal(decalMaterial)
                 .at(LIT_X, 0, FACE_Z).rotation(new Quaternionf().rotateY((float) Math.PI / 2)).size(0.3f, 0.12f, 0.12f).spawn();
         main = HarnessTarget.create(W, H, true);
     }
 
     @Override
     public void render(HarnessContext ctx, FrameInfo info) {
-        if (frame > CHECK_AT + 30 || frame > GIVE_UP) {
+        if (readAt >= 0 && frame > readAt + 30 || frame > GIVE_UP) {
             report();
             running = false;
             return;
@@ -98,7 +108,11 @@ public class CgScenePrefabScene implements InteractiveSceneLifecycle {
         scene.tick(1.0 / 60.0);
         view.camera().set(0, 0, 0, new Matrix4f(), PROJECTION);
         CgTexture2D picture = view.renderPicture(W, H, 0xFF0D0D12);
-        if (frame == CHECK_AT) {
+        if (readAt < 0 && frame >= CHECK_AT && CgPipelinePrecache.remaining() == 0 && litMaterial.precache()
+                && decalMaterial.precache()) {
+            readAt = frame + SETTLE;
+        }
+        if (frame == readAt) {
             int row = H / 2;
             read(picture, 0, column(BASE_X, FACE_Z), row);
             read(picture, 1, column(BASE_X + TIP_OFFSET, FACE_Z), row);

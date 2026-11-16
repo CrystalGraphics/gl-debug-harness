@@ -91,6 +91,8 @@ import com.crystalgraphics.harness.scene.test.CgLightsDemoBisectScene;
 import com.crystalgraphics.harness.scene.test.CgLightsDemoScene;
 import com.crystalgraphics.harness.scene.test.CgDepthOfFieldLabScene;
 import com.crystalgraphics.harness.scene.test.CgDepthOfFieldTestScene;
+import com.crystalgraphics.harness.scene.test.CgTemporalAALabScene;
+import com.crystalgraphics.harness.scene.test.CgTemporalAATestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
@@ -997,6 +999,32 @@ public final class SceneRegistry {
                 .clearColor(0.01f, 0.01f, 0.03f, 1.0f)
                 .build(),
             () -> new CgLightsDemoBisectScene(true)
+        );
+
+        reg.register(
+            SceneDescriptor.builder("taa-lab")
+                .description("Temporal AA to play with: a fan of wires and a far fence that alias, a spinning bar that must not ghost, dithered panes that settle")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.02f, 0.02f, 0.03f, 1.0f)
+                .build(),
+            () -> new CgTemporalAALabScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("temporal-aa").checksPixels()
+                .description("Temporal AA's gate: a dithered pane settles, a turned bar's edges resolve, a moved bar leaves no ghost")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(640)
+                .defaultHeight(360)
+                .clearColor(0.02f, 0.02f, 0.02f, 1.0f)
+                .build(),
+            () -> new CgTemporalAATestScene()
         );
 
         reg.register(
