@@ -199,8 +199,8 @@ public class CgMeshPassesTestScene implements InteractiveSceneLifecycle {
         read(p, rec, colour, floor, d -> halves(d, p.floor));
         read(p, rec, colour, decal, d -> halves(d, p.decal));
         read(p, rec, colour, pane, d -> halves(d, p.pane));
-        read(p, rec, velocity, moving, d -> halves(d, p.velocityMoving));
-        read(p, rec, velocity, green, d -> halves(d, p.velocityStill));
+        read(p, rec, velocity, moving, d -> unorms(d, p.velocityMoving));
+        read(p, rec, velocity, green, d -> unorms(d, p.velocityStill));
         read(p, rec, thermal, flagged, d -> p.heatFlagged = Float.float16ToFloat(d.getShort(0)));
         read(p, rec, thermal, green, d -> p.heatOther = Float.float16ToFloat(d.getShort(0)));
         CgGraphTexture bytes = stencilProbe.record(rec, constants, custom);
@@ -223,6 +223,11 @@ public class CgMeshPassesTestScene implements InteractiveSceneLifecycle {
 
     private static void halves(ByteBuffer data, float[] out) {
         for (int i = 0; i < out.length; i++) out[i] = Float.float16ToFloat(data.getShort(i * 2));
+    }
+
+    /** 16-bit unsigned normalized channels: the velocity target ({@code CgEnginePasses.VELOCITY_FORMAT}). */
+    private static void unorms(ByteBuffer data, float[] out) {
+        for (int i = 0; i < out.length; i++) out[i] = (data.getShort(i * 2) & 0xffff) / 65535f;
     }
 
     /** Where {@code (x, y, z)} lands on the target, from its bottom left. */

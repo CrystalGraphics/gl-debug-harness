@@ -93,6 +93,7 @@ import com.crystalgraphics.harness.scene.test.CgDepthOfFieldLabScene;
 import com.crystalgraphics.harness.scene.test.CgDepthOfFieldTestScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalAALabScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalAATestScene;
+import com.crystalgraphics.harness.scene.test.CgVelocityConformanceScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
@@ -1025,6 +1026,20 @@ public final class SceneRegistry {
                 .clearColor(0.02f, 0.02f, 0.02f, 1.0f)
                 .build(),
             () -> new CgTemporalAATestScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("velocity-conformance").checksPixels()
+                .description("The velocity layer's gate: rigid, attached, instanced and skinned motion as projected")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(640)
+                .defaultHeight(360)
+                .clearColor(0f, 0f, 0f, 1.0f)
+                .build(),
+            () -> new CgVelocityConformanceScene()
         );
 
         reg.register(
