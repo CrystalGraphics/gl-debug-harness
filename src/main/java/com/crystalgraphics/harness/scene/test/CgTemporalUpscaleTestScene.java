@@ -85,7 +85,14 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
     private static final float SLIDE_FROM = -3.1f, SLIDE_STEP = 0.02f;
 
     /** What a run draws besides the still bars: the turned bar (jumping, appearing, sliding), the burst, or the blinking patch. */
-    private enum Bar { NONE, JUMPS, APPEARS, SLIDES, SLID, BURST, BURST_APART, BLINK }
+    private enum Bar { NONE, JUMPS, APPEARS, SLIDES, SLID, HIDES, BURST, BURST_APART, BLINK }
+
+    /**
+     * A box that {@link Bar#HIDES} three posts from frame HIDE_FROM until the last frames, where it leaves: history
+     * resurrection (Medium and up) brings the posts back from a snapshot taken before it came.
+     */
+    private static final int HIDE_FROM = 60;
+    private static final float HIDE_X = -0.5f;
 
     private CgMaterialInstance line, glass, spark;
     /** Every capture read, decoded once. */
@@ -132,10 +139,12 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium-blink.png", Bar.BLINK);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium-slide.png", Bar.SLIDES);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium-slid.png", Bar.SLID);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium-hide.png", Bar.HIDES);
             CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.LOW);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low.png", Bar.NONE);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low-jump.png", Bar.JUMPS);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low-appear.png", Bar.APPEARS);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low-hide.png", Bar.HIDES);
 
             BufferedImage reference = read(ctx, "taa-full.png"), taaHalf = read(ctx, "taa-half.png");
             double referenceEdges = edges(reference), taaHalfEdges = edges(taaHalf);
@@ -203,6 +212,15 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
                     ultraDrag, mediumDrag);
             if (ultraDrag > mediumDrag) {
                 failures.add(String.format(Locale.ROOT, "the sliding bar's silhouette drags more from High: %.2f against Medium's %.2f", ultraDrag, mediumDrag));
+            }
+
+            // The posts the box hid, the two frames after it leaves, against the same quality's still picture
+            int[] hidden = box(HIDE_X - 0.25f, HIDE_X + 0.25f, BAR_Y - 0.45f, BAR_Y + 0.45f, BAR_Z);
+            double mediumBack = revealed(ctx, "tsr-half-medium", hidden), lowBack = revealed(ctx, "tsr-half-low", hidden);
+            System.out.printf(Locale.ROOT, "[temporal-upscale] the posts a box hid for %d frames, as it leaves: Medium (resurrection) %.2f, Low %.2f%n",
+                    FRAMES - LAST - HIDE_FROM, mediumBack, lowBack);
+            if (mediumBack >= lowBack) {
+                failures.add(String.format(Locale.ROOT, "resurrection did not bring the hidden posts back: Medium %.2f against Low's %.2f", mediumBack, lowBack));
             }
 
             // The blinking patch from frame to frame: from High the flicker heuristic keeps its history through the blink
@@ -323,6 +341,10 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             }
             if (what == Bar.JUMPS) bar.at(f < FRAMES - LAST ? BAR_FROM : BAR_TO, BAR_Y, BAR_Z);
             if (what == Bar.SLIDES) bar.at(SLIDE_FROM + f * SLIDE_STEP, BAR_Y, BAR_Z);
+            if (what == Bar.HIDES && f == HIDE_FROM) {
+                bar = scene.mesh(cube, line).at(HIDE_X, BAR_Y, BAR_Z).scale(0.3f, 0.5f, 0.02f).customData(0, 0.3f, 0.3f, 0.35f, 1f).spawn();
+            }
+            if (what == Bar.HIDES && f == FRAMES - LAST && bar != null) bar.at(50f, BAR_Y, BAR_Z);
             if (what == Bar.BLINK) {
                 float b = f % 2 == 0 ? BLINK_LOW : BLINK_HIGH;
                 scene.once().mesh(cube, line).at(BLINK_X, BLINK_Y, BLINK_Z).scale(0.6f, 0.6f, 0.02f).customData(0, b, b, b, 1f).add();
@@ -354,7 +376,6 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
         }
     }
 
-    /** How much brighter than {@code still} the box is on a run's last frame, 0 to 765. */
     /**
      * The mean absolute luma by which {@code run}'s sliding bar's last frame differs from it standing still there, less
      * that by which a still frame differs from the still run's mean.
@@ -363,6 +384,13 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
         BufferedImage still = read(ctx, run + "-slid.png");
         return Math.max(0, difference(capture(ctx, frameFile(run + "-slide.png", LAST - 1)), still, box)
                 - difference(capture(ctx, frameFile(run + "-slid.png", LAST - 1)), still, box));
+    }
+
+    /** The mean absolute luma by which {@code run}'s hide run differs from its still picture, the two frames after the box left. */
+    private double revealed(HarnessContext ctx, String run, int[] box) throws IOException {
+        BufferedImage still = read(ctx, run + ".png");
+        return 0.5 * (difference(capture(ctx, frameFile(run + "-hide.png", 0)), still, box)
+                + difference(capture(ctx, frameFile(run + "-hide.png", 1)), still, box));
     }
 
     private static double difference(BufferedImage a, BufferedImage b, int[] box) {
@@ -377,6 +405,7 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
         return s / Math.max(1, n);
     }
 
+    /** How much brighter than {@code still} the box is on a run's last frame, 0 to 765. */
     private double trail(HarnessContext ctx, String file, BufferedImage still, int[] box) throws IOException {
         return Math.max(0, mean(capture(ctx, frameFile(file, LAST - 1)), box) - mean(still, box));
     }
