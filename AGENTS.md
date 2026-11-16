@@ -728,6 +728,8 @@ The interactive runner sequences these steps every frame:
 | - = | Bloom's intensity down or up by a quarter while it is on (`CgBloom.intensity`); the HUD shows it |
 | H | Half-resolution draws on or off (the main view's `CgSceneRenderer.HALF_RESOLUTION`): the beams' glow and light volumes at half size, added back depth-aware, or at full size to compare |
 | J | The distortion target at half size or full size (the main view's `CgSceneRenderer.DISTORTION_SCALE`): the hazes' bend at a quarter of the pixels, or a pixel per texel to compare |
+| F7 | Temporal AA and its jitter on the main view, in every scene (`CgTemporalAA.enable`; the HUD's bloom line says which): a scene with and without, to compare |
+| F8 | Temporal AA's sharpening (RCAS, `CgTemporalAA.sharpening`) on or off, in every scene; the HUD's bloom line says which |
 | F9 | Day or night, under VFX Lab's sky over the harness world's white ground (`HarnessEnvironment`): a scene opts in with `editorEnvironment()`, any scene with `-Dcrystalgraphics.harness.environment=editor`. Off by default, since gates check pixels against the plain clear colour and floor |
 
 ### HUD Display

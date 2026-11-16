@@ -1,6 +1,7 @@
 package com.crystalgraphics.harness;
 
 import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
+import com.crystalgraphics.render.post.aa.CgTemporalAA;
 import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.render.CgFrameClock;
@@ -707,6 +708,14 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             // F1: the HUD hidden or shown.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F1 && overlayPipeline != null) {
                 overlayPipeline.toggleHud();
+            }
+            // F7: temporal AA and its jitter on the main view, in every scene: to compare a scene with and without.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F7) {
+                CgTemporalAA.enable(CgView.main(), !CgTemporalAA.enabled(CgView.main()));
+            }
+            // F8: temporal AA's sharpening (RCAS) on and off, in every scene.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F8) {
+                CgTemporalAA.sharpening(!CgTemporalAA.sharpening());
             }
             // F9: day and night under VFX Lab's sky, where the scene plays under it.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F9 && HarnessEnvironment.INSTANCE.enabled()) {

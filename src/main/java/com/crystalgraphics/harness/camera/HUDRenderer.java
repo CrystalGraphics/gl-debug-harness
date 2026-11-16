@@ -1,6 +1,7 @@
 package com.crystalgraphics.harness.camera;
 
 import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
+import com.crystalgraphics.render.post.aa.CgTemporalAA;
 import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.api.font.CgDefaultFont;
 import com.crystalgraphics.api.font.CgFont;
@@ -26,7 +27,7 @@ import java.util.function.Supplier;
  * Particles: n  (the median drawn a frame over the last 0.5 s)
  *
  * Shake [C]: on, trauma t | off
- * Bloom [L]: on, b [- =] | off | Emission [ ]: g
+ * Bloom [L]: on, b [- =] | off | Emission [ ]: g | Temporal AA [F7]: on | off, RCAS [F8]: on | off
  * </pre>
  */
 public final class HUDRenderer {
@@ -106,6 +107,8 @@ public final class HUDRenderer {
         }
         text.append(bloom.bloomIntensity() == 0f ? "\nBloom [L]: off" : String.format("\nBloom [L]: on, %.2f [- =]", bloom.bloomIntensity()));
         if (shakeAndGlow) text.append(String.format(" | Emission [ ]: %.2f", CgView.main().flag(CgSceneRenderer.SCENE_EMISSION)));
+        text.append(CgTemporalAA.enabled(CgView.main()) ? " | Temporal AA [F7]: on" : " | Temporal AA [F7]: off")
+                .append(CgTemporalAA.sharpening() ? ", RCAS [F8]: on" : ", RCAS [F8]: off");
         String own = sceneLines.get();
         if (own != null) text.append('\n').append(own);
         return text.toString();

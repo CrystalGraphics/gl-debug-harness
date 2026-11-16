@@ -19,6 +19,7 @@ import com.crystalgraphics.platform.input.CgKeyCodes;
 import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.render.scene.component.CgMeshComponent;
+import com.crystalgraphics.render.post.aa.CgTemporalAA;
 import com.crystalgraphics.render.view.CgView;
 
 /**
@@ -40,7 +41,7 @@ public final class CgTemporalAALabScene implements InteractiveSceneLifecycle, Cg
     private final List<CgMeshComponent> spawned = new ArrayList<>();
     private CgMeshComponent spinner;
     private Camera3D camera;
-    private boolean taa = true, jitter = true, paused;
+    private boolean paused;
     private int speed = 2;
     private double angle;
 
@@ -74,7 +75,7 @@ public final class CgTemporalAALabScene implements InteractiveSceneLifecycle, Cg
         for (int k = 0; k < 3; k++) {
             spawned.add(scene.mesh(quad, pane).at(-1.6 + k * 1.6, 1.4, 0).scale(1.2f).customData(0, 0.4f, 0.9f, 0.6f, cover[k]).spawn());
         }
-        apply();
+        CgTemporalAA.enable(CgView.main(), true);
     }
 
     @Override
@@ -84,17 +85,11 @@ public final class CgTemporalAALabScene implements InteractiveSceneLifecycle, Cg
         HarnessWorld.fire(ctx, camera.getViewMatrix(), ctx.getProjection());
     }
 
-    private void apply() {
-        CgView.main().showFlags().temporalAA(taa);
-        CgView.main().jitter(jitter);
-    }
-
     @Override
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         if (!event.pressed() || event.repeat()) return true;
         switch (event.key()) {
-            case CgKeyCodes.KEY_K -> taa = !taa;
-            case CgKeyCodes.KEY_N -> jitter = !jitter;
+            case CgKeyCodes.KEY_N -> CgView.main().jitter(!CgView.main().jitters());
             case CgKeyCodes.KEY_P -> paused = !paused;
             case CgKeyCodes.KEY_UP -> speed = Math.min(SPEEDS.length - 1, speed + 1);
             case CgKeyCodes.KEY_DOWN -> speed = Math.max(0, speed - 1);
@@ -102,14 +97,13 @@ public final class CgTemporalAALabScene implements InteractiveSceneLifecycle, Cg
                 return true;
             }
         }
-        apply();
         return true;
     }
 
     @Override
     public String hudLine() {
-        return String.format(Locale.ROOT, "Temporal AA [K]: %s | Jitter [N]: %s | Spinner [P, Up/Down]: %s %sx",
-                taa ? "on" : "off", jitter ? "on" : "off", paused ? "paused" : "spinning", SPEEDS[speed])
+        return String.format(Locale.ROOT, "Jitter [N]: %s | Spinner [P, Up/Down]: %s %sx",
+                CgView.main().jitters() ? "on" : "off", paused ? "paused" : "spinning", SPEEDS[speed])
                 + "\nPanes, left to right: a quarter, half and three quarters dithered (DitherOpacityMask)";
     }
 
@@ -117,8 +111,6 @@ public final class CgTemporalAALabScene implements InteractiveSceneLifecycle, Cg
     public void dispose() {
         for (CgMeshComponent c : spawned) c.remove();
         spawned.clear();
-        CgView.main().showFlags().temporalAA(false);
-        CgView.main().jitter(false);
     }
 
     @Override public boolean isRunning() { return true; }
