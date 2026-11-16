@@ -126,7 +126,7 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
         for (CgMeshComponent c : spawned) c.remove();
         spawned.clear();
         CgView.main().screenPercentage(100f).screenPercentageAuto(false).upscaleFilter(CgUpscaleFilter.CATMULL_ROM)
-                .antiAliasing(CgAntiAliasing.TAA);
+                .antiAliasing(CgAntiAliasing.TSR);
     }
 
     @Override public boolean isRunning() { return true; }

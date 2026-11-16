@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.imageio.ImageIO;
@@ -36,18 +37,17 @@ import com.crystalgraphics.render.scene.component.CgMeshComponent;
 import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.settings.CgGraphicsSettings;
 import com.crystalgraphics.settings.CgQuality;
-import com.crystalgraphics.trace.CgGpuTrace;
-import com.crystalgraphics.trace.CgTrace;
 
 /**
  * TSR's gate (R14e): a still frame of bars and posts settled through temporal AA at 100%, the reference, then through TSR
  * at 50, 67 and 100% and at each anti-aliasing quality, and through temporal AA at 50% upscaled spatially, each into one
  * 640x360 target. TSR at 50% must keep more of the reference's edges than temporal AA at 50%, and every TSR picture stay
  * near the reference. A bar that jumps away must leave TSR no more ghost than temporal AA, over the frames after, and a
- * turned bar appearing with no history behind it must land smoother from Medium than at Low (spatial anti-aliasing), and
+ * turned bar appearing with no history behind it must land smoother from Medium than at Low (spatial anti-aliasing); a
+ * patch blinking every frame must hold at least twice as still from High as at Medium (the flicker heuristic); and
  * a burst of translucent quads, which write no velocity, must leave TSR no longer a trail than temporal AA. Bloom
- * is off: each step keeps a thin light's energy for bloom its own way, and the gate measures the upscale. Then each TSR
- * pass's GPU time at a 1440p output, reported. Scene id {@code temporal-upscale}.
+ * is off: each step keeps a thin light's energy for bloom its own way, and the gate measures the upscale; TSR's GPU time
+ * is {@code temporal-upscale-timing}'s. Scene id {@code temporal-upscale}.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=temporal-upscale --rhi=vulkan"
@@ -58,8 +58,6 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
     private static final int W = 640, H = 360, FRAMES = 96;
     /** The last frames each run keeps: the picture is their mean, its wobble their spread. */
     private static final int LAST = 8;
-    /** The timing run: its output, frames, and those before the timing starts, long enough for the GPU's clocks to rise. */
-    private static final int TIMED_W = 2560, TIMED_H = 1440, TIMED_FRAMES = 180, TIMED_WARMUP = 120;
     /** Where the jumping bar stands until the last frames, and where it jumps to (world x; y 1.2 is the screen's middle). */
     private static final float BAR_FROM = -2.2f, BAR_TO = -1.6f, BAR_Y = 1.2f, BAR_Z = -4f;
     /** The bar's turn: its edges appear as stairs, which the spatial anti-aliasing smooths the frame they are seen. */
@@ -72,10 +70,19 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
     private static final int QUADS = 8, BURST_FRAMES = 20;
     private static final float BURST_X = -3.2f, BURST_SPEED = 0.12f, BURST_Z = -6f, BURST_TRAIL = -1.3f;
 
-    /** What moves in a run: the turned bar, or the burst, drawn in the scene or apart (separate translucency). */
-    private enum Bar { NONE, JUMPS, APPEARS, BURST, BURST_APART }
+    /**
+     * A patch whose shading flips every frame between two brightnesses, as specular aliasing does: what the flicker
+     * heuristic (High and up) is for. Below it the rejection drops the history each frame and the patch flickers at the
+     * input's full swing.
+     */
+    private static final float BLINK_X = -2.4f, BLINK_Y = 2.6f, BLINK_Z = -8f, BLINK_LOW = 0.5f, BLINK_HIGH = 1f;
+
+    /** What a run draws besides the still bars: the turned bar, the burst (in the scene or apart), or the blinking patch. */
+    private enum Bar { NONE, JUMPS, APPEARS, BURST, BURST_APART, BLINK }
 
     private CgMaterialInstance line, glass, spark;
+    /** Every capture read, decoded once. */
+    private final Map<String, BufferedImage> captures = new HashMap<>();
     private final Matrix4f projection = new Matrix4f(), view = new Matrix4f();
 
     @Override
@@ -110,8 +117,10 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-burst.png", Bar.BURST);
             run(ctx, CgAntiAliasing.TAA, 100f, "taa-full-apart.png", Bar.BURST_APART);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-apart.png", Bar.BURST_APART);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-blink.png", Bar.BLINK);
             CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.MEDIUM);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium.png", Bar.NONE);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium-blink.png", Bar.BLINK);
             CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.LOW);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low.png", Bar.NONE);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-low-jump.png", Bar.JUMPS);
@@ -149,8 +158,8 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             }
             // The bar the frame it appears, no history behind it: smoothed at once from Medium, at Low only by the kernel
             int[] appeared = barBox(BAR_TO);
-            int spatial = between(ImageIO.read(new File(ctx.getOutputDir(), frameFile("tsr-half-appear.png", 0))), appeared);
-            int low = between(ImageIO.read(new File(ctx.getOutputDir(), frameFile("tsr-half-low-appear.png", 0))), appeared);
+            int spatial = between(capture(ctx, frameFile("tsr-half-appear.png", 0)), appeared);
+            int low = between(capture(ctx, frameFile("tsr-half-low-appear.png", 0)), appeared);
             System.out.printf(Locale.ROOT, "[temporal-upscale] the appeared bar's in-between texels the frame it appears: TSR 50%% %d,"
                     + " Low %d%n", spatial, low);
             if (spatial <= low) {
@@ -163,7 +172,7 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             for (String drawn : new String[]{"burst", "apart"}) {
                 double taaTrail = trail(ctx, "taa-full-" + drawn + ".png", reference, trail);
                 double tsrTrail = trail(ctx, "tsr-half-" + drawn + ".png", tsrStill, trail);
-                double tsrHere = Math.abs(mean(ImageIO.read(new File(ctx.getOutputDir(), frameFile("tsr-half-" + drawn + ".png", LAST - 1))),
+                double tsrHere = Math.abs(mean(capture(ctx, frameFile("tsr-half-" + drawn + ".png", LAST - 1)),
                         burstBox()) - mean(tsrStill, burstBox()));
                 System.out.printf(Locale.ROOT, "[temporal-upscale] the translucent burst (%s): behind it TAA 100%% %.2f, TSR 50%% %.2f;"
                         + " where it is, TSR %.2f over the still picture%n", drawn.equals("apart") ? "separate translucency" : "in the scene",
@@ -174,24 +183,33 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
                 if (tsrHere < 1.0) failures.add("TSR lost the " + drawn + " burst: " + String.format(Locale.ROOT, "%.2f", tsrHere));
             }
 
-            CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.ULTRA);
-            timing();
+            // The blinking patch from frame to frame: from High the flicker heuristic keeps its history through the blink
+            int[] blink = box(BLINK_X - 0.3f, BLINK_X + 0.3f, BLINK_Y - 0.3f, BLINK_Y + 0.3f, BLINK_Z);
+            double ultraBlink = wobble(ctx, "tsr-half-blink.png", read(ctx, "tsr-half-blink.png"), blink);
+            double mediumBlink = wobble(ctx, "tsr-half-medium-blink.png", read(ctx, "tsr-half-medium-blink.png"), blink);
+            System.out.printf(Locale.ROOT, "[temporal-upscale] the patch blinking every frame, its wobble at 50%%: Ultra (flicker"
+                    + " heuristic) %.2f, Medium %.2f%n", ultraBlink, mediumBlink);
+            if (ultraBlink > mediumBlink * 0.5) {
+                failures.add(String.format(Locale.ROOT, "the flicker heuristic did not hold the blinking patch: %.2f against Medium's %.2f",
+                        ultraBlink, mediumBlink));
+            }
+
         } catch (IOException e) {
             failures.add("the captures could not be read: " + e);
         } finally {
             CgTemporalAA.enable(main, false);
             main.post().settings().bloomIntensity(bloom);
-            main.screenPercentage(100f).antiAliasing(CgAntiAliasing.TAA);
+            main.screenPercentage(100f).antiAliasing(CgAntiAliasing.TSR);
             CgGraphicsSettings.ANTI_ALIASING.set(quality);
         }
         report(failures, DeviceErrors.checkAndLog("temporal-upscale"));
     }
 
     /** The mean of a run's last frames, as one image. */
-    private static BufferedImage read(HarnessContext ctx, String file) throws IOException {
+    private BufferedImage read(HarnessContext ctx, String file) throws IOException {
         double[] sum = new double[W * H * 3];
         for (int k = 0; k < LAST; k++) {
-            BufferedImage img = ImageIO.read(new File(ctx.getOutputDir(), frameFile(file, k)));
+            BufferedImage img = capture(ctx, frameFile(file, k));
             for (int y = 0; y < H; y++) {
                 for (int x = 0; x < W; x++) {
                     int c = img.getRGB(x, y), i = (y * W + x) * 3;
@@ -214,19 +232,46 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
     }
 
     /** How far a run's last frames move about their mean: the mean absolute luma change, 0 to 765. */
-    private static double wobble(HarnessContext ctx, String file, BufferedImage mean) throws IOException {
+    private double wobble(HarnessContext ctx, String file, BufferedImage mean) throws IOException {
         double sum = 0;
-        for (int k = 0; k < LAST; k++) sum += change(mean, ImageIO.read(new File(ctx.getOutputDir(), frameFile(file, k))));
+        for (int k = 0; k < LAST; k++) sum += change(mean, capture(ctx, frameFile(file, k)));
+        return sum / LAST;
+    }
+
+    /** {@link #wobble(HarnessContext, String, BufferedImage)} within a box: its mean absolute luma change. */
+    private double wobble(HarnessContext ctx, String file, BufferedImage mean, int[] box) throws IOException {
+        double sum = 0;
+        for (int k = 0; k < LAST; k++) {
+            BufferedImage img = capture(ctx, frameFile(file, k));
+            double s = 0;
+            int n = 0;
+            for (int y = box[1]; y < box[3]; y++) {
+                for (int x = box[0]; x < box[2]; x++) {
+                    s += Math.abs(luma(img.getRGB(x, y)) - luma(mean.getRGB(x, y)));
+                    n++;
+                }
+            }
+            sum += s / Math.max(1, n);
+        }
         return sum / LAST;
     }
 
     /** How much brighter than {@code still} the box is over a jump run's last frames, on average, 0 to 765. */
-    private static double ghost(HarnessContext ctx, String file, BufferedImage still, int[] box) throws IOException {
+    private double ghost(HarnessContext ctx, String file, BufferedImage still, int[] box) throws IOException {
         double sum = 0;
         for (int k = 0; k < LAST; k++) {
-            sum += Math.max(0, mean(ImageIO.read(new File(ctx.getOutputDir(), frameFile(file, k))), box) - mean(still, box));
+            sum += Math.max(0, mean(capture(ctx, frameFile(file, k)), box) - mean(still, box));
         }
         return sum / LAST;
+    }
+
+    private BufferedImage capture(HarnessContext ctx, String file) throws IOException {
+        BufferedImage img = captures.get(file);
+        if (img == null) {
+            img = ImageIO.read(new File(ctx.getOutputDir(), file));
+            captures.put(file, img);
+        }
+        return img;
     }
 
     private static String frameFile(String file, int k) {
@@ -253,6 +298,10 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
                         .transform(new Matrix4f().rotateZ(BAR_TURN).scale(0.2f, 0.4f, 0.02f)).customData(0, 1f, 0.3f, 0.3f, 1f).spawn();
             }
             if (what == Bar.JUMPS) bar.at(f < FRAMES - LAST ? BAR_FROM : BAR_TO, BAR_Y, BAR_Z);
+            if (what == Bar.BLINK) {
+                float b = f % 2 == 0 ? BLINK_LOW : BLINK_HIGH;
+                scene.once().mesh(cube, line).at(BLINK_X, BLINK_Y, BLINK_Z).scale(0.6f, 0.6f, 0.02f).customData(0, b, b, b, 1f).add();
+            }
             if ((what == Bar.BURST || what == Bar.BURST_APART) && f >= FRAMES - BURST_FRAMES) {
                 float front = BURST_X + (f - (FRAMES - BURST_FRAMES)) * BURST_SPEED;
                 for (int q = 0; q < QUADS; q++) {
@@ -279,52 +328,9 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
         }
     }
 
-    /** TSR at 50% to a 1440p output, the default quality: each of its passes' mean GPU time, printed. */
-    private void timing() {
-        CgView.main().screenPercentage(50f).antiAliasing(CgAntiAliasing.TSR);
-        CgCamera.perspectiveMatrix(projection, 40f, (float) TIMED_W / TIMED_H, 0.05f, 100f);
-        boolean tracing = CgTrace.isEnabled(CgGpuTrace.GPU);
-        CgTrace.setEnabled(CgGpuTrace.GPU, true);
-        HarnessTarget target = HarnessTarget.create(TIMED_W, TIMED_H, true);
-        CgScene scene = CgScene.client();
-        CgMesh cube = CgMeshShapes.cube();
-        try {
-            for (int f = 0; f < TIMED_FRAMES; f++) {
-                if (f == TIMED_WARMUP) CgGpuTrace.resetTotals();
-                target.bind();
-                target.clear(0.02f, 0.02f, 0.03f, 1f);
-                draw(scene, cube);
-                CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, TIMED_W, TIMED_H, target.external()).camera()
-                        .set(0, 0, 0, view, projection);
-                HarnessWorld.fireCallbacks();
-                CgFrameRing.endFrame();
-                CgGpuTrace.collect();
-                target.unbind();
-            }
-            if (!CgGpuTrace.isMeasuring()) {
-                System.out.println("[temporal-upscale] GPU timing is not measured on this device");
-                return;
-            }
-            StringBuilder passes = new StringBuilder();
-            double total = 0;
-            for (Map.Entry<String, long[]> e : CgGpuTrace.totals().entrySet()) {
-                if (!e.getKey().startsWith("post.tsr.") || e.getValue()[1] == 0) continue;
-                double ms = e.getValue()[0] / 1e6 / e.getValue()[1];
-                total += ms;
-                passes.append(String.format(Locale.ROOT, " %s %.3f", e.getKey().substring("post.tsr.".length()), ms));
-            }
-            System.out.printf(Locale.ROOT, "[temporal-upscale] TSR 50%% to %dx%d, GPU ms a frame:%s; total %.3f%n", TIMED_W, TIMED_H,
-                    passes, total);
-        } finally {
-            target.delete();
-            CgTrace.setEnabled(CgGpuTrace.GPU, tracing);
-            CgCamera.perspectiveMatrix(projection, 40f, (float) W / H, 0.05f, 100f);
-        }
-    }
-
     /** How much brighter than {@code still} the box is on a run's last frame, 0 to 765. */
-    private static double trail(HarnessContext ctx, String file, BufferedImage still, int[] box) throws IOException {
-        return Math.max(0, mean(ImageIO.read(new File(ctx.getOutputDir(), frameFile(file, LAST - 1))), box) - mean(still, box));
+    private double trail(HarnessContext ctx, String file, BufferedImage still, int[] box) throws IOException {
+        return Math.max(0, mean(capture(ctx, frameFile(file, LAST - 1)), box) - mean(still, box));
     }
 
     /** Where the burst is on the last frame. */

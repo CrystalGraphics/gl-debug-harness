@@ -20,6 +20,7 @@ import com.crystalgraphics.platform.input.CgSystemInput;
 import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.render.scene.component.CgMeshComponent;
 import com.crystalgraphics.render.post.aa.CgTemporalAA;
+import com.crystalgraphics.render.post.upscale.CgAntiAliasing;
 import com.crystalgraphics.render.view.CgView;
 
 /**
@@ -76,6 +77,7 @@ public final class CgTemporalAALabScene implements InteractiveSceneLifecycle, Cg
             spawned.add(scene.mesh(quad, pane).at(-1.6 + k * 1.6, 1.4, 0).scale(1.2f).customData(0, 0.4f, 0.9f, 0.6f, cover[k]).spawn());
         }
         CgTemporalAA.enable(CgView.main(), true);
+        CgView.main().antiAliasing(CgAntiAliasing.TAA);
     }
 
     @Override
@@ -111,6 +113,7 @@ public final class CgTemporalAALabScene implements InteractiveSceneLifecycle, Cg
     public void dispose() {
         for (CgMeshComponent c : spawned) c.remove();
         spawned.clear();
+        CgView.main().antiAliasing(CgAntiAliasing.TSR);
     }
 
     @Override public boolean isRunning() { return true; }

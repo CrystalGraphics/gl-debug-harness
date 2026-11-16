@@ -27,6 +27,7 @@ import com.crystalgraphics.platform.PlatformServiceHarness;
 import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.render.host.CgStageHost;
 import com.crystalgraphics.render.post.CgPostRenderer;
+import com.crystalgraphics.render.post.upscale.CgAntiAliasing;
 import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.render.scene.component.CgMeshComponent;
 import com.crystalgraphics.render.view.CgView;
@@ -62,6 +63,7 @@ public final class CgTemporalAATestScene implements HarnessSceneLifecycle {
         CgCamera.perspectiveMatrix(projection, FOV_Y, (float) W / H, 0.05f, 100f);
         CgScene scene = CgScene.client();
         List<String> failures = new ArrayList<>();
+        CgView.main().antiAliasing(CgAntiAliasing.TAA);
         run(ctx, scene, false, "off.png");
         run(ctx, scene, true, "on.png");
         pan(ctx, scene, true, "pan-on.png");
@@ -70,6 +72,7 @@ public final class CgTemporalAATestScene implements HarnessSceneLifecycle {
             dolly(ctx, scene, withPane, true, "dolly-" + withPane + "-moved.png");
         }
         CgView.main().showFlags().temporalAA(false);
+        CgView.main().antiAliasing(CgAntiAliasing.TSR);
         CgView.main().jitter(false);
 
         // The pane, the turned bar's band and where the moving bar started, on screen: each centred on y = 0, so the
