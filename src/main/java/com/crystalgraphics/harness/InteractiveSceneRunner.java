@@ -709,6 +709,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F1 && overlayPipeline != null) {
                 overlayPipeline.toggleHud();
             }
+            // F6: kit looks on or off in every scene, as the Minecraft demo's X: a kit's draws graded by its own look, or the frame's
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F6) {
+                CgView.main().override(CgSceneRenderer.GRADE_DRAWS, !CgView.main().flag(CgSceneRenderer.GRADE_DRAWS));
+            }
             // F7: temporal AA and its jitter on the main view, in every scene: to compare a scene with and without.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F7) {
                 CgTemporalAA.enable(CgView.main(), !CgTemporalAA.enabled(CgView.main()));
