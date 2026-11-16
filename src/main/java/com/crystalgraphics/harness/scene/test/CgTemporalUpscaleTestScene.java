@@ -17,6 +17,7 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
+import com.crystalgraphics.api.vertex.CgVertexFormat;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.gpu.resource.CgFrameRing;
 import com.crystalgraphics.harness.FrameInfo;
@@ -43,7 +44,8 @@ import com.crystalgraphics.trace.CgTrace;
  * at 50, 67 and 100% and at each anti-aliasing quality, and through temporal AA at 50% upscaled spatially, each into one
  * 640x360 target. TSR at 50% must keep more of the reference's edges than temporal AA at 50%, and every TSR picture stay
  * near the reference. A bar that jumps away must leave TSR no more ghost than temporal AA, over the frames after, and a
- * turned bar appearing with no history behind it must land smoother from Medium than at Low (spatial anti-aliasing). Bloom
+ * turned bar appearing with no history behind it must land smoother from Medium than at Low (spatial anti-aliasing), and
+ * a burst of translucent quads, which write no velocity, must leave TSR no longer a trail than temporal AA. Bloom
  * is off: each step keeps a thin light's energy for bloom its own way, and the gate measures the upscale. Then each TSR
  * pass's GPU time at a 1440p output, reported. Scene id {@code temporal-upscale}.
  *
@@ -56,22 +58,31 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
     private static final int W = 640, H = 360, FRAMES = 96;
     /** The last frames each run keeps: the picture is their mean, its wobble their spread. */
     private static final int LAST = 8;
-    /** The timing run: its output, frames, and those before the timing starts. */
-    private static final int TIMED_W = 2560, TIMED_H = 1440, TIMED_FRAMES = 48, TIMED_WARMUP = 16;
+    /** The timing run: its output, frames, and those before the timing starts, long enough for the GPU's clocks to rise. */
+    private static final int TIMED_W = 2560, TIMED_H = 1440, TIMED_FRAMES = 180, TIMED_WARMUP = 120;
     /** Where the jumping bar stands until the last frames, and where it jumps to (world x; y 1.2 is the screen's middle). */
     private static final float BAR_FROM = -2.2f, BAR_TO = -1.6f, BAR_Y = 1.2f, BAR_Z = -4f;
     /** The bar's turn: its edges appear as stairs, which the spatial anti-aliasing smooths the frame they are seen. */
     private static final float BAR_TURN = (float) Math.toRadians(30);
 
-    /** What the turned bar does in a run. */
-    private enum Bar { NONE, JUMPS, APPEARS }
+    /**
+     * The burst: QUADS translucent quads in a row, crossing the posts at {@link #BURST_SPEED} a frame from {@link #BURST_X}
+     * over the last BURST_FRAMES frames; past the last frame, x {@code BURST_X} to {@link #BURST_TRAIL} is behind all of them.
+     */
+    private static final int QUADS = 8, BURST_FRAMES = 20;
+    private static final float BURST_X = -3.2f, BURST_SPEED = 0.12f, BURST_Z = -6f, BURST_TRAIL = -1.3f;
 
-    private CgMaterialInstance line;
+    /** What moves in a run: the turned bar, or the burst, drawn in the scene or apart (separate translucency). */
+    private enum Bar { NONE, JUMPS, APPEARS, BURST, BURST_APART }
+
+    private CgMaterialInstance line, glass, spark;
     private final Matrix4f projection = new Matrix4f(), view = new Matrix4f();
 
     @Override
     public void init(HarnessContext ctx) {
         line = CgMaterial.load("assets/harness/shader/taa_lab_line.shader").instance();
+        glass = CgMaterial.load("assets/harness/shader/forward_transparent_test.shader").instance();
+        spark = CgMaterial.load("assets/harness/shader/upscale_spark.shader").instance();
     }
 
     @Override
@@ -95,6 +106,10 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             run(ctx, CgAntiAliasing.TAA, 100f, "taa-full-jump.png", Bar.JUMPS);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-jump.png", Bar.JUMPS);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-appear.png", Bar.APPEARS);
+            run(ctx, CgAntiAliasing.TAA, 100f, "taa-full-burst.png", Bar.BURST);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-burst.png", Bar.BURST);
+            run(ctx, CgAntiAliasing.TAA, 100f, "taa-full-apart.png", Bar.BURST_APART);
+            run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-apart.png", Bar.BURST_APART);
             CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.MEDIUM);
             run(ctx, CgAntiAliasing.TSR, 50f, "tsr-half-medium.png", Bar.NONE);
             CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.LOW);
@@ -140,6 +155,23 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
                     + " Low %d%n", spatial, low);
             if (spatial <= low) {
                 failures.add("the spatial anti-aliasing smoothed nothing: the appeared bar has " + spatial + " in-between texels, Low " + low);
+            }
+
+            // Where the burst passed, against the same method's still picture, on the last frame
+            int[] trail = box(BURST_X, BURST_TRAIL, BAR_Y - 0.2f, BAR_Y + 0.2f, BURST_Z);
+            BufferedImage tsrStill = read(ctx, "tsr-half.png");
+            for (String drawn : new String[]{"burst", "apart"}) {
+                double taaTrail = trail(ctx, "taa-full-" + drawn + ".png", reference, trail);
+                double tsrTrail = trail(ctx, "tsr-half-" + drawn + ".png", tsrStill, trail);
+                double tsrHere = Math.abs(mean(ImageIO.read(new File(ctx.getOutputDir(), frameFile("tsr-half-" + drawn + ".png", LAST - 1))),
+                        burstBox()) - mean(tsrStill, burstBox()));
+                System.out.printf(Locale.ROOT, "[temporal-upscale] the translucent burst (%s): behind it TAA 100%% %.2f, TSR 50%% %.2f;"
+                        + " where it is, TSR %.2f over the still picture%n", drawn.equals("apart") ? "separate translucency" : "in the scene",
+                        taaTrail, tsrTrail, tsrHere);
+                if (tsrTrail > taaTrail + 1.0) {
+                    failures.add(String.format(Locale.ROOT, "TSR smears the %s burst more than TAA: %.2f against %.2f", drawn, tsrTrail, taaTrail));
+                }
+                if (tsrHere < 1.0) failures.add("TSR lost the " + drawn + " burst: " + String.format(Locale.ROOT, "%.2f", tsrHere));
             }
 
             CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.ULTRA);
@@ -210,7 +242,7 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
         CgView.main().screenPercentage(percent).antiAliasing(method);
         HarnessTarget target = HarnessTarget.create(W, H, true);
         CgScene scene = CgScene.client();
-        CgMesh cube = CgMeshShapes.cube();
+        CgMesh cube = CgMeshShapes.cube(), quad = CgMeshShapes.quad(CgVertexFormat.SPATIAL, 1f, 1f);
         CgMeshComponent bar = null;
         for (int f = 0; f < FRAMES; f++) {
             target.bind();
@@ -221,6 +253,13 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
                         .transform(new Matrix4f().rotateZ(BAR_TURN).scale(0.2f, 0.4f, 0.02f)).customData(0, 1f, 0.3f, 0.3f, 1f).spawn();
             }
             if (what == Bar.JUMPS) bar.at(f < FRAMES - LAST ? BAR_FROM : BAR_TO, BAR_Y, BAR_Z);
+            if ((what == Bar.BURST || what == Bar.BURST_APART) && f >= FRAMES - BURST_FRAMES) {
+                float front = BURST_X + (f - (FRAMES - BURST_FRAMES)) * BURST_SPEED;
+                for (int q = 0; q < QUADS; q++) {
+                    scene.once().mesh(quad, what == Bar.BURST ? glass : spark).at(front + q * 0.07f, BAR_Y - 0.1f + (q % 3) * 0.1f, BURST_Z).scale(0.08f)
+                            .customData(0, 1f, 0.6f, 0.2f, 1.6f).add();
+                }
+            }
             CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, view, projection);
             HarnessWorld.fireCallbacks();
             CgFrameRing.endFrame();
@@ -283,14 +322,30 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
         }
     }
 
-    /** The turned bar's bounds at {@code x}, on screen: centred on the middle row, so the row order does not matter. */
+    /** How much brighter than {@code still} the box is on a run's last frame, 0 to 765. */
+    private static double trail(HarnessContext ctx, String file, BufferedImage still, int[] box) throws IOException {
+        return Math.max(0, mean(ImageIO.read(new File(ctx.getOutputDir(), frameFile(file, LAST - 1))), box) - mean(still, box));
+    }
+
+    /** Where the burst is on the last frame. */
+    private int[] burstBox() {
+        float front = BURST_X + (BURST_FRAMES - 1) * BURST_SPEED;
+        return box(front - 0.04f, front + (QUADS - 1) * 0.07f + 0.04f, BAR_Y - 0.15f, BAR_Y + 0.15f, BURST_Z);
+    }
+
+    /** The turned bar's bounds at {@code x}, on screen. */
     private int[] barBox(float x) {
+        return box(x - 0.2f, x + 0.2f, BAR_Y - 0.25f, BAR_Y + 0.25f, BAR_Z);
+    }
+
+    /** A world rectangle at depth {@code z} on screen: centred on the middle row, so the row order does not matter. */
+    private int[] box(float x0, float x1, float y0, float y1, float z) {
         Matrix4f clip = new Matrix4f(projection).mul(view);
-        Vector4f a = clip.transform(new Vector4f(x - 0.2f, BAR_Y - 0.25f, BAR_Z, 1f));
-        Vector4f b = clip.transform(new Vector4f(x + 0.2f, BAR_Y + 0.25f, BAR_Z, 1f));
-        int x0 = (int) Math.floor((a.x / a.w * 0.5 + 0.5) * W), x1 = (int) Math.ceil((b.x / b.w * 0.5 + 0.5) * W);
+        Vector4f a = clip.transform(new Vector4f(x0, y0, z, 1f));
+        Vector4f b = clip.transform(new Vector4f(x1, y1, z, 1f));
+        int px0 = (int) Math.floor((a.x / a.w * 0.5 + 0.5) * W), px1 = (int) Math.ceil((b.x / b.w * 0.5 + 0.5) * W);
         int ya = (int) Math.round((0.5 - a.y / a.w * 0.5) * H), yb = (int) Math.round((0.5 - b.y / b.w * 0.5) * H);
-        return new int[]{Math.max(0, x0), Math.max(0, Math.min(ya, yb)), Math.min(W - 1, x1), Math.min(H - 1, Math.max(ya, yb))};
+        return new int[]{Math.max(0, px0), Math.max(0, Math.min(ya, yb)), Math.min(W - 1, px1), Math.min(H - 1, Math.max(ya, yb))};
     }
 
     /** Texels in the box between a fifth and four fifths of its brightest: an edge's in-between coverage. */
@@ -354,7 +409,7 @@ public final class CgTemporalUpscaleTestScene implements HarnessSceneLifecycle {
             for (String failure : failures) System.out.println("[temporal-upscale] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[temporal-upscale] PASS on " + on + ": TSR rebuilds 50% and 67% near the 100% reference,"
-                    + " keeping more edges than temporal AA upscaled spatially; a jumped bar leaves no more ghost, an appeared one lands smoothed");
+                    + " keeping more edges than temporal AA upscaled spatially; a jumped bar leaves no more ghost, an appeared one lands smoothed, a burst no longer a trail");
         }
     }
 
