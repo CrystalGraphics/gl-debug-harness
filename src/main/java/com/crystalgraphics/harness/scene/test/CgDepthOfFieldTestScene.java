@@ -55,9 +55,9 @@ public final class CgDepthOfFieldTestScene implements HarnessSceneLifecycle {
 
     @Override
     public void init(HarnessContext ctx) {
-        solid = CgMaterial.load("assets/harness/shader/dof_lab_solid.shader").instance();
-        before = CgMaterial.load("assets/harness/shader/dof_lab_ring.shader").instance();
-        after = CgMaterial.load("assets/harness/shader/dof_lab_ring.shader",
+        solid = CgMaterial.load("crystalgraphics:shaders/demo/dof_solid.shader").instance();
+        before = CgMaterial.load("crystalgraphics:shaders/demo/dof_ring.shader").instance();
+        after = CgMaterial.load("crystalgraphics:shaders/demo/dof_ring.shader",
                 CgMaterialState.builder().translucencyPass(CgTranslucencyPass.AFTER_DOF).build()).instance();
     }
 
