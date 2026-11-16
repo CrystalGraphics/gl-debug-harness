@@ -89,6 +89,8 @@ import com.crystalgraphics.harness.scene.test.CgLightsAirScene;
 import com.crystalgraphics.harness.scene.test.CgLightsAirQualityScene;
 import com.crystalgraphics.harness.scene.test.CgLightsDemoBisectScene;
 import com.crystalgraphics.harness.scene.test.CgLightsDemoScene;
+import com.crystalgraphics.harness.scene.test.CgDepthOfFieldLabScene;
+import com.crystalgraphics.harness.scene.test.CgDepthOfFieldTestScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
 import com.crystalgraphics.harness.scene.test.CgRasterLevelsTestScene;
 import com.crystalgraphics.harness.scene.test.CgComputeSeamTestScene;
@@ -562,6 +564,20 @@ public final class SceneRegistry {
         );
 
         reg.register(
+            SceneDescriptor.builder("depth-of-field").checksPixels()
+                .description("Depth of field's gate: a board in focus keeps its edges, a far board and a BeforeDOF ring blur, an AfterDOF ring stays sharp")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(960)
+                .defaultHeight(540)
+                .clearColor(0.02f, 0.02f, 0.03f, 1.0f)
+                .build(),
+            () -> new CgDepthOfFieldTestScene()
+        );
+
+        reg.register(
             SceneDescriptor.builder("bloom-occlusion").checksPixels()
                 .description("The world bloom's gate: an emissive ball behind a wall must bloom nowhere and one in front must bloom, at two target sizes and bloom scales 1 and 0.5")
                 .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
@@ -981,6 +997,18 @@ public final class SceneRegistry {
                 .clearColor(0.01f, 0.01f, 0.03f, 1.0f)
                 .build(),
             () -> new CgLightsDemoBisectScene(true)
+        );
+
+        reg.register(
+            SceneDescriptor.builder("dof-lab")
+                .description("Depth of field to play with: pillars down the floor, lights blurring to the aperture's shape, a ring a translucency pass")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.02f, 0.02f, 0.04f, 1.0f)
+                .build(),
+            () -> new CgDepthOfFieldLabScene()
         );
 
         reg.register(
