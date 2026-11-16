@@ -28,7 +28,7 @@ import com.crystalgraphics.render.view.CgView;
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=taa-lab --rhi=vulkan"
- * // T: temporal AA on or off       J: the jitter on or off (off, the resolve settles the dither and leaves edges)
+ * // K: temporal AA on or off       N: the jitter on or off (off, the resolve settles the dither and leaves edges)
  * // P: the spinner paused or not   Up / Down: it spins faster / slower
  * }</pre>
  */
@@ -93,8 +93,8 @@ public final class CgTemporalAALabScene implements InteractiveSceneLifecycle, Cg
     public boolean consumeKeyboardEvent(CgSystemInput.Keyboard.Event event) {
         if (!event.pressed() || event.repeat()) return true;
         switch (event.key()) {
-            case CgKeyCodes.KEY_T -> taa = !taa;
-            case CgKeyCodes.KEY_J -> jitter = !jitter;
+            case CgKeyCodes.KEY_K -> taa = !taa;
+            case CgKeyCodes.KEY_N -> jitter = !jitter;
             case CgKeyCodes.KEY_P -> paused = !paused;
             case CgKeyCodes.KEY_UP -> speed = Math.min(SPEEDS.length - 1, speed + 1);
             case CgKeyCodes.KEY_DOWN -> speed = Math.max(0, speed - 1);
@@ -108,7 +108,7 @@ public final class CgTemporalAALabScene implements InteractiveSceneLifecycle, Cg
 
     @Override
     public String hudLine() {
-        return String.format(Locale.ROOT, "Temporal AA [T]: %s | Jitter [J]: %s | Spinner [P, Up/Down]: %s %sx",
+        return String.format(Locale.ROOT, "Temporal AA [K]: %s | Jitter [N]: %s | Spinner [P, Up/Down]: %s %sx",
                 taa ? "on" : "off", jitter ? "on" : "off", paused ? "paused" : "spinning", SPEEDS[speed])
                 + "\nPanes, left to right: a quarter, half and three quarters dithered (DitherOpacityMask)";
     }

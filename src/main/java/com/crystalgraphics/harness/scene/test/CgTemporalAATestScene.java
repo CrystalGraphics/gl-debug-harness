@@ -35,7 +35,8 @@ import com.crystalgraphics.render.view.CgView;
  * Temporal anti-aliasing's gate (R14a): the same scene drawn 24 frames running into one target, with the resolve off and
  * then on with the jitter, the last frame of each captured. A pane dithered to half coverage (DitherOpacityMask) settles
  * from texels on or off to an even half; a bar turned a few degrees gains edge texels between it and the ground, where
- * without the jitter there are none; a bar that moved away leaves no ghost behind it. Scene id {@code temporal-aa}.
+ * without the jitter there are none; a bar that moved away leaves no ghost behind it; and what stands still holds still
+ * from one jittered frame to the next, the jitter left out of the history's fetch. Scene id {@code temporal-aa}.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=temporal-aa --rhi=vulkan"
@@ -78,6 +79,11 @@ public final class CgTemporalAATestScene implements HarnessSceneLifecycle {
             int edgeOff = between(off, barBox), edgeOn = between(on, barBox);
             // Brighter than the same texels without the resolve, where the bar has moved away in both
             double ghost = mean(on, ghostBox) - mean(off, ghostBox);
+            // The turned bar from one jittered frame to the next: resolved, it holds (the pane's dither is new each frame
+            // by design, and this frame's share of it moves its texels)
+            double shake = change(ImageIO.read(new File(ctx.getOutputDir(), "before-on.png")), on, barBox);
+            System.out.printf(Locale.ROOT, "[temporal-aa] the still things' change from frame to frame, jittered: %.2f%n", shake);
+            if (shake > 2.0) failures.add(String.format(Locale.ROOT, "a still picture shakes with the jitter: %.2f a texel", shake));
             System.out.printf(Locale.ROOT, "[temporal-aa] dithered pane's spread over its mean: off %.3f, on %.3f; turned bar's"
                     + " in-between texels: off %d, on %d; behind the moved bar, over the ground: %.1f%n", spreadOff, spreadOn, edgeOff, edgeOn, ghost);
             if (spreadOn > 0.25 || spreadOn > spreadOff * 0.4) {
@@ -112,6 +118,7 @@ public final class CgTemporalAATestScene implements HarnessSceneLifecycle {
             CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, view, projection);
             HarnessWorld.fireCallbacks();
             CgFrameRing.endFrame();
+            if (f == FRAMES - 2) target.captureToFile(ctx.getOutputDir(), "before-" + file);
             if (f == FRAMES - 1) target.captureToFile(ctx.getOutputDir(), file);
             target.unbind();
         }
@@ -156,6 +163,16 @@ public final class CgTemporalAATestScene implements HarnessSceneLifecycle {
             }
         }
         return count;
+    }
+
+    /** The mean absolute luma change over the box between two captures. */
+    private static double change(BufferedImage a, BufferedImage b, int[] box) {
+        double sum = 0;
+        int n = 0;
+        for (int y = box[1]; y < box[3]; y++) {
+            for (int x = box[0]; x < box[2]; x++, n++) sum += Math.abs(luma(a.getRGB(x, y)) - luma(b.getRGB(x, y)));
+        }
+        return sum / Math.max(1, n);
     }
 
     private static double mean(BufferedImage img, int[] box) {
