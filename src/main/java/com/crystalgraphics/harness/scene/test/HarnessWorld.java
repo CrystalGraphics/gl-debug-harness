@@ -41,9 +41,12 @@ public final class HarnessWorld {
         fireCallbacks();
     }
 
-    /** Fires the opaque then the transparent callback under the host frame as it stands, for the main view. */
+    /**
+     * Fires the opaque then the transparent callback under the host frame as it stands, for the main view. The harness
+     * draws no world of its own, so its views may draw below 100%.
+     */
     public static void fireCallbacks() {
-        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).view(CgView.main());
+        CgStageHost.frame(CgStageHost.WORLD_OPAQUE).view(CgView.main()).drawsWorld(false);
         CgStageHost.fire(CgStageHost.WORLD_OPAQUE);
         CgStageHost.fire(CgStageHost.WORLD_TRANSPARENT);
     }

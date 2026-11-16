@@ -21,6 +21,7 @@ import com.crystalgraphics.platform.rhi.CgRHI;
 import com.crystalgraphics.platform.rhi.format.CgFormat;
 import com.crystalgraphics.render.canvas.CgCanvasMaterials;
 import com.crystalgraphics.render.host.CgStageHost;
+import com.crystalgraphics.render.precache.CgPipelinePrecache;
 import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.render.scene.component.CgMeshComponent;
 import com.crystalgraphics.render.scene.component.CgSceneCaptureComponent;
@@ -44,12 +45,15 @@ import java.nio.ByteOrder;
  *   <li>No scene: a target cleared to blue reads blue; a material drawn over it reads that material's yellow.</li>
  * </ul>
  *
- * <p>Every read is an async readback; PASS or FAIL on stdout.</p>
+ * <p>Every read is an async readback; PASS or FAIL on stdout. The scene's steps count from the frame the precache has
+ * nothing left and the three surfaces are built (a fixed frame raced the precache once the post chain's grew).</p>
  */
 public class CgSceneCaptureScene implements InteractiveSceneLifecycle {
 
     private static final int W = 160, H = 120;
-    private static final int CAPTURE_AT = 70, SWAP_AT = 100, EVERY_AT = 130, COPY_AT = 160, REPORT_AT = 190;
+    /** The scene's steps, in frames from the first ready one; the target-only check at a fixed frame; when to give up. */
+    private static final int CAPTURE_AT = 0, SWAP_AT = 30, EVERY_AT = 60, COPY_AT = 90, REPORT_AT = 120, DRAWN_AT = 20,
+            READY_FROM = 50, GIVE_UP = 600;
     private static final Matrix4f PROJECTION = CgCamera.perspectiveMatrix(new Matrix4f(), 60f, (float) W / H, 0.05f, 100f);
     private static final String MONITOR = "harness:textures/capture/monitor";
     private static final int BACKGROUND = 0xFF0D0D12;
@@ -61,6 +65,9 @@ public class CgSceneCaptureScene implements InteractiveSceneLifecycle {
     private final CgScene scene = new CgScene();
     private final CgView view = CgView.of(scene);
     private CgMeshComponent monitor, red, green;
+    private CgMaterial monitorMaterial, redMaterial, greenMaterial;
+    /** The first frame the precache had emptied and the surfaces were built; -1 until then. */
+    private int ready = -1;
     private CgSceneCaptureComponent capture, copy;
     private CgRenderTarget picture, copied, drawn;
     private CgTexture2D yellow;
@@ -73,12 +80,12 @@ public class CgSceneCaptureScene implements InteractiveSceneLifecycle {
     @Override
     public void init(HarnessContext ctx) {
         CgMesh cube = CgMeshShapes.cube();
-        monitor = scene.mesh(cube, CgSurfaceMaterial.of("harness:capture_monitor", MONITOR).shading(CgShadingModels.UNLIT).build())
-                .at(0, 0, -6).scale(2f).spawn();
-        red = scene.mesh(cube, CgSurfaceMaterial.of("harness:capture_red").shading(CgShadingModels.UNLIT).tint(0xFFFF0000).build())
-                .at(20, 0, -4).spawn();
-        green = scene.mesh(cube, CgSurfaceMaterial.of("harness:capture_green").shading(CgShadingModels.UNLIT).tint(0xFF00FF00).build())
-                .at(20, 0, -4).spawn();
+        monitorMaterial = CgSurfaceMaterial.of("harness:capture_monitor", MONITOR).shading(CgShadingModels.UNLIT).build();
+        redMaterial = CgSurfaceMaterial.of("harness:capture_red").shading(CgShadingModels.UNLIT).tint(0xFFFF0000).build();
+        greenMaterial = CgSurfaceMaterial.of("harness:capture_green").shading(CgShadingModels.UNLIT).tint(0xFF00FF00).build();
+        monitor = scene.mesh(cube, monitorMaterial).at(0, 0, -6).scale(2f).spawn();
+        red = scene.mesh(cube, redMaterial).at(20, 0, -4).spawn();
+        green = scene.mesh(cube, greenMaterial).at(20, 0, -4).spawn();
         green.visible(false);
         picture = CgRenderTarget.of(MONITOR);
         // Its +x is where it looks: turned to look along -z, at the subject 4 blocks ahead, out of the view's sight
@@ -97,41 +104,46 @@ public class CgSceneCaptureScene implements InteractiveSceneLifecycle {
 
     @Override
     public void render(HarnessContext ctx, FrameInfo info) {
-        if (frame >= REPORT_AT) {
+        if (ready < 0 && frame >= READY_FROM && CgPipelinePrecache.remaining() == 0 && monitorMaterial.precache()
+                && redMaterial.precache() && greenMaterial.precache()) {
+            ready = frame;
+        }
+        if (ready >= 0 && frame - ready >= REPORT_AT || ready < 0 && frame >= GIVE_UP) {
             report();
             running = false;
             return;
         }
+        int step = ready < 0 ? -1 : frame - ready;
         main.bind();
         main.clear(0.05f, 0.05f, 0.07f, 1f);
         CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, main.external()).camera().set(0, 0, 0, new Matrix4f(), PROJECTION);
         HarnessWorld.fireCallbacks();
         main.unbind();
 
-        if (frame == 20) {
+        if (frame == DRAWN_AT) {
             drawn.clear();
             drawn.readback(d -> pixels[CLEARED] = pixel(d, 16, 8, 8));
             drawn.drawMaterial(yellowUi);
             drawn.readback(d -> pixels[DRAWN] = pixel(d, 16, 8, 8));
         }
-        if (frame == CAPTURE_AT) capture.captureScene();
-        if (frame == COPY_AT) copy.copyCamera(view).captureScene();   // at the next frame, before the view draws
+        if (step == CAPTURE_AT) capture.captureScene();
+        if (step == COPY_AT) copy.copyCamera(view).captureScene();   // at the next frame, before the view draws
 
         scene.environment().set(CgView.main().environment());
         scene.tick(1.0 / 60.0);
         view.camera().set(0, 0, 0, new Matrix4f(), PROJECTION);
         CgTexture2D shown = view.renderPicture(W, H, BACKGROUND);
 
-        if (frame == SWAP_AT) {
+        if (step == SWAP_AT) {
             read(shown, DEMAND, W / 2, H / 2);
             red.visible(false);
             green.visible(true);
-        } else if (frame == EVERY_AT) {
+        } else if (step == EVERY_AT) {
             read(shown, HELD, W / 2, H / 2);
             capture.everyFrame(true);
-        } else if (frame == COPY_AT) {
+        } else if (step == COPY_AT) {
             read(shown, EVERY, W / 2, H / 2);
-        } else if (frame == COPY_AT + 1) {
+        } else if (step == COPY_AT + 1) {
             read(shown, VIEW_CENTRE, W / 2, H / 2);
             read(shown, VIEW_CORNER, 5, 5);
             copied.readback(d -> {
@@ -157,6 +169,7 @@ public class CgSceneCaptureScene implements InteractiveSceneLifecycle {
         String on = device == null ? "gl" : device.name();
         String fail = null;
         if (DeviceErrors.checkAndLog("scene-capture")) fail = "GL errors, logged above";
+        else if (ready < 0) fail = "the precache never emptied in " + GIVE_UP + " frames";
         else if (PlatformServiceHarness.validationErrors() > 0) fail = "Vulkan validation errors, logged above";
         for (int i = 0; i < pixels.length && fail == null; i++) if (pixels[i] == null) fail = NAMES[i] + "'s readback never came back";
         if (fail == null) {

@@ -91,7 +91,9 @@ import com.crystalgraphics.harness.scene.test.CgLightsDemoBisectScene;
 import com.crystalgraphics.harness.scene.test.CgLightsDemoScene;
 import com.crystalgraphics.harness.scene.test.CgDepthOfFieldLabScene;
 import com.crystalgraphics.harness.scene.test.CgDepthOfFieldTestScene;
+import com.crystalgraphics.harness.scene.test.CgScreenPercentageTestScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalAALabScene;
+import com.crystalgraphics.harness.scene.test.CgUpscaleLabScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalAATestScene;
 import com.crystalgraphics.harness.scene.test.CgVelocityConformanceScene;
 import com.crystalgraphics.harness.scene.test.CgMaterialBufferTestScene;
@@ -1012,6 +1014,32 @@ public final class SceneRegistry {
                 .clearColor(0.02f, 0.02f, 0.03f, 1.0f)
                 .build(),
             () -> new CgTemporalAALabScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("upscale-lab")
+                .description("Screen percentage to play with: taa-lab's wires, fence and spinner over a fine checker floor, drawn at 50 to 100% and upscaled")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.INTERACTIVE)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(false)
+                .needsDepthBuffer(true)
+                .clearColor(0.02f, 0.02f, 0.03f, 1.0f)
+                .build(),
+            () -> new CgUpscaleLabScene()
+        );
+
+        reg.register(
+            SceneDescriptor.builder("screen-percentage").checksPixels()
+                .description("Screen percentage's gate: the world drawn at 50% through each upscale filter against 100%, OVERLAY at full size, a host's own world at 100%")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(640)
+                .defaultHeight(360)
+                .clearColor(0.02f, 0.02f, 0.03f, 1.0f)
+                .build(),
+            () -> new CgScreenPercentageTestScene()
         );
 
         reg.register(
