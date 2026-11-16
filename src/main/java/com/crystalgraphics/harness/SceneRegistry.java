@@ -93,6 +93,7 @@ import com.crystalgraphics.harness.scene.test.CgDepthOfFieldLabScene;
 import com.crystalgraphics.harness.scene.test.CgDepthOfFieldTestScene;
 import com.crystalgraphics.harness.scene.test.CgScreenPercentageTestScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalUpscaleTestScene;
+import com.crystalgraphics.harness.scene.test.CgTemporalUpscaleTimingScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalAALabScene;
 import com.crystalgraphics.harness.scene.test.CgUpscaleLabScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalAATestScene;
@@ -1054,6 +1055,19 @@ public final class SceneRegistry {
                 .clearColor(0.02f, 0.02f, 0.03f, 1.0f)
                 .build(),
             () -> new CgTemporalUpscaleTestScene()
+        );
+        reg.register(
+            SceneDescriptor.builder("temporal-upscale-timing")
+                .description("Temporal AA against TSR at each quality, 100% and auto, at a 1440p output: GPU ms a frame")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(640)
+                .defaultHeight(360)
+                .clearColor(0.02f, 0.02f, 0.03f, 1.0f)
+                .build(),
+            () -> new CgTemporalUpscaleTimingScene()
         );
 
         reg.register(
