@@ -194,14 +194,16 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         float beside = mean(bloomed, 204, 116, 12, 8) - mean(greyed, 204, 116, 12, 8);
         gradedSaturation[2] = beside;
         if (!(beside > 1f)) failures.add("a graded draw's own bloom: " + beside + " brighter beside it");
-        // A colour region over the graded ball grades its layer's light too: at gain 0 its own bloom beside it is gone.
-        // The ball writes no depth, so its pixels are where the wall behind it is: the region holds that.
+        // A colour region over the graded ball grades its light before its bloom: at gain 0 most of its own bloom beside
+        // it is gone. The ball writes no depth, so its pixels are where the wall behind it is: the region holds that wall
+        // (x 1.6 at z -3 is 2.61 at -4.9) and leaves the wall beside it (x 204 to 216) out. What stays is its glow's light
+        // over the void right of the wall, at far depth, which no volume holds.
         CgPostSettings dark = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).bloom(0f);
         float[] regionBeside = new float[2];
         for (int r = 0; r < 2; r++) {
             CgColourRegion region = r == 1 ? scene.colourRegion().shape(CgColourRegion.Shape.BOX).fade(0.9f, 1f)
                     .grade(CgColourRegion.Range.GLOBAL, CgColourRegion.Control.GAIN, 1f, 1f, 1f, 0f)
-                    .at(1.6, 0, -4.9).scale(1.4f).spawn() : null;
+                    .at(1.6 * 4.9 / 3 + 0.5, 0, -4.9).scale(2.6f).spawn() : null;
             glassGrade = dark;
             BufferedImage regionDark = draw(ctx, scene, "graded-region-" + r + "-dark", v -> { });
             glassGrade = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f).gaussianBloom();
@@ -210,7 +212,7 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
             if (region != null) region.remove();
         }
         gradedSaturation[6] = regionBeside[1] / regionBeside[0];
-        if (!(regionBeside[0] > 1f && regionBeside[1] < regionBeside[0] * 0.1f)) {
+        if (!(regionBeside[0] > 1f && regionBeside[1] < regionBeside[0] * 0.5f)) {
             failures.add("a region over a graded draw: its own bloom " + regionBeside[1] + " against " + regionBeside[0]);
         }
         glassBall = false;
@@ -233,7 +235,8 @@ public class CgPostLooksTestScene implements HarnessSceneLifecycle {
         BufferedImage solidBloomed = draw(ctx, scene, "graded-solid-bloom", v -> { });
         float solidBeside = mean(solidBloomed, W - 204 - 12, 116, 12, 8) - mean(solidGreyed, W - 204 - 12, 116, 12, 8);
         gradedSaturation[5] = solidBeside;
-        if (!(solidBeside > 1f)) failures.add("an opaque graded draw's own bloom: " + solidBeside + " brighter beside it");
+        // Half a level, 12 to 24 pixels out: its bloom is toned with the wall it lands on, and absent it reads 0
+        if (!(solidBeside > 0.5f)) failures.add("an opaque graded draw's own bloom: " + solidBeside + " brighter beside it");
         solidBall = false;
         glassGrade = null;
 

@@ -32,9 +32,10 @@ import java.util.List;
 /**
  * The gate for CustomDepth and CustomStencil ({@code Draw.customDepth}, aaa-milestones OL2): the stencil byte of
  * the view's custom depth ({@code textures().customDepth()}), sampled as a reader samples it ({@link StencilProbe}), at five pixels. A cube hidden behind an unmarked wall must still be written (3:
- * tested against CustomDepth alone); a near cube (0x0F, mask 0xFF) in front of a larger far one (0x30, mask 0xF0) must
- * read 0x3F where they overlap (the far one fails depth and replaces its bits, Unreal's partial-mask rule) and 0x30
- * where the far one shows alone; a skinned quad reads 0x80; the empty background 0.
+ * tested against CustomDepth alone); a near cube (0x07, mask 0x1F) in front of a larger far one (0x18, mask 0x18) must
+ * read 0x1F where they overlap (the far one fails depth and replaces its bits, Unreal's partial-mask rule) and 0x18
+ * where the far one shows alone; a skinned quad reads 0x10; the empty background 0. Marks are 0 to 31: bits 5-7 hold a
+ * graded primitive's look ({@code CgCustomDepth.LOOK_BITS}).
  *
  * <pre>
  *   ./gradlew :gl-debug-harness:runHarness --args="--mode=custom-depth"
@@ -50,7 +51,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
     private static final Vector3f[] AT = {
             new Vector3f(-2.5f, 0f, -7.5f), new Vector3f(2.5f, -1.2f, -4.5f), new Vector3f(2.5f, -0.35f, -6f),
             new Vector3f(2.5f, 1.8f, -6f), new Vector3f(-3.5f, 2.5f, -5f)};
-    private static final int[] EXPECTED = {3, 0x3F, 0x30, 0x80, 0};
+    private static final int[] EXPECTED = {3, 0x1F, 0x18, 0x10, 0};
 
     private CgMaterial wall, skin, writer;
     /** The marked draws: custom depth is a primitive's, so each stencil value is a dynamic primitive of its own. */
@@ -67,7 +68,7 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
      * The probe's colour there and at the background: stencil, ID, model / 31, type / 6 + 0.5 where facing +Z. The
      * background is the host's, so DefaultLit (model 1).
      */
-    private static final int[] PROBE_NEAR = {0x3F, 128, 107, 212}, PROBE_BACKGROUND = {0, 0, 8, 128};
+    private static final int[] PROBE_NEAR = {0x1F, 128, 107, 212}, PROBE_BACKGROUND = {0, 0, 8, 128};
     private static final int BX = 14, BY = 223;
 
     private CgRenderStage.Registration asking, reader;
@@ -98,14 +99,14 @@ public class CgCustomDepthTestScene implements InteractiveSceneLifecycle {
         CgScene scene = CgScene.client();
         CgMesh cube = CgMeshShapes.cube();
         // A writer of custom data hidden by the wall: CustomDepth takes it, the custom data must not.
-        marked.add(scene.dynamic((view, out) -> out.mesh(cube, writer).at(-2.5, 0, -8).add()).customDepth(3, 0xFF).spawn());
-        marked.add(scene.dynamic((view, out) -> out.mesh(cube, writer).at(2.5, -1.2, -5).add()).customDepth(0x0F, 0xFF).spawn());
+        marked.add(scene.dynamic((view, out) -> out.mesh(cube, writer).at(-2.5, 0, -8).add()).customDepth(3, 0x1F).spawn());
+        marked.add(scene.dynamic((view, out) -> out.mesh(cube, writer).at(2.5, -1.2, -5).add()).customDepth(0x07, 0x1F).spawn());
         // One material with the near cube: opaque draws sort by material first, then front to back, and the partial
         // mask's result depends on which draws first.
         marked.add(scene.dynamic((view, out) -> out.mesh(cube, writer).at(2.5, -1.2, -7).transform(new Matrix4f().scale(2f)).add())
-                .customDepth(0x30, 0xF0).spawn());
+                .customDepth(0x18, 0x18).spawn());
         marked.add(scene.dynamic((view, out) -> out.mesh(quad, skin).bones(palette).at(2.5, 1.8, -6).add())
-                .customDepth(0x80, 0xFF).spawn());
+                .customDepth(0x10, 0x1F).spawn());
         asking = CgRenderStage.PREPARE.register(0, stage -> stage.view().textures().requestNormals());
         // After the composite, onto the host's RGBA8, read back as it stands: in the scene its values would be encoded
         probe = CgPost.client().material("assets/harness/shader/scene_textures_probe.shader", CgPostPoint.DISPLAY);
