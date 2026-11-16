@@ -1,6 +1,7 @@
 package com.crystalgraphics.harness.scene.test;
 
 
+import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.render.scene.component.CgPostVolume;
 import com.crystalgraphics.api.material.CgMaterialInstance;
 import com.crystalgraphics.render.scene.CgScene;
@@ -66,6 +67,7 @@ import com.crystalgraphics.sequence.CgSequencer;
 import com.crystalgraphics.shape.bounds.CgAABB;
 import com.crystalgraphics.vfx.CgVfx;
 import com.crystalgraphics.vfx.CgVfxOwner;
+import com.crystalgraphics.vfx.look.CgVfxKitLook;
 import com.crystalgraphics.vfx.system.CgVfxSequencer;
 import com.crystalgraphics.cue.CgCueManager;
 import com.crystalgraphics.world.CgAttachment;
@@ -499,6 +501,9 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             if (current != null) current.hostPose(pose);
         });
         this.ctx = ctx;
+        if (System.getProperty("crystalgraphics.harness.skinnedPlay.cutCapturePost", "true").equals("false")) {
+            CgView.main().showFlags().post(false);
+        }
         CgCueManager cues = CgCueManager.client();   // the engine's, wired as the client started
         // The engine's sequencer, as Minecraft's; its cameras answer the scene shown now's camera sequences
         sequencer = CgVfxSequencer.install(client, VFX.system(), cameras, id -> current == null ? null : current.cameraSequence(id));
@@ -748,7 +753,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             Map<?, ?> tree = (Map<?, ?>) CgAssetYaml.read(Files.readString(prefab));
             for (Object node : (List<?>) tree.get("nodes")) {
                 Map<?, ?> n = (Map<?, ?>) node;
-                if (!(n.get("meshes") instanceof List<?>) || !(n.get("location") instanceof List<?> at)) continue;
+                if (!(n.get("meshes") instanceof List<?> || n.get("skeletal") instanceof Map<?, ?>) || !(n.get("location") instanceof List<?> at)) continue;
                 List<?> host = (List<?>) kitUnits.toHost(at, CgQuantity.POSITION);
                 kitUnits.rotationToHost(n.get("rotation"), meshToActor).invert();
                 return -((Number) host.get(1)).doubleValue();
@@ -838,7 +843,8 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
      * the outline reads it by. The outline itself is the scene's, set by the real Goku alone.
      */
     private void dress(Actor actor) {
-        actor.body.materials(s -> CgMaterial.of(kit.material(s).get())).customData(0, 0f, 0f, 0f, 0f);
+        actor.body.materials(s -> CgMaterial.of(kit.material(s).get())).customData(0, 0f, 0f, 0f, 0f)
+                .grade(CgVfxKitLook.grade(KIT_NAMESPACE));
         actor.dressed = true;
 
         Map<?, ?> block = actor.outlineBlock;
@@ -905,6 +911,15 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
     /** How many scripted cuts: each after the last plays out by {@link #CUT_AFTER}; the run ends after the last. */
     private static final int CUTS = Integer.getInteger("crystalgraphics.harness.skinnedPlay.cuts", 1);
     /**
+     * {@code -Dcrystalgraphics.harness.skinnedPlay.cutCaptureAt=<seconds>[,<seconds>...]}: a capture, {@code cut<seconds>},
+     * as the first scripted cut's sequence reaches each time, ascending, to compare against a game capture of the same
+     * beat. {@code .cutCapturePost=false} draws the main view without post, for the pre-post pair.
+     */
+    private static final double[] CUT_CAPTURE_AT = Arrays.stream(
+            System.getProperty("crystalgraphics.harness.skinnedPlay.cutCaptureAt", "").split(","))
+            .map(String::trim).filter(t -> !t.isEmpty()).mapToDouble(Double::parseDouble).sorted().toArray();
+    private int cutCaptured;
+    /**
      * {@code -Dcrystalgraphics.harness.skinnedPlay.pausedAt=<seconds>}: every actor made paused at that time of its first
      * clip, so captures of a shading change hold one pose from the first frame; NaN plays as ever.
      */
@@ -960,6 +975,12 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
             LOGGER.info("[skinned-play] the scripted cut {}, at frame {}", cutsPlayed, frameNumber);
             services.profileBegin("cut-" + cutsPlayed);
             cut(goku);
+        }
+        if (cutCaptured < CUT_CAPTURE_AT.length && cutsPlayed == 1 && goku.move != null
+                && goku.move.seconds() >= CUT_CAPTURE_AT[cutCaptured]) {
+            double at = CUT_CAPTURE_AT[cutCaptured++];
+            LOGGER.info("[skinned-play] captured the cut at {} s ({} asked), frame {}", goku.move.seconds(), at, frameNumber);
+            ctx.getArtifactService().requestCapture(String.format(Locale.ROOT, "cut%.3f", at));
         }
         if (steadyAfterIn > 0 && --steadyAfterIn == 0) {
             steadyAfterIn = -1;
