@@ -9,6 +9,10 @@ import com.crystalgraphics.api.material.CgMaterial;
 import com.crystalgraphics.harness.util.ObjectDraws;
 import com.crystalgraphics.api.mesh.CgMesh;
 import com.crystalgraphics.api.mesh.CgMeshShapes;
+import com.crystalgraphics.api.animation.CgSkeleton;
+import com.crystalgraphics.api.mesh.CgSkeletalMesh;
+import com.crystalgraphics.api.vertex.CgVertexFormat;
+import com.crystalgraphics.render.scene.component.CgSkeletalMeshComponent;
 import com.crystalgraphics.gpu.resource.CgFrameRing;
 import com.crystalgraphics.gpu.resource.CgTexture2D;
 import com.crystalgraphics.harness.FrameInfo;
@@ -26,6 +30,8 @@ import com.crystalgraphics.render.CgFrameClock;
 import com.crystalgraphics.camera.CgCamera;
 import com.crystalgraphics.render.stage.CgRenderStage;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import javax.imageio.ImageIO;
@@ -42,7 +48,8 @@ import com.crystalgraphics.platform.rhi.format.CgFormat;
  * two boxes of ours, at noon. One floats over the ground: its shadow must darken the ground under it, our object casting
  * on Minecraft's world. One sits under a roof of blocks above the view, off screen, which only the voxel world holds
  * (a block on screen is in the host's depth): its top must darken, blocks casting on our object. Ground in the open and the floating box's own top must not change. Each against
- * the same frames with no sun. Two panes composing their own shadow show the sun's visibility they are handed
+ * the same frames with no sun. A skinned plank laid flat over open ground casts too: the shadow-depth pass draws it
+ * posed, as it draws any skeletal mesh. Two panes composing their own shadow show the sun's visibility they are handed
  * ({@code CG_DIRECTIONAL_SHADOW}): the one under the floating box dark, the one in the open lit, both lit with no sun.
  *
  * <pre>{@code
@@ -62,6 +69,8 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
             ROOFED_TOP = {CX + 10.5, GROUND + 1.5, CZ + 0.5}, FLOATING_TOP = {CX + 0.5, GROUND + 3.5, CZ + 0.5};
     /** The panes handed the sun: under the floating box, clear of UNDER's line of sight, and in the open. */
     private static final double[] SHADED_PANE = {CX + 0.5, GROUND + 0.3, CZ + 0.3}, OPEN_PANE = {CX - 2, GROUND + 0.3, CZ + 7};
+    /** A skinned plank laid flat over open ground, and the ground just inside its footprint's near edge. */
+    private static final double[] PLANK = {CX - 4, GROUND + 2, CZ + 1}, PLANK_UNDER = {CX - 4, GROUND, CZ + 1.9};
     private static final String[] NAMES = {"sun", "no-sun"};
 
     private final World world = new World();
@@ -71,6 +80,7 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
     private HarnessTarget target;
     private CgMaterial grey, handed;
     private CgTexture2D lightmap;
+    private CgSkeletalMeshComponent plank;
     private int frame;
     private boolean running = true;
 
@@ -91,6 +101,23 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
         texels.flip();
         lightmap = CgTextures.of("harness.lightsSun", CgTextureDesc.of(16, 16, CgFormat.RGBA8_UNORM));
         lightmap.uploadRegion(0, 0, 0, 16, 16, texels);
+        // A skinned caster: drawn by the shadow-depth pass through its skinned vertex factory, as any skeletal mesh
+        plank = CgScene.client().skeletal(plank()).at(PLANK[0], PLANK[1], PLANK[2]).materials(s -> grey).spawn();
+        plank.rotation(new Quaternionf().rotateX((float) (-Math.PI / 2)));
+    }
+
+    /** A 2-block plank of two triangles on one bone, upright in its own space. */
+    private static CgSkeletalMesh plank() {
+        CgSkeleton skeleton = CgSkeleton.builder().bone("root", null, new Vector3f()).build();
+        CgMesh quad = CgMesh.build(CgVertexFormat.SKINNED, m -> {
+            int a = m.vertex().position(-1, -1, 0).normal(0, 0, 1).uv(0, 0).bone(0, 1f).end();
+            int b = m.vertex().position(1, -1, 0).normal(0, 0, 1).uv(1, 0).bone(0, 1f).end();
+            int c = m.vertex().position(1, 1, 0).normal(0, 0, 1).uv(1, 1).bone(0, 1f).end();
+            int d = m.vertex().position(-1, 1, 0).normal(0, 0, 1).uv(0, 1).bone(0, 1f).end();
+            m.triangle(a, b, c);
+            m.triangle(a, c, d);
+        });
+        return CgSkeletalMesh.builder(quad, skeleton).build();
     }
 
     @Override
@@ -131,7 +158,7 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
 
     private void report(HarnessContext ctx) {
         String failure = null;
-        float[][] at = new float[2][6];
+        float[][] at = new float[2][7];
         try {
             for (int k = 0; k < 2; k++) {
                 BufferedImage image = ImageIO.read(new File(ctx.getOutputDir(), NAMES[k] + ".png"));
@@ -141,15 +168,18 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
                 at[k][3] = patch(image, FLOATING_TOP);
                 at[k][4] = patch(image, SHADED_PANE);
                 at[k][5] = patch(image, OPEN_PANE);
+                at[k][6] = patch(image, PLANK_UNDER);
             }
         } catch (IOException e) {
             failure = "the captures did not read back: " + e.getMessage();
         }
         String readings = String.format("under %.1f vs %.1f, open %.1f vs %.1f, roofed top %.1f vs %.1f, floating top %.1f vs %.1f",
                 at[0][0], at[1][0], at[0][1], at[1][1], at[0][2], at[1][2], at[0][3], at[1][3])
-                + String.format("; handed panes shaded %.1f vs %.1f, open %.1f vs %.1f", at[0][4], at[1][4], at[0][5], at[1][5]);
+                + String.format("; handed panes shaded %.1f vs %.1f, open %.1f vs %.1f", at[0][4], at[1][4], at[0][5], at[1][5])
+                + String.format("; under the skinned plank %.1f vs %.1f", at[0][6], at[1][6]);
         if (failure == null && at[0][0] > 0.8f * at[1][0]) failure = "our box's shadow does not darken the ground: " + readings;
         else if (failure == null && at[0][2] > 0.8f * at[1][2]) failure = "the roof of blocks does not darken our box: " + readings;
+        else if (failure == null && at[0][6] > 0.8f * at[1][6]) failure = "the skinned plank's shadow does not darken the ground: " + readings;
         else if (failure == null && Math.abs(at[0][1] - at[1][1]) > 2f) failure = "the open ground changed: " + readings;
         else if (failure == null && Math.abs(at[0][3] - at[1][3]) > 3f) failure = "the sunlit box top changed: " + readings;
         else if (failure == null && (at[0][4] > 40f || at[0][5] < 200f || at[1][4] < 200f || at[1][5] < 200f)) {
@@ -188,6 +218,7 @@ public class CgLightsSunScene implements InteractiveSceneLifecycle {
 
     @Override
     public void dispose() {
+        if (plank != null) plank.remove();
         if (target != null) target.delete();
         if (lightmap != null) lightmap.delete();
         CgPlatform.provide(CgLevels.HOST, null);
