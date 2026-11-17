@@ -152,9 +152,9 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
                 if (open < 0.9f) failures.add(name + " darkens a close-up's open face: " + open);
             }
             for (int m = 0; m < METHODS.length; m++) {
-                for (int level = 2; level <= 3; level++) time(settings, m, level, false);
+                for (int level = 2; level <= 4; level++) time(settings, m, level, false);
             }
-            for (int level = 2; level <= 3; level++) time(settings, 2, level, true);
+            for (int level = 2; level <= 4; level++) time(settings, 2, level, true);
             settings.ambientOcclusionQuality(CgPostSettings.DEFAULT_AO_QUALITY);
             float lowNear = patch(low, NEAR_WALL), offNear = curve[1][SHARES.length - 1];
             readings.append(String.format(Locale.ROOT, "Low near the wall %.1f against off's %.1f", lowNear, offNear));
