@@ -3,6 +3,7 @@ package com.crystalgraphics.harness;
 import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
 import com.crystalgraphics.render.post.aa.CgTemporalAA;
 import com.crystalgraphics.render.post.upscale.CgAntiAliasing;
+import com.crystalgraphics.render.scene.renderer.feature.ao.CgAmbientOcclusion;
 import com.crystalgraphics.settings.CgGraphicsSettings;
 import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.render.scene.CgScene;
@@ -741,7 +742,13 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 CgPostDebug.VIEW.set(CgVar.Source.CONSOLE, show ? "ao" : "");
             }
             // F12: ambient occlusion off, SSAO, GTAO, CACAO (shift: back), as the Minecraft render demo's F12.
-            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && !isCtrlDown()) {
+            // Alt+F12: its quality, Unreal's five shader levels (CACAO's presets), round; with shift, back.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && isAltDown()) {
+                CgPostSettings settings = CgView.main().post().settings();
+                int next = (CgAmbientOcclusion.shaderLevel(settings) + (isShiftDown() ? 4 : 1)) % 5;
+                settings.ambientOcclusionQuality(CgAmbientOcclusion.LEVEL_QUALITIES[next]);
+            }
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && !isCtrlDown() && !isAltDown()) {
                 int now = !CgGraphicsSettings.AMBIENT_OCCLUSION.get() ? 0 : 1 + Math.round(CgGraphicsSettings.AMBIENT_OCCLUSION_METHOD.get());
                 int next = (now + (isShiftDown() ? 3 : 1)) % 4;
                 CgGraphicsSettings.AMBIENT_OCCLUSION.set(next != 0);
@@ -843,6 +850,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private static boolean isCtrlDown() {
         return CgInput.isKeyDown(CgKeyCodes.KEY_LCONTROL) || CgInput.isKeyDown(CgKeyCodes.KEY_RCONTROL);
+    }
+
+    private static boolean isAltDown() {
+        return CgInput.isKeyDown(CgKeyCodes.KEY_LMENU) || CgInput.isKeyDown(CgKeyCodes.KEY_RMENU);
     }
 
     private static boolean isShiftDown() {
