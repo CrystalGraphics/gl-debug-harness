@@ -52,7 +52,8 @@ import com.crystalgraphics.trace.CgTrace;
  * intensity, each point's occlusion read back off that curve: the open floor stays lit, the near of the wall and the
  * box's side darken, and GTAO 40 cm from the wall stays within 0.15 of a ray-cast, pixel by pixel (the cosine-weighted
  * hemisphere of each floor point against the wall within GTAO's 2 m reach, the reference XeGTAO's defaults are fitted to over many scenes, so one wall
- * may sit off it by a tenth). Then the Low tier, which runs none.
+ * may sit off it by a tenth). Then a close-up: a sphere filling the screen, whose face toward the eye has nothing near
+ * it, so both methods must leave it open though their reach runs far off the screen. Then the Low tier, which runs none.
  *
  * <pre>{@code
  * ./gradlew :gl-debug-harness:runHarness --args="--mode=ambient-occlusion --rhi=vulkan"
@@ -69,6 +70,8 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
     private static final float[] EYE = {0f, 67f, 5f}, AT = {0f, 64f, -2f};
     private static final float[] OPEN = {-1.8f, FLOOR, 1f}, NEAR_WALL = {-1.5f, FLOOR, -3.6f}, BOX_SIDE = {1.45f, FLOOR, -0.5f};
     private static final float[] SHARES = {0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1f};
+    /** The close-up: a sphere of radius 1 on the line of sight, its near face 1.2 m away, so it fills the screen. */
+    private static final float CLOSE_CENTRE = 2.2f, CLOSE_FACE = 1.2f;
 
     private final Matrix4f projection = CgCamera.perspectiveMatrix(new Matrix4f(), 50f, (float) W / H, 0.05f, 200f);
     private final Matrix4f look = new Matrix4f().lookAt(0f, 0f, 0f, AT[0] - EYE[0], AT[1] - EYE[1], AT[2] - EYE[2], 0f, 1f, 0f);
@@ -134,6 +137,18 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
             float[] cast = castNearWall(offs, gtao);
             readings.append(String.format(Locale.ROOT, "GTAO near the wall %.3f, a ray-cast %.3f; ", cast[0], cast[1]));
             if (Math.abs(cast[0] - cast[1]) > 0.15f) failures.add("GTAO near the wall is " + cast[0] + ", a ray-cast " + cast[1]);
+            // The close-up at High: Low, drawn above, runs none
+            CgGraphicsSettings.QUALITY.set(CgQuality.HIGH);
+            float[] face = closeFace(), closeCurve = new float[SHARES.length];
+            for (int i = 0; i < SHARES.length; i++) closeCurve[i] = patch(render(false, 0, SHARES[i], W, H, FRAMES, -1, true), face);
+            for (int m = 0; m < 2; m++) {
+                String name = m == 0 ? "SSAO" : "GTAO";
+                BufferedImage image = render(true, m, 1f, W, H, FRAMES, -1, true);
+                save(ctx, "close-" + name.toLowerCase(Locale.ROOT), image);
+                float open = occlusion(closeCurve, patch(image, face));
+                readings.append(String.format(Locale.ROOT, "%s close-up face %.2f; ", name, open));
+                if (open < 0.9f) failures.add(name + " darkens a close-up's open face: " + open);
+            }
             time(0, CgQuality.MEDIUM);
             time(0, CgQuality.HIGH);
             time(1, CgQuality.MEDIUM);
@@ -161,7 +176,7 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
         try {
             if (!CgGpuTrace.isMeasuring()) return;
             CgGraphicsSettings.QUALITY.set(tier);
-            render(true, method, 1f, TIMING_W, TIMING_H, WARMUP + TIMED, WARMUP);
+            render(true, method, 1f, TIMING_W, TIMING_H, WARMUP + TIMED, WARMUP, false);
             long[] total = CgGpuTrace.totals().get("world.ambientOcclusion");
             double ms = total == null ? 0 : total[0] / 1e6 / TIMED;
             System.out.printf(Locale.ROOT, "[ambient-occlusion] %s at %s, %dx%d: %.3f ms a frame%n", method == 0 ? "SSAO" : "GTAO",
@@ -173,11 +188,26 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
 
     /** FRAMES frames of the floor, wall and box at {@code share} of the albedo; occluded by {@code method} or not. */
     private BufferedImage run(boolean occluded, int method, float share) {
-        return render(occluded, method, share, W, H, FRAMES, -1);
+        return render(occluded, method, share, W, H, FRAMES, -1, false);
     }
 
-    /** {@code frames} frames at {@code width} by {@code height}, the GPU's totals reset at {@code resetAt}; the last one. */
-    private BufferedImage render(boolean occluded, int method, float share, int width, int height, int frames, int resetAt) {
+    /** The close-up sphere's face nearest the eye. */
+    private static float[] closeFace() {
+        return along(CLOSE_FACE);
+    }
+
+    /** The point {@code distance} from the eye toward where it looks. */
+    private static float[] along(float distance) {
+        Vector3f d = new Vector3f(AT[0] - EYE[0], AT[1] - EYE[1], AT[2] - EYE[2]).normalize(distance);
+        return new float[] {EYE[0] + d.x, EYE[1] + d.y, EYE[2] + d.z};
+    }
+
+    /**
+     * {@code frames} frames at {@code width} by {@code height}, the GPU's totals reset at {@code resetAt}; the last one.
+     * The floor, wall and box, or the close-up's sphere alone.
+     */
+    private BufferedImage render(boolean occluded, int method, float share, int width, int height, int frames, int resetAt,
+                                 boolean closeUp) {
         CgView main = CgView.main();
         main.showFlags().ambientOcclusion(occluded);
         CgGraphicsSettings.AMBIENT_OCCLUSION_METHOD.set((float) method);
@@ -186,9 +216,14 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
         CgMesh cube = CgMeshShapes.cube();
         float a = ALBEDO * share;
         List<CgMeshComponent> spawned = new ArrayList<>();
-        spawned.add(scene.mesh(cube, material.instance()).at(0, FLOOR - 0.1f, 0).scale(60f, 0.2f, 60f).customData(0, a, a, a, 1f).spawn());
-        spawned.add(scene.mesh(cube, material.instance()).at(0, FLOOR + 3f, -4.2f).scale(60f, 6f, 0.4f).customData(0, a, a, a, 1f).spawn());
-        spawned.add(scene.mesh(cube, material.instance()).at(2f, FLOOR + 0.5f, -0.5f).customData(0, a, a, a, 1f).spawn());
+        if (closeUp) {
+            float[] c = along(CLOSE_CENTRE);
+            spawned.add(scene.mesh(CgMeshShapes.sphere(48, 96), material.instance()).at(c[0], c[1], c[2]).customData(0, a, a, a, 1f).spawn());
+        } else {
+            spawned.add(scene.mesh(cube, material.instance()).at(0, FLOOR - 0.1f, 0).scale(60f, 0.2f, 60f).customData(0, a, a, a, 1f).spawn());
+            spawned.add(scene.mesh(cube, material.instance()).at(0, FLOOR + 3f, -4.2f).scale(60f, 6f, 0.4f).customData(0, a, a, a, 1f).spawn());
+            spawned.add(scene.mesh(cube, material.instance()).at(2f, FLOOR + 0.5f, -0.5f).customData(0, a, a, a, 1f).spawn());
+        }
         BufferedImage last = null;
         for (int f = 0; f < frames; f++) {
             if (f == resetAt) CgGpuTrace.resetTotals();
@@ -312,7 +347,8 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
             for (String failure : failures) System.out.println("[ambient-occlusion] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[ambient-occlusion] PASS on " + on + ": SSAO and GTAO darken the floor near a wall and a box's"
-                    + " side and leave open floor lit; GTAO near the wall stays within 0.15 of a ray-cast of its reach; Low runs none");
+                    + " side and leave open floor and a close-up's face lit; GTAO near the wall stays within 0.15 of a ray-cast of its"
+                    + " reach; Low runs none");
         }
     }
 

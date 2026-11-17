@@ -2,6 +2,8 @@ package com.crystalgraphics.harness;
 
 import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
 import com.crystalgraphics.render.post.aa.CgTemporalAA;
+import com.crystalgraphics.render.post.upscale.CgAntiAliasing;
+import com.crystalgraphics.settings.CgGraphicsSettings;
 import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.render.CgFrameClock;
@@ -30,6 +32,8 @@ import com.crystalgraphics.harness.camera.FloorRenderer;
 import com.crystalgraphics.harness.camera.HUDRenderer;
 import com.crystalgraphics.harness.camera.HarnessCameraShake;
 import com.crystalgraphics.render.post.CgPost;
+import com.crystalgraphics.render.post.debug.CgPostDebug;
+import com.crystalgraphics.variable.CgVar;
 import com.crystalgraphics.render.post.settings.CgPostSettings;
 import com.crystalgraphics.harness.capture.ArtifactService;
 import com.crystalgraphics.harness.capture.CaptureCallback;
@@ -725,6 +729,24 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F8) {
                 CgTemporalAA.sharpening(!CgTemporalAA.sharpening());
             }
+            // F11: the main view's temporal method, TAA or TSR, in every scene.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F11) {
+                CgView view = CgView.main();
+                view.antiAliasing(view.antiAliasing() == CgAntiAliasing.TSR ? CgAntiAliasing.TAA : CgAntiAliasing.TSR);
+            }
+            // Ctrl+F12: the ambient occlusion itself on screen, turned on if it was off, or back to the picture.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && isCtrlDown()) {
+                boolean show = !CgPostDebug.VIEW.get().equals("ao");
+                if (show) CgGraphicsSettings.AMBIENT_OCCLUSION.set(true);
+                CgPostDebug.VIEW.set(CgVar.Source.CONSOLE, show ? "ao" : "");
+            }
+            // F12: ambient occlusion off, SSAO, GTAO (shift: back), as the Minecraft render demo's F12.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && !isCtrlDown()) {
+                int now = !CgGraphicsSettings.AMBIENT_OCCLUSION.get() ? 0 : 1 + Math.round(CgGraphicsSettings.AMBIENT_OCCLUSION_METHOD.get());
+                int next = (now + (isShiftDown() ? 2 : 1)) % 3;
+                CgGraphicsSettings.AMBIENT_OCCLUSION.set(next != 0);
+                if (next != 0) CgGraphicsSettings.AMBIENT_OCCLUSION_METHOD.set((float) (next - 1));
+            }
             // F9: day and night under VFX Lab's sky, where the scene plays under it.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F9 && HarnessEnvironment.INSTANCE.enabled()) {
                 HarnessEnvironment.INSTANCE.toggleNight();
@@ -821,6 +843,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
     private static boolean isCtrlDown() {
         return CgInput.isKeyDown(CgKeyCodes.KEY_LCONTROL) || CgInput.isKeyDown(CgKeyCodes.KEY_RCONTROL);
+    }
+
+    private static boolean isShiftDown() {
+        return CgInput.isKeyDown(CgKeyCodes.KEY_LSHIFT) || CgInput.isKeyDown(CgKeyCodes.KEY_RSHIFT);
     }
 
     /**

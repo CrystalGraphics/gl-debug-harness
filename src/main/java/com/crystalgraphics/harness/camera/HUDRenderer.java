@@ -2,6 +2,8 @@ package com.crystalgraphics.harness.camera;
 
 import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
 import com.crystalgraphics.render.post.aa.CgTemporalAA;
+import com.crystalgraphics.render.post.upscale.CgAntiAliasing;
+import com.crystalgraphics.settings.CgGraphicsSettings;
 import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.api.font.CgDefaultFont;
 import com.crystalgraphics.api.font.CgFont;
@@ -10,6 +12,7 @@ import com.crystalgraphics.text.style.CgTextLayer;
 import com.crystalgraphics.text.style.CgTextStyle;
 import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.render.post.CgPost;
+import com.crystalgraphics.render.post.debug.CgPostDebug;
 import com.crystalgraphics.render.post.settings.CgPostSettings;
 import com.crystalgraphics.render.canvas.CgCanvas;
 import com.crystalgraphics.vfx.CgVfxSystem;
@@ -27,7 +30,8 @@ import java.util.function.Supplier;
  * Particles: n  (the median drawn a frame over the last 0.5 s)
  *
  * Shake [C]: on, trauma t | off
- * Bloom [L]: on, b [- =] | off | Emission [ ]: g | Temporal AA [F7]: on | off, RCAS [F8]: on | off
+ * Bloom [L]: on, b [- =] | off | Emission [ ]: g | Temporal AA [F7]: on, TAA | TSR [F11] | off, RCAS [F8]: on | off
+ * AO [F12]: off | SSAO | GTAO, show [Ctrl+F12]
  * </pre>
  */
 public final class HUDRenderer {
@@ -108,8 +112,12 @@ public final class HUDRenderer {
         text.append(bloom.bloomIntensity() == 0f ? "\nBloom [L]: off" : String.format("\nBloom [L]: on, %.2f [- =]", bloom.bloomIntensity()));
         if (shakeAndGlow) text.append(String.format(" | Emission [ ]: %.2f", CgView.main().flag(CgSceneRenderer.SCENE_EMISSION)));
         text.append(CgView.main().flag(CgSceneRenderer.GRADE_DRAWS) ? " | Kit looks [F6]: on" : " | Kit looks [F6]: off")
-                .append(CgTemporalAA.enabled(CgView.main()) ? " | Temporal AA [F7]: on" : " | Temporal AA [F7]: off")
-                .append(CgTemporalAA.sharpening() ? ", RCAS [F8]: on" : ", RCAS [F8]: off");
+                .append(!CgTemporalAA.enabled(CgView.main()) ? " | Temporal AA [F7]: off"
+                        : CgView.main().antiAliasing() == CgAntiAliasing.TSR ? " | Temporal AA [F7]: on, TSR [F11]" : " | Temporal AA [F7]: on, TAA [F11]")
+                .append(CgTemporalAA.sharpening() ? ", RCAS [F8]: on" : ", RCAS [F8]: off")
+                .append("\nAO [F12]: ").append(!CgGraphicsSettings.AMBIENT_OCCLUSION.get() ? "off"
+                        : Math.round(CgGraphicsSettings.AMBIENT_OCCLUSION_METHOD.get()) == 1 ? "GTAO" : "SSAO")
+                .append(CgPostDebug.VIEW.get().equals("ao") ? ", shown [Ctrl+F12]" : ", show [Ctrl+F12]");
         String own = sceneLines.get();
         if (own != null) text.append('\n').append(own);
         return text.toString();
