@@ -151,7 +151,7 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
                 readings.append(String.format(Locale.ROOT, "%s close-up face %.2f; ", name, open));
                 if (open < 0.9f) failures.add(name + " darkens a close-up's open face: " + open);
             }
-            for (int level = 2; level <= 4; level++) time(settings, 0, level, false, null);
+            for (int level = 4; level >= 0; level--) time(settings, 0, level, false, curve);
             // GTAO and CACAO at every level, native and downsampled: the table in CgAmbientOcclusion's javadoc
             for (int m = 1; m < METHODS.length; m++) {
                 for (int level = 0; level <= 4; level++) {
