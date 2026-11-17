@@ -94,6 +94,7 @@ import com.crystalgraphics.harness.scene.test.CgDepthOfFieldTestScene;
 import com.crystalgraphics.harness.scene.test.CgScreenPercentageTestScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalUpscaleTestScene;
 import com.crystalgraphics.harness.scene.test.CgKitLooksTestScene;
+import com.crystalgraphics.harness.scene.test.CgAmbientOcclusionTestScene;
 import com.crystalgraphics.harness.scene.test.CgMotionBlurTestScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalUpscaleTimingScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalAALabScene;
@@ -1083,6 +1084,19 @@ public final class SceneRegistry {
                 .clearColor(0.02f, 0.02f, 0.03f, 1.0f)
                 .build(),
             () -> new CgMotionBlurTestScene()
+        );
+        reg.register(
+            SceneDescriptor.builder("ambient-occlusion").checksPixels()
+                .description("R13a's gate: SSAO and GTAO darken a wall's foot and a box's side, leave open floor lit; GTAO matches a ray-cast's half; Low runs none")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(480)
+                .defaultHeight(270)
+                .clearColor(0.02f, 0.02f, 0.03f, 1.0f)
+                .build(),
+            () -> new CgAmbientOcclusionTestScene()
         );
         reg.register(
             SceneDescriptor.builder("temporal-upscale-timing")
