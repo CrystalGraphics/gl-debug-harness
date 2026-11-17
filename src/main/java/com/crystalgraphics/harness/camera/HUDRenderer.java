@@ -33,7 +33,8 @@ import java.util.function.Supplier;
  *
  * Shake [C]: on, trauma t | off
  * Bloom [L]: on, b [- =] | off | Emission [ ]: g | Temporal AA [F7]: on, TAA | TSR [F11] | off, RCAS [F8]: on | off
- * AO [F12]: off | SSAO | GTAO | CACAO, its quality [Alt+F12], downsampled (CACAO, GTAO) [Ctrl+Alt+F12], show [Ctrl+F12]
+ * AO [F12]: off | SSAO | GTAO | CACAO, its quality [Alt+F12], intensity [Ctrl+Shift+F12], downsampled (CACAO, GTAO)
+ * [Ctrl+Alt+F12], show [Ctrl+F12]
  * </pre>
  */
 public final class HUDRenderer {
@@ -120,6 +121,7 @@ public final class HUDRenderer {
                 .append("\nAO [F12]: ").append(!CgGraphicsSettings.AMBIENT_OCCLUSION.get() ? "off"
                         : CgAmbientOcclusion.methodName() + ", " + CgAmbientOcclusion.LEVEL_NAMES[
                                 CgAmbientOcclusion.shaderLevel(CgView.main().post().settings())] + " [Alt+F12]"
+                                + String.format(", intensity %.2f [Ctrl+Shift+F12]", CgView.main().post().settings().ambientOcclusionIntensity())
                                 + downsampled())
                 .append(CgPostDebug.VIEW.get().equals("ao") ? ", shown [Ctrl+F12]" : ", show [Ctrl+F12]");
         String own = sceneLines.get();

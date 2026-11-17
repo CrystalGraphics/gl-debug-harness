@@ -742,7 +742,13 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 CgSetting.Toggle downsample = CgAmbientOcclusion.downsampleSetting();
                 if (downsample != null) downsample.set(!downsample.get());
             }
-            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && isCtrlDown() && !isAltDown()) {
+            // Ctrl+Shift+F12: the occlusion's intensity, a quarter to full, round (Unreal's default is half).
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && isCtrlDown() && isShiftDown() && !isAltDown()) {
+                CgPostSettings settings = CgView.main().post().settings();
+                float next = (Math.round(settings.ambientOcclusionIntensity() * 4f) % 4 + 1) / 4f;
+                settings.ambientOcclusionIntensity(next);
+            }
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && isCtrlDown() && !isShiftDown() && !isAltDown()) {
                 boolean show = !CgPostDebug.VIEW.get().equals("ao");
                 if (show) CgGraphicsSettings.AMBIENT_OCCLUSION.set(true);
                 CgPostDebug.VIEW.set(CgVar.Source.CONSOLE, show ? "ao" : "");
