@@ -3,6 +3,7 @@ package com.crystalgraphics.harness.camera;
 import com.crystalgraphics.render.scene.renderer.CgSceneRenderer;
 import com.crystalgraphics.render.post.aa.CgTemporalAA;
 import com.crystalgraphics.render.post.upscale.CgAntiAliasing;
+import com.crystalgraphics.render.scene.renderer.feature.ao.CgAmbientOcclusion;
 import com.crystalgraphics.settings.CgGraphicsSettings;
 import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.api.font.CgDefaultFont;
@@ -31,7 +32,7 @@ import java.util.function.Supplier;
  *
  * Shake [C]: on, trauma t | off
  * Bloom [L]: on, b [- =] | off | Emission [ ]: g | Temporal AA [F7]: on, TAA | TSR [F11] | off, RCAS [F8]: on | off
- * AO [F12]: off | SSAO | GTAO, show [Ctrl+F12]
+ * AO [F12]: off | SSAO | GTAO | CACAO, show [Ctrl+F12]
  * </pre>
  */
 public final class HUDRenderer {
@@ -116,7 +117,7 @@ public final class HUDRenderer {
                         : CgView.main().antiAliasing() == CgAntiAliasing.TSR ? " | Temporal AA [F7]: on, TSR [F11]" : " | Temporal AA [F7]: on, TAA [F11]")
                 .append(CgTemporalAA.sharpening() ? ", RCAS [F8]: on" : ", RCAS [F8]: off")
                 .append("\nAO [F12]: ").append(!CgGraphicsSettings.AMBIENT_OCCLUSION.get() ? "off"
-                        : Math.round(CgGraphicsSettings.AMBIENT_OCCLUSION_METHOD.get()) == 1 ? "GTAO" : "SSAO")
+                        : CgAmbientOcclusion.methodName())
                 .append(CgPostDebug.VIEW.get().equals("ao") ? ", shown [Ctrl+F12]" : ", show [Ctrl+F12]");
         String own = sceneLines.get();
         if (own != null) text.append('\n').append(own);

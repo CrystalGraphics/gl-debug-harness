@@ -740,10 +740,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 if (show) CgGraphicsSettings.AMBIENT_OCCLUSION.set(true);
                 CgPostDebug.VIEW.set(CgVar.Source.CONSOLE, show ? "ao" : "");
             }
-            // F12: ambient occlusion off, SSAO, GTAO (shift: back), as the Minecraft render demo's F12.
+            // F12: ambient occlusion off, SSAO, GTAO, CACAO (shift: back), as the Minecraft render demo's F12.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && !isCtrlDown()) {
                 int now = !CgGraphicsSettings.AMBIENT_OCCLUSION.get() ? 0 : 1 + Math.round(CgGraphicsSettings.AMBIENT_OCCLUSION_METHOD.get());
-                int next = (now + (isShiftDown() ? 2 : 1)) % 3;
+                int next = (now + (isShiftDown() ? 3 : 1)) % 4;
                 CgGraphicsSettings.AMBIENT_OCCLUSION.set(next != 0);
                 if (next != 0) CgGraphicsSettings.AMBIENT_OCCLUSION_METHOD.set((float) (next - 1));
             }

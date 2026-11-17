@@ -66,6 +66,8 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
 
     private static final int W = 480, H = 270, FRAMES = 6, TIMING_W = 2560, TIMING_H = 1440, WARMUP = 30, TIMED = 60;
     private static final long WARM_NANOS = 30_000_000_000L;
+    /** ambient_occlusion_method's names, by value. */
+    private static final String[] METHODS = {"SSAO", "GTAO", "CACAO"};
     private static final float FLOOR = 64f, ALBEDO = 0.8f, WALL_FACE = -4f, REACH = 2f;
     private static final float[] EYE = {0f, 67f, 5f}, AT = {0f, 64f, -2f};
     private static final float[] OPEN = {-1.8f, FLOOR, 1f}, NEAR_WALL = {-1.5f, FLOOR, -3.6f}, BOX_SIDE = {1.45f, FLOOR, -0.5f};
@@ -116,17 +118,17 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
                 curve[1][i] = patch(image, NEAR_WALL);
                 curve[2][i] = patch(image, BOX_SIDE);
             }
-            BufferedImage ssao = run(true, 0, 1f), gtao = run(true, 1, 1f);
-            save(ctx, "ssao", ssao);
-            save(ctx, "gtao", gtao);
+            BufferedImage[] methods = {run(true, 0, 1f), run(true, 1, 1f), run(true, 2, 1f)};
+            BufferedImage gtao = methods[1];
+            for (int m = 0; m < METHODS.length; m++) save(ctx, METHODS[m].toLowerCase(Locale.ROOT), methods[m]);
             CgGraphicsSettings.QUALITY.set(CgQuality.LOW);
             BufferedImage low = run(true, 1, 1f);
             save(ctx, "low", low);
 
             StringBuilder readings = new StringBuilder();
-            for (int m = 0; m < 2; m++) {
-                BufferedImage image = m == 0 ? ssao : gtao;
-                String name = m == 0 ? "SSAO" : "GTAO";
+            for (int m = 0; m < METHODS.length; m++) {
+                BufferedImage image = methods[m];
+                String name = METHODS[m];
                 float open = occlusion(curve[0], patch(image, OPEN)), near = occlusion(curve[1], patch(image, NEAR_WALL));
                 float side = occlusion(curve[2], patch(image, BOX_SIDE));
                 readings.append(String.format(Locale.ROOT, "%s open %.2f, near the wall %.2f, the box's side %.2f; ", name, open, near, side));
@@ -141,8 +143,8 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
             CgGraphicsSettings.QUALITY.set(CgQuality.HIGH);
             float[] face = closeFace(), closeCurve = new float[SHARES.length];
             for (int i = 0; i < SHARES.length; i++) closeCurve[i] = patch(render(false, 0, SHARES[i], W, H, FRAMES, -1, true), face);
-            for (int m = 0; m < 2; m++) {
-                String name = m == 0 ? "SSAO" : "GTAO";
+            for (int m = 0; m < METHODS.length; m++) {
+                String name = METHODS[m];
                 BufferedImage image = render(true, m, 1f, W, H, FRAMES, -1, true);
                 save(ctx, "close-" + name.toLowerCase(Locale.ROOT), image);
                 float open = occlusion(closeCurve, patch(image, face));
@@ -153,6 +155,8 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
             time(0, CgQuality.HIGH);
             time(1, CgQuality.MEDIUM);
             time(1, CgQuality.HIGH);
+            time(2, CgQuality.MEDIUM);
+            time(2, CgQuality.HIGH);
             float lowNear = patch(low, NEAR_WALL), offNear = curve[1][SHARES.length - 1];
             readings.append(String.format(Locale.ROOT, "Low near the wall %.1f against off's %.1f", lowNear, offNear));
             if (Math.abs(lowNear - offNear) > 1.5f) failures.add("the Low tier occludes: " + lowNear + " against " + offNear);
@@ -179,7 +183,7 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
             render(true, method, 1f, TIMING_W, TIMING_H, WARMUP + TIMED, WARMUP, false);
             long[] total = CgGpuTrace.totals().get("world.ambientOcclusion");
             double ms = total == null ? 0 : total[0] / 1e6 / TIMED;
-            System.out.printf(Locale.ROOT, "[ambient-occlusion] %s at %s, %dx%d: %.3f ms a frame%n", method == 0 ? "SSAO" : "GTAO",
+            System.out.printf(Locale.ROOT, "[ambient-occlusion] %s at %s, %dx%d: %.3f ms a frame%n", METHODS[method],
                     tier, TIMING_W, TIMING_H, ms);
         } finally {
             CgTrace.setEnabled(CgGpuTrace.GPU, tracing);
