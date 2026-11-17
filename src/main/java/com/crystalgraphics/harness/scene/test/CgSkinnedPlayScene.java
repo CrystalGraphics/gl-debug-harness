@@ -849,7 +849,7 @@ public class CgSkinnedPlayScene implements InteractiveSceneLifecycle, CgSystemIn
 
         Map<?, ?> block = actor.outlineBlock;
         if (block != null && block.get("custom_depth_stencil_value") instanceof Number stencil) {
-            actor.body.customDepth(stencil.intValue(), 0xFF);
+            actor.body.customDepth(stencil.intValue());   // the mark's bits; 5-7 are its look's
         }
     }
 

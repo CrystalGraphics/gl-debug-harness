@@ -17,6 +17,9 @@ import com.crystalgraphics.harness.config.HarnessContext;
 import com.crystalgraphics.harness.util.HarnessTarget;
 import com.crystalgraphics.render.host.CgStageHost;
 import com.crystalgraphics.render.post.CgPostRenderer;
+import com.crystalgraphics.render.post.settings.CgPostSettings;
+import com.crystalgraphics.render.post.settings.CgPostSettings.Control;
+import com.crystalgraphics.render.post.settings.CgPostSettings.Region;
 import com.crystalgraphics.render.post.aa.CgTemporalAA;
 import com.crystalgraphics.render.post.upscale.CgAntiAliasing;
 import com.crystalgraphics.render.scene.CgScene;
@@ -44,6 +47,8 @@ public final class CgTemporalUpscaleTimingScene implements HarnessSceneLifecycle
 
     private CgMaterialInstance line;
     private final Matrix4f projection = new Matrix4f(), view = new Matrix4f();
+    /** Two kits' looks on the bars and posts, for the look weights' cost (R14g); null draws them ungraded. */
+    private CgPostSettings lookA, lookB;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -66,6 +71,11 @@ public final class CgTemporalUpscaleTimingScene implements HarnessSceneLifecycle
             }
             System.out.printf(Locale.ROOT, "[temporal-upscale-timing] %dx%d output, GPU ms a frame over %d frames%n", W, H, TIMED);
             time("TAA 100%", CgAntiAliasing.TAA, quality, false, "post.taa.");
+            lookA = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.SATURATION, 1f, 1f, 1f, 0f);
+            lookB = new CgPostSettings().tonemap().grade(Region.GLOBAL, Control.GAIN, 1.4f, 0.9f, 0.5f, 1f);
+            time("TAA 2 looks", CgAntiAliasing.TAA, quality, false, "post.taa.");
+            time("TSR LOW 2 looks", CgAntiAliasing.TSR, CgQuality.LOW, false, "post.tsr.");
+            lookA = lookB = null;
             for (CgQuality q : new CgQuality[]{CgQuality.LOW, CgQuality.MEDIUM, CgQuality.HIGH, CgQuality.ULTRA}) {
                 time("TSR " + q + " 100%", CgAntiAliasing.TSR, q, false, "post.tsr.");
                 time("TSR " + q + " auto", CgAntiAliasing.TSR, q, true, "post.tsr.");
@@ -111,15 +121,20 @@ public final class CgTemporalUpscaleTimingScene implements HarnessSceneLifecycle
             passMs += ms;
             each.append(String.format(Locale.ROOT, " %s %.3f", e.getKey().substring(passes.length()), ms));
         }
-        System.out.printf(Locale.ROOT, "[temporal-upscale-timing] %-16s drawn %4dx%-4d  AA %.3f  frame %.3f  |%s%n", label,
-                main.width(), main.height(), passMs, frameMs, each);
+        double looksMs = 0;
+        for (Map.Entry<String, long[]> e : CgGpuTrace.totals().entrySet()) {
+            if (e.getKey().startsWith("post.look.")) looksMs += e.getValue()[0] / 1e6 / TIMED;
+        }
+        System.out.printf(Locale.ROOT, "[temporal-upscale-timing] %-16s drawn %4dx%-4d  AA %.3f  looks %.3f  frame %.3f  |%s%n", label,
+                main.width(), main.height(), passMs, looksMs, frameMs, each);
     }
 
     private void draw(CgScene scene, CgMesh cube) {
         scene.once().mesh(cube, line).at(0.6, 0.4, -5).transform(new Matrix4f().rotateZ((float) Math.toRadians(4)).scale(3f, 0.15f, 0.02f))
-                .customData(0, 1f, 0.9f, 0.6f, 1f).add();
+                .customData(0, 1f, 0.9f, 0.6f, 1f).grade(lookA).add();
         for (int i = 0; i < 12; i++) {
-            scene.once().mesh(cube, line).at(-3 + i * 0.5, 1.2, -9).scale(0.04f, 1.6f, 0.04f).customData(0, 0.6f, 0.85f, 1f, 2f).add();
+            scene.once().mesh(cube, line).at(-3 + i * 0.5, 1.2, -9).scale(0.04f, 1.6f, 0.04f).customData(0, 0.6f, 0.85f, 1f, 2f)
+                    .grade(i % 2 == 0 ? lookA : lookB).add();
         }
     }
 
