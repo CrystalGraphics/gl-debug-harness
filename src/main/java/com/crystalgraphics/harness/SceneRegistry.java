@@ -94,6 +94,7 @@ import com.crystalgraphics.harness.scene.test.CgDepthOfFieldTestScene;
 import com.crystalgraphics.harness.scene.test.CgScreenPercentageTestScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalUpscaleTestScene;
 import com.crystalgraphics.harness.scene.test.CgKitLooksTestScene;
+import com.crystalgraphics.harness.scene.test.CgMotionBlurTestScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalUpscaleTimingScene;
 import com.crystalgraphics.harness.scene.test.CgTemporalAALabScene;
 import com.crystalgraphics.harness.scene.test.CgUpscaleLabScene;
@@ -1069,6 +1070,19 @@ public final class SceneRegistry {
                 .clearColor(0.02f, 0.02f, 0.03f, 1.0f)
                 .build(),
             () -> new CgKitLooksTestScene()
+        );
+        reg.register(
+            SceneDescriptor.builder("motion-blur").checksPixels()
+                .description("R14c's gate: a moving bar, a camera pan and a spinner blur by a frame's motion; an AfterMotionBlur card stays sharp")
+                .lifecycleMode(SceneDescriptor.LifecycleMode.MANAGED)
+                .category(SceneDescriptor.Category.SCENE)
+                .needsFbo(true)
+                .needsDepthBuffer(true)
+                .defaultWidth(480)
+                .defaultHeight(270)
+                .clearColor(0.02f, 0.02f, 0.03f, 1.0f)
+                .build(),
+            () -> new CgMotionBlurTestScene()
         );
         reg.register(
             SceneDescriptor.builder("temporal-upscale-timing")

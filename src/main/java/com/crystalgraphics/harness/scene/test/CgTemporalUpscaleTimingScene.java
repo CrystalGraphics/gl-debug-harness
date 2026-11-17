@@ -49,6 +49,8 @@ public final class CgTemporalUpscaleTimingScene implements HarnessSceneLifecycle
     private final Matrix4f projection = new Matrix4f(), view = new Matrix4f();
     /** Two kits' looks on the bars and posts, for the look weights' cost (R14g); null draws them ungraded. */
     private CgPostSettings lookA, lookB;
+    /** Motion blur on (R14c), and the camera panning (up to 0.015 rad a frame) rather than drifting. */
+    private boolean pan;
 
     @Override
     public void init(HarnessContext ctx) {
@@ -76,12 +78,20 @@ public final class CgTemporalUpscaleTimingScene implements HarnessSceneLifecycle
             time("TAA 2 looks", CgAntiAliasing.TAA, quality, false, "post.taa.");
             time("TSR LOW 2 looks", CgAntiAliasing.TSR, CgQuality.LOW, false, "post.tsr.");
             lookA = lookB = null;
+            pan = true;
+            time("TSR LOW pan", CgAntiAliasing.TSR, CgQuality.LOW, false, "post.tsr.");
+            main.showFlags().motionBlur(true);
+            time("TSR LOW pan MB", CgAntiAliasing.TSR, CgQuality.LOW, false, "post.tsr.");
+            pan = false;
+            time("TSR LOW MB", CgAntiAliasing.TSR, CgQuality.LOW, false, "post.tsr.");
+            main.showFlags().motionBlur(false);
             for (CgQuality q : new CgQuality[]{CgQuality.LOW, CgQuality.MEDIUM, CgQuality.HIGH, CgQuality.ULTRA}) {
                 time("TSR " + q + " 100%", CgAntiAliasing.TSR, q, false, "post.tsr.");
                 time("TSR " + q + " auto", CgAntiAliasing.TSR, q, true, "post.tsr.");
             }
         } finally {
             CgTemporalAA.enable(main, false);
+            main.showFlags().motionBlur(false);
             main.screenPercentageAuto(false).screenPercentage(100f).antiAliasing(CgAntiAliasing.TSR);
             CgGraphicsSettings.ANTI_ALIASING.set(quality);
             CgTrace.setEnabled(CgGpuTrace.GPU, tracing);
@@ -103,6 +113,7 @@ public final class CgTemporalUpscaleTimingScene implements HarnessSceneLifecycle
                 target.clear(0.02f, 0.02f, 0.03f, 1f);
                 draw(scene, cube);
                 view.identity().translate((float) Math.sin(f * 0.02) * 0.3f, -1.2f, 0f);
+                if (pan) view.rotateLocalY((float) Math.sin(f * 0.05) * 0.3f);
                 CgStageHost.frame(CgStageHost.WORLD_OPAQUE).set(0f, W, H, target.external()).camera().set(0, 0, 0, view, projection);
                 HarnessWorld.fireCallbacks();
                 CgFrameRing.endFrame();
@@ -121,12 +132,13 @@ public final class CgTemporalUpscaleTimingScene implements HarnessSceneLifecycle
             passMs += ms;
             each.append(String.format(Locale.ROOT, " %s %.3f", e.getKey().substring(passes.length()), ms));
         }
-        double looksMs = 0;
+        double looksMs = 0, blurMs = 0;
         for (Map.Entry<String, long[]> e : CgGpuTrace.totals().entrySet()) {
             if (e.getKey().startsWith("post.look.")) looksMs += e.getValue()[0] / 1e6 / TIMED;
+            if (e.getKey().startsWith("post.motionBlur.")) blurMs += e.getValue()[0] / 1e6 / TIMED;
         }
-        System.out.printf(Locale.ROOT, "[temporal-upscale-timing] %-16s drawn %4dx%-4d  AA %.3f  looks %.3f  frame %.3f  |%s%n", label,
-                main.width(), main.height(), passMs, looksMs, frameMs, each);
+        System.out.printf(Locale.ROOT, "[temporal-upscale-timing] %-16s drawn %4dx%-4d  AA %.3f  looks %.3f  motion blur %.3f  frame %.3f  |%s%n",
+                label, main.width(), main.height(), passMs, looksMs, blurMs, frameMs, each);
     }
 
     private void draw(CgScene scene, CgMesh cube) {
