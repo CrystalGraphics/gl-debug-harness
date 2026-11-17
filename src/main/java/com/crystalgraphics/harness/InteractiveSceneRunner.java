@@ -170,6 +170,9 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     /** {@code -Dcrystalgraphics.harness.camera=<x>,<y>,<z>,<yaw>,<pitch>}: the camera after the scene placed it, as the
      * HUD's Pos and Rot read: a capture from where a human was looking. */
     private static final String CAMERA = System.getProperty("crystalgraphics.harness.camera");
+    /** {@code -Dcrystalgraphics.harness.cameraDrift=<dx>,<dy>,<dz>,<dyaw>,<dpitch>}: added to the camera every frame, a
+     * steady strafe or pan an unattended run repeats (motion under temporal anti-aliasing). */
+    private static final String CAMERA_DRIFT = System.getProperty("crystalgraphics.harness.cameraDrift");
     /** {@code -Dcrystalgraphics.harness.frameTimes=<frames>}: after {@value #FRAME_TIME_WARMUP} frames, times that
      * many frame to frame, logs the median, mean and 95th percentile, and stops. Pair with {@code .fps=0}, or the
      * pacing is what gets measured. Live input is ignored, as under {@code captureAt}: a turned camera is a
@@ -414,6 +417,7 @@ public final class InteractiveSceneRunner implements CaptureCallback {
             if (scene.uses3DCamera() && !inputPauseHandler.isPaused() && !shown && !UNATTENDED) {
                 camera.update(frameClock.getDeltaTime());
             }
+            if (CAMERA_DRIFT != null && scene.uses3DCamera()) drift(ctx.getCamera3D());
 
             HarnessEnvironment.INSTANCE.tick(frameClock.getDeltaTime());
 
@@ -915,6 +919,13 @@ public final class InteractiveSceneRunner implements CaptureCallback {
 
         if (objectToProcess instanceof CgSystemInput.Keyboard keyboardHandler)
             this.keyboardListeners.add(keyboardHandler);
+    }
+
+    private static void drift(Camera3D camera) {
+        String[] v = CAMERA_DRIFT.split(",");
+        camera.moveCamera(camera.getPosX() + Float.parseFloat(v[0].trim()), camera.getPosY() + Float.parseFloat(v[1].trim()),
+                camera.getPosZ() + Float.parseFloat(v[2].trim()));
+        camera.rotateCamera(Float.parseFloat(v[3].trim()), Float.parseFloat(v[4].trim()));
     }
 
     public void init() {

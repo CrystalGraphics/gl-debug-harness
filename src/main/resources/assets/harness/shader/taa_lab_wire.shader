@@ -1,8 +1,10 @@
 // upscale-lab's wires and blades: an unlit colour from custom0, blended. custom1.x 1 keeps them at least two render
 // pixels wide (cg_min_pixel_width), blended by what they truly cover, so they hold still under the jitter; 0 draws them
-// as they are, thinner than a pixel and flickering. Still blends, so they keep their history (ResponsiveAA Off).
+// as they are, thinner than a pixel and flickering. They stand in the world, so they keep their history (ResponsiveAA
+// Off) and write their velocity and depth where they cover a tenth of a pixel (OutputVelocity): temporal AA moves them
+// with themselves, not with the floor behind, when the camera moves.
 #domain surface
-Material { BlendMode Translucent  ResponsiveAA Off  ShadingModel Unlit  ColorSpace Linear  Fog Off }
+Material { BlendMode Translucent  ResponsiveAA Off  OutputVelocity On  MaskClip 0.1  ShadingModel Unlit  ColorSpace Linear  Fog Off }
 
 #include "crystalgraphics:shaders/lib/pixel_coverage.glsl"
 
