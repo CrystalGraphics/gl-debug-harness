@@ -151,10 +151,14 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
                 readings.append(String.format(Locale.ROOT, "%s close-up face %.2f; ", name, open));
                 if (open < 0.9f) failures.add(name + " darkens a close-up's open face: " + open);
             }
-            for (int m = 0; m < METHODS.length; m++) {
-                for (int level = 2; level <= 4; level++) time(settings, m, level, false);
+            for (int level = 2; level <= 4; level++) time(settings, 0, level, false, null);
+            // GTAO and CACAO at every level, native and downsampled: the table in CgAmbientOcclusion's javadoc
+            for (int m = 1; m < METHODS.length; m++) {
+                for (int level = 0; level <= 4; level++) {
+                    time(settings, m, level, false, curve);
+                    time(settings, m, level, true, curve);
+                }
             }
-            for (int level = 2; level <= 4; level++) time(settings, 2, level, true);
             settings.ambientOcclusionQuality(CgPostSettings.DEFAULT_AO_QUALITY);
             float lowNear = patch(low, NEAR_WALL), offNear = curve[1][SHARES.length - 1];
             readings.append(String.format(Locale.ROOT, "Low near the wall %.1f against off's %.1f", lowNear, offNear));
@@ -176,13 +180,15 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
      * The pass's GPU time at a 1440p target, over TIMED frames: {@code method} at Unreal's shader {@code level}, CACAO's
      * downsampled presets where {@code downsampled}.
      */
-    private void time(CgPostSettings settings, int method, int level, boolean downsampled) {
+    private void time(CgPostSettings settings, int method, int level, boolean downsampled, float[][] curve) {
         boolean tracing = CgTrace.isEnabled(CgGpuTrace.GPU), wasDownsampled = CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.get();
+        boolean wasGtaoDownsampled = CgGraphicsSettings.GTAO_DOWNSAMPLE.get();
         CgTrace.setEnabled(CgGpuTrace.GPU, true);
         try {
             if (!CgGpuTrace.isMeasuring()) return;
             CgGraphicsSettings.QUALITY.set(CgQuality.HIGH);
             CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.set(downsampled);
+            CgGraphicsSettings.GTAO_DOWNSAMPLE.set(downsampled);
             settings.ambientOcclusionQuality(CgAmbientOcclusion.LEVEL_QUALITIES[level]);
             render(true, method, 1f, TIMING_W, TIMING_H, WARMUP + TIMED, WARMUP, false);
             long[] total = CgGpuTrace.totals().get("world.ambientOcclusion");
@@ -193,8 +199,16 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
             System.out.printf(Locale.ROOT, "[ambient-occlusion] %s %s%s, %dx%d: %.3f ms a frame, depth pyramids %.3f ms%n",
                     METHODS[method], CgAmbientOcclusion.LEVEL_NAMES[level], downsampled ? " downsampled" : "", TIMING_W,
                     TIMING_H, ms, pyramidMs);
+            if (curve != null) {
+                // Its look at full intensity: the floor near the wall and the box's side, off the albedo curves
+                BufferedImage image = run(true, method, 1f);
+                System.out.printf(Locale.ROOT, "[ambient-occlusion] row %s|%s|%s|%.3f|%.2f|%.2f%n", METHODS[method],
+                        CgAmbientOcclusion.LEVEL_NAMES[level], downsampled ? "downsampled" : "native", ms + pyramidMs,
+                        occlusion(curve[1], patch(image, NEAR_WALL)), occlusion(curve[2], patch(image, BOX_SIDE)));
+            }
         } finally {
             CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.set(wasDownsampled);
+            CgGraphicsSettings.GTAO_DOWNSAMPLE.set(wasGtaoDownsampled);
             CgTrace.setEnabled(CgGpuTrace.GPU, tracing);
         }
     }
