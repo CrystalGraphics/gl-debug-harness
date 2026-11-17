@@ -32,7 +32,7 @@ import java.util.function.Supplier;
  *
  * Shake [C]: on, trauma t | off
  * Bloom [L]: on, b [- =] | off | Emission [ ]: g | Temporal AA [F7]: on, TAA | TSR [F11] | off, RCAS [F8]: on | off
- * AO [F12]: off | SSAO | GTAO | CACAO, its quality [Alt+F12], show [Ctrl+F12]
+ * AO [F12]: off | SSAO | GTAO | CACAO, its quality [Alt+F12], CACAO downsampled [Ctrl+Alt+F12], show [Ctrl+F12]
  * </pre>
  */
 public final class HUDRenderer {
@@ -118,7 +118,8 @@ public final class HUDRenderer {
                 .append(CgTemporalAA.sharpening() ? ", RCAS [F8]: on" : ", RCAS [F8]: off")
                 .append("\nAO [F12]: ").append(!CgGraphicsSettings.AMBIENT_OCCLUSION.get() ? "off"
                         : CgAmbientOcclusion.methodName() + ", " + CgAmbientOcclusion.LEVEL_NAMES[
-                                CgAmbientOcclusion.shaderLevel(CgView.main().post().settings())] + " [Alt+F12]")
+                                CgAmbientOcclusion.shaderLevel(CgView.main().post().settings())] + " [Alt+F12]"
+                                + (CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.get() ? ", downsampled" : ", native") + " [Ctrl+Alt+F12]")
                 .append(CgPostDebug.VIEW.get().equals("ao") ? ", shown [Ctrl+F12]" : ", show [Ctrl+F12]");
         String own = sceneLines.get();
         if (own != null) text.append('\n').append(own);

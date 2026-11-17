@@ -736,14 +736,18 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 view.antiAliasing(view.antiAliasing() == CgAntiAliasing.TSR ? CgAntiAliasing.TAA : CgAntiAliasing.TSR);
             }
             // Ctrl+F12: the ambient occlusion itself on screen, turned on if it was off, or back to the picture.
-            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && isCtrlDown()) {
+            // Ctrl+Alt+F12: CACAO's downsampled presets on and off.
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && isCtrlDown() && isAltDown()) {
+                CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.set(!CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.get());
+            }
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && isCtrlDown() && !isAltDown()) {
                 boolean show = !CgPostDebug.VIEW.get().equals("ao");
                 if (show) CgGraphicsSettings.AMBIENT_OCCLUSION.set(true);
                 CgPostDebug.VIEW.set(CgVar.Source.CONSOLE, show ? "ao" : "");
             }
             // F12: ambient occlusion off, SSAO, GTAO, CACAO (shift: back), as the Minecraft render demo's F12.
             // Alt+F12: its quality, Unreal's five shader levels (CACAO's presets), round; with shift, back.
-            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && isAltDown()) {
+            if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && isAltDown() && !isCtrlDown()) {
                 CgPostSettings settings = CgView.main().post().settings();
                 int next = (CgAmbientOcclusion.shaderLevel(settings) + (isShiftDown() ? 4 : 1)) % 5;
                 settings.ambientOcclusionQuality(CgAmbientOcclusion.LEVEL_QUALITIES[next]);

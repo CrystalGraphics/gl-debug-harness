@@ -151,12 +151,11 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
                 readings.append(String.format(Locale.ROOT, "%s close-up face %.2f; ", name, open));
                 if (open < 0.9f) failures.add(name + " darkens a close-up's open face: " + open);
             }
-            time(0, CgQuality.MEDIUM);
-            time(0, CgQuality.HIGH);
-            time(1, CgQuality.MEDIUM);
-            time(1, CgQuality.HIGH);
-            time(2, CgQuality.MEDIUM);
-            time(2, CgQuality.HIGH);
+            for (int m = 0; m < METHODS.length; m++) {
+                for (int level = 2; level <= 3; level++) time(settings, m, level, false);
+            }
+            for (int level = 2; level <= 3; level++) time(settings, 2, level, true);
+            settings.ambientOcclusionQuality(CgPostSettings.DEFAULT_AO_QUALITY);
             float lowNear = patch(low, NEAR_WALL), offNear = curve[1][SHARES.length - 1];
             readings.append(String.format(Locale.ROOT, "Low near the wall %.1f against off's %.1f", lowNear, offNear));
             if (Math.abs(lowNear - offNear) > 1.5f) failures.add("the Low tier occludes: " + lowNear + " against " + offNear);
@@ -173,19 +172,25 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
         report(failures, DeviceErrors.checkAndLog("ambient-occlusion"));
     }
 
-    /** The pass's GPU time at a 1440p target: {@code method} (0 SSAO, 1 GTAO) at {@code tier}, over TIMED frames. */
-    private void time(int method, CgQuality tier) {
-        boolean tracing = CgTrace.isEnabled(CgGpuTrace.GPU);
+    /**
+     * The pass's GPU time at a 1440p target, over TIMED frames: {@code method} at Unreal's shader {@code level}, CACAO's
+     * downsampled presets where {@code downsampled}.
+     */
+    private void time(CgPostSettings settings, int method, int level, boolean downsampled) {
+        boolean tracing = CgTrace.isEnabled(CgGpuTrace.GPU), wasDownsampled = CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.get();
         CgTrace.setEnabled(CgGpuTrace.GPU, true);
         try {
             if (!CgGpuTrace.isMeasuring()) return;
-            CgGraphicsSettings.QUALITY.set(tier);
+            CgGraphicsSettings.QUALITY.set(CgQuality.HIGH);
+            CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.set(downsampled);
+            settings.ambientOcclusionQuality(CgAmbientOcclusion.LEVEL_QUALITIES[level]);
             render(true, method, 1f, TIMING_W, TIMING_H, WARMUP + TIMED, WARMUP, false);
             long[] total = CgGpuTrace.totals().get("world.ambientOcclusion");
             double ms = total == null ? 0 : total[0] / 1e6 / TIMED;
-            System.out.printf(Locale.ROOT, "[ambient-occlusion] %s at %s, %dx%d: %.3f ms a frame%n", METHODS[method],
-                    tier, TIMING_W, TIMING_H, ms);
+            System.out.printf(Locale.ROOT, "[ambient-occlusion] %s %s%s, %dx%d: %.3f ms a frame%n", METHODS[method],
+                    CgAmbientOcclusion.LEVEL_NAMES[level], downsampled ? " downsampled" : "", TIMING_W, TIMING_H, ms);
         } finally {
+            CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.set(wasDownsampled);
             CgTrace.setEnabled(CgGpuTrace.GPU, tracing);
         }
     }
