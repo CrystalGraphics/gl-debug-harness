@@ -5,6 +5,7 @@ import com.crystalgraphics.render.post.aa.CgTemporalAA;
 import com.crystalgraphics.render.post.upscale.CgAntiAliasing;
 import com.crystalgraphics.render.scene.renderer.feature.ao.CgAmbientOcclusion;
 import com.crystalgraphics.settings.CgGraphicsSettings;
+import com.crystalgraphics.settings.CgSetting;
 import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.api.font.CgDefaultFont;
 import com.crystalgraphics.api.font.CgFont;
@@ -32,7 +33,7 @@ import java.util.function.Supplier;
  *
  * Shake [C]: on, trauma t | off
  * Bloom [L]: on, b [- =] | off | Emission [ ]: g | Temporal AA [F7]: on, TAA | TSR [F11] | off, RCAS [F8]: on | off
- * AO [F12]: off | SSAO | GTAO | CACAO, its quality [Alt+F12], CACAO downsampled [Ctrl+Alt+F12], show [Ctrl+F12]
+ * AO [F12]: off | SSAO | GTAO | CACAO, its quality [Alt+F12], downsampled (CACAO, GTAO) [Ctrl+Alt+F12], show [Ctrl+F12]
  * </pre>
  */
 public final class HUDRenderer {
@@ -119,7 +120,7 @@ public final class HUDRenderer {
                 .append("\nAO [F12]: ").append(!CgGraphicsSettings.AMBIENT_OCCLUSION.get() ? "off"
                         : CgAmbientOcclusion.methodName() + ", " + CgAmbientOcclusion.LEVEL_NAMES[
                                 CgAmbientOcclusion.shaderLevel(CgView.main().post().settings())] + " [Alt+F12]"
-                                + (CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.get() ? ", downsampled" : ", native") + " [Ctrl+Alt+F12]")
+                                + downsampled())
                 .append(CgPostDebug.VIEW.get().equals("ao") ? ", shown [Ctrl+F12]" : ", show [Ctrl+F12]");
         String own = sceneLines.get();
         if (own != null) text.append('\n').append(own);
@@ -169,5 +170,12 @@ public final class HUDRenderer {
             particleSampleCount = 0;
             particleWindowStart = now;
         }
+    }
+
+    /** The AO method's downsampled toggle, as the HUD shows it: none for SSAO. */
+    private static String downsampled() {
+        CgSetting.Toggle downsample = CgAmbientOcclusion.downsampleSetting();
+        if (downsample == null) return "";
+        return (downsample.get() ? ", downsampled" : ", native") + " [Ctrl+Alt+F12]";
     }
 }

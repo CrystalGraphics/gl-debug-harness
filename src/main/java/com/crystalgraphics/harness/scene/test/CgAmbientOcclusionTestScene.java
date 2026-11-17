@@ -51,8 +51,8 @@ import com.crystalgraphics.trace.CgTrace;
  * nine albedos (a pixel's value against the light it took, through the tonemapper), then by SSAO and by GTAO at full
  * intensity, each point's occlusion read back off that curve: the open floor stays lit, the near of the wall and the
  * box's side darken, and GTAO 40 cm from the wall stays within 0.15 of a ray-cast, pixel by pixel (the cosine-weighted
- * hemisphere of each floor point against the wall within GTAO's 2 m reach, the reference XeGTAO's defaults are fitted to over many scenes, so one wall
- * may sit off it by a tenth). Then a close-up: a sphere filling the screen, whose face toward the eye has nothing near
+ * hemisphere of each floor point against the wall, each direction's wall counted by GTAO's falloff over its 2 m reach:
+ * 1 - 2 d^2 / R^2, nothing past R over root 2). Then a close-up: a sphere filling the screen, whose face toward the eye has nothing near
  * it, so both methods must leave it open though their reach runs far off the screen. Then the Low tier, which runs none.
  *
  * <pre>{@code
@@ -187,8 +187,12 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
             render(true, method, 1f, TIMING_W, TIMING_H, WARMUP + TIMED, WARMUP, false);
             long[] total = CgGpuTrace.totals().get("world.ambientOcclusion");
             double ms = total == null ? 0 : total[0] / 1e6 / TIMED;
-            System.out.printf(Locale.ROOT, "[ambient-occlusion] %s %s%s, %dx%d: %.3f ms a frame%n", METHODS[method],
-                    CgAmbientOcclusion.LEVEL_NAMES[level], downsampled ? " downsampled" : "", TIMING_W, TIMING_H, ms);
+            // Depth pyramids: GTAO builds its own, in a pass beside its kernels'
+            long[] pyramids = CgGpuTrace.totals().get("ops.depthPyramid");
+            double pyramidMs = pyramids == null ? 0 : pyramids[0] / 1e6 / TIMED;
+            System.out.printf(Locale.ROOT, "[ambient-occlusion] %s %s%s, %dx%d: %.3f ms a frame, depth pyramids %.3f ms%n",
+                    METHODS[method], CgAmbientOcclusion.LEVEL_NAMES[level], downsampled ? " downsampled" : "", TIMING_W,
+                    TIMING_H, ms, pyramidMs);
         } finally {
             CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.set(wasDownsampled);
             CgTrace.setEnabled(CgGpuTrace.GPU, tracing);
@@ -282,7 +286,7 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
 
     /**
      * The cosine-weighted share of the sky a floor point {@code d} from the wall sees (the wall taller than the reach):
-     * a direction toward it is blocked where it meets the wall within GTAO's 2 m reach.
+     * a direction toward it is blocked by as much as GTAO's falloff counts the wall where it meets it, 1 - 2 d^2 / R^2.
      */
     private static float cast(float d) {
         int steps = 256;
@@ -296,7 +300,7 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
                 double blocked = 0;
                 if (toward > 1.0e-6) {
                     double hit = d / toward;
-                    blocked = hit <= REACH ? 1 : 0;
+                    blocked = Math.max(0, 1 - 2 * hit * hit / (REACH * REACH));
                 }
                 open += w * (1 - blocked);
                 total += w;
@@ -356,8 +360,8 @@ public final class CgAmbientOcclusionTestScene implements HarnessSceneLifecycle 
             for (String failure : failures) System.out.println("[ambient-occlusion] FAIL on " + on + ": " + failure);
         } else {
             System.out.println("[ambient-occlusion] PASS on " + on + ": SSAO and GTAO darken the floor near a wall and a box's"
-                    + " side and leave open floor and a close-up's face lit; GTAO near the wall stays within 0.15 of a ray-cast of its"
-                    + " reach; Low runs none");
+                    + " side and leave open floor and a close-up's face lit; GTAO near the wall stays within 0.15 of a ray-cast"
+                    + " through its falloff; Low runs none");
         }
     }
 

@@ -5,6 +5,7 @@ import com.crystalgraphics.render.post.aa.CgTemporalAA;
 import com.crystalgraphics.render.post.upscale.CgAntiAliasing;
 import com.crystalgraphics.render.scene.renderer.feature.ao.CgAmbientOcclusion;
 import com.crystalgraphics.settings.CgGraphicsSettings;
+import com.crystalgraphics.settings.CgSetting;
 import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.render.CgFrameClock;
@@ -736,9 +737,10 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 view.antiAliasing(view.antiAliasing() == CgAntiAliasing.TSR ? CgAntiAliasing.TAA : CgAntiAliasing.TSR);
             }
             // Ctrl+F12: the ambient occlusion itself on screen, turned on if it was off, or back to the picture.
-            // Ctrl+Alt+F12: CACAO's downsampled presets on and off.
+            // Ctrl+Alt+F12: the method in use run smaller (CACAO's downsampled presets, GTAO at half size) and back.
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && isCtrlDown() && isAltDown()) {
-                CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.set(!CgGraphicsSettings.AMBIENT_OCCLUSION_DOWNSAMPLE.get());
+                CgSetting.Toggle downsample = CgAmbientOcclusion.downsampleSetting();
+                if (downsample != null) downsample.set(!downsample.get());
             }
             if (event.pressed() && !event.repeat() && event.key() == CgKeyCodes.KEY_F12 && isCtrlDown() && !isAltDown()) {
                 boolean show = !CgPostDebug.VIEW.get().equals("ao");
