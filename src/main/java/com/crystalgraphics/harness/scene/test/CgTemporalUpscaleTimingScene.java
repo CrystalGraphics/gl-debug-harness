@@ -80,18 +80,18 @@ public final class CgTemporalUpscaleTimingScene implements HarnessSceneLifecycle
             lookA = lookB = null;
             pan = true;
             time("TSR LOW pan", CgAntiAliasing.TSR, CgQuality.LOW, false, "post.tsr.");
-            main.showFlags().motionBlur(true);
+            CgGraphicsSettings.MOTION_BLUR.set(true);
             time("TSR LOW pan MB", CgAntiAliasing.TSR, CgQuality.LOW, false, "post.tsr.");
             pan = false;
             time("TSR LOW MB", CgAntiAliasing.TSR, CgQuality.LOW, false, "post.tsr.");
-            main.showFlags().motionBlur(false);
+            CgGraphicsSettings.MOTION_BLUR.set(false);
             for (CgQuality q : new CgQuality[]{CgQuality.LOW, CgQuality.MEDIUM, CgQuality.HIGH, CgQuality.ULTRA}) {
                 time("TSR " + q + " 100%", CgAntiAliasing.TSR, q, false, "post.tsr.");
                 time("TSR " + q + " auto", CgAntiAliasing.TSR, q, true, "post.tsr.");
             }
         } finally {
             CgTemporalAA.enable(main, false);
-            main.showFlags().motionBlur(false);
+            CgGraphicsSettings.MOTION_BLUR.set(false);
             main.screenPercentageAuto(false).screenPercentage(100f).antiAliasing(CgAntiAliasing.TSR);
             CgGraphicsSettings.ANTI_ALIASING.set(quality);
             CgTrace.setEnabled(CgGpuTrace.GPU, tracing);

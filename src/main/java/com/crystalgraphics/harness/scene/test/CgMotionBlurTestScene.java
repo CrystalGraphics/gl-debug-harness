@@ -39,6 +39,7 @@ import com.crystalgraphics.render.precache.CgPipelinePrecache;
 import com.crystalgraphics.render.scene.CgScene;
 import com.crystalgraphics.render.scene.component.CgMeshComponent;
 import com.crystalgraphics.render.view.CgView;
+import com.crystalgraphics.settings.CgGraphicsSettings;
 
 /**
  * R14c's gate: motion blur after the temporal step. The engine's clock steps 1/60 s a frame, so at Unreal's defaults
@@ -92,6 +93,8 @@ public final class CgMotionBlurTestScene implements HarnessSceneLifecycle {
         CgView main = CgView.main();
         float bloom = main.post().settings().bloomIntensity();
         main.post().settings().bloomIntensity(0f);
+        boolean playerBlur = CgGraphicsSettings.MOTION_BLUR.get();
+        CgGraphicsSettings.MOTION_BLUR.set(true);
         List<String> failures = new ArrayList<>();
         try {
             float span = pixelsAt(STEP, BAR_Z);
@@ -153,7 +156,8 @@ public final class CgMotionBlurTestScene implements HarnessSceneLifecycle {
             failures.add("a capture could not be written: " + e);
         } finally {
             main.post().settings().bloomIntensity(bloom);
-            main.showFlags().motionBlur(false);
+            main.showFlags().motionBlur(true);
+            CgGraphicsSettings.MOTION_BLUR.set(playerBlur);
             main.cameraMotionBlur(true);
             main.screenPercentage(100f).antiAliasing(CgAntiAliasing.TSR);
             CgTemporalAA.enable(main, false);
