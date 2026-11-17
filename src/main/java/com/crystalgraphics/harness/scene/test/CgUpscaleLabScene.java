@@ -35,6 +35,7 @@ import com.crystalgraphics.settings.CgQuality;
  * // , / .: screen percentage down / up (50, 58, 67, 77, 100); the harness keeps [ ] for emission    U: the upscale filter    G: the display-based percentage
  * // F5: temporal AA or TSR    F10: the anti-aliasing quality (the harness keeps F6 for kit looks)    N: the jitter on or off    P: the spinner paused or not
  * // F7 / F8: temporal AA, its sharpening    K: the floor filtered (as a mipmapped texture is) or raw
+ * // M: the fence and blades kept at least two render pixels wide (cg_min_pixel_width, taa_lab_wire.shader) or drawn as they are
  * }</pre>
  */
 public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSystemInput.Keyboard {
@@ -43,10 +44,10 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
     /** Unreal's quality steps: Performance, Balanced, Quality, Ultra Quality, native. */
     private static final float[] PERCENTAGES = {50f, 58f, 67f, 77f, 100f};
 
-    private final List<CgMeshComponent> spawned = new ArrayList<>();
+    private final List<CgMeshComponent> spawned = new ArrayList<>(), lines = new ArrayList<>();
     private CgMeshComponent spinner, floor;
     private Camera3D camera;
-    private boolean paused;
+    private boolean paused, minWidth = true;
     private int step = 2;
     private double angle;
 
@@ -60,6 +61,7 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
         CgScene scene = CgScene.client();
         CgMesh cube = CgMeshShapes.cube(), quad = CgMeshShapes.quad(CgVertexFormat.SPATIAL, 1f, 1f);
         CgMaterialInstance line = CgMaterial.load(DIR + "taa_lab_line.shader").instance();
+        CgMaterialInstance wire = CgMaterial.load(DIR + "taa_lab_wire.shader").instance();
         CgMaterialInstance pane = CgMaterial.load(DIR + "taa_lab_pane.shader").instance();
         CgMaterialInstance floorMaterial = CgMaterial.load(DIR + "upscale_lab_floor.shader").instance();
         // Its sides mid-cell: on a cell's edge a side's checker flips pixel to pixel on rounding
@@ -67,15 +69,17 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
         spawned.add(floor);
         for (int i = 0; i < 24; i++) {
             float turn = (float) Math.toRadians(2 + i * 3.6);
-            spawned.add(scene.mesh(cube, line).at(-3.2, 1.6, -2).transform(new Matrix4f().rotateZ(turn).translate(1.6f, 0f, 0f)
+            lines.add(scene.mesh(cube, wire).at(-3.2, 1.6, -2).transform(new Matrix4f().rotateZ(turn).translate(1.6f, 0f, 0f)
                     .scale(3.2f, 0.012f, 0.012f)).customData(0, 1f, 0.9f, 0.6f, 3f).spawn());
         }
         for (int i = 0; i < 60; i++) {
-            spawned.add(scene.mesh(cube, line).at(-6 + i * 0.2, 1, -18).scale(0.03f, 2f, 0.03f).customData(0, 0.6f, 0.85f, 1f, 2f).spawn());
+            lines.add(scene.mesh(cube, wire).at(-6 + i * 0.2, 1, -18).scale(0.03f, 2f, 0.03f).customData(0, 0.6f, 0.85f, 1f, 2f).spawn());
         }
         spawned.add(scene.mesh(cube, line).at(2.8, 1.6, -4.2).scale(2.6f, 2.6f, 0.05f).customData(0, 0.08f, 0.08f, 0.1f, 1f).spawn());
         spinner = scene.mesh(cube, line).at(2.8, 1.6, -4).scale(2.2f, 0.14f, 0.14f).customData(0, 1f, 0.35f, 0.25f, 4f).spawn();
         spawned.add(spinner);
+        lineWidths();
+        spawned.addAll(lines);
         float[] cover = {0.25f, 0.5f, 0.75f};
         for (int k = 0; k < 3; k++) {
             spawned.add(scene.mesh(quad, pane).at(-1.6 + k * 1.6, 1.4, 0).scale(1.2f).customData(0, 0.4f, 0.9f, 0.6f, cover[k]).spawn());
@@ -105,6 +109,10 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
                     CgQuality.values()[(CgGraphicsSettings.ANTI_ALIASING.get().ordinal() + 1) % CgQuality.values().length]);
             case CgKeyCodes.KEY_N -> view.jitter(!view.jitters());
             case CgKeyCodes.KEY_P -> paused = !paused;
+            case CgKeyCodes.KEY_M -> {
+                minWidth = !minWidth;
+                lineWidths();
+            }
             case CgKeyCodes.KEY_K -> floor.customData(0, floorFiltered() ? 0f : 1f, 0f, 0f, 0f);
             default -> {
                 return true;
@@ -121,7 +129,12 @@ public final class CgUpscaleLabScene implements InteractiveSceneLifecycle, CgSys
                         : String.format(Locale.ROOT, "%.0f%%", view.screenPercentage()),
                 view.width(), view.height(), view.outputWidth(), view.outputHeight(), view.upscaleFilter(),
                 view.jitters() ? "on" : "off", view.antiAliasing()) + " | Quality [F10]: " + CgGraphicsSettings.ANTI_ALIASING.get()
-                + "\nSpinner [P]: " + (paused ? "paused" : "spinning") + " | Floor [K]: " + (floorFiltered() ? "filtered" : "raw");
+                + "\nSpinner [P]: " + (paused ? "paused" : "spinning") + " | Floor [K]: " + (floorFiltered() ? "filtered" : "raw")
+                + " | Min width [M]: " + (minWidth ? "on" : "off");
+    }
+
+    private void lineWidths() {
+        for (CgMeshComponent l : lines) l.customData(1, minWidth ? 1f : 0f, 0f, 0f, 0f);
     }
 
     private boolean floorFiltered() {
