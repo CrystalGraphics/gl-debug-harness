@@ -5,6 +5,7 @@ import com.crystalgraphics.render.post.aa.CgTemporalAA;
 import com.crystalgraphics.render.post.upscale.CgAntiAliasing;
 import com.crystalgraphics.render.scene.renderer.feature.ao.CgAmbientOcclusion;
 import com.crystalgraphics.settings.CgGraphicsSettings;
+import com.crystalgraphics.settings.CgQuality;
 import com.crystalgraphics.settings.CgSetting;
 import com.crystalgraphics.render.view.CgView;
 import com.crystalgraphics.render.scene.CgScene;
@@ -179,6 +180,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
     /** {@code -Dcrystalgraphics.harness.cameraDrift=<dx>,<dy>,<dz>,<dyaw>,<dpitch>}: added to the camera every frame, a
      * steady strafe or pan an unattended run repeats (motion under temporal anti-aliasing). */
     private static final String CAMERA_DRIFT = System.getProperty("crystalgraphics.harness.cameraDrift");
+    /** {@code -Dcrystalgraphics.harness.screenPercentage=<n>}: the main view's screen percentage every frame, for scenes
+     * with no key of their own for it. */
+    private static final String SCREEN_PERCENTAGE = System.getProperty("crystalgraphics.harness.screenPercentage");
+    /** {@code -Dcrystalgraphics.harness.antiAliasingQuality=<LOW|MEDIUM|HIGH|ULTRA>}: the anti-aliasing quality setting,
+     * set once at start. */
+    private static final String AA_QUALITY = System.getProperty("crystalgraphics.harness.antiAliasingQuality");
     /** {@code -Dcrystalgraphics.harness.frameTimes=<frames>}: after {@value #FRAME_TIME_WARMUP} frames, times that
      * many frame to frame, logs the median, mean and 95th percentile, and stops. Pair with {@code .fps=0}, or the
      * pacing is what gets measured. Live input is ignored, as under {@code captureAt}: a turned camera is a
@@ -424,6 +431,12 @@ public final class InteractiveSceneRunner implements CaptureCallback {
                 camera.update(frameClock.getDeltaTime());
             }
             if (CAMERA_DRIFT != null && scene.uses3DCamera()) drift(ctx.getCamera3D());
+            if (AA_QUALITY != null && CgGraphicsSettings.ANTI_ALIASING.get() != CgQuality.valueOf(AA_QUALITY)) {
+                CgGraphicsSettings.ANTI_ALIASING.set(CgQuality.valueOf(AA_QUALITY));
+            }
+            if (SCREEN_PERCENTAGE != null) {
+                CgView.main().screenPercentageAuto(false).screenPercentage(Float.parseFloat(SCREEN_PERCENTAGE));
+            }
 
             HarnessEnvironment.INSTANCE.tick(frameClock.getDeltaTime());
 
